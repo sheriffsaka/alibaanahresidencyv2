@@ -1,0 +1,132 @@
+
+import React, { createContext, useState, ReactNode, useCallback, useEffect } from 'react';
+import { AppContextType, Language, Page, User, Room, Booking, BookingStatus, CmsContent, Activity } from '../types';
+import { supabase } from '../lib/supabaseClient';
+import { MOCK_ROOMS, MOCK_STUDENT_BOOKINGS } from '../lib/mockData';
+
+export const AppContext = createContext<AppContextType | undefined>(undefined);
+
+const INITIAL_CMS: CmsContent = {
+  heroTitle: 'Your Home for Knowledge and Comfort',
+  heroSubtitle: 'Secure, comfortable, and studious living, just moments away from the Al-Ibaanah Arabic Center.',
+  heroImageUrl: 'https://res.cloudinary.com/di7okmjsx/image/upload/v1770400290/heroalibaanah_ghqtok.jpg',
+  features: [
+    { id: 1, title: 'Prime Location', desc: 'Located minutes from campus, making your commute to classes quick and easy.' },
+    { id: 2, title: 'Fully Furnished', desc: 'Our rooms come equipped with all the essentials for a comfortable and productive stay.' },
+    { id: 3, title: 'Safe & Secure', desc: '24/7 security and a supportive environment, so you can focus on your studies with peace of mind.' }
+  ]
+};
+
+const MOCK_ACTIVITIES: Activity[] = [
+  { id: 1, user_id: 's1', type: 'booking', description: 'Booked Room 101A (BK1045)', timestamp: new Date(Date.now() - 3600000).toISOString() },
+  { id: 2, user_id: 's1', type: 'payment', description: 'Payment for BK1045 confirmed by staff', timestamp: new Date(Date.now() - 1800000).toISOString() },
+  { id: 3, user_id: 'admin', type: 'system', description: 'Updated Landing Page Content', timestamp: new Date(Date.now() - 7200000).toISOString() }
+];
+
+export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
+  const [language, setLanguage] = useState<Language>('en');
+  const [page, setPageState] = useState<Page>('home');
+  const [user, setUser] = useState<User | null>(null);
+  const [session, setSession] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const [selectedRoom, setSelectedRoom] = useState<Room | null>(null);
+  
+  // Presentation State
+  const [bookings, setBookings] = useState<Booking[]>(MOCK_STUDENT_BOOKINGS);
+  const [rooms, setRooms] = useState<Room[]>(MOCK_ROOMS);
+  const [cmsContent, setCmsContent] = useState<CmsContent>(INITIAL_CMS);
+  const [activities, setActivities] = useState<Activity[]>(MOCK_ACTIVITIES);
+
+  useEffect(() => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      async (_event, session) => {
+        try {
+          setSession(session);
+          if (session?.user) {
+            await fetchUserProfile(session.user);
+          } else {
+            setUser(null);
+          }
+        } catch (e) {
+            console.error("Error in onAuthStateChange handler:", e);
+        } finally {
+            setLoading(false);
+        }
+      }
+    );
+    return () => subscription?.unsubscribe();
+  }, []);
+  
+  const fetchUserProfile = async (supabaseUser: any) => {
+      const { data, error } = await supabase.from('profiles').select('*').eq('id', supabaseUser.id).single();
+      if (error) {
+        setUser(null);
+      } else if (data) {
+        setUser({ id: data.id, email: supabaseUser.email, full_name: data.full_name, role: data.role });
+      }
+  };
+
+  const setPage = useCallback((page: Page, room?: Room) => {
+    setPageState(page);
+    if (page === 'booking' && room) {
+        setSelectedRoom(room);
+    } else if (page !== 'booking') {
+        setSelectedRoom(null);
+    }
+  }, []);
+
+  const addBooking = (newBooking: Booking) => {
+    setBookings(prev => [newBooking, ...prev]);
+  };
+
+  const updateBookingStatus = (id: number, status: BookingStatus) => {
+    setBookings(prev => prev.map(b => b.id === id ? { ...b, status } : b));
+  };
+
+  const updateCmsContent = (content: Partial<CmsContent>) => {
+    setCmsContent(prev => ({ ...prev, ...content }));
+  };
+
+  const updateRoom = (updatedRoom: Room) => {
+    setRooms(prev => prev.map(r => r.id === updatedRoom.id ? updatedRoom : r));
+  };
+
+  const addActivity = (activity: Omit<Activity, 'id'>) => {
+    setActivities(prev => [{ ...activity, id: Date.now() }, ...prev].slice(0, 20));
+  };
+
+  const value = {
+    language,
+    setLanguage,
+    page,
+    setPage,
+    user,
+    selectedRoom,
+    session,
+    bookings,
+    addBooking,
+    updateBookingStatus,
+    cmsContent,
+    updateCmsContent,
+    rooms,
+    updateRoom,
+    activities,
+    addActivity
+  };
+
+  if (loading) {
+      return (
+        <div className="flex items-center justify-center min-h-screen bg-gray-50 dark:bg-gray-900">
+          <div className="text-center animate-pulse">
+            <svg className="mx-auto h-12 w-12 text-blue-600 animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            </svg>
+            <p className="mt-4 text-lg text-gray-600 dark:text-gray-300">Initializing Portal...</p>
+          </div>
+        </div>
+      );
+  }
+
+  return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
+};

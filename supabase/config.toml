@@ -1,0 +1,15 @@
+# Supabase project configuration.
+# The [functions] section is used to declare and configure Edge Functions.
+
+[functions]
+  [functions.create-booking]
+    entrypoint = "functions/create-booking/index.ts"
+    
+  [functions.payment-webhook]
+    entrypoint = "functions/payment-webhook/index.ts"
+
+  [functions.verify-bank-transfer]
+    entrypoint = "functions/verify-bank-transfer/index.ts"
+
+  [functions.get-admin-dashboard-analytics]
+    entrypoint = "functions/get-admin-dashboard-analytics/index.ts"
