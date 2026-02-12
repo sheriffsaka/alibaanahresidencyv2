@@ -87,6 +87,10 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     setCmsContent(prev => ({ ...prev, ...content }));
   };
 
+  const addRoom = (newRoom: Room) => {
+    setRooms(prev => [...prev, newRoom]);
+  };
+
   const updateRoom = (updatedRoom: Room) => {
     setRooms(prev => prev.map(r => r.id === updatedRoom.id ? updatedRoom : r));
   };
@@ -109,6 +113,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     cmsContent,
     updateCmsContent,
     rooms,
+    addRoom,
     updateRoom,
     activities,
     addActivity

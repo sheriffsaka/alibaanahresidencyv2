@@ -99,6 +99,7 @@ export interface AppContextType {
   cmsContent: CmsContent;
   updateCmsContent: (content: Partial<CmsContent>) => void;
   rooms: Room[];
+  addRoom: (room: Room) => void;
   updateRoom: (room: Room) => void;
   activities: Activity[];
   addActivity: (activity: Omit<Activity, 'id'>) => void;

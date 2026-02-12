@@ -1,3 +1,4 @@
+
 import { Room, RoomType, Booking, BookingStatus, AcademicTerm, BookingPackage } from '../types';
 
 export const MOCK_ROOMS: Room[] = [
@@ -34,17 +35,6 @@ export const MOCK_ROOMS: Room[] = [
     is_available: true,
     created_at: new Date().toISOString()
   },
-  // {
-  //   id: 4,
-  //   property_id: 'p1',
-  //   room_number: '105D',
-  //   type: RoomType.SINGLE,
-  //   price_per_month: 350.00,
-  //   amenities: ['Private Bathroom', 'Balcony View', 'Air Conditioning', 'High-Speed Wi-Fi'],
-  //   image_urls: ['https://res.cloudinary.com/di7okmjsx/image/upload/v1770401824/single-room_j0n7nd.jpg'],
-  //   is_available: true,
-  //   created_at: new Date().toISOString()
-  // }
 ];
 
 export const MOCK_ACADEMIC_TERMS: AcademicTerm[] = [
@@ -62,6 +52,7 @@ export const MOCK_STUDENT_BOOKINGS: Booking[] = [
   {
     id: 1045,
     student_id: 's1',
+    student_name: 'John Doe',
     room_id: 1,
     academic_term_id: 1,
     booking_package_id: 2,
@@ -75,6 +66,7 @@ export const MOCK_STUDENT_BOOKINGS: Booking[] = [
   {
     id: 1046,
     student_id: 's1',
+    student_name: 'John Doe',
     room_id: 3,
     academic_term_id: 2,
     booking_package_id: 1,
