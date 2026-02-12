@@ -1,5 +1,5 @@
 
-import React, { createContext, useState, ReactNode, useCallback, useEffect } from 'react';
+import React, { createContext, useState, ReactNode, useCallback, useEffect, useRef } from 'react';
 import { AppContextType, Language, Page, User, Room, Booking, BookingStatus, CmsContent, Activity } from '../types';
 import { supabase } from '../lib/supabaseClient';
 import { MOCK_ROOMS, MOCK_STUDENT_BOOKINGS } from '../lib/mockData';
@@ -43,34 +43,65 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const [cmsContent, setCmsContent] = useState<CmsContent>(INITIAL_CMS);
   const [activities, setActivities] = useState<Activity[]>(MOCK_ACTIVITIES);
 
-  useEffect(() => {
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (_event, session) => {
-        try {
-          setSession(session);
-          if (session?.user) {
-            await fetchUserProfile(session.user);
-          } else {
-            setUser(null);
-          }
-        } catch (e) {
-            console.error("Error in onAuthStateChange handler:", e);
-        } finally {
-            setLoading(false);
-        }
-      }
-    );
-    return () => subscription?.unsubscribe();
-  }, []);
-  
-  const fetchUserProfile = async (supabaseUser: any) => {
+  // We use a ref to prevent multiple loading resolution attempts
+  const isInitialized = useRef(false);
+
+  const fetchUserProfile = useCallback(async (supabaseUser: any) => {
+    try {
       const { data, error } = await supabase.from('profiles').select('*').eq('id', supabaseUser.id).single();
       if (error) {
+        console.warn("Could not fetch user profile:", error.message);
         setUser(null);
       } else if (data) {
         setUser({ id: data.id, email: supabaseUser.email, full_name: data.full_name, role: data.role });
       }
-  };
+    } catch (e) {
+      console.error("Profile fetch error:", e);
+      setUser(null);
+    }
+  }, []);
+
+  const initializeApp = useCallback(async () => {
+    if (isInitialized.current) return;
+    
+    try {
+      // 1. Check current session immediately
+      const { data: { session: currentSession } } = await supabase.auth.getSession();
+      setSession(currentSession);
+      
+      if (currentSession?.user) {
+        await fetchUserProfile(currentSession.user);
+      } else {
+        setUser(null);
+      }
+    } catch (err) {
+      console.error("Initialization error:", err);
+    } finally {
+      setLoading(false);
+      isInitialized.current = true;
+    }
+  }, [fetchUserProfile]);
+
+  useEffect(() => {
+    // Start initialization
+    initializeApp();
+
+    // Listen for subsequent auth changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      async (_event, newSession) => {
+        setSession(newSession);
+        if (newSession?.user) {
+          await fetchUserProfile(newSession.user);
+        } else {
+          setUser(null);
+        }
+        // Ensure loading is false even if listener fires after initial check
+        setLoading(false);
+      }
+    );
+
+    return () => subscription?.unsubscribe();
+  }, [initializeApp, fetchUserProfile]);
 
   const setPage = useCallback((page: Page, room?: Room) => {
     setPageState(page);
@@ -128,12 +159,16 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   if (loading) {
       return (
         <div className="flex items-center justify-center min-h-screen bg-gray-50 dark:bg-gray-900">
-          <div className="text-center animate-pulse">
-            <svg className="mx-auto h-12 w-12 text-blue-600 animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-            </svg>
-            <p className="mt-4 text-lg text-gray-600 dark:text-gray-300">Initializing Portal...</p>
+          <div className="text-center">
+            <div className="relative inline-flex">
+                <div className="w-16 h-16 bg-blue-600 rounded-full opacity-20 animate-ping absolute"></div>
+                <svg className="h-16 w-16 text-blue-600 animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+            </div>
+            <p className="mt-6 text-xl font-bold text-gray-800 dark:text-white tracking-tight animate-pulse">Initializing Portal...</p>
+            <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">Setting up your secure environment</p>
           </div>
         </div>
       );
