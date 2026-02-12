@@ -50,6 +50,27 @@ const OccupancyChart = ({ data }: { data: { name: string; value: number }[] }) =
     );
 };
 
+interface SummaryCardProps {
+    label: string;
+    value: string | number;
+    icon: string;
+    trend?: string;
+    colorClass: string;
+}
+
+const SummaryCard: React.FC<SummaryCardProps> = ({ label, value, icon, trend, colorClass }) => (
+    <div className="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 flex items-center gap-4 hover:shadow-xl transition-shadow">
+        <div className={`p-3 rounded-xl ${colorClass}`}>
+            <span className="text-2xl">{icon}</span>
+        </div>
+        <div>
+            <p className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">{label}</p>
+            <h3 className="text-2xl font-black text-gray-900 dark:text-white mt-1">{value}</h3>
+            {trend && <p className="text-[10px] font-bold text-green-600 mt-1">↑ {trend}</p>}
+        </div>
+    </div>
+);
+
 
 const AdminDashboardPage: React.FC = () => {
   const t = useTranslation();
@@ -74,6 +95,10 @@ const AdminDashboardPage: React.FC = () => {
         { name: 'Double', value: occupiedRooms.filter(r => r.type === RoomType.DOUBLE).length },
         { name: 'Suite', value: occupiedRooms.filter(r => r.type === RoomType.SUITE).length },
       ],
+      totalRevenue: occupiedBookings.reduce((sum, b) => sum + b.total_price, 0),
+      occupancyRate: rooms.length > 0 ? Math.round((occupiedRoomIds.size / rooms.length) * 100) : 0,
+      totalRooms: rooms.length,
+      availableRooms: rooms.length - occupiedRoomIds.size
     };
   }, [bookings, rooms]);
 
@@ -147,6 +172,36 @@ const AdminDashboardPage: React.FC = () => {
         <div className="xl:col-span-3 space-y-8">
           {activeTab === 'analytics' && (
             <>
+              {/* Summary Metrics Grid */}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                  <SummaryCard 
+                    label="Total Revenue" 
+                    value={`$${analytics.totalRevenue.toLocaleString()}`} 
+                    icon="💰" 
+                    trend="12% vs last month"
+                    colorClass="bg-green-100 dark:bg-green-900/30 text-green-600"
+                  />
+                  <SummaryCard 
+                    label="Occupancy Rate" 
+                    value={`${analytics.occupancyRate}%`} 
+                    icon="🏠" 
+                    trend="3% growth"
+                    colorClass="bg-blue-100 dark:bg-blue-900/30 text-blue-600"
+                  />
+                  <SummaryCard 
+                    label="Total Rooms" 
+                    value={analytics.totalRooms} 
+                    icon="🚪" 
+                    colorClass="bg-purple-100 dark:bg-purple-900/30 text-purple-600"
+                  />
+                  <SummaryCard 
+                    label="Pending Verif." 
+                    value={analytics.pendingVerifications.length} 
+                    icon="⏳" 
+                    colorClass="bg-yellow-100 dark:bg-yellow-900/30 text-yellow-600"
+                  />
+              </div>
+
               {/* Quick Actions */}
               <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 border border-gray-100 dark:border-gray-700">
                   <h2 className="text-xl font-bold mb-4">{t.quickActions}</h2>
