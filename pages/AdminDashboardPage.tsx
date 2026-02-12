@@ -1,11 +1,55 @@
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, ChangeEvent } from 'react';
 import { useTranslation } from '../hooks/useTranslation';
 import { useApp } from '../hooks/useApp';
-import { BookingStatus, Room } from '../types';
-import { IconEdit, IconEye, IconClose, IconCheckCircle, IconBuilding } from '../components/Icon';
+import { BookingStatus, Room, RoomType } from '../types';
+import { IconEdit, IconClose, IconBuilding, IconCheckCircle, IconPlus, IconTrash } from '../components/Icon';
 import BookingStatusBadge from '../components/BookingStatusBadge';
 import RoomEditorModal from '../components/RoomEditorModal';
+
+// A simple, animated SVG Bar Chart component created for this page
+const OccupancyChart = ({ data }: { data: { name: string; value: number }[] }) => {
+    const maxValue = Math.max(...data.map(d => d.value), 1);
+    const chartHeight = 200;
+    const barWidth = 40;
+    const barMargin = 20;
+    const chartWidth = data.length * (barWidth + barMargin);
+
+    return (
+        <svg width="100%" height={chartHeight + 40} viewBox={`0 0 ${chartWidth} ${chartHeight + 40}`}>
+            {data.map((d, i) => {
+                const barHeight = (d.value / maxValue) * chartHeight;
+                return (
+                    <g key={d.name} transform={`translate(${i * (barWidth + barMargin)}, 0)`}>
+                        <rect 
+                            y={chartHeight - barHeight} 
+                            width={barWidth} 
+                            height={barHeight} 
+                            fill="url(#gradient)"
+                            rx="4"
+                        >
+                           <animate attributeName="height" from="0" to={barHeight} dur="0.5s" fill="freeze" begin={`${i * 0.1}s`} />
+                           <animate attributeName="y" from={chartHeight} to={chartHeight-barHeight} dur="0.5s" fill="freeze" begin={`${i * 0.1}s`} />
+                        </rect>
+                        <text x={barWidth / 2} y={chartHeight - barHeight - 10} textAnchor="middle" className="fill-current text-gray-800 dark:text-white font-bold text-sm">
+                            {d.value}
+                        </text>
+                        <text x={barWidth / 2} y={chartHeight + 20} textAnchor="middle" className="fill-current text-gray-500 dark:text-gray-400 text-xs font-bold">
+                            {d.name}
+                        </text>
+                    </g>
+                );
+            })}
+            <defs>
+                <linearGradient id="gradient" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="#3b82f6" />
+                    <stop offset="100%" stopColor="#2563eb" />
+                </linearGradient>
+            </defs>
+        </svg>
+    );
+};
+
 
 const AdminDashboardPage: React.FC = () => {
   const t = useTranslation();
@@ -18,22 +62,18 @@ const AdminDashboardPage: React.FC = () => {
   const [selectedRoomForEdit, setSelectedRoomForEdit] = useState<Room | null>(null);
 
   const analytics = useMemo(() => {
-    const totalRev = bookings
-      .filter(b => b.status === BookingStatus.CONFIRMED || b.status === BookingStatus.OCCUPIED)
-      .reduce((acc, b) => acc + b.total_price, 0);
-    
-    const pending = bookings.filter(b => b.status === BookingStatus.PENDING_VERIFICATION);
     const occupiedBookings = bookings.filter(b => b.status === BookingStatus.OCCUPIED || b.status === BookingStatus.CONFIRMED);
     const occupiedRoomIds = new Set(occupiedBookings.map(b => b.room_id));
+    const occupiedRooms = rooms.filter(r => occupiedRoomIds.has(r.id));
     
     return {
-      totalRevenue: totalRev,
-      occupancyRate: Math.round((occupiedRoomIds.size / rooms.length) * 100) || 0,
-      currentlyOccupiedRooms: occupiedRoomIds.size,
-      totalRooms: rooms.length,
-      upcomingCheckIns: bookings.filter(b => b.status === BookingStatus.CONFIRMED).length,
-      pendingVerifications: pending,
-      occupiedRoomIds
+      pendingVerifications: bookings.filter(b => b.status === BookingStatus.PENDING_VERIFICATION),
+      occupiedRoomIds,
+      occupancyByType: [
+        { name: 'Single', value: occupiedRooms.filter(r => r.type === RoomType.SINGLE).length },
+        { name: 'Double', value: occupiedRooms.filter(r => r.type === RoomType.DOUBLE).length },
+        { name: 'Suite', value: occupiedRooms.filter(r => r.type === RoomType.SUITE).length },
+      ],
     };
   }, [bookings, rooms]);
 
@@ -47,20 +87,15 @@ const AdminDashboardPage: React.FC = () => {
 
   const handleApprove = (id: number) => {
     updateBookingStatus(id, BookingStatus.CONFIRMED);
-    addActivity({
-      user_id: user?.id || 'admin',
-      type: 'payment',
-      description: `Staff verified payment for BK${id}`,
-      timestamp: new Date().toISOString()
-    });
+    addActivity({ user_id: user?.id || 'admin', type: 'payment', description: `Staff verified payment for BK${id}`, timestamp: new Date().toISOString() });
     alert("Booking approved successfully!");
   };
 
   const handleSaveRoom = (roomData: Room) => {
-    if (roomData.id && rooms.some(r => r.id === roomData.id)) { // Editing existing
+    if (roomData.id && rooms.some(r => r.id === roomData.id)) {
         updateRoom(roomData);
         addActivity({ user_id: user!.id, type: 'system', description: `Updated details for Room ${roomData.room_number}`, timestamp: new Date().toISOString() });
-    } else { // Adding new
+    } else {
         const newRoomWithId = { ...roomData, id: Date.now(), property_id: 'p1', created_at: new Date().toISOString(), is_available: true };
         addRoom(newRoomWithId);
         addActivity({ user_id: user!.id, type: 'system', description: `Added new room: ${newRoomWithId.room_number}`, timestamp: new Date().toISOString() });
@@ -71,6 +106,23 @@ const AdminDashboardPage: React.FC = () => {
   const handleOpenRoomModal = (room: Room | null) => {
     setSelectedRoomForEdit(room);
     setIsRoomModalOpen(true);
+  };
+  
+  const handleFaqChange = (index: number, field: 'q' | 'a', value: string) => {
+    const updatedFaqs = [...cmsContent.faqs];
+    updatedFaqs[index] = { ...updatedFaqs[index], [field]: value };
+    updateCmsContent({ faqs: updatedFaqs });
+  };
+  
+  const handleAddFaq = () => {
+    const newFaq = { id: Date.now(), q: 'New Question', a: 'New Answer' };
+    updateCmsContent({ faqs: [...cmsContent.faqs, newFaq]});
+  };
+
+  const handleRemoveFaq = (id: number) => {
+    if (confirm('Are you sure you want to delete this FAQ?')) {
+        updateCmsContent({ faqs: cmsContent.faqs.filter(f => f.id !== id) });
+    }
   };
 
   return (
@@ -84,11 +136,7 @@ const AdminDashboardPage: React.FC = () => {
         </div>
         <div className="flex flex-wrap bg-gray-100 dark:bg-gray-800 p-1 rounded-xl shadow-inner w-full xl:w-auto">
           {['analytics', 'pending', 'rooms', 'students', 'cms'].map((tab) => (
-            <button 
-              key={tab}
-              onClick={() => setActiveTab(tab as any)}
-              className={`flex-1 xl:flex-none px-4 py-2 rounded-lg text-xs font-bold transition-all capitalize ${activeTab === tab ? 'bg-white dark:bg-gray-700 text-blue-600 shadow-sm' : 'text-gray-500'}`}
-            >
+            <button key={tab} onClick={() => setActiveTab(tab as any)} className={`flex-1 xl:flex-none px-4 py-2 rounded-lg text-xs font-bold transition-all capitalize ${activeTab === tab ? 'bg-white dark:bg-gray-700 text-blue-600 shadow-sm' : 'text-gray-500'}`}>
               {tab === 'analytics' ? 'Dashboard' : tab === 'pending' ? `Pending (${analytics.pendingVerifications.length})` : tab}
             </button>
           ))}
@@ -99,29 +147,32 @@ const AdminDashboardPage: React.FC = () => {
         <div className="xl:col-span-3 space-y-8">
           {activeTab === 'analytics' && (
             <>
-              {/* Analytics Content */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                 {/* KPI Cards */}
-                 <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-lg border-l-4 border-blue-600">
-                    <h3 className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Total Revenue</h3>
-                    <p className="mt-2 text-3xl font-extrabold text-gray-900 dark:text-white">${analytics.totalRevenue.toLocaleString()}</p>
-                 </div>
-                 <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-lg border-l-4 border-green-500">
-                    <h3 className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Occupancy</h3>
-                    <p className="mt-2 text-3xl font-extrabold text-gray-900 dark:text-white">{analytics.occupancyRate}%</p>
-                 </div>
-                 <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-lg border-l-4 border-purple-500">
-                    <h3 className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Active Residents</h3>
-                    <p className="mt-2 text-3xl font-extrabold text-gray-900 dark:text-white">{analytics.currentlyOccupiedRooms}</p>
-                 </div>
+              {/* Quick Actions */}
+              <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 border border-gray-100 dark:border-gray-700">
+                  <h2 className="text-xl font-bold mb-4">{t.quickActions}</h2>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                      <button onClick={() => handleOpenRoomModal(null)} className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg text-center font-bold text-blue-700 dark:text-blue-300 hover:bg-blue-100 dark:hover:bg-blue-900/40">
+                          {t.addNewRoom}
+                      </button>
+                      <button onClick={() => setActiveTab('pending')} className="p-4 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg text-center font-bold text-yellow-700 dark:text-yellow-300 hover:bg-yellow-100 dark:hover:bg-yellow-900/40 relative">
+                          {t.reviewPayments}
+                          {analytics.pendingVerifications.length > 0 && <span className="absolute -top-1 -right-1 flex h-4 w-4"><span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-yellow-400 opacity-75"></span><span className="relative inline-flex rounded-full h-4 w-4 bg-yellow-500 text-white text-[10px] items-center justify-center">{analytics.pendingVerifications.length}</span></span>}
+                      </button>
+                  </div>
+              </div>
+              {/* Occupancy Chart */}
+              <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 border border-gray-100 dark:border-gray-700">
+                  <h2 className="text-xl font-bold mb-4">{t.occupancyByType}</h2>
+                  <div className="flex justify-center">
+                     <OccupancyChart data={analytics.occupancyByType} />
+                  </div>
               </div>
             </>
           )}
 
           {activeTab === 'pending' && (
              <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg overflow-hidden border border-gray-100 dark:border-gray-700">
-                {/* Pending Content */}
-                <div className="px-6 py-4 border-b border-gray-100 dark:border-gray-700"><h2 className="text-xl font-bold">Payment Verifications</h2></div>
+                <div className="px-6 py-4 border-b dark:border-gray-700"><h2 className="text-xl font-bold">Payment Verifications</h2></div>
                 {analytics.pendingVerifications.length > 0 ? (
                   <div className="overflow-x-auto"><table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
                       <thead className="bg-gray-50 dark:bg-gray-900"><tr>
@@ -150,7 +201,7 @@ const AdminDashboardPage: React.FC = () => {
                       <div className="flex bg-gray-100 dark:bg-gray-700 rounded-lg p-1">
                          {['all', 'occupied', 'available'].map(f => <button key={f} onClick={() => setRoomFilter(f as any)} className={`px-3 py-1 text-xs font-bold rounded-md capitalize ${roomFilter === f ? 'bg-white dark:bg-gray-600 text-blue-600 shadow-sm' : 'text-gray-500'}`}>{f}</button>)}
                       </div>
-                      <button onClick={() => handleOpenRoomModal(null)} className="bg-blue-600 text-white px-4 py-2 rounded-lg text-xs font-bold">+ Add Room</button>
+                      <button onClick={() => handleOpenRoomModal(null)} className="bg-blue-600 text-white px-4 py-2 rounded-lg text-xs font-bold">+ {t.addNewRoom}</button>
                    </div>
                 </div>
                 <div className="overflow-x-auto"><table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
@@ -192,15 +243,36 @@ const AdminDashboardPage: React.FC = () => {
           )}
 
           {activeTab === 'cms' && (
-             <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 border border-gray-100 dark:border-gray-700">
-                 <div className="flex items-center mb-6"><IconEdit className="w-6 h-6 text-blue-600 mr-2" /><h2 className="text-xl font-bold">Landing Page Content</h2></div>
-                 <div className="space-y-4">
-                    <div><label className="block text-sm font-bold mb-1">Hero Title</label><input type="text" value={cmsContent.heroTitle} onChange={(e) => updateCmsContent({ heroTitle: e.target.value })} className="w-full p-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600" /></div>
-                    <div><label className="block text-sm font-bold mb-1">Hero Subtitle</label><textarea value={cmsContent.heroSubtitle} onChange={(e) => updateCmsContent({ heroSubtitle: e.target.value })} className="w-full p-2 border rounded-lg h-24 dark:bg-gray-700 dark:border-gray-600" /></div>
-                    <div><label className="block text-sm font-bold mb-1">Hero Image URL</label><input type="text" value={cmsContent.heroImageUrl} onChange={(e) => updateCmsContent({ heroImageUrl: e.target.value })} className="w-full p-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600" /></div>
-                    <button onClick={() => alert("CMS changes staged for preview.")} className="w-full bg-blue-600 text-white py-2 rounded-lg font-bold hover:bg-blue-700">Save Changes</button>
-                 </div>
-             </div>
+            <div className="space-y-8">
+              <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 border border-gray-100 dark:border-gray-700">
+                  <div className="flex items-center mb-6"><IconEdit className="w-6 h-6 text-blue-600 mr-2" /><h2 className="text-xl font-bold">Landing Page Content</h2></div>
+                  <div className="space-y-4">
+                     <div><label className="block text-sm font-bold mb-1">Hero Title</label><input type="text" value={cmsContent.heroTitle} onChange={(e) => updateCmsContent({ heroTitle: e.target.value })} className="w-full p-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600" /></div>
+                     <div><label className="block text-sm font-bold mb-1">Hero Subtitle</label><textarea value={cmsContent.heroSubtitle} onChange={(e) => updateCmsContent({ heroSubtitle: e.target.value })} className="w-full p-2 border rounded-lg h-24 dark:bg-gray-700 dark:border-gray-600" /></div>
+                  </div>
+              </div>
+              <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 border border-gray-100 dark:border-gray-700">
+                  <h2 className="text-xl font-bold mb-6">Manage FAQs</h2>
+                  <div className="space-y-6">
+                      {cmsContent.faqs.map((faq, index) => (
+                          <div key={faq.id} className="p-4 border rounded-lg dark:border-gray-700 space-y-3 relative">
+                              <button onClick={() => handleRemoveFaq(faq.id)} className="absolute -top-3 -right-3 bg-red-500 text-white rounded-full p-1 hover:bg-red-600"><IconTrash className="w-4 h-4" /></button>
+                              <div>
+                                  <label className="text-xs font-bold">Question</label>
+                                  <input type="text" value={faq.q} onChange={(e) => handleFaqChange(index, 'q', e.target.value)} className="w-full p-2 mt-1 border rounded-md dark:bg-gray-700 dark:border-gray-600"/>
+                              </div>
+                              <div>
+                                  <label className="text-xs font-bold">Answer</label>
+                                  <textarea value={faq.a} onChange={(e) => handleFaqChange(index, 'a', e.target.value)} rows={3} className="w-full p-2 mt-1 border rounded-md dark:bg-gray-700 dark:border-gray-600"/>
+                              </div>
+                          </div>
+                      ))}
+                      <button onClick={handleAddFaq} className="w-full flex items-center justify-center gap-2 border-2 border-dashed p-3 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-750 dark:border-gray-600">
+                          <IconPlus className="w-5 h-5" /> Add FAQ
+                      </button>
+                  </div>
+              </div>
+            </div>
           )}
         </div>
 
@@ -216,11 +288,7 @@ const AdminDashboardPage: React.FC = () => {
 
       {/* Modals */}
       {isRoomModalOpen && (
-        <RoomEditorModal
-            room={selectedRoomForEdit}
-            onClose={() => setIsRoomModalOpen(false)}
-            onSave={handleSaveRoom}
-        />
+        <RoomEditorModal room={selectedRoomForEdit} onClose={() => setIsRoomModalOpen(false)} onSave={handleSaveRoom} />
       )}
 
       {selectedProof && (

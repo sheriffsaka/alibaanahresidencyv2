@@ -87,7 +87,7 @@ const HomePage: React.FC = () => {
       </section>
 
       <section>
-          <FAQ />
+          <FAQ faqs={cmsContent.faqs} />
       </section>
     </div>
   );

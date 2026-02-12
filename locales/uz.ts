@@ -6,6 +6,7 @@ export const uz = {
   dashboard: 'Boshqaruv paneli',
   login: 'Kirish',
   logout: 'Chiqish',
+  support: 'Qo\'llab-quvvatlash',
   // Home Page
   heroTitle: 'Bilim va qulaylik uchun sizning uyingiz',
   heroSubtitle: 'Al-Ibaanah Arab tili markazidan bir necha daqiqalik masofada joylashgan xavfsiz, qulay va o‘qish uchun qulay yashash joyi.',
@@ -62,8 +63,10 @@ export const uz = {
   invoice: 'Hisob-faktura',
   receipt: 'Kvitansiya',
   downloadInvoice: 'Yuklab olish',
-  viewInvoice: 'Hisobni ko‘rish',
+  viewInvoice: 'Hisob-fakturani / Kvitansiyani yuklab olish',
   recentActivities: 'Oxirgi harakatlar',
+  bookNewAccommodation: 'Yangi turar joyni bron qilish',
+  bookNewDescription: 'Kelgusi semestr uchun keyingi uyingizni toping.',
   // Admin Dashboard
   adminDashboardTitle: 'Admin Boshqaruv Paneli',
   adminWelcome: 'Xush kelibsiz, Mulkdor. Bu yerda turar joyning umumiy ko\'rinishi.',
@@ -72,6 +75,10 @@ export const uz = {
   occupied: 'Band',
   unoccupied: 'Bo\'sh',
   studentsList: 'Talabalar ro\'yxati',
+  quickActions: 'Tezkor amallar',
+  addNewRoom: 'Yangi xona qo\'shish',
+  reviewPayments: 'To\'lovlarni ko\'rib chiqish',
+  occupancyByType: 'Xona turi bo\'yicha bandlik',
   // Auth Page
   loginTitle: 'Talaba kirishi',
   registerTitle: 'Talaba hisobini yaratish',
@@ -86,4 +93,12 @@ export const uz = {
   chatbotTitle: 'AI Yordamchi',
   chatbotWelcome: 'Salom! Bugun Al-Ibaanah turar joyi bo\'yicha sizga qanday yordam bera olaman?',
   chatbotPlaceholder: 'Savol bering...',
+  // Support Page
+  supportTitle: 'Qo\'llab-quvvatlash markazi',
+  supportSubtitle: 'Biz yordam berish uchun shu yerdamiz. Quyida biz bilan bog\'lanishning eng yaxshi usulini toping.',
+  contactUs: 'Biz bilan bog\'laning',
+  contactEmail: 'Har qanday savol bo\'yicha bizga elektron pochta orqali yozing:',
+  contactPhone: 'Shoshilinch masalalar bo\'yicha bizga qo\'ng\'iroq qiling:',
+  visitFAQ: 'TSS bo\'limiga o\'ting',
+  visitFAQDescription: 'Ko\'pgina umumiy savollarga bizning Tez-tez so\'raladigan savollar bo\'limida javob berilgan.',
 };

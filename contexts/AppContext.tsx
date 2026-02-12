@@ -14,6 +14,12 @@ const INITIAL_CMS: CmsContent = {
     { id: 1, title: 'Prime Location', desc: 'Located minutes from campus, making your commute to classes quick and easy.' },
     { id: 2, title: 'Fully Furnished', desc: 'Our rooms come equipped with all the essentials for a comfortable and productive stay.' },
     { id: 3, title: 'Safe & Secure', desc: '24/7 security and a supportive environment, so you can focus on your studies with peace of mind.' }
+  ],
+  faqs: [
+    { id: 1, q: 'What booking packages are available?', a: 'We offer flexible booking packages for 3, 6 and 12 months to align with the academic terms of Al-Ibaanah Arabic Center. Discounts are available for longer stays.' },
+    { id: 2, q: 'Are the rooms furnished?', a: 'Yes, all our rooms are fully furnished with a bed, desk, chair, wardrobe, and air conditioning. Suites include a private kitchenette and living area.' },
+    { id: 3, q: 'What amenities are included?', a: 'All residents have access to high-speed Wi-Fi. Depending on the room type, amenities include private or shared bathrooms. Common areas are also available for all students.' },
+    { id: 4, q: 'How do I make a payment?', a: 'We accept secure online payments via Stripe and direct bank transfers. For bank transfers, you will need to upload proof of payment for verification.' },
   ]
 };
 

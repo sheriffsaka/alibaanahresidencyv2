@@ -6,6 +6,7 @@ export const ar = {
   dashboard: 'لوحة التحكم',
   login: 'تسجيل الدخول',
   logout: 'تسجيل الخروج',
+  support: 'الدعم الفني',
   // Home Page
   heroTitle: 'بيتك للمعرفة والراحة',
   heroSubtitle: 'سكن آمن، مريح، ومناسب للدراسة، على بعد لحظات من مركز الإبانة للغة العربية.',
@@ -62,8 +63,10 @@ export const ar = {
   invoice: 'الفاتورة',
   receipt: 'وصل الاستلام',
   downloadInvoice: 'تحميل',
-  viewInvoice: 'عرض الفاتورة',
+  viewInvoice: 'تنزيل الفاتورة / الإيصال',
   recentActivities: 'الأنشطة الأخيرة',
+  bookNewAccommodation: 'حجز سكن جديد',
+  bookNewDescription: 'ابحث عن منزلك التالي بعيدًا عن المنزل للفصل الدراسي القادم.',
   // Admin Dashboard
   adminDashboardTitle: 'لوحة تحكم المسؤول',
   adminWelcome: 'أهلاً بك أيها المالك. إليك نظرة شاملة على السكن.',
@@ -72,6 +75,10 @@ export const ar = {
   occupied: 'مشغول',
   unoccupied: 'غير شاغل',
   studentsList: 'قائمة الطلاب',
+  quickActions: 'إجراءات سريعة',
+  addNewRoom: 'إضافة غرفة جديدة',
+  reviewPayments: 'مراجعة المدفوعات',
+  occupancyByType: 'الإشغال حسب نوع الغرفة',
   // Auth Page
   loginTitle: 'تسجيل دخول الطالب',
   registerTitle: 'إنشاء حساب طالب',
@@ -86,4 +93,12 @@ export const ar = {
   chatbotTitle: 'المساعد الذكي',
   chatbotWelcome: 'مرحباً! كيف يمكنني مساعدتك اليوم بخصوص سكن الإبانة؟',
   chatbotPlaceholder: 'اطرح سؤالاً...',
+  // Support Page
+  supportTitle: 'مركز الدعم',
+  supportSubtitle: 'نحن هنا للمساعدة. ابحث عن أفضل طريقة للتواصل معنا أدناه.',
+  contactUs: 'اتصل بنا',
+  contactEmail: 'لأية استفسارات، يرجى مراسلتنا عبر البريد الإلكتروني على:',
+  contactPhone: 'للمسائل العاجلة، اتصل بنا على:',
+  visitFAQ: 'قم بزيارة الأسئلة الشائعة',
+  visitFAQDescription: 'تمت الإجابة على العديد من الأسئلة الشائعة بالفعل في قسم الأسئلة الشائعة.',
 };

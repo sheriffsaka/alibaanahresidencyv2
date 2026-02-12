@@ -2,17 +2,15 @@
 import React, { useState } from 'react';
 import { useTranslation } from '../hooks/useTranslation';
 import { IconChevronDown } from './Icon';
+import { CmsContent } from '../types';
 
-const FAQ: React.FC = () => {
+interface FAQProps {
+    faqs: CmsContent['faqs'];
+}
+
+const FAQ: React.FC<FAQProps> = ({ faqs }) => {
     const t = useTranslation();
     const [openIndex, setOpenIndex] = useState<number | null>(null);
-
-    const faqs = [
-        { q: t.faqQ1, a: t.faqA1 },
-        { q: t.faqQ2, a: t.faqA2 },
-        { q: t.faqQ3, a: t.faqA3 },
-        { q: t.faqQ4, a: t.faqA4 },
-    ];
 
     const toggleFaq = (index: number) => {
         setOpenIndex(openIndex === index ? null : index);
@@ -30,7 +28,7 @@ const FAQ: React.FC = () => {
             </div>
             <div className="space-y-4">
                 {faqs.map((faq, index) => (
-                    <div key={index} className="border-b border-gray-200 dark:border-gray-700 pb-4">
+                    <div key={faq.id} className="border-b border-gray-200 dark:border-gray-700 pb-4">
                         <button
                             onClick={() => toggleFaq(index)}
                             className="w-full flex justify-between items-center text-left rtl:text-right text-lg font-semibold text-gray-800 dark:text-gray-200"

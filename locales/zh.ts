@@ -6,6 +6,7 @@ export const zh = {
   dashboard: '仪表板',
   login: '登录',
   logout: '登出',
+  support: '支持',
   // Home Page
   heroTitle: '您获取知识和舒适的家',
   heroSubtitle: '安全、舒适、充满学习氛围的住所，距离 Al-Ibaanah 阿拉伯语中心仅几步之遥。',
@@ -62,8 +63,10 @@ export const zh = {
   invoice: '发票',
   receipt: '收据',
   downloadInvoice: '下载',
-  viewInvoice: '查看发票',
+  viewInvoice: '下载发票/收据',
   recentActivities: '最近活动',
+  bookNewAccommodation: '预订新宿舍',
+  bookNewDescription: '为即将到来的学期寻找您的下一个家。',
   // Admin Dashboard
   adminDashboardTitle: '管理员仪表板',
   adminWelcome: '欢迎，业主。这是公寓的鸟瞰图。',
@@ -72,6 +75,10 @@ export const zh = {
   occupied: '已入住',
   unoccupied: '空闲',
   studentsList: '学生列表',
+  quickActions: '快速操作',
+  addNewRoom: '添加新房间',
+  reviewPayments: '审查付款',
+  occupancyByType: '按房型入住率',
   // Auth Page
   loginTitle: '学生登录',
   registerTitle: '创建学生账户',
@@ -86,4 +93,12 @@ export const zh = {
   chatbotTitle: 'AI 助手',
   chatbotWelcome: '您好！今天我能为您解答关于 Al-Ibaanah 公寓的什么问题？',
   chatbotPlaceholder: '请输入您的问题...',
+  // Support Page
+  supportTitle: '支持中心',
+  supportSubtitle: '我们随时为您提供帮助。在下面找到联系我们的最佳方式。',
+  contactUs: '联系我们',
+  contactEmail: '如有任何疑问，请发送电子邮件至：',
+  contactPhone: '如遇紧急事宜，请致电：',
+  visitFAQ: '访问我们的常见问题',
+  visitFAQDescription: '许多常见问题已在我们的“常见问题”部分得到解答。',
 };

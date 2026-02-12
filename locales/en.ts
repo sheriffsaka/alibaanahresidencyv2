@@ -6,6 +6,7 @@ export const en = {
   dashboard: 'Dashboard',
   login: 'Login',
   logout: 'Logout',
+  support: 'Support',
   // Home Page
   heroTitle: 'Your Home for Knowledge and Comfort',
   heroSubtitle: 'Secure, comfortable, and studious living, just moments away from the Al-Ibaanah Arabic Center.',
@@ -33,7 +34,6 @@ export const en = {
   faqA4: 'We accept secure online payments via Stripe and direct bank transfers. For bank transfers, you will need to upload proof of payment for verification.',
   // Room Card
   roomType: 'Room Type',
-  // Fixed: Use {price} instead of ${price} to match component replace() logic
   pricePerMonth: 'From {price}/month',
   amenities: 'Amenities',
   bookNow: 'Book Now',
@@ -63,8 +63,10 @@ export const en = {
   invoice: 'Invoice',
   receipt: 'Receipt',
   downloadInvoice: 'Download',
-  viewInvoice: 'View Invoice',
+  viewInvoice: 'Download Invoice / Receipt',
   recentActivities: 'Recent Activities',
+  bookNewAccommodation: 'Book New Accommodation',
+  bookNewDescription: 'Find your next home away from home for the upcoming term.',
   // Admin Dashboard
   adminDashboardTitle: 'Admin Dashboard',
   adminWelcome: 'Welcome, Proprietor. Here is the bird\'s-eye view of the residency.',
@@ -73,6 +75,10 @@ export const en = {
   occupied: 'Occupied',
   unoccupied: 'Unoccupied',
   studentsList: 'Students List',
+  quickActions: 'Quick Actions',
+  addNewRoom: 'Add New Room',
+  reviewPayments: 'Review Payments',
+  occupancyByType: 'Occupancy by Room Type',
   // Auth Page
   loginTitle: 'Student Login',
   registerTitle: 'Create Student Account',
@@ -87,4 +93,12 @@ export const en = {
   chatbotTitle: 'AI Assistant',
   chatbotWelcome: 'Hello! How can I help you with the Al-Ibaanah residency today?',
   chatbotPlaceholder: 'Ask a question...',
+  // Support Page
+  supportTitle: 'Support Center',
+  supportSubtitle: 'We are here to help. Find the best way to get in touch with us below.',
+  contactUs: 'Contact Us',
+  contactEmail: 'For any inquiries, please email us at:',
+  contactPhone: 'For urgent matters, call us at:',
+  visitFAQ: 'Visit our FAQ',
+  visitFAQDescription: 'Many common questions are already answered in our Frequently Asked Questions section.',
 };

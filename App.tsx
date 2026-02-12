@@ -9,6 +9,7 @@ import BookingPage from './pages/BookingPage';
 import DashboardPage from './pages/DashboardPage';
 import AdminDashboardPage from './pages/AdminDashboardPage';
 import AuthPage from './pages/AuthPage';
+import SupportPage from './pages/SupportPage';
 import Chatbot from './components/Chatbot';
 
 const AppContent: React.FC = () => {
@@ -20,31 +21,26 @@ const AppContent: React.FC = () => {
   }, [language]);
 
   const renderPage = () => {
+    // Publicly accessible pages
+    if (page === 'home') return <HomePage />;
+    if (page === 'support') return <SupportPage />;
+    
+    // Auth guard for protected pages
     if (!user) {
-      // Force auth page if not logged in, except for the home page
-      if (page !== 'home' && page !== 'auth') {
-        return <AuthPage />;
-      }
+      return <AuthPage />;
     }
     
     switch (page) {
-      case 'home':
-        return <HomePage />;
       case 'booking':
-        if (selectedRoom) {
-            return <BookingPage room={selectedRoom} />;
-        }
-        return <HomePage />; // Fallback to home if no room is selected
+        return selectedRoom ? <BookingPage room={selectedRoom} /> : <HomePage />;
       case 'dashboard':
-        if (!user) {
-            return <AuthPage />;
-        }
         if (user.role === 'staff' || user.role === 'proprietor') {
             return <AdminDashboardPage />;
         }
         return <DashboardPage />;
       case 'auth':
-        return <AuthPage />;
+         // If user is already logged in and tries to go to auth, redirect to dashboard
+        return <DashboardPage />;
       default:
         return <HomePage />;
     }

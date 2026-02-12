@@ -6,6 +6,7 @@ export const fr = {
   dashboard: 'Tableau de bord',
   login: 'Connexion',
   logout: 'Déconnexion',
+  support: 'Support',
   // Home Page
   heroTitle: 'Votre maison pour le savoir et le confort',
   heroSubtitle: 'Un logement sécurisé, confortable et studieux, à quelques instants du centre d\'arabe Al-Ibaanah.',
@@ -62,8 +63,10 @@ export const fr = {
   invoice: 'Facture',
   receipt: 'Reçu',
   downloadInvoice: 'Télécharger',
-  viewInvoice: 'Voir la facture',
+  viewInvoice: 'Télécharger la facture / le reçu',
   recentActivities: 'Activités récentes',
+  bookNewAccommodation: 'Réserver un nouveau logement',
+  bookNewDescription: 'Trouvez votre prochain logement pour le trimestre à venir.',
   // Admin Dashboard
   adminDashboardTitle: 'Tableau de bord Admin',
   adminWelcome: 'Bienvenue, Propriétaire. Voici la vue d\'ensemble de la résidence.',
@@ -72,6 +75,10 @@ export const fr = {
   occupied: 'Occupé',
   unoccupied: 'Libre',
   studentsList: 'Liste des étudiants',
+  quickActions: 'Actions rapides',
+  addNewRoom: 'Ajouter une nouvelle chambre',
+  reviewPayments: 'Examiner les paiements',
+  occupancyByType: 'Occupation par type de chambre',
   // Auth Page
   loginTitle: 'Connexion étudiant',
   registerTitle: 'Créer un compte étudiant',
@@ -86,4 +93,12 @@ export const fr = {
   chatbotTitle: 'Assistant IA',
   chatbotWelcome: 'Bonjour! Comment puis-je vous aider aujourd\'hui concernant la résidence Al-Ibaanah ?',
   chatbotPlaceholder: 'Posez une question...',
+  // Support Page
+  supportTitle: 'Centre d\'assistance',
+  supportSubtitle: 'Nous sommes là pour vous aider. Trouvez ci-dessous le meilleur moyen de nous contacter.',
+  contactUs: 'Contactez-nous',
+  contactEmail: 'Pour toute question, veuillez nous envoyer un e-mail à :',
+  contactPhone: 'Pour les questions urgentes, appelez-nous au :',
+  visitFAQ: 'Consultez notre FAQ',
+  visitFAQDescription: 'De nombreuses questions courantes trouvent déjà leur réponse dans notre section Foire Aux Questions.',
 };

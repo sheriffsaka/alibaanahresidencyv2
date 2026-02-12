@@ -6,6 +6,7 @@ export const ru = {
   dashboard: 'Панель управления',
   login: 'Войти',
   logout: 'Выйти',
+  support: 'Поддержка',
   // Home Page
   heroTitle: 'Ваш дом для знаний и комфорта',
   heroSubtitle: 'Безопасное, комфортное и способствующее учебе проживание, всего в нескольких шагах от Арабского центра "Аль-Ибаана".',
@@ -62,8 +63,10 @@ export const ru = {
   invoice: 'Счет',
   receipt: 'Квитанция',
   downloadInvoice: 'Скачать',
-  viewInvoice: 'Посмотреть счет',
+  viewInvoice: 'Скачать счет / квитанцию',
   recentActivities: 'Последние действия',
+  bookNewAccommodation: 'Забронировать новое жилье',
+  bookNewDescription: 'Найдите свой следующий дом вдали от дома на предстоящий семестр.',
   // Admin Dashboard
   adminDashboardTitle: 'Панель администратора',
   adminWelcome: 'Добро пожаловать, Владелец. Вот общий обзор резиденции.',
@@ -72,6 +75,10 @@ export const ru = {
   occupied: 'Занято',
   unoccupied: 'Свободно',
   studentsList: 'Список студентов',
+  quickActions: 'Быстрые действия',
+  addNewRoom: 'Добавить новую комнату',
+  reviewPayments: 'Проверить платежи',
+  occupancyByType: 'Занятость по типу комнат',
   // Auth Page
   loginTitle: 'Вход для студентов',
   registerTitle: 'Создать аккаунт студента',
@@ -86,4 +93,12 @@ export const ru = {
   chatbotTitle: 'ИИ-помощник',
   chatbotWelcome: 'Здравствуйте! Чем я могу помочь вам сегодня в резиденции Аль-Ибаана?',
   chatbotPlaceholder: 'Задайте вопрос...',
+  // Support Page
+  supportTitle: 'Центр поддержки',
+  supportSubtitle: 'Мы здесь, чтобы помочь. Найдите лучший способ связаться с нами ниже.',
+  contactUs: 'Свяжитесь с нами',
+  contactEmail: 'По любым вопросам пишите нам по адресу:',
+  contactPhone: 'По срочным вопросам звоните нам по телефону:',
+  visitFAQ: 'Посетите наш FAQ',
+  visitFAQDescription: 'На многие распространенные вопросы уже есть ответы в нашем разделе "Часто задаваемые вопросы".',
 };

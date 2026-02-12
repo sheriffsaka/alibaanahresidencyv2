@@ -5,10 +5,11 @@ import BookingStatusBadge from '../components/BookingStatusBadge';
 import { Booking, BookingStatus } from '../types';
 import { useApp } from '../hooks/useApp';
 import InvoiceView from '../components/InvoiceView';
+import { IconBuilding } from '../components/Icon';
 
 const DashboardPage: React.FC = () => {
   const t = useTranslation();
-  const { user, bookings, activities } = useApp();
+  const { user, bookings, activities, setPage } = useApp();
   const [selectedInvoice, setSelectedInvoice] = useState<Booking | null>(null);
   
   const userBookings = bookings.filter(b => b.student_id === user?.id || b.student_id === 's1');
@@ -79,41 +80,41 @@ const DashboardPage: React.FC = () => {
           )}
         </div>
 
-        {/* Recent Activities Section */}
+        {/* Right Sidebar */}
         <div className="space-y-6">
-          <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-lg border border-gray-100 dark:border-gray-700">
-            <h3 className="text-lg font-bold mb-6 flex items-center">
-              <span className="mr-2">🕒</span> {t.recentActivities}
-            </h3>
-            <div className="space-y-6">
-              {userActivities.map(activity => (
-                <div key={activity.id} className="flex gap-4 relative">
-                  <div className="flex-shrink-0 w-2 h-2 rounded-full bg-blue-500 mt-2 z-10"></div>
-                  <div className="absolute left-[3px] top-4 w-[2px] h-full bg-gray-100 dark:bg-gray-700 last:hidden"></div>
-                  <div>
-                    <p className="text-sm text-gray-800 dark:text-gray-200 font-medium leading-tight">{activity.description}</p>
-                    <p className="text-[10px] text-gray-500 mt-1 uppercase tracking-tighter">
-                      {new Date(activity.timestamp).toLocaleString(undefined, { hour: '2-digit', minute: '2-digit', day: 'numeric', month: 'short' })}
-                    </p>
-                  </div>
-                </div>
-              ))}
-              {userActivities.length === 0 && (
-                <p className="text-sm text-gray-500 text-center italic">No recent activities found.</p>
-              )}
-            </div>
-          </div>
-
-          <div className="bg-blue-600 rounded-xl p-6 text-white shadow-lg overflow-hidden relative">
-            <div className="relative z-10">
-              <h4 className="font-bold text-lg mb-2">Need Support?</h4>
-              <p className="text-xs text-blue-100 mb-4 opacity-80">Our team is available 24/7 to assist you with any residency queries.</p>
-              <button className="w-full bg-white text-blue-600 py-2 rounded-lg font-bold text-sm hover:bg-blue-50 transition-colors">
-                Contact Support
+           {/* Book New Accommodation Card */}
+            <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-lg border border-gray-100 dark:border-gray-700 text-center">
+              <IconBuilding className="w-12 h-12 text-blue-500 mx-auto mb-4" />
+              <h3 className="text-lg font-bold mb-2">{t.bookNewAccommodation}</h3>
+              <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">{t.bookNewDescription}</p>
+              <button onClick={() => setPage('home')} className="w-full bg-blue-600 text-white py-2 rounded-lg font-bold text-sm hover:bg-blue-700 transition-colors">
+                {t.heroCTA}
               </button>
             </div>
-            <div className="absolute -bottom-8 -right-8 w-24 h-24 bg-blue-500 rounded-full blur-2xl opacity-50"></div>
-          </div>
+
+            {/* Recent Activities Section */}
+            <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-lg border border-gray-100 dark:border-gray-700">
+              <h3 className="text-lg font-bold mb-6 flex items-center">
+                <span className="mr-2">🕒</span> {t.recentActivities}
+              </h3>
+              <div className="space-y-6">
+                {userActivities.map(activity => (
+                  <div key={activity.id} className="flex gap-4 relative">
+                    <div className="flex-shrink-0 w-2 h-2 rounded-full bg-blue-500 mt-2 z-10"></div>
+                    <div className="absolute left-[3px] top-4 w-[2px] h-full bg-gray-100 dark:bg-gray-700 last:hidden"></div>
+                    <div>
+                      <p className="text-sm text-gray-800 dark:text-gray-200 font-medium leading-tight">{activity.description}</p>
+                      <p className="text-[10px] text-gray-500 mt-1 uppercase tracking-tighter">
+                        {new Date(activity.timestamp).toLocaleString(undefined, { hour: '2-digit', minute: '2-digit', day: 'numeric', month: 'short' })}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+                {userActivities.length === 0 && (
+                  <p className="text-sm text-gray-500 text-center italic">No recent activities found.</p>
+                )}
+              </div>
+            </div>
         </div>
       </div>
 

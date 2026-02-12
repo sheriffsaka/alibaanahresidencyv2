@@ -1,7 +1,7 @@
 
 export type Language = 'en' | 'ar' | 'ru' | 'fr' | 'uz' | 'zh';
 
-export type Page = 'home' | 'booking' | 'dashboard' | 'auth';
+export type Page = 'home' | 'booking' | 'dashboard' | 'auth' | 'support';
 
 export enum RoomType {
   SINGLE = 'Single',
@@ -81,6 +81,11 @@ export interface CmsContent {
     id: number;
     title: string;
     desc: string;
+  }[];
+  faqs: {
+    id: number;
+    q: string;
+    a: string;
   }[];
 }
 
