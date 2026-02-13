@@ -1,10 +1,9 @@
 
-import React, { useState, useMemo, ChangeEvent } from 'react';
+import React, { useState, useMemo, ChangeEvent, useEffect } from 'react';
 import { Room, PaymentMethod, AcademicTerm, BookingPackage, BookingStatus, Booking } from '../types';
 import { useTranslation } from '../hooks/useTranslation';
 import { useApp } from '../hooks/useApp';
 import { IconUpload } from './Icon';
-import { MOCK_ACADEMIC_TERMS, MOCK_PACKAGES } from '../lib/mockData';
 
 interface BookingFormProps {
   room: Room;
@@ -12,17 +11,24 @@ interface BookingFormProps {
 
 const BookingForm: React.FC<BookingFormProps> = ({ room }) => {
   const t = useTranslation();
-  const { user, setPage, addBooking, addActivity } = useApp();
+  const { user, setPage, addBooking, addActivity, academicTerms, bookingPackages } = useApp();
   
-  const [academicTerms] = useState<AcademicTerm[]>(MOCK_ACADEMIC_TERMS);
-  const [bookingPackages] = useState<BookingPackage[]>(MOCK_PACKAGES);
-  
-  const [selectedPackage, setSelectedPackage] = useState<BookingPackage | null>(MOCK_PACKAGES[0]);
-  const [selectedTerm, setSelectedTerm] = useState<AcademicTerm | null>(MOCK_ACADEMIC_TERMS[0]);
+  const [selectedPackage, setSelectedPackage] = useState<BookingPackage | null>(null);
+  const [selectedTerm, setSelectedTerm] = useState<AcademicTerm | null>(null);
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>(PaymentMethod.ONLINE);
   const [paymentProof, setPaymentProof] = useState<File | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Effect to set default selections once data is loaded from context
+  useEffect(() => {
+    if (!selectedPackage && bookingPackages.length > 0) {
+        setSelectedPackage(bookingPackages[0]);
+    }
+    if (!selectedTerm && academicTerms.length > 0) {
+        setSelectedTerm(academicTerms[0]);
+    }
+  }, [bookingPackages, academicTerms, selectedPackage, selectedTerm]);
 
   const totalPrice = useMemo(() => {
     if (!selectedPackage) return 0;
@@ -43,6 +49,11 @@ const BookingForm: React.FC<BookingFormProps> = ({ room }) => {
       setPage('auth');
       return;
     }
+    
+    if (!selectedTerm || !selectedPackage) {
+      setError("Please select an academic term and a booking package.");
+      return;
+    }
 
     if (paymentMethod === PaymentMethod.BANK_TRANSFER && !paymentProof) {
         setError("Please upload proof of payment for bank transfers.");
@@ -50,19 +61,19 @@ const BookingForm: React.FC<BookingFormProps> = ({ room }) => {
     }
     
     setIsSubmitting(true);
+    setError(null);
     
     const bookingId = Math.floor(Math.random() * 9000) + 1000;
-    // Create a new booking object for the state
     const newBooking: Booking = {
         id: bookingId,
         student_id: user.id,
         student_name: user.full_name,
         room_id: room.id,
-        academic_term_id: selectedTerm?.id || 1,
-        booking_package_id: selectedPackage?.id || 1,
-        start_date: selectedTerm?.start_date || new Date().toISOString(),
-        end_date: new Date(Date.now() + (selectedPackage?.duration_months || 3) * 30 * 24 * 60 * 60 * 1000).toISOString(),
-        status: paymentMethod === PaymentMethod.BANK_TRANSFER ? BookingStatus.PENDING_VERIFICATION : BookingStatus.CONFIRMED,
+        academic_term_id: selectedTerm.id,
+        booking_package_id: selectedPackage.id,
+        start_date: selectedTerm.start_date,
+        end_date: new Date(new Date(selectedTerm.start_date).setMonth(new Date(selectedTerm.start_date).getMonth() + selectedPackage.duration_months)).toISOString(),
+        status: paymentMethod === PaymentMethod.BANK_TRANSFER ? BookingStatus.PENDING_VERIFICATION : BookingStatus.PENDING_PAYMENT,
         total_price: totalPrice,
         booked_at: new Date().toISOString(),
         payment_method: paymentMethod,
@@ -70,6 +81,8 @@ const BookingForm: React.FC<BookingFormProps> = ({ room }) => {
         rooms: { room_number: room.room_number, type: room.type }
     };
 
+    // In a real app, this would be an API call to a serverless function
+    // For now, we simulate a delay
     setTimeout(() => {
         addBooking(newBooking);
         addActivity({
@@ -87,15 +100,17 @@ const BookingForm: React.FC<BookingFormProps> = ({ room }) => {
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
       <div>
-        <label htmlFor="startDate" className="block text-sm font-medium text-gray-700 dark:text-gray-300">{t.academicTerm}</label>
+        <label htmlFor="academicTerm" className="block text-sm font-medium text-gray-700 dark:text-gray-300">{t.academicTerm}</label>
         <select
-          id="startDate"
-          value={selectedTerm?.id}
+          id="academicTerm"
+          value={selectedTerm?.id || ''}
           onChange={(e) => setSelectedTerm(academicTerms.find(term => term.id === parseInt(e.target.value)) || null)}
           className="mt-1 block w-full pl-3 pr-10 py-3 text-base border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-lg"
+          disabled={academicTerms.length === 0}
         >
+          {academicTerms.length === 0 && <option>Loading terms...</option>}
           {academicTerms.map(term => (
-              <option key={term.id} value={term.id}>{term.term_name} (Starts {term.start_date})</option>
+              <option key={term.id} value={term.id}>{term.term_name} (Starts {new Date(term.start_date).toLocaleDateString()})</option>
           ))}
         </select>
       </div>
@@ -154,8 +169,8 @@ const BookingForm: React.FC<BookingFormProps> = ({ room }) => {
       
       <button 
         type="submit"
-        disabled={isSubmitting}
-        className="w-full flex justify-center py-4 px-4 border border-transparent rounded-lg shadow-xl text-base font-bold text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:bg-blue-300 disabled:cursor-not-allowed transition-all transform active:scale-95"
+        disabled={isSubmitting || !selectedPackage || !selectedTerm}
+        className="w-full flex justify-center py-4 px-4 border border-transparent rounded-lg shadow-xl text-base font-bold text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:bg-gray-400 disabled:cursor-not-allowed transition-all transform active:scale-95"
       >
         {isSubmitting ? 'Finalizing Your Room...' : t.confirmBooking}
       </button>
@@ -163,5 +178,4 @@ const BookingForm: React.FC<BookingFormProps> = ({ room }) => {
   );
 };
 
-// Fixed: Added missing default export
 export default BookingForm;

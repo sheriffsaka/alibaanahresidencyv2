@@ -100,7 +100,6 @@ export interface AppContextType {
   user: User | null;
   selectedRoom: Room | null;
   session: any;
-  // Stateful properties for the presentation
   bookings: Booking[];
   addBooking: (booking: Booking) => void;
   updateBookingStatus: (id: number, status: BookingStatus) => void;
@@ -111,6 +110,8 @@ export interface AppContextType {
   updateRoom: (room: Room) => void;
   activities: Activity[];
   addActivity: (activity: Omit<Activity, 'id'>) => void;
+  academicTerms: AcademicTerm[];
+  bookingPackages: BookingPackage[];
 }
 
 export interface ChatMessage {

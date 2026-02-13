@@ -12,8 +12,8 @@ const DashboardPage: React.FC = () => {
   const { user, bookings, activities, setPage } = useApp();
   const [selectedInvoice, setSelectedInvoice] = useState<Booking | null>(null);
   
-  const userBookings = bookings.filter(b => b.student_id === user?.id || b.student_id === 's1');
-  const userActivities = activities.filter(a => a.user_id === user?.id || a.user_id === 's1').slice(0, 5);
+  const userBookings = bookings.filter(b => b.student_id === user?.id);
+  const userActivities = activities.filter(a => a.user_id === user?.id).slice(0, 5);
 
   return (
     <div className="animate-fade-in space-y-10">
@@ -101,7 +101,7 @@ const DashboardPage: React.FC = () => {
                 {userActivities.map(activity => (
                   <div key={activity.id} className="flex gap-4 relative">
                     <div className="flex-shrink-0 w-2 h-2 rounded-full bg-blue-500 mt-2 z-10"></div>
-                    <div className="absolute left-[3px] top-4 w-[2px] h-full bg-gray-100 dark:bg-gray-700 last:hidden"></div>
+                    <div className="absolute left-[3px] top-4 w-full h-[2px] bg-gray-100 dark:bg-gray-700 last:hidden"></div>
                     <div>
                       <p className="text-sm text-gray-800 dark:text-gray-200 font-medium leading-tight">{activity.description}</p>
                       <p className="text-[10px] text-gray-500 mt-1 uppercase tracking-tighter">
