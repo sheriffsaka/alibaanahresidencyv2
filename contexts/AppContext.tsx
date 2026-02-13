@@ -1,8 +1,7 @@
 
-import React, { createContext, useState, ReactNode, useCallback, useEffect, useRef } from 'react';
+import React, { createContext, useState, ReactNode, useCallback, useEffect } from 'react';
 import { AppContextType, Language, Page, User, Room, Booking, BookingStatus, CmsContent, Activity } from '../types';
 import { supabase } from '../lib/supabaseClient';
-import { MOCK_ROOMS, MOCK_STUDENT_BOOKINGS } from '../lib/mockData';
 
 export const AppContext = createContext<AppContextType | undefined>(undefined);
 
@@ -37,82 +36,89 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const [loading, setLoading] = useState(true);
   const [selectedRoom, setSelectedRoom] = useState<Room | null>(null);
   
-  // Presentation State
-  const [bookings, setBookings] = useState<Booking[]>(MOCK_STUDENT_BOOKINGS);
-  const [rooms, setRooms] = useState<Room[]>(MOCK_ROOMS);
+  // App data state - no longer using mock data
+  const [bookings, setBookings] = useState<Booking[]>([]);
+  const [rooms, setRooms] = useState<Room[]>([]);
   const [cmsContent, setCmsContent] = useState<CmsContent>(INITIAL_CMS);
   const [activities, setActivities] = useState<Activity[]>(MOCK_ACTIVITIES);
 
-  // We use a ref to prevent multiple loading resolution attempts
-  const isInitialized = useRef(false);
-
-  const fetchUserProfile = useCallback(async (supabaseUser: any) => {
-    try {
-      const { data, error } = await supabase.from('profiles').select('*').eq('id', supabaseUser.id).single();
-      if (error) {
-        console.warn("Could not fetch user profile:", error.message);
-        setUser(null);
-      } else if (data) {
-        setUser({ id: data.id, email: supabaseUser.email, full_name: data.full_name, role: data.role, gender: data.gender });
-      }
-    } catch (e) {
-      console.error("Profile fetch error:", e);
-      setUser(null);
-    }
-  }, []);
-
-  const initializeApp = useCallback(async () => {
-    if (isInitialized.current) return;
-    
-    try {
-      const { data, error } = await supabase.auth.getSession();
-
-      if (error) {
-        // This handles cases like a corrupted token in localStorage.
-        console.warn('Error fetching session:', error.message);
-        // We force a sign-out to clear the invalid session from storage.
-        await supabase.auth.signOut();
-        setSession(null);
-        setUser(null);
-      } else {
-        setSession(data.session);
-        if (data.session?.user) {
-          await fetchUserProfile(data.session.user);
-        } else {
-          setUser(null);
-        }
-      }
-    } catch (err) {
-      console.error("Critical initialization error:", err);
-      // Fallback in case of unexpected errors
-      setUser(null);
-      setSession(null);
-    } finally {
-      setLoading(false);
-      isInitialized.current = true;
-    }
-  }, [fetchUserProfile]);
-
   useEffect(() => {
-    // Start initialization
-    initializeApp();
-
-    // Listen for subsequent auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (_event, newSession) => {
-        setSession(newSession);
-        if (newSession?.user) {
-          await fetchUserProfile(newSession.user);
+    // This effect now handles all initialization and auth changes.
+    // It runs once on mount and then listens for auth events.
+    
+    // Fetch public data that everyone can see
+    const fetchPublicData = async () => {
+        const { data, error } = await supabase.from('rooms').select('*');
+        if (error) {
+            console.error('Error fetching rooms:', error);
         } else {
-          setUser(null);
+            setRooms(data || []);
         }
-        // Ensure loading is false even if listener fires after initial check
+    };
+    fetchPublicData();
+
+    // Set up the authentication state change listener
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      async (_event, session) => {
+        setLoading(true);
+        setSession(session);
+
+        if (session?.user) {
+            // User is logged in, fetch their profile and data
+            const { data: profile, error: profileError } = await supabase
+                .from('profiles')
+                .select('*')
+                .eq('id', session.user.id)
+                .single();
+
+            if (profileError) {
+                console.warn("Could not fetch user profile:", profileError.message);
+                setUser(null);
+                setBookings([]);
+            } else {
+                const loggedInUser = { id: profile.id, email: session.user.email, full_name: profile.full_name, role: profile.role, gender: profile.gender };
+                setUser(loggedInUser);
+
+                // Fetch bookings. RLS policies will handle security for staff/proprietors.
+                // We join with profiles to get student details for the admin dashboard.
+                const { data: bookingsData, error: bookingsError } = await supabase
+                    .from('bookings')
+                    .select('*, rooms(room_number, type), profiles(full_name, gender)');
+
+                if (bookingsError) {
+                    console.error("Error fetching bookings:", bookingsError.message);
+                    setBookings([]);
+                } else {
+                    // Map the joined data to fit our Booking type structure
+                    const mappedBookings = bookingsData.map((b: any) => ({
+                        ...b,
+                        student_name: b.profiles?.full_name,
+                        student_gender: b.profiles?.gender,
+                    }));
+                    setBookings(mappedBookings || []);
+                }
+            }
+        } else {
+          // User is logged out
+          setUser(null);
+          setBookings([]);
+        }
+        // CRITICAL: Set loading to false after all auth-related data fetching is complete.
         setLoading(false);
       }
     );
 
-    return () => subscription?.unsubscribe();
-  }, [initializeApp, fetchUserProfile]);
+    // Final check to ensure loading is false if there's no initial session
+    supabase.auth.getSession().then(({ data: { session } }) => {
+        if (!session) {
+            setLoading(false);
+        }
+    });
+
+    return () => {
+      subscription?.unsubscribe();
+    };
+  }, []);
 
   const setPage = useCallback((page: Page, room?: Room) => {
     setPageState(page);
