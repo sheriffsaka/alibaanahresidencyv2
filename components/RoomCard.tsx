@@ -7,15 +7,25 @@ import { IconCheckCircle } from './Icon';
 
 interface RoomCardProps {
   room: Room;
+  isOccupied: boolean;
 }
 
-const RoomCard: React.FC<RoomCardProps> = ({ room }) => {
+const RoomCard: React.FC<RoomCardProps> = ({ room, isOccupied }) => {
   const t = useTranslation();
   const { setPage } = useApp();
 
   return (
-    <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg overflow-hidden transform hover:scale-105 transition-transform duration-300">
-      <img className="w-full h-56 object-cover object-center" src={room.image_urls?.[0]} alt={`Room ${room.type}`} />
+    <div className={`bg-white dark:bg-gray-800 rounded-lg shadow-lg overflow-hidden transition-all duration-300 ${isOccupied ? 'filter grayscale cursor-not-allowed' : 'transform hover:scale-105'}`}>
+      <div className="relative">
+        <img className="w-full h-56 object-cover object-center" src={room.image_urls?.[0]} alt={`Room ${room.type}`} />
+        {isOccupied && (
+            <div className="absolute inset-0 bg-black bg-opacity-60 flex items-center justify-center">
+                <span className="text-white text-xl font-bold border-2 border-white py-2 px-4 rounded-lg bg-black/20 backdrop-blur-sm">
+                    {t.fullyBooked}
+                </span>
+            </div>
+        )}
+      </div>
       <div className="p-6">
         <h2 className="text-sm title-font font-medium text-gray-500 dark:text-gray-400 mb-1 tracking-widest">{t.roomType}</h2>
         <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">{room.type}</h1>
@@ -33,10 +43,11 @@ const RoomCard: React.FC<RoomCardProps> = ({ room }) => {
       </div>
       <div className="p-6 border-t border-gray-200 dark:border-gray-700">
         <button 
-          onClick={() => setPage('booking', room)}
-          className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded-lg transition-colors duration-300"
+          onClick={() => !isOccupied && setPage('booking', room)}
+          disabled={isOccupied}
+          className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded-lg transition-colors duration-300 disabled:bg-gray-400 disabled:dark:bg-gray-600 disabled:cursor-not-allowed"
         >
-          {t.bookNow}
+          {isOccupied ? t.unavailable : t.bookNow}
         </button>
       </div>
     </div>

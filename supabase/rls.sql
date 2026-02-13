@@ -1,3 +1,4 @@
+
 -- Phase 2: Supabase Row Level Security (RLS) Policies
 -- These policies enforce access control at the database level.
 
@@ -22,6 +23,16 @@ RETURNS UUID AS $$
 BEGIN
   RETURN (
     SELECT property_id FROM public.profiles WHERE id = auth.uid()
+  );
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- Get the gender of the currently authenticated user
+CREATE OR REPLACE FUNCTION get_my_gender()
+RETURNS TEXT AS $$
+BEGIN
+  RETURN (
+    SELECT gender FROM public.profiles WHERE id = auth.uid()
   );
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
@@ -84,14 +95,20 @@ CREATE POLICY "Allow users to read their own profile"
 ON profiles FOR SELECT
 USING (id = auth.uid());
 
--- Staff/Proprietors can view profiles of students who have booked at their property.
+-- Staff/Proprietors can view profiles based on their role and gender scope.
 DROP POLICY IF EXISTS "Allow staff/proprietors to view student profiles in their property" ON profiles;
 CREATE POLICY "Allow staff/proprietors to view student profiles in their property"
 ON profiles FOR SELECT
-USING (get_my_role() IN ('staff', 'proprietor') AND EXISTS (
-    SELECT 1 FROM bookings b JOIN rooms r ON b.room_id = r.id
-    WHERE b.student_id = profiles.id AND r.property_id = get_my_property_id()
-));
+USING (
+  -- Proprietors can see everyone in their property
+  get_my_role() = 'proprietor' OR
+  -- Staff can see students of their own gender in their property
+  (
+    get_my_role() = 'staff' AND
+    profiles.role = 'student' AND
+    profiles.gender = get_my_gender()
+  )
+);
 
 -- Users can update their own profile.
 DROP POLICY IF EXISTS "Allow users to update their own profile" ON profiles;
@@ -100,7 +117,6 @@ ON profiles FOR UPDATE
 USING (id = auth.uid())
 WITH CHECK (id = auth.uid());
 
--- FIX: Add an INSERT policy to allow the user creation trigger to function.
 -- A user can insert a profile for themselves upon signup.
 DROP POLICY IF EXISTS "Allow users to insert their own profile" ON profiles;
 CREATE POLICY "Allow users to insert their own profile"
@@ -141,23 +157,39 @@ ON bookings FOR ALL
 USING (student_id = auth.uid())
 WITH CHECK (student_id = auth.uid());
 
--- Staff/Proprietors can view all bookings for their property.
+-- Staff/Proprietors can view all bookings for their property, scoped by gender for staff.
 DROP POLICY IF EXISTS "Allow staff/proprietors to view property bookings" ON bookings;
 CREATE POLICY "Allow staff/proprietors to view property bookings"
 ON bookings FOR SELECT
-USING (get_my_role() IN ('staff', 'proprietor') AND EXISTS (
+USING (
+  (get_my_role() IN ('staff', 'proprietor')) AND
+  EXISTS (
     SELECT 1 FROM rooms r
     WHERE r.id = bookings.room_id AND r.property_id = get_my_property_id()
-));
+  ) AND (
+    get_my_role() = 'proprietor' OR
+    (get_my_role() = 'staff' AND EXISTS (
+      SELECT 1 FROM profiles p WHERE p.id = bookings.student_id AND p.gender = get_my_gender()
+    ))
+  )
+);
 
--- Staff/Proprietors can update bookings in their property (e.g., change status).
+-- Staff/Proprietors can update bookings in their property (e.g., change status), scoped by gender for staff.
 DROP POLICY IF EXISTS "Allow staff/proprietors to update property bookings" ON bookings;
 CREATE POLICY "Allow staff/proprietors to update property bookings"
 ON bookings FOR UPDATE
-USING (get_my_role() IN ('staff', 'proprietor') AND EXISTS (
+USING (
+  (get_my_role() IN ('staff', 'proprietor')) AND
+  EXISTS (
     SELECT 1 FROM rooms r
     WHERE r.id = bookings.room_id AND r.property_id = get_my_property_id()
-))
+  ) AND (
+    get_my_role() = 'proprietor' OR
+    (get_my_role() = 'staff' AND EXISTS (
+      SELECT 1 FROM profiles p WHERE p.id = bookings.student_id AND p.gender = get_my_gender()
+    ))
+  )
+)
 WITH CHECK (get_my_role() IN ('staff', 'proprietor'));
 
 
@@ -183,45 +215,77 @@ USING (EXISTS (
     WHERE p.id = invoices.payment_id AND b.student_id = auth.uid()
 ));
 
--- Staff/Proprietors can view all financial records for their property.
+-- Staff/Proprietors can view all financial records for their property, scoped by gender for staff.
 DROP POLICY IF EXISTS "Allow staff/proprietors to read property payments" ON payments;
 CREATE POLICY "Allow staff/proprietors to read property payments"
 ON payments FOR SELECT
-USING (get_my_role() IN ('staff', 'proprietor') AND EXISTS (
+USING (
+  get_my_role() IN ('staff', 'proprietor') AND
+  EXISTS (
     SELECT 1 FROM bookings b JOIN rooms r ON b.room_id = r.id
-    WHERE b.id = payments.booking_id AND r.property_id = get_my_property_id()
-));
+    WHERE b.id = payments.booking_id AND r.property_id = get_my_property_id() AND
+    (
+      get_my_role() = 'proprietor' OR
+      (get_my_role() = 'staff' AND EXISTS (
+        SELECT 1 FROM profiles p WHERE p.id = b.student_id AND p.gender = get_my_gender()
+      ))
+    )
+  )
+);
+
 DROP POLICY IF EXISTS "Allow staff/proprietors to read property invoices" ON invoices;
 CREATE POLICY "Allow staff/proprietors to read property invoices"
 ON invoices FOR SELECT
-USING (get_my_role() IN ('staff', 'proprietor') AND EXISTS (
-    SELECT 1 FROM payments p JOIN bookings b ON p.booking_id = b.id JOIN rooms r ON b.room_id = r.id
-    WHERE p.id = invoices.payment_id AND r.property_id = get_my_property_id()
-));
+USING (
+  get_my_role() IN ('staff', 'proprietor') AND
+  EXISTS (
+    SELECT 1
+    FROM payments p
+    JOIN bookings b ON p.booking_id = b.id
+    JOIN rooms r ON b.room_id = r.id
+    WHERE p.id = invoices.payment_id
+      AND r.property_id = get_my_property_id()
+      AND (
+        get_my_role() = 'proprietor' OR
+        (get_my_role() = 'staff' AND EXISTS (
+          SELECT 1 FROM profiles prof WHERE prof.id = b.student_id AND prof.gender = get_my_gender()
+        ))
+      )
+  )
+);
 
 -- Allow staff/proprietors to update payment status (e.g., for verification).
 DROP POLICY IF EXISTS "Allow staff/proprietors to update payments" ON payments;
 CREATE POLICY "Allow staff/proprietors to update payments"
 ON payments FOR UPDATE
-USING (get_my_role() IN ('staff', 'proprietor') AND EXISTS (
+USING (
+  get_my_role() IN ('staff', 'proprietor') AND
+  EXISTS (
     SELECT 1 FROM bookings b JOIN rooms r ON b.room_id = r.id
-    WHERE b.id = payments.booking_id AND r.property_id = get_my_property_id()
-))
+    WHERE b.id = payments.booking_id AND r.property_id = get_my_property_id() AND
+    (
+      get_my_role() = 'proprietor' OR
+      (get_my_role() = 'staff' AND EXISTS (
+        SELECT 1 FROM profiles p WHERE p.id = b.student_id AND p.gender = get_my_gender()
+      ))
+    )
+  )
+)
 WITH CHECK (get_my_role() IN ('staff', 'proprietor'));
 
--- FIX: Add a secure policy to allow students to update their own payment record
--- only for the purpose of submitting a bank transfer proof.
+
+-- Allow student to submit payment proof for a pending payment.
 DROP POLICY IF EXISTS "Allow student to submit payment proof for a pending payment" ON payments;
 CREATE POLICY "Allow student to submit payment proof for a pending payment"
 ON public.payments FOR UPDATE
 USING (
   get_my_role() = 'student' AND
-  payments.status = 'Pending' AND -- Only allow updating payments that are currently pending
+  payments.status = 'Pending' AND
   (SELECT b.student_id FROM public.bookings b WHERE b.id = payments.booking_id) = auth.uid()
 )
 WITH CHECK (
   (SELECT b.student_id FROM public.bookings b WHERE b.id = payments.booking_id) = auth.uid() AND
-  status = 'Pending Verification' -- Crucially, they can ONLY change the status to 'Pending Verification'.
+  status = 'Pending Verification'
 );
 
 --------------------------------------------------------------------------------
@@ -241,12 +305,7 @@ USING (get_my_role() IN ('staff', 'proprietor') AND EXISTS (
 --------------------------------------------------------------------------------
 
 -- Grant usage on schema to authenticated users.
--- This allows roles to interact with the database, while RLS policies control WHAT they can see/do.
 GRANT USAGE ON SCHEMA public TO anon, authenticated;
 GRANT ALL ON ALL TABLES IN SCHEMA public TO anon, authenticated;
 GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO anon, authenticated;
 GRANT ALL ON ALL FUNCTIONS IN SCHEMA public TO anon, authenticated;
-
--- RLS enforcement for the anon and authenticated roles is the default, secure
--- behavior in Supabase and is managed in the dashboard settings, not via SQL.
--- The policies above will be enforced for any user accessing via the API.

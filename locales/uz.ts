@@ -32,11 +32,15 @@ export const uz = {
   faqA3: 'Barcha yashovchilar yuqori tezlikdagi Wi-Fi dan foydalanishlari mumkin. Xona turiga qarab, qulayliklarga shaxsiy yoki umumiy hammomlar kiradi. Barcha talabalar uchun umumiy maydonlar ham mavjud.',
   faqQ4: 'To‘lovni qanday amalga oshirishim mumkin?',
   faqA4: 'Biz Stripe orqali xavfsiz onlayn to‘lovlarni va to‘g‘ridan-to‘g‘ri bank o‘tkazmalarini qabul qilamiz. Bank o‘tkazmalari uchun tekshirish uchun to‘lov isbotini yuklashingiz kerak bo‘ladi.',
+  availabilityOverview: 'Mavjudlik holati',
+  roomsAvailable: '{total} dan {available} ta mavjud',
   // Room Card
   roomType: 'Xona turi',
   pricePerMonth: '{price}$ dan/oyiga',
   amenities: 'Qulayliklar',
   bookNow: 'Hozir bron qilish',
+  fullyBooked: 'To\'liq band',
+  unavailable: 'Mavjud emas',
   // Booking Page
   bookingTitle: 'Broningizni yakunlang',
   bookingFor: '{roomType} xonasini bron qilish',
@@ -53,6 +57,10 @@ export const uz = {
   uploadProof: 'Isbotni yuklash',
   confirmBooking: 'Bronni tasdiqlash',
   bookingSuccess: 'Muvaffaqiyatli bron qilindi!',
+  roomUnavailableTitle: 'Xona mavjud emas',
+  roomBookedMessage: 'Kechirasiz, bu xona boshqa talaba tomonidan allaqachon bron qilingan.',
+  roomMaintenanceMessage: 'Bu xona hozirda ta\'mirlanmoqda va uni bron qilib bo\'lmaydi.',
+  backToRooms: 'Mavjud xonalarga qaytish',
   // Dashboard
   dashboardTitle: 'Mening bronlarim',
   noBookings: 'Sizda faol bronlar yo‘q.',

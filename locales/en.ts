@@ -32,11 +32,15 @@ export const en = {
   faqA3: 'All residents have access to high-speed Wi-Fi. Depending on the room type, amenities include private or shared bathrooms. Common areas are also available for all students.',
   faqQ4: 'How do I make a payment?',
   faqA4: 'We accept secure online payments via Stripe and direct bank transfers. For bank transfers, you will need to upload proof of payment for verification.',
+  availabilityOverview: 'Availability Overview',
+  roomsAvailable: '{available} of {total} Available',
   // Room Card
   roomType: 'Room Type',
   pricePerMonth: 'From {price}/month',
   amenities: 'Amenities',
   bookNow: 'Book Now',
+  fullyBooked: 'Fully Booked',
+  unavailable: 'Unavailable',
   // Booking Page
   bookingTitle: 'Complete Your Booking',
   bookingFor: 'Booking for {roomType} Room',
@@ -53,6 +57,10 @@ export const en = {
   uploadProof: 'Upload Proof of Payment',
   confirmBooking: 'Confirm Booking',
   bookingSuccess: 'Booking successful!',
+  roomUnavailableTitle: 'Room Unavailable',
+  roomBookedMessage: 'Sorry, this room has already been booked by another student.',
+  roomMaintenanceMessage: 'This room is currently under maintenance and cannot be booked.',
+  backToRooms: 'Back to Available Rooms',
   // Dashboard
   dashboardTitle: 'My Bookings',
   noBookings: 'You have no active bookings.',

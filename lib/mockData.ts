@@ -11,7 +11,8 @@ export const MOCK_ROOMS: Room[] = [
     amenities: ['Private Bathroom', 'Air Conditioning', 'High-Speed Wi-Fi', 'Study Desk'],
     image_urls: ['https://res.cloudinary.com/di7okmjsx/image/upload/v1770388212/single_room1_tsqofx.jpg'],
     is_available: true,
-    created_at: new Date().toISOString()
+    created_at: new Date().toISOString(),
+    gender_restriction: 'Male',
   },
   {
     id: 2,
@@ -21,8 +22,9 @@ export const MOCK_ROOMS: Room[] = [
     price_per_month: 250.00,
     amenities: ['Shared Bathroom', 'Air Conditioning', 'High-Speed Wi-Fi', 'Two Beds'],
     image_urls: ['https://res.cloudinary.com/di7okmjsx/image/upload/v1770388212/shared_bathroom1_hlxjdg.jpg'],
-    is_available: true,
-    created_at: new Date().toISOString()
+    is_available: false,
+    created_at: new Date().toISOString(),
+    gender_restriction: 'Male',
   },
   {
     id: 3,
@@ -33,7 +35,20 @@ export const MOCK_ROOMS: Room[] = [
     amenities: ['Private Bathroom', 'Kitchenette', 'Living Area', 'Air Conditioning', 'High-Speed Wi-Fi'],
     image_urls: ['https://res.cloudinary.com/di7okmjsx/image/upload/v1770388212/Suite1_t4dczv.jpg'],
     is_available: true,
-    created_at: new Date().toISOString()
+    created_at: new Date().toISOString(),
+    gender_restriction: 'Any',
+  },
+  {
+    id: 4,
+    property_id: 'p1',
+    room_number: '101F',
+    type: RoomType.SINGLE,
+    price_per_month: 360.00,
+    amenities: ['Private Bathroom', 'Air Conditioning', 'High-Speed Wi-Fi', 'Study Desk'],
+    image_urls: ['https://res.cloudinary.com/di7okmjsx/image/upload/v1770388212/single_room1_tsqofx.jpg'],
+    is_available: true,
+    created_at: new Date().toISOString(),
+    gender_restriction: 'Female',
   },
 ];
 
@@ -53,6 +68,7 @@ export const MOCK_STUDENT_BOOKINGS: Booking[] = [
     id: 1045,
     student_id: 's1',
     student_name: 'John Doe',
+    student_gender: 'Male',
     room_id: 1,
     academic_term_id: 1,
     booking_package_id: 2,
@@ -67,6 +83,7 @@ export const MOCK_STUDENT_BOOKINGS: Booking[] = [
     id: 1046,
     student_id: 's1',
     student_name: 'John Doe',
+    student_gender: 'Male',
     room_id: 3,
     academic_term_id: 2,
     booking_package_id: 1,
@@ -76,6 +93,22 @@ export const MOCK_STUDENT_BOOKINGS: Booking[] = [
     total_price: 1500.00,
     booked_at: '2024-12-01T14:30:00Z',
     rooms: { room_number: '301C', type: RoomType.SUITE }
+  },
+  {
+    id: 1047,
+    student_id: 's2',
+    student_name: 'Fatima Zahra',
+    student_gender: 'Female',
+    room_id: 4,
+    academic_term_id: 1,
+    booking_package_id: 1,
+    start_date: '2024-09-01',
+    end_date: '2024-12-01',
+    status: BookingStatus.PENDING_VERIFICATION,
+    total_price: 1080.00,
+    payment_proof_url: 'https://via.placeholder.com/800x1000.png?text=Student+Payment+Proof',
+    booked_at: '2024-08-20T11:00:00Z',
+    rooms: { room_number: '101F', type: RoomType.SINGLE }
   }
 ];
 

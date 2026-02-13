@@ -19,6 +19,7 @@ export interface Room {
   image_urls: string[];
   is_available: boolean;
   created_at: string;
+  gender_restriction: 'Male' | 'Female' | 'Any';
 }
 
 export enum BookingStatus {
@@ -41,6 +42,7 @@ export interface Booking {
   id: number;
   student_id: string;
   student_name?: string; // For mock display
+  student_gender?: 'Male' | 'Female'; // For mock display
   room_id: number;
   academic_term_id: number;
   booking_package_id: number;
@@ -71,6 +73,7 @@ export interface User {
   email?: string;
   full_name?: string;
   role: UserRole;
+  gender?: 'Male' | 'Female';
 }
 
 export interface CmsContent {

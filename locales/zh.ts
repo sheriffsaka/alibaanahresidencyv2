@@ -32,11 +32,15 @@ export const zh = {
   faqA3: '所有住户都可以使用高速 Wi-Fi。根据房型，设施 include 私人或共用浴室。所有学生都可以使用公共区域。',
   faqQ4: '我该如何付款？',
   faqA4: '我们接受通过 Stripe 进行的安全在线支付和直接银行转账。对于银行转账，您需要上传付款证明以供核实。',
+  availabilityOverview: '空房总览',
+  roomsAvailable: '共 {total} 间，可用 {available} 间',
   // Room Card
   roomType: '房间类型',
   pricePerMonth: '每月 {price} 美元起',
   amenities: '便利设施',
   bookNow: '立即预订',
+  fullyBooked: '已订满',
+  unavailable: '无法预订',
   // Booking Page
   bookingTitle: '完成您的预订',
   bookingFor: '预订 {roomType} 房',
@@ -53,6 +57,10 @@ export const zh = {
   uploadProof: '上传付款证明',
   confirmBooking: '确认预订',
   bookingSuccess: '预订成功！',
+  roomUnavailableTitle: '房间不可用',
+  roomBookedMessage: '抱歉，此房间已被其他学生预订。',
+  roomMaintenanceMessage: '此房间目前正在维修中，无法预订。',
+  backToRooms: '返回可用房间列表',
   // Dashboard
   dashboardTitle: '我的预订',
   noBookings: '您没有有效的预订。',

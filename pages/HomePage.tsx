@@ -1,15 +1,16 @@
 
-import React from 'react';
+import React, { useMemo } from 'react';
 import { useTranslation } from '../hooks/useTranslation';
 import RoomCard from '../components/RoomCard';
 import FAQ from '../components/FAQ';
 import { IconMapPin, IconShieldCheck, IconSofa } from '../components/Icon';
 import RoomGallery from '../components/RoomGallery';
 import { useApp } from '../hooks/useApp';
+import { BookingStatus, RoomType } from '../types';
 
 const HomePage: React.FC = () => {
   const t = useTranslation();
-  const { cmsContent, rooms } = useApp();
+  const { cmsContent, rooms, user, bookings } = useApp();
 
   const handleScrollToRooms = () => {
     const roomsSection = document.getElementById('rooms-section');
@@ -17,6 +18,41 @@ const HomePage: React.FC = () => {
       roomsSection.scrollIntoView({ behavior: 'smooth' });
     }
   };
+
+  const occupiedRoomIds = useMemo(() => {
+    const occupiedStatuses = [BookingStatus.CONFIRMED, BookingStatus.OCCUPIED];
+    return new Set(
+        bookings
+            .filter(b => occupiedStatuses.includes(b.status))
+            .map(b => b.room_id)
+    );
+  }, [bookings]);
+
+  const visibleRooms = useMemo(() => {
+    if (user?.role === 'student' && user.gender) {
+      return rooms.filter(room => room.gender_restriction === 'Any' || room.gender_restriction === user.gender);
+    }
+    return rooms;
+  }, [rooms, user]);
+  
+  const availabilitySummary = useMemo(() => {
+    const summary = {
+        [RoomType.SINGLE]: { total: 0, available: 0 },
+        [RoomType.DOUBLE]: { total: 0, available: 0 },
+        [RoomType.SUITE]: { total: 0, available: 0 },
+    };
+
+    visibleRooms.forEach(room => {
+        if (summary[room.type]) {
+            summary[room.type].total++;
+            if (room.is_available && !occupiedRoomIds.has(room.id)) {
+                summary[room.type].available++;
+            }
+        }
+    });
+
+    return Object.entries(summary).filter(([, counts]) => counts.total > 0).map(([type, counts]) => ({ type: type as RoomType, ...counts }));
+  }, [visibleRooms, occupiedRoomIds]);
 
   return (
     <div className="space-y-20">
@@ -46,7 +82,30 @@ const HomePage: React.FC = () => {
 
       {/* Room Gallery Section */}
       <section>
-        <RoomGallery rooms={rooms} />
+        <RoomGallery rooms={visibleRooms} />
+      </section>
+
+      {/* Availability Overview Section */}
+      <section>
+        <div className="text-center mb-12">
+            <h2 className="text-3xl font-bold tracking-tight text-gray-900 dark:text-white sm:text-4xl">{t.availabilityOverview}</h2>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-4xl mx-auto">
+            {availabilitySummary.map(({ type, total, available }) => (
+                <div key={type} className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-lg border border-gray-100 dark:border-gray-700">
+                    <h3 className="text-xl font-bold text-gray-800 dark:text-white">{type} Rooms</h3>
+                    <p className="font-semibold text-blue-600 dark:text-blue-400 my-2 text-2xl">
+                        {t.roomsAvailable.replace('{available}', available.toString()).replace('{total}', total.toString())}
+                    </p>
+                    <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2.5">
+                        <div 
+                            className="bg-blue-600 h-2.5 rounded-full transition-all duration-500" 
+                            style={{ width: `${(available / total) * 100}%` }}
+                        ></div>
+                    </div>
+                </div>
+            ))}
+        </div>
       </section>
 
       {/* Rooms Section */}
@@ -60,8 +119,12 @@ const HomePage: React.FC = () => {
           </p>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-          {rooms.map((room) => (
-              <RoomCard key={room.id} room={room} />
+          {visibleRooms.map((room) => (
+              <RoomCard 
+                key={room.id} 
+                room={room} 
+                isOccupied={!room.is_available || occupiedRoomIds.has(room.id)}
+              />
           ))}
         </div>
       </section>

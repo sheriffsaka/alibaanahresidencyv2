@@ -32,11 +32,15 @@ export const fr = {
   faqA3: 'Tous les résidents ont accès au Wi-Fi haut débit. Selon le type de chambre, les commodités comprennent des salles de bains privées ou partagées. Des espaces communs sont également disponibles pour tous les étudiants.',
   faqQ4: 'Comment puis-je effectuer un paiement ?',
   faqA4: 'Nous acceptons les paiements en ligne sécurisés via Stripe et les virements bancaires directs. Pour les virements bancaires, vous devrez télécharger une preuve de paiement pour vérification.',
+  availabilityOverview: 'Aperçu des disponibilités',
+  roomsAvailable: '{available} sur {total} disponibles',
   // Room Card
   roomType: 'Type de chambre',
   pricePerMonth: 'À partir de {price}/mois',
   amenities: 'Commodités',
   bookNow: 'Réserver maintenant',
+  fullyBooked: 'Complet',
+  unavailable: 'Indisponible',
   // Booking Page
   bookingTitle: 'Finalisez votre réservation',
   bookingFor: 'Réservation pour une chambre {roomType}',
@@ -53,6 +57,10 @@ export const fr = {
   uploadProof: 'Télécharger la preuve',
   confirmBooking: 'Confirmer la réservation',
   bookingSuccess: 'Réservation réussie !',
+  roomUnavailableTitle: 'Chambre non disponible',
+  roomBookedMessage: 'Désolé, cette chambre a déjà été réservée par un autre étudiant.',
+  roomMaintenanceMessage: 'Cette chambre est actuellement en maintenance et ne peut pas être réservée.',
+  backToRooms: 'Retour aux chambres disponibles',
   // Dashboard
   dashboardTitle: 'Mes réservations',
   noBookings: 'Vous n\'avez aucune réservation active.',
@@ -64,7 +72,7 @@ export const fr = {
   receipt: 'Reçu',
   downloadInvoice: 'Télécharger',
   viewInvoice: 'Télécharger la facture / le reçu',
-  recentActivities: 'Activités récentes',
+  recentActivities: 'Activités recentes',
   bookNewAccommodation: 'Réserver un nouveau logement',
   bookNewDescription: 'Trouvez votre prochain logement pour le trimestre à venir.',
   // Admin Dashboard

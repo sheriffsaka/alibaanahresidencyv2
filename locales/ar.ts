@@ -32,11 +32,15 @@ export const ar = {
   faqA3: 'يحصل جميع المقيمين على خدمة الواي فاي عالية السرعة. اعتمادًا على نوع الغرفة، تشمل وسائل الراحة حمامات خاصة أو مشتركة. تتوفر أيضًا مناطق مشتركة لجميع الطلاب.',
   faqQ4: 'كيف يمكنني الدفع؟',
   faqA4: 'نقبل الدفع الآمن عبر الإنترنت عن طريق Stripe والتحويلات البنكية المباشرة. بالنسبة للتحويلات البنكية، ستحتاج إلى تحميل إثبات الدفع للتحقق.',
+  availabilityOverview: 'نظرة عامة على التوافر',
+  roomsAvailable: '{available} من {total} متاح',
   // Room Card
   roomType: 'نوع الغرفة',
   pricePerMonth: 'ابتداءً من {price}/شهر',
   amenities: 'وسائل الراحة',
   bookNow: 'احجز الآن',
+  fullyBooked: 'محجوزة بالكامل',
+  unavailable: 'غير متاح',
   // Booking Page
   bookingTitle: 'أكمل حجزك',
   bookingFor: 'حجز غرفة من نوع {roomType}',
@@ -53,6 +57,10 @@ export const ar = {
   uploadProof: 'تحميل إثبات الدفع',
   confirmBooking: 'تأكيد الحجز',
   bookingSuccess: 'تم الحجز بنجاح!',
+  roomUnavailableTitle: 'الغرفة غير متاحة',
+  roomBookedMessage: 'عذراً، هذه الغرفة قد تم حجزها بالفعل من قبل طالب آخر.',
+  roomMaintenanceMessage: 'هذه الغرفة حالياً تحت الصيانة ولا يمكن حجزها.',
+  backToRooms: 'العودة إلى الغرف المتاحة',
   // Dashboard
   dashboardTitle: 'حجوزاتي',
   noBookings: 'ليس لديك أي حجوزات نشطة.',

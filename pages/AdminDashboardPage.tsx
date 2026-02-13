@@ -2,7 +2,7 @@
 import React, { useState, useMemo, ChangeEvent } from 'react';
 import { useTranslation } from '../hooks/useTranslation';
 import { useApp } from '../hooks/useApp';
-import { BookingStatus, Room, RoomType } from '../types';
+import { Booking, BookingStatus, Room, RoomType, User } from '../types';
 import { IconEdit, IconClose, IconBuilding, IconCheckCircle, IconPlus, IconTrash } from '../components/Icon';
 import BookingStatusBadge from '../components/BookingStatusBadge';
 import RoomEditorModal from '../components/RoomEditorModal';
@@ -11,16 +11,17 @@ import RoomEditorModal from '../components/RoomEditorModal';
 const OccupancyChart = ({ data }: { data: { name: string; value: number }[] }) => {
     const maxValue = Math.max(...data.map(d => d.value), 1);
     const chartHeight = 200;
-    const barWidth = 40;
-    const barMargin = 20;
+    const barWidth = 50;
+    const barMargin = 30;
     const chartWidth = data.length * (barWidth + barMargin);
 
     return (
-        <svg width="100%" height={chartHeight + 40} viewBox={`0 0 ${chartWidth} ${chartHeight + 40}`}>
+        <svg width={chartWidth} height={chartHeight + 40} viewBox={`0 0 ${chartWidth} ${chartHeight + 40}`} aria-label="Occupancy by Room Type Chart">
             {data.map((d, i) => {
                 const barHeight = (d.value / maxValue) * chartHeight;
                 return (
                     <g key={d.name} transform={`translate(${i * (barWidth + barMargin)}, 0)`}>
+                        <title>{`${d.name}: ${d.value} occupied`}</title>
                         <rect 
                             y={chartHeight - barHeight} 
                             width={barWidth} 
@@ -29,7 +30,7 @@ const OccupancyChart = ({ data }: { data: { name: string; value: number }[] }) =
                             rx="4"
                         >
                            <animate attributeName="height" from="0" to={barHeight} dur="0.5s" fill="freeze" begin={`${i * 0.1}s`} />
-                           <animate attributeName="y" from={chartHeight} to={chartHeight-barHeight} dur="0.5s" fill="freeze" begin={`${i * 0.1}s`} />
+                           <animate attributeName="y" from={chartHeight} to={chartHeight - barHeight} dur="0.5s" fill="freeze" begin={`${i * 0.1}s`} />
                         </rect>
                         <text x={barWidth / 2} y={chartHeight - barHeight - 10} textAnchor="middle" className="fill-current text-gray-800 dark:text-white font-bold text-sm">
                             {d.value}
@@ -82,13 +83,20 @@ const AdminDashboardPage: React.FC = () => {
   const [isRoomModalOpen, setIsRoomModalOpen] = useState(false);
   const [selectedRoomForEdit, setSelectedRoomForEdit] = useState<Room | null>(null);
 
+  const visibleBookings = useMemo(() => {
+    if (user?.role === 'staff' && user.gender) {
+        return bookings.filter(b => b.student_gender === user.gender);
+    }
+    return bookings;
+  }, [bookings, user]);
+
   const analytics = useMemo(() => {
-    const occupiedBookings = bookings.filter(b => b.status === BookingStatus.OCCUPIED || b.status === BookingStatus.CONFIRMED);
+    const occupiedBookings = visibleBookings.filter(b => b.status === BookingStatus.OCCUPIED || b.status === BookingStatus.CONFIRMED);
     const occupiedRoomIds = new Set(occupiedBookings.map(b => b.room_id));
     const occupiedRooms = rooms.filter(r => occupiedRoomIds.has(r.id));
     
     return {
-      pendingVerifications: bookings.filter(b => b.status === BookingStatus.PENDING_VERIFICATION),
+      pendingVerifications: visibleBookings.filter(b => b.status === BookingStatus.PENDING_VERIFICATION),
       occupiedRoomIds,
       occupancyByType: [
         { name: 'Single', value: occupiedRooms.filter(r => r.type === RoomType.SINGLE).length },
@@ -100,15 +108,20 @@ const AdminDashboardPage: React.FC = () => {
       totalRooms: rooms.length,
       availableRooms: rooms.length - occupiedRoomIds.size
     };
-  }, [bookings, rooms]);
+  }, [visibleBookings, rooms]);
 
   const filteredRooms = useMemo(() => {
+    // Also filter rooms by admin's gender scope if they are a staff member
+    const visibleRooms = user?.role === 'staff' && user.gender
+        ? rooms.filter(r => r.gender_restriction === 'Any' || r.gender_restriction === user.gender)
+        : rooms;
+
     switch(roomFilter) {
-      case 'occupied': return rooms.filter(r => analytics.occupiedRoomIds.has(r.id));
-      case 'available': return rooms.filter(r => !analytics.occupiedRoomIds.has(r.id));
-      default: return rooms;
+      case 'occupied': return visibleRooms.filter(r => analytics.occupiedRoomIds.has(r.id));
+      case 'available': return visibleRooms.filter(r => !analytics.occupiedRoomIds.has(r.id));
+      default: return visibleRooms;
     }
-  }, [rooms, roomFilter, analytics.occupiedRoomIds]);
+  }, [rooms, roomFilter, analytics.occupiedRoomIds, user]);
 
   const handleApprove = (id: number) => {
     updateBookingStatus(id, BookingStatus.CONFIRMED);
@@ -218,8 +231,10 @@ const AdminDashboardPage: React.FC = () => {
               {/* Occupancy Chart */}
               <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 border border-gray-100 dark:border-gray-700">
                   <h2 className="text-xl font-bold mb-4">{t.occupancyByType}</h2>
-                  <div className="flex justify-center">
-                     <OccupancyChart data={analytics.occupancyByType} />
+                  <div className="overflow-x-auto py-2">
+                     <div className="mx-auto min-w-max">
+                        <OccupancyChart data={analytics.occupancyByType} />
+                     </div>
                   </div>
               </div>
             </>
@@ -288,7 +303,7 @@ const AdminDashboardPage: React.FC = () => {
                         <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase">Room</th>
                         <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase">Status</th>
                     </tr></thead>
-                    <tbody className="divide-y divide-gray-100 dark:divide-gray-700">{bookings.map(booking => (<tr key={booking.id}>
+                    <tbody className="divide-y divide-gray-100 dark:divide-gray-700">{visibleBookings.map(booking => (<tr key={booking.id}>
                         <td className="px-6 py-4 font-bold">{booking.student_name}</td>
                         <td className="px-6 py-4 text-sm font-bold text-blue-600">Room {booking.rooms.room_number}</td>
                         <td className="px-6 py-4"><BookingStatusBadge status={booking.status} /></td>

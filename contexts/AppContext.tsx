@@ -53,7 +53,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         console.warn("Could not fetch user profile:", error.message);
         setUser(null);
       } else if (data) {
-        setUser({ id: data.id, email: supabaseUser.email, full_name: data.full_name, role: data.role });
+        setUser({ id: data.id, email: supabaseUser.email, full_name: data.full_name, role: data.role, gender: data.gender });
       }
     } catch (e) {
       console.error("Profile fetch error:", e);
@@ -65,17 +65,28 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     if (isInitialized.current) return;
     
     try {
-      // 1. Check current session immediately
-      const { data: { session: currentSession } } = await supabase.auth.getSession();
-      setSession(currentSession);
-      
-      if (currentSession?.user) {
-        await fetchUserProfile(currentSession.user);
-      } else {
+      const { data, error } = await supabase.auth.getSession();
+
+      if (error) {
+        // This handles cases like a corrupted token in localStorage.
+        console.warn('Error fetching session:', error.message);
+        // We force a sign-out to clear the invalid session from storage.
+        await supabase.auth.signOut();
+        setSession(null);
         setUser(null);
+      } else {
+        setSession(data.session);
+        if (data.session?.user) {
+          await fetchUserProfile(data.session.user);
+        } else {
+          setUser(null);
+        }
       }
     } catch (err) {
-      console.error("Initialization error:", err);
+      console.error("Critical initialization error:", err);
+      // Fallback in case of unexpected errors
+      setUser(null);
+      setSession(null);
     } finally {
       setLoading(false);
       isInitialized.current = true;

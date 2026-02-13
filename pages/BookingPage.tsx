@@ -1,8 +1,10 @@
 
-import React from 'react';
-import { Room } from '../types';
+import React, { useMemo } from 'react';
+import { BookingStatus, Room } from '../types';
 import { useTranslation } from '../hooks/useTranslation';
 import BookingForm from '../components/BookingForm';
+import { useApp } from '../hooks/useApp';
+import { IconBuilding } from '../components/Icon';
 
 interface BookingPageProps {
   room: Room;
@@ -10,9 +12,34 @@ interface BookingPageProps {
 
 const BookingPage: React.FC<BookingPageProps> = ({ room }) => {
   const t = useTranslation();
+  const { bookings, setPage } = useApp();
+
+  const isOccupied = useMemo(() => {
+    const occupiedStatuses = [BookingStatus.CONFIRMED, BookingStatus.OCCUPIED];
+    return bookings.some(b => b.room_id === room.id && occupiedStatuses.includes(b.status));
+  }, [bookings, room.id]);
+
+  const isUnavailableForMaintenance = !room.is_available;
+  
+  if (isUnavailableForMaintenance || isOccupied) {
+    return (
+        <div className="text-center py-20 animate-fade-in">
+            <IconBuilding className="w-16 h-16 text-red-500 mx-auto mb-4" />
+            <h1 className="text-3xl font-bold text-red-600 dark:text-red-500">{t.roomUnavailableTitle}</h1>
+            <p className="mt-4 text-lg text-gray-600 dark:text-gray-300 max-w-lg mx-auto">
+                {isUnavailableForMaintenance 
+                    ? t.roomMaintenanceMessage
+                    : t.roomBookedMessage}
+            </p>
+            <button onClick={() => setPage('home')} className="mt-8 rounded-md bg-blue-600 px-5 py-3 text-base font-semibold text-white shadow-sm hover:bg-blue-500">
+                {t.backToRooms}
+            </button>
+        </div>
+    );
+  }
 
   return (
-    <div className="max-w-4xl mx-auto">
+    <div className="max-w-4xl mx-auto animate-fade-in">
       <div className="text-center mb-8">
         <h1 className="text-3xl font-bold text-gray-900 dark:text-white sm:text-4xl">
           {t.bookingTitle}

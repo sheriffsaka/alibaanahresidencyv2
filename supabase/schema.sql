@@ -1,3 +1,4 @@
+
 -- Phase 1: Supabase Database Schema (Idempotent Version)
 -- Automated Student Residency Management System for Al-Ibaanah
 
@@ -50,6 +51,7 @@ CREATE TABLE rooms (
     amenities TEXT[],
     image_urls TEXT[],
     is_available BOOLEAN DEFAULT true,
+    gender_restriction TEXT NOT NULL DEFAULT 'Any' CHECK (gender_restriction IN ('Male', 'Female', 'Any')),
     created_at TIMESTAMPTZ DEFAULT now(),
     UNIQUE(property_id, room_number)
 );
@@ -59,6 +61,7 @@ CREATE TABLE profiles (
     id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
     full_name VARCHAR(255),
     role user_role NOT NULL DEFAULT 'student',
+    gender TEXT CHECK (gender IN ('Male', 'Female')),
     property_id UUID REFERENCES properties(id),
     language_preference VARCHAR(5) DEFAULT 'en',
     updated_at TIMESTAMPTZ DEFAULT now()
@@ -157,8 +160,8 @@ BEFORE UPDATE ON payments FOR EACH ROW EXECUTE FUNCTION trigger_set_timestamp();
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS TRIGGER AS $$
 BEGIN
-  INSERT INTO public.profiles (id, full_name, role)
-  VALUES (NEW.id, NEW.raw_user_meta_data->>'full_name', 'student');
+  INSERT INTO public.profiles (id, full_name, role, gender)
+  VALUES (NEW.id, NEW.raw_user_meta_data->>'full_name', 'student', NEW.raw_user_meta_data->>'gender');
   RETURN NEW;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
@@ -206,11 +209,12 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 INSERT INTO properties (name, logo_url, primary_color) VALUES ('Al-Ibaanah Student Residence', 'https://res.cloudinary.com/di7okmjsx/image/upload/v1769972834/alibaanahlogo_gw0pef.png', '#007BFF');
 
 -- Seed Rooms
-INSERT INTO rooms (property_id, room_number, type, price_per_month, amenities, image_urls)
+INSERT INTO rooms (property_id, room_number, type, price_per_month, amenities, image_urls, gender_restriction)
 VALUES
-    ((SELECT id FROM properties LIMIT 1), '101A', 'Single', 350.00, '{"Private Bathroom", "Air Conditioning", "High-Speed Wi-Fi"}', '{"https://res.cloudinary.com/di7okmjsx/image/upload/v1770401824/single-room_j0n7nd.jpg"}'),
-    ((SELECT id FROM properties LIMIT 1), '202B', 'Double', 250.00, '{"Shared Bathroom", "Air Conditioning", "High-Speed Wi-Fi"}', '{"https://res.cloudinary.com/di7okmjsx/image/upload/v1770401822/double-room_r89q0p.jpg"}'),
-    ((SELECT id FROM properties LIMIT 1), '301C', 'Suite', 500.00, '{"Private Bathroom", "Kitchenette", "Living Area", "Air Conditioning", "High-Speed Wi-Fi"}', '{"https://res.cloudinary.com/di7okmjsx/image/upload/v1770401822/suite-room_qzlhcl.jpg"}');
+    ((SELECT id FROM properties LIMIT 1), '101A', 'Single', 350.00, '{"Private Bathroom", "Air Conditioning", "High-Speed Wi-Fi"}', '{"https://res.cloudinary.com/di7okmjsx/image/upload/v1770401824/single-room_j0n7nd.jpg"}', 'Male'),
+    ((SELECT id FROM properties LIMIT 1), '102A', 'Single', 350.00, '{"Private Bathroom", "Air Conditioning", "High-Speed Wi-Fi"}', '{"https://res.cloudinary.com/di7okmjsx/image/upload/v1770401824/single-room_j0n7nd.jpg"}', 'Female'),
+    ((SELECT id FROM properties LIMIT 1), '202B', 'Double', 250.00, '{"Shared Bathroom", "Air Conditioning", "High-Speed Wi-Fi"}', '{"https://res.cloudinary.com/di7okmjsx/image/upload/v1770401822/double-room_r89q0p.jpg"}', 'Male'),
+    ((SELECT id FROM properties LIMIT 1), '301C', 'Suite', 500.00, '{"Private Bathroom", "Kitchenette", "Living Area", "Air Conditioning", "High-Speed Wi-Fi"}', '{"https://res.cloudinary.com/di7okmjsx/image/upload/v1770401822/suite-room_qzlhcl.jpg"}', 'Any');
 
 -- Seed Academic Terms
 INSERT INTO academic_terms (property_id, term_name, start_date, end_date)
