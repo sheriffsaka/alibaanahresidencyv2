@@ -1,7 +1,8 @@
 
-import React, { createContext, useState, ReactNode, useCallback, useEffect } from 'react';
+import React, { createContext, useState, ReactNode, useCallback, useEffect, useRef } from 'react';
 import { AppContextType, Language, Page, User, Room, Booking, BookingStatus, CmsContent, Activity, AcademicTerm, BookingPackage } from '../types';
 import { supabase } from '../lib/supabaseClient';
+import { Session } from '@supabase/supabase-js';
 
 export const AppContext = createContext<AppContextType | undefined>(undefined);
 
@@ -32,9 +33,10 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const [language, setLanguage] = useState<Language>('en');
   const [page, setPageState] = useState<Page>('home');
   const [user, setUser] = useState<User | null>(null);
-  const [session, setSession] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
+  const [session, setSession] = useState<Session | null>(null);
+  const [loading, setLoading] = useState(true); // This state is now ONLY for the very first app load.
   const [selectedRoom, setSelectedRoom] = useState<Room | null>(null);
+  const isInitialized = useRef(false);
   
   // App data state
   const [bookings, setBookings] = useState<Booking[]>([]);
@@ -44,92 +46,81 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const [cmsContent, setCmsContent] = useState<CmsContent>(INITIAL_CMS);
   const [activities, setActivities] = useState<Activity[]>(MOCK_ACTIVITIES);
 
+  const updateUserSession = useCallback(async (session: Session | null) => {
+    setSession(session);
+
+    if (session?.user) {
+        const { data: profile, error: profileError } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('id', session.user.id)
+            .single();
+
+        if (profileError) {
+            console.warn("Could not fetch user profile:", profileError.message);
+            setUser(null);
+            setBookings([]);
+        } else {
+            const loggedInUser = { id: profile.id, email: session.user.email, full_name: profile.full_name, role: profile.role, gender: profile.gender };
+            setUser(loggedInUser);
+
+            const { data: bookingsData, error: bookingsError } = await supabase
+                .from('bookings')
+                .select('*, rooms(room_number, type), profiles:student_id(full_name)');
+
+            if (bookingsError) {
+                console.error("Error fetching bookings:", bookingsError.message);
+                setBookings([]);
+            } else {
+                const mappedBookings = bookingsData.map((b: any) => ({
+                    ...b,
+                    student_name: b.profiles?.full_name,
+                }));
+                setBookings(mappedBookings || []);
+            }
+        }
+    } else {
+      setUser(null);
+      setBookings([]);
+    }
+  }, []);
+
   useEffect(() => {
-    // This effect handles all initialization and auth changes.
-    
-    // Fetch public data that everyone can see
+    // Fetch public data that everyone can see. This runs once on mount.
     const fetchPublicData = async () => {
         const [roomsRes, termsRes, packagesRes] = await Promise.all([
             supabase.from('rooms').select('*'),
             supabase.from('academic_terms').select('*').eq('is_active', true),
             supabase.from('booking_packages').select('*').eq('is_active', true)
         ]);
-
         if (roomsRes.error) console.error('Error fetching rooms:', roomsRes.error);
         else setRooms(roomsRes.data || []);
-
         if (termsRes.error) console.error('Error fetching academic terms:', termsRes.error);
         else setAcademicTerms(termsRes.data || []);
-
         if (packagesRes.error) console.error('Error fetching booking packages:', packagesRes.error);
         else setBookingPackages(packagesRes.data || []);
     };
     fetchPublicData();
 
-    // Set up the authentication state change listener
+    // Set up the single source of truth for auth state.
+    // onAuthStateChange fires with the initial session, and on every subsequent change.
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (_event, session) => {
-        try {
-          setLoading(true);
-          setSession(session);
+        await updateUserSession(session);
 
-          if (session?.user) {
-              const { data: profile, error: profileError } = await supabase
-                  .from('profiles')
-                  .select('*')
-                  .eq('id', session.user.id)
-                  .single();
-
-              if (profileError) {
-                  console.warn("Could not fetch user profile:", profileError.message);
-                  setUser(null);
-                  setBookings([]);
-              } else {
-                  const loggedInUser = { id: profile.id, email: session.user.email, full_name: profile.full_name, role: profile.role, gender: profile.gender };
-                  setUser(loggedInUser);
-
-                  const { data: bookingsData, error: bookingsError } = await supabase
-                      .from('bookings')
-                      .select('*, rooms(room_number, type), profiles(full_name, gender)');
-
-                  if (bookingsError) {
-                      console.error("Error fetching bookings:", bookingsError.message);
-                      setBookings([]);
-                  } else {
-                      const mappedBookings = bookingsData.map((b: any) => ({
-                          ...b,
-                          student_name: b.profiles?.full_name,
-                          student_gender: b.profiles?.gender,
-                      }));
-                      setBookings(mappedBookings || []);
-                  }
-              }
-          } else {
-            setUser(null);
-            setBookings([]);
-          }
-        } catch (e) {
-            console.error("An unexpected error occurred during auth state change:", e);
-            setUser(null);
-            setBookings([]);
-        } finally {
-            // CRITICAL: This guarantees the loading screen will be removed, fixing the bug.
+        // On the very first auth event (INITIAL_SESSION), dismiss the loading screen.
+        // The ref ensures this only happens once.
+        if (!isInitialized.current) {
             setLoading(false);
+            isInitialized.current = true;
         }
       }
     );
 
-    // Final check for initial load without a session.
-    supabase.auth.getSession().then(({ data: { session } }) => {
-        if (!session) {
-            setLoading(false);
-        }
-    });
-
     return () => {
       subscription?.unsubscribe();
     };
-  }, []);
+  }, [updateUserSession]);
 
   const setPage = useCallback((page: Page, room?: Room) => {
     setPageState(page);
@@ -187,6 +178,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   };
 
   if (loading) {
+      // This will now only appear on the very first application load.
       return (
         <div className="flex items-center justify-center min-h-screen bg-gray-50 dark:bg-gray-900">
           <div className="text-center">

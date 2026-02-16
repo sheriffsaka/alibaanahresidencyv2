@@ -28,7 +28,7 @@ CREATE EXTENSION IF NOT EXISTS btree_gist;
 -- Create custom types (enums) for structured data
 CREATE TYPE user_role AS ENUM ('student', 'staff', 'proprietor');
 CREATE TYPE room_type AS ENUM ('Single', 'Double', 'Suite');
-CREATE TYPE booking_status AS ENUM ('Reserved', 'Pending Payment', 'Confirmed', 'Occupied', 'Completed', 'Cancelled', 'Maintenance');
+CREATE TYPE booking_status AS ENUM ('Reserved', 'Pending Payment', 'Pending Verification', 'Confirmed', 'Occupied', 'Completed', 'Cancelled', 'Maintenance');
 CREATE TYPE payment_method AS ENUM ('Online', 'Bank Transfer');
 CREATE TYPE payment_status AS ENUM ('Pending', 'Succeeded', 'Failed', 'Pending Verification');
 

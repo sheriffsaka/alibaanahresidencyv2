@@ -84,11 +84,10 @@ const AdminDashboardPage: React.FC = () => {
   const [selectedRoomForEdit, setSelectedRoomForEdit] = useState<Room | null>(null);
 
   const visibleBookings = useMemo(() => {
-    if (user?.role === 'staff' && user.gender) {
-        return bookings.filter(b => b.student_gender === user.gender);
-    }
+    // The `bookings` array from context is already filtered by RLS policies
+    // for staff users, so no additional client-side filtering is needed.
     return bookings;
-  }, [bookings, user]);
+  }, [bookings]);
 
   const analytics = useMemo(() => {
     const occupiedBookings = visibleBookings.filter(b => b.status === BookingStatus.OCCUPIED || b.status === BookingStatus.CONFIRMED);

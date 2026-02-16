@@ -42,7 +42,6 @@ export interface Booking {
   id: number;
   student_id: string;
   student_name?: string; // For mock display
-  student_gender?: 'Male' | 'Female'; // For mock display
   room_id: number;
   academic_term_id: number;
   booking_package_id: number;
