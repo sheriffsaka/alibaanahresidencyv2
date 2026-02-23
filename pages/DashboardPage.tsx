@@ -6,14 +6,46 @@ import { Booking, BookingStatus } from '../types';
 import { useApp } from '../hooks/useApp';
 import InvoiceView from '../components/InvoiceView';
 import { IconBuilding } from '../components/Icon';
+import ContractSigningModal from '../components/ContractSigningModal';
+import { supabase } from '../lib/supabaseClient';
 
 const DashboardPage: React.FC = () => {
   const t = useTranslation();
-  const { user, bookings, activities, setPage } = useApp();
+  const { user, bookings, activities, setPage, cmsContent, addActivity } = useApp();
   const [selectedInvoice, setSelectedInvoice] = useState<Booking | null>(null);
+  const [signingBooking, setSigningBooking] = useState<Booking | null>(null);
   
   const userBookings = bookings.filter(b => b.student_id === user?.id);
   const userActivities = activities.filter(a => a.user_id === user?.id).slice(0, 5);
+
+  const handleSignContract = async (signatureData: string) => {
+    if (!signingBooking) return;
+
+    try {
+      const { error } = await supabase
+        .from('bookings')
+        .update({
+          signature_data: signatureData,
+          contract_signed_at: new Date().toISOString()
+        })
+        .eq('id', signingBooking.id);
+
+      if (error) throw error;
+
+      addActivity({
+        user_id: user!.id,
+        type: 'system',
+        description: `Signed residency agreement for BK${signingBooking.id}`,
+        timestamp: new Date().toISOString()
+      });
+
+      alert("Contract signed successfully!");
+      setSigningBooking(null);
+      // In a real app, we'd refresh the bookings list here
+    } catch (error: any) {
+      alert(`Failed to sign contract: ${error.message}`);
+    }
+  };
 
   return (
     <div className="animate-fade-in space-y-10">
@@ -58,16 +90,25 @@ const DashboardPage: React.FC = () => {
                           <BookingStatusBadge status={booking.status} />
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                            <div className="flex space-x-3 rtl:space-x-reverse">
+                            <div className="flex flex-col space-y-2">
                                 {booking.status === BookingStatus.CONFIRMED || booking.status === BookingStatus.OCCUPIED ? (
                                     <button 
                                       onClick={() => setSelectedInvoice(booking)}
-                                      className="text-blue-600 hover:text-blue-800 dark:text-blue-400 text-xs font-bold underline decoration-dotted"
+                                      className="text-blue-600 hover:text-blue-800 dark:text-blue-400 text-xs font-bold underline decoration-dotted text-left"
                                     >
                                       {t.viewInvoice}
                                     </button>
                                 ) : (
                                     <span className="text-gray-400 text-xs italic">Awaiting Conf.</span>
+                                )}
+                                
+                                {booking.status === BookingStatus.PENDING_VERIFICATION && !booking.contract_signed_at && (
+                                  <button 
+                                    onClick={() => setSigningBooking(booking)}
+                                    className="text-purple-600 hover:text-purple-800 dark:text-purple-400 text-xs font-bold underline decoration-dotted text-left"
+                                  >
+                                    {t.signContract}
+                                  </button>
                                 )}
                             </div>
                         </td>
@@ -124,6 +165,14 @@ const DashboardPage: React.FC = () => {
           booking={selectedInvoice} 
           onClose={() => setSelectedInvoice(null)} 
           isReceipt={selectedInvoice.status === BookingStatus.CONFIRMED || selectedInvoice.status === BookingStatus.OCCUPIED} 
+        />
+      )}
+      {/* Contract Signing Modal */}
+      {signingBooking && (
+        <ContractSigningModal 
+          contractText={cmsContent.contractTemplates[signingBooking.contract_language || 'en']}
+          onSign={handleSignContract}
+          onClose={() => setSigningBooking(null)}
         />
       )}
     </div>

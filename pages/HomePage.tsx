@@ -6,11 +6,15 @@ import FAQ from '../components/FAQ';
 import { IconMapPin, IconShieldCheck, IconSofa } from '../components/Icon';
 import RoomGallery from '../components/RoomGallery';
 import { useApp } from '../hooks/useApp';
-import { BookingStatus, RoomType } from '../types';
+import { BookingStatus, AccommodationType } from '../types';
 
 const HomePage: React.FC = () => {
   const t = useTranslation();
-  const { cmsContent, rooms, user, bookings } = useApp();
+  const { cmsContent, rooms, user, bookings, language } = useApp();
+
+  const currentHero = cmsContent.hero[language] || cmsContent.hero['en']!;
+  const currentFeatures = cmsContent.features[language] || cmsContent.features['en']!;
+  const currentFaqs = cmsContent.faqs[language] || cmsContent.faqs['en']!;
 
   const handleScrollToRooms = () => {
     const roomsSection = document.getElementById('rooms-section');
@@ -36,22 +40,19 @@ const HomePage: React.FC = () => {
   }, [rooms, user]);
   
   const availabilitySummary = useMemo(() => {
-    const summary = {
-        [RoomType.SINGLE]: { total: 0, available: 0 },
-        [RoomType.DOUBLE]: { total: 0, available: 0 },
-        [RoomType.SUITE]: { total: 0, available: 0 },
-    };
+    const summary: { [key in AccommodationType]?: { total: number, available: number } } = {};
 
     visibleRooms.forEach(room => {
-        if (summary[room.type]) {
-            summary[room.type].total++;
-            if (room.is_available && !occupiedRoomIds.has(room.id)) {
-                summary[room.type].available++;
-            }
+        if (!summary[room.type]) {
+            summary[room.type] = { total: 0, available: 0 };
+        }
+        summary[room.type]!.total++;
+        if (room.is_available && !occupiedRoomIds.has(room.id)) {
+            summary[room.type]!.available++;
         }
     });
 
-    return Object.entries(summary).filter(([, counts]) => counts.total > 0).map(([type, counts]) => ({ type: type as RoomType, ...counts }));
+    return Object.entries(summary).map(([type, counts]) => ({ type: type as AccommodationType, ...counts! }));
   }, [visibleRooms, occupiedRoomIds]);
 
   return (
@@ -64,10 +65,10 @@ const HomePage: React.FC = () => {
         </div>
         <div className="relative container mx-auto px-4 sm:px-6 lg:px-8 py-32 sm:py-48 lg:py-64 text-center">
           <h1 className="text-4xl font-bold tracking-tight text-white sm:text-5xl lg:text-6xl">
-            {cmsContent.heroTitle}
+            {currentHero.title}
           </h1>
           <p className="mt-6 max-w-2xl mx-auto text-lg leading-8 text-gray-200">
-            {cmsContent.heroSubtitle}
+            {currentHero.subtitle}
           </p>
           <div className="mt-10">
             <button
@@ -135,7 +136,7 @@ const HomePage: React.FC = () => {
             <h2 className="text-3xl font-bold tracking-tight text-gray-900 dark:text-white sm:text-4xl">{t.whyChooseUsTitle}</h2>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8 text-center">
-            {cmsContent.features.map((feat, idx) => (
+            {currentFeatures.map((feat, idx) => (
               <div key={feat.id} className="flex flex-col items-center">
                   <div className="flex items-center justify-center h-16 w-16 rounded-full bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-300 mb-4 shadow-sm">
                       {idx === 0 && <IconMapPin className="h-8 w-8" />}
@@ -150,7 +151,7 @@ const HomePage: React.FC = () => {
       </section>
 
       <section>
-          <FAQ faqs={cmsContent.faqs} />
+          <FAQ faqs={currentFaqs} />
       </section>
     </div>
   );

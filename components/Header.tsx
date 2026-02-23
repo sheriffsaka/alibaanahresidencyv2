@@ -6,7 +6,7 @@ import LanguageSwitcher from './LanguageSwitcher';
 import { supabase } from '../lib/supabaseClient';
 
 const Header: React.FC = () => {
-  const { user, setPage } = useApp();
+  const { user, setPage, cmsContent } = useApp();
   const t = useTranslation();
 
   const handleLogout = async () => {
@@ -28,7 +28,7 @@ const Header: React.FC = () => {
         <div className="flex items-center justify-between h-16">
           <div className="flex items-center">
             <button onClick={() => setPage('home')} className="flex items-center">
-               <img src="https://res.cloudinary.com/di7okmjsx/image/upload/v1769972834/alibaanahlogo_gw0pef.png" alt={t.brand} className="h-12" />
+               <img src={cmsContent.logoUrl} alt={t.brand} className="h-12" />
             </button>
           </div>
           <div className="flex items-center space-x-4 rtl:space-x-reverse">

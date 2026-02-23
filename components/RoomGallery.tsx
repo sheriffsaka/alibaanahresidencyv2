@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { useTranslation } from '../hooks/useTranslation';
-import { Room, RoomType } from '../types';
+import { Room, AccommodationType } from '../types';
 
 interface RoomGalleryProps {
     rooms: Room[];
@@ -11,9 +11,9 @@ const RoomGallery: React.FC<RoomGalleryProps> = ({ rooms }) => {
     const t = useTranslation();
 
     const galleryRooms = [
-        rooms.find(r => r.type === RoomType.SINGLE),
-        rooms.find(r => r.type === RoomType.DOUBLE),
-        rooms.find(r => r.type === RoomType.SUITE),
+        rooms.find(r => r.type === AccommodationType.STANDARD_SHARED),
+        rooms.find(r => r.type === AccommodationType.STANDARD_PRIVATE),
+        rooms.find(r => r.type === AccommodationType.PREMIUM_PRIVATE),
     ].filter((r): r is Room => !!r); // Type guard to filter out undefined
 
     return (

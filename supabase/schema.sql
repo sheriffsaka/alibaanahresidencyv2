@@ -2,7 +2,8 @@
 -- Phase 1: Supabase Database Schema (Idempotent Version)
 -- Automated Student Residency Management System for Al-Ibaanah
 
--- Drop existing objects in reverse order of dependency to avoid errors
+-- Drop existing objects in reverse order of dependency
+DROP TABLE IF EXISTS cms_content CASCADE;
 DROP TABLE IF EXISTS admin_audit_log CASCADE;
 DROP TABLE IF EXISTS invoices CASCADE;
 DROP TABLE IF EXISTS payments CASCADE;
@@ -13,24 +14,14 @@ DROP TABLE IF EXISTS profiles CASCADE;
 DROP TABLE IF EXISTS rooms CASCADE;
 DROP TABLE IF EXISTS properties CASCADE;
 
-DROP TYPE IF EXISTS payment_status CASCADE;
-DROP TYPE IF EXISTS payment_method CASCADE;
 DROP TYPE IF EXISTS booking_status CASCADE;
-DROP TYPE IF EXISTS room_type CASCADE;
+DROP TYPE IF EXISTS accommodation_type CASCADE;
 DROP TYPE IF EXISTS user_role CASCADE;
 
-DROP FUNCTION IF EXISTS handle_new_user() CASCADE;
-DROP FUNCTION IF EXISTS trigger_set_timestamp() CASCADE;
-
--- Enable necessary extensions
-CREATE EXTENSION IF NOT EXISTS btree_gist;
-
--- Create custom types (enums) for structured data
+-- Create custom types (enums)
 CREATE TYPE user_role AS ENUM ('student', 'staff', 'proprietor');
-CREATE TYPE room_type AS ENUM ('Single', 'Double', 'Suite');
+CREATE TYPE accommodation_type AS ENUM ('Standard Shared', 'Standard Private', 'Premium Shared', 'Premium Private');
 CREATE TYPE booking_status AS ENUM ('Reserved', 'Pending Payment', 'Pending Verification', 'Confirmed', 'Occupied', 'Completed', 'Cancelled', 'Maintenance');
-CREATE TYPE payment_method AS ENUM ('Online', 'Bank Transfer');
-CREATE TYPE payment_status AS ENUM ('Pending', 'Succeeded', 'Failed', 'Pending Verification');
 
 -- 1. Properties Table
 CREATE TABLE properties (
@@ -46,10 +37,11 @@ CREATE TABLE rooms (
     id SERIAL PRIMARY KEY,
     property_id UUID NOT NULL REFERENCES properties(id),
     room_number VARCHAR(10) NOT NULL,
-    type room_type NOT NULL,
+    type accommodation_type NOT NULL,
     price_per_month NUMERIC(10, 2) NOT NULL,
     amenities TEXT[],
     image_urls TEXT[],
+    video_urls TEXT[],
     is_available BOOLEAN DEFAULT true,
     gender_restriction TEXT NOT NULL DEFAULT 'Any' CHECK (gender_restriction IN ('Male', 'Female', 'Any')),
     created_at TIMESTAMPTZ DEFAULT now(),
@@ -92,44 +84,48 @@ CREATE TABLE bookings (
     id BIGSERIAL PRIMARY KEY,
     student_id UUID NOT NULL REFERENCES profiles(id),
     room_id INT NOT NULL REFERENCES rooms(id),
-    academic_term_id INT NOT NULL REFERENCES academic_terms(id),
-    booking_package_id INT NOT NULL REFERENCES booking_packages(id),
     start_date DATE NOT NULL,
     end_date DATE NOT NULL,
-    status booking_status NOT NULL DEFAULT 'Reserved',
-    total_price NUMERIC(10, 2) NOT NULL,
+    status booking_status NOT NULL DEFAULT 'Pending Verification',
     booked_at TIMESTAMPTZ DEFAULT now(),
+    
+    -- New detailed student information
+    full_name VARCHAR(255) NOT NULL,
+    nationality VARCHAR(100) NOT NULL,
+    passport_number VARCHAR(50) NOT NULL,
+    passport_copy_url TEXT NOT NULL,
+    email VARCHAR(255) NOT NULL,
+    phone_number VARCHAR(50) NOT NULL,
+    expected_arrival_date DATE NOT NULL,
+    duration_of_stay VARCHAR(100) NOT NULL,
+    preferred_accommodation accommodation_type NOT NULL,
+    emergency_contact_details TEXT NOT NULL,
+    address_in_egypt TEXT,
+
+    -- Contract and Signature
+    contract_language VARCHAR(5) DEFAULT 'en',
+    contract_signed_at TIMESTAMPTZ,
+    signature_data TEXT, -- Base64 or SVG
+
     checked_in_at TIMESTAMPTZ,
-    checked_out_at TIMESTAMPTZ,
-    CONSTRAINT no_double_booking EXCLUDE USING gist (
-        room_id WITH =,
-        daterange(start_date, end_date) WITH &&
-    )
+    checked_out_at TIMESTAMPTZ
 );
 
--- 7. Payments Table
-CREATE TABLE payments (
-    id BIGSERIAL PRIMARY KEY,
-    booking_id BIGINT NOT NULL REFERENCES bookings(id),
-    amount NUMERIC(10, 2) NOT NULL,
-    method payment_method NOT NULL,
-    status payment_status NOT NULL DEFAULT 'Pending',
-    provider_transaction_id TEXT,
-    payment_proof_url TEXT,
-    created_at TIMESTAMPTZ DEFAULT now(),
+-- 7. CMS Content Table
+CREATE TABLE cms_content (
+    id SERIAL PRIMARY KEY,
+    property_id UUID NOT NULL REFERENCES properties(id),
+    logo_url TEXT,
+    hero_title TEXT,
+    hero_subtitle TEXT,
+    hero_image_url TEXT,
+    features JSONB,
+    faqs JSONB,
+    contract_templates JSONB,
     updated_at TIMESTAMPTZ DEFAULT now()
 );
 
--- 8. Invoices Table
-CREATE TABLE invoices (
-    id BIGSERIAL PRIMARY KEY,
-    payment_id BIGINT NOT NULL REFERENCES payments(id),
-    invoice_pdf_url TEXT NOT NULL,
-    invoice_number TEXT NOT NULL UNIQUE,
-    issued_at TIMESTAMPTZ DEFAULT now()
-);
-
--- 9. Admin Audit Log Table
+-- 8. Admin Audit Log Table
 CREATE TABLE admin_audit_log (
     id BIGSERIAL PRIMARY KEY,
     user_id UUID NOT NULL REFERENCES profiles(id),
@@ -154,8 +150,6 @@ $$ LANGUAGE plpgsql;
 
 CREATE TRIGGER set_timestamp
 BEFORE UPDATE ON profiles FOR EACH ROW EXECUTE FUNCTION trigger_set_timestamp();
-CREATE TRIGGER set_timestamp
-BEFORE UPDATE ON payments FOR EACH ROW EXECUTE FUNCTION trigger_set_timestamp();
 
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS TRIGGER AS $$
@@ -169,62 +163,39 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 CREATE TRIGGER on_auth_user_created
 AFTER INSERT ON auth.users FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
 
--- Database Function for creating bookings transactionally
-CREATE OR REPLACE FUNCTION create_booking_and_payment(
-    p_student_id UUID,
-    p_room_id INT,
-    p_academic_term_id INT,
-    p_booking_package_id INT,
-    p_start_date DATE,
-    p_end_date DATE,
-    p_total_price NUMERIC,
-    p_payment_method payment_method
-)
-RETURNS JSONB AS $$
-DECLARE
-    new_booking_id BIGINT;
-    new_payment_id BIGINT;
-    result JSONB;
-BEGIN
-    INSERT INTO public.bookings (student_id, room_id, academic_term_id, booking_package_id, start_date, end_date, total_price, status)
-    VALUES (p_student_id, p_room_id, p_academic_term_id, p_booking_package_id, p_start_date, p_end_date, p_total_price, 'Pending Payment')
-    RETURNING id INTO new_booking_id;
-
-    INSERT INTO public.payments (booking_id, amount, method, status)
-    VALUES (new_booking_id, p_total_price, p_payment_method, 'Pending')
-    RETURNING id INTO new_payment_id;
-
-    result := jsonb_build_object(
-        'booking_id', new_booking_id,
-        'payment_id', new_payment_id
-    );
-
-    RETURN result;
-END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
-
 --- SEED DATA ---
 
 -- Seed Properties
-INSERT INTO properties (name, logo_url, primary_color) VALUES ('Al-Ibaanah Student Residence', 'https://res.cloudinary.com/di7okmjsx/image/upload/v1769972834/alibaanahlogo_gw0pef.png', '#007BFF');
+INSERT INTO properties (name, logo_url, primary_color) VALUES ('Al-Ibaanah Student Residence', 'https://res.cloudinary.com/di7okmjsx/image/upload/v1740321960/al-ibaanah-logo_new.png', '#007BFF');
 
 -- Seed Rooms
-INSERT INTO rooms (property_id, room_number, type, price_per_month, amenities, image_urls, gender_restriction)
+INSERT INTO rooms (property_id, room_number, type, price_per_month, amenities, image_urls, video_urls, gender_restriction)
 VALUES
-    ((SELECT id FROM properties LIMIT 1), '101A', 'Single', 350.00, '{"Private Bathroom", "Air Conditioning", "High-Speed Wi-Fi"}', '{"https://res.cloudinary.com/di7okmjsx/image/upload/v1770401824/single-room_j0n7nd.jpg"}', 'Male'),
-    ((SELECT id FROM properties LIMIT 1), '102A', 'Single', 350.00, '{"Private Bathroom", "Air Conditioning", "High-Speed Wi-Fi"}', '{"https://res.cloudinary.com/di7okmjsx/image/upload/v1770401824/single-room_j0n7nd.jpg"}', 'Female'),
-    ((SELECT id FROM properties LIMIT 1), '202B', 'Double', 250.00, '{"Shared Bathroom", "Air Conditioning", "High-Speed Wi-Fi"}', '{"https://res.cloudinary.com/di7okmjsx/image/upload/v1770401822/double-room_r89q0p.jpg"}', 'Male'),
-    ((SELECT id FROM properties LIMIT 1), '301C', 'Suite', 500.00, '{"Private Bathroom", "Kitchenette", "Living Area", "Air Conditioning", "High-Speed Wi-Fi"}', '{"https://res.cloudinary.com/di7okmjsx/image/upload/v1770401822/suite-room_qzlhcl.jpg"}', 'Any');
+    ((SELECT id FROM properties LIMIT 1), '101A', 'Standard Shared', 250.00, '{"Shared Bathroom", "Air Conditioning", "High-Speed Wi-Fi"}', '{"https://res.cloudinary.com/di7okmjsx/image/upload/v1770401824/single-room_j0n7nd.jpg"}', '{"https://example.com/video1.mp4"}', 'Male'),
+    ((SELECT id FROM properties LIMIT 1), '102A', 'Standard Private', 350.00, '{"Private Bathroom", "Air Conditioning", "High-Speed Wi-Fi"}', '{"https://res.cloudinary.com/di7okmjsx/image/upload/v1770401824/single-room_j0n7nd.jpg"}', '{"https://example.com/video2.mp4"}', 'Female'),
+    ((SELECT id FROM properties LIMIT 1), '202B', 'Premium Shared', 400.00, '{"Shared Bathroom", "Premium Furnishing", "Air Conditioning", "High-Speed Wi-Fi"}', '{"https://res.cloudinary.com/di7okmjsx/image/upload/v1770401822/double-room_r89q0p.jpg"}', '{"https://example.com/video3.mp4"}', 'Male'),
+    ((SELECT id FROM properties LIMIT 1), '301C', 'Premium Private', 600.00, '{"Private Bathroom", "Kitchenette", "Living Area", "Premium Furnishing", "Air Conditioning", "High-Speed Wi-Fi"}', '{"https://res.cloudinary.com/di7okmjsx/image/upload/v1770401822/suite-room_qzlhcl.jpg"}', '{"https://example.com/video4.mp4"}', 'Any');
 
--- Seed Academic Terms
-INSERT INTO academic_terms (property_id, term_name, start_date, end_date)
-VALUES
-    ((SELECT id FROM properties LIMIT 1), 'Fall 2024', '2024-09-01', '2024-12-20'),
-    ((SELECT id FROM properties LIMIT 1), 'Spring 2025', '2025-01-15', '2025-05-10');
-
--- Seed Booking Packages
-INSERT INTO booking_packages (property_id, duration_months, discount_percentage, description)
-VALUES
-    ((SELECT id FROM properties LIMIT 1), 3, 0.00, 'Standard 3-month term stay.'),
-    ((SELECT id FROM properties LIMIT 1), 6, 5.00, 'Save 5% with a 6-month booking.'),
-    ((SELECT id FROM properties LIMIT 1), 12, 10.00, 'Best value! Save 10% for a full year.');
+-- Seed CMS Content
+INSERT INTO cms_content (property_id, logo_url, hero_title, hero_subtitle, hero_image_url, features, faqs, contract_templates)
+VALUES (
+    (SELECT id FROM properties LIMIT 1),
+    'https://res.cloudinary.com/di7okmjsx/image/upload/v1740321960/al-ibaanah-logo_new.png',
+    'Your Home for Knowledge and Comfort',
+    'Secure, comfortable, and studious living, just moments away from the Al-Ibaanah Arabic Center.',
+    'https://res.cloudinary.com/di7okmjsx/image/upload/v1770400290/heroalibaanah_ghqtok.jpg',
+    '[
+        {"id": 1, "title": "Prime Location", "desc": "Located minutes from campus, making your commute to classes quick and easy."},
+        {"id": 2, "title": "Fully Furnished", "desc": "Our rooms come equipped with all the essentials for a comfortable and productive stay."},
+        {"id": 3, "title": "Safe & Secure", "desc": "24/7 security and a supportive environment, so you can focus on your studies with peace of mind."}
+    ]',
+    '[
+        {"id": 1, "q": "What booking packages are available?", "a": "We offer flexible booking packages for 3, 6 and 12 months."},
+        {"id": 2, "q": "Are the rooms furnished?", "a": "Yes, all our rooms are fully furnished."}
+    ]',
+    '{
+        "en": "This is the English contract...",
+        "fr": "Ceci est le contrat français...",
+        "ru": "Это русский контракт..."
+    }'
+);

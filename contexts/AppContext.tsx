@@ -7,20 +7,39 @@ import { Session } from '@supabase/supabase-js';
 export const AppContext = createContext<AppContextType | undefined>(undefined);
 
 const INITIAL_CMS: CmsContent = {
-  heroTitle: 'Your Home for Knowledge and Comfort',
-  heroSubtitle: 'Secure, comfortable, and studious living, just moments away from the Al-Ibaanah Arabic Center.',
+  logoUrl: 'https://res.cloudinary.com/di7okmjsx/image/upload/v1740321960/al-ibaanah-logo_new.png',
+  hero: {
+    en: { title: 'Your Home for Knowledge and Comfort', subtitle: 'Secure, comfortable, and studious living, just moments away from the Al-Ibaanah Arabic Center.' },
+    ar: { title: 'بيتك للمعرفة والراحة', subtitle: 'سكن آمن، مريح، ومناسب للدراسة، على بعد لحظات من مركز الإبانة للغة العربية.' }
+  },
   heroImageUrl: 'https://res.cloudinary.com/di7okmjsx/image/upload/v1770400290/heroalibaanah_ghqtok.jpg',
-  features: [
-    { id: 1, title: 'Prime Location', desc: 'Located minutes from campus, making your commute to classes quick and easy.' },
-    { id: 2, title: 'Fully Furnished', desc: 'Our rooms come equipped with all the essentials for a comfortable and productive stay.' },
-    { id: 3, title: 'Safe & Secure', desc: '24/7 security and a supportive environment, so you can focus on your studies with peace of mind.' }
-  ],
-  faqs: [
-    { id: 1, q: 'What booking packages are available?', a: 'We offer flexible booking packages for 3, 6 and 12 months to align with the academic terms of Al-Ibaanah Arabic Center. Discounts are available for longer stays.' },
-    { id: 2, q: 'Are the rooms furnished?', a: 'Yes, all our rooms are fully furnished with a bed, desk, chair, wardrobe, and air conditioning. Suites include a private kitchenette and living area.' },
-    { id: 3, q: 'What amenities are included?', a: 'All residents have access to high-speed Wi-Fi. Depending on the room type, amenities include private or shared bathrooms. Common areas are also available for all students.' },
-    { id: 4, q: 'How do I make a payment?', a: 'We accept secure online payments via Stripe and direct bank transfers. For bank transfers, you will need to upload proof of payment for verification.' },
-  ]
+  features: {
+    en: [
+      { id: 1, title: 'Prime Location', desc: 'Located minutes from campus, making your commute to classes quick and easy.' },
+      { id: 2, title: 'Fully Furnished', desc: 'Our rooms come equipped with all the essentials for a comfortable and productive stay.' },
+      { id: 3, title: 'Safe & Secure', desc: '24/7 security and a supportive environment, so you can focus on your studies with peace of mind.' }
+    ],
+    ar: [
+      { id: 1, title: 'موقع متميز', desc: 'يقع على بعد دقائق من المركز، مما يجعل وصولك إلى الفصول الدراسية سريعًا وسهلاً.' },
+      { id: 2, title: 'مفروشة بالكامل', desc: 'غرفنا مجهزة بجميع الأساسيات لإقامة مريحة ومنتجة.' },
+      { id: 3, title: 'آمن ومضمون', desc: 'أمن على مدار 24 ساعة وبيئة داعمة، حتى تتمكن من التركيز على دراستك براحة بال.' }
+    ]
+  },
+  faqs: {
+    en: [
+      { id: 1, q: 'What booking packages are available?', a: 'We offer flexible booking packages for 3, 6 and 12 months.' },
+      { id: 2, q: 'Are the rooms furnished?', a: 'Yes, all our rooms are fully furnished.' }
+    ],
+    ar: [
+      { id: 1, q: 'ما هي باقات الحجز المتاحة؟', a: 'نحن نقدم باقات حجز مرنة لمدة 3، 6، و 12 شهرًا.' },
+      { id: 2, q: 'هل الغرف مفروشة؟', a: 'نعم، جميع غرفنا مفروشة بالكامل.' }
+    ]
+  },
+  contractTemplates: {
+    en: 'This is the English contract for Al-Ibaanah Student Residency. By signing this, you agree to the terms and conditions...',
+    fr: 'Ceci est le contrat français pour la résidence étudiante Al-Ibaanah. En signant ceci, vous acceptez les termes et conditions...',
+    ru: 'Это русский контракт для студенческой резиденции Аль-Ибана. Подписывая это, вы соглашаетесь с условиями...',
+  }
 };
 
 const MOCK_ACTIVITIES: Activity[] = [

@@ -2,7 +2,7 @@
 import React, { useState, useMemo, ChangeEvent } from 'react';
 import { useTranslation } from '../hooks/useTranslation';
 import { useApp } from '../hooks/useApp';
-import { Booking, BookingStatus, Room, RoomType, User } from '../types';
+import { Booking, BookingStatus, Room, AccommodationType, User } from '../types';
 import { IconEdit, IconClose, IconBuilding, IconCheckCircle, IconPlus, IconTrash } from '../components/Icon';
 import BookingStatusBadge from '../components/BookingStatusBadge';
 import RoomEditorModal from '../components/RoomEditorModal';
@@ -97,11 +97,10 @@ const AdminDashboardPage: React.FC = () => {
     return {
       pendingVerifications: visibleBookings.filter(b => b.status === BookingStatus.PENDING_VERIFICATION),
       occupiedRoomIds,
-      occupancyByType: [
-        { name: 'Single', value: occupiedRooms.filter(r => r.type === RoomType.SINGLE).length },
-        { name: 'Double', value: occupiedRooms.filter(r => r.type === RoomType.DOUBLE).length },
-        { name: 'Suite', value: occupiedRooms.filter(r => r.type === RoomType.SUITE).length },
-      ],
+      occupancyByType: Object.values(AccommodationType).map(type => ({
+        name: type,
+        value: occupiedRooms.filter(r => r.type === type).length
+      })),
       totalRevenue: occupiedBookings.reduce((sum, b) => sum + b.total_price, 0),
       occupancyRate: rooms.length > 0 ? Math.round((occupiedRoomIds.size / rooms.length) * 100) : 0,
       totalRooms: rooms.length,
@@ -146,19 +145,19 @@ const AdminDashboardPage: React.FC = () => {
   };
   
   const handleFaqChange = (index: number, field: 'q' | 'a', value: string) => {
-    const updatedFaqs = [...cmsContent.faqs];
+    const updatedFaqs = [...(cmsContent.faqs.en || [])];
     updatedFaqs[index] = { ...updatedFaqs[index], [field]: value };
-    updateCmsContent({ faqs: updatedFaqs });
+    updateCmsContent({ faqs: { ...cmsContent.faqs, en: updatedFaqs } });
   };
   
   const handleAddFaq = () => {
     const newFaq = { id: Date.now(), q: 'New Question', a: 'New Answer' };
-    updateCmsContent({ faqs: [...cmsContent.faqs, newFaq]});
+    updateCmsContent({ faqs: { ...cmsContent.faqs, en: [...(cmsContent.faqs.en || []), newFaq] } });
   };
 
   const handleRemoveFaq = (id: number) => {
     if (confirm('Are you sure you want to delete this FAQ?')) {
-        updateCmsContent({ faqs: cmsContent.faqs.filter(f => f.id !== id) });
+        updateCmsContent({ faqs: { ...cmsContent.faqs, en: (cmsContent.faqs.en || []).filter(f => f.id !== id) } });
     }
   };
 
@@ -314,16 +313,48 @@ const AdminDashboardPage: React.FC = () => {
           {activeTab === 'cms' && (
             <div className="space-y-8">
               <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 border border-gray-100 dark:border-gray-700">
-                  <div className="flex items-center mb-6"><IconEdit className="w-6 h-6 text-blue-600 mr-2" /><h2 className="text-xl font-bold">Landing Page Content</h2></div>
+                  <div className="flex items-center mb-6"><IconEdit className="w-6 h-6 text-blue-600 mr-2" /><h2 className="text-xl font-bold">Landing Page Content (English)</h2></div>
                   <div className="space-y-4">
-                     <div><label className="block text-sm font-bold mb-1">Hero Title</label><input type="text" value={cmsContent.heroTitle} onChange={(e) => updateCmsContent({ heroTitle: e.target.value })} className="w-full p-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600" /></div>
-                     <div><label className="block text-sm font-bold mb-1">Hero Subtitle</label><textarea value={cmsContent.heroSubtitle} onChange={(e) => updateCmsContent({ heroSubtitle: e.target.value })} className="w-full p-2 border rounded-lg h-24 dark:bg-gray-700 dark:border-gray-600" /></div>
+                     <div><label className="block text-sm font-bold mb-1">Logo URL</label><input type="text" value={cmsContent.logoUrl} onChange={(e) => updateCmsContent({ logoUrl: e.target.value })} className="w-full p-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600" /></div>
+                     <div><label className="block text-sm font-bold mb-1">Hero Title (EN)</label><input type="text" value={cmsContent.hero.en?.title} onChange={(e) => updateCmsContent({ hero: { ...cmsContent.hero, en: { ...cmsContent.hero.en!, title: e.target.value } } })} className="w-full p-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600" /></div>
+                     <div><label className="block text-sm font-bold mb-1">Hero Subtitle (EN)</label><textarea value={cmsContent.hero.en?.subtitle} onChange={(e) => updateCmsContent({ hero: { ...cmsContent.hero, en: { ...cmsContent.hero.en!, subtitle: e.target.value } } })} className="w-full p-2 border rounded-lg h-24 dark:bg-gray-700 dark:border-gray-600" /></div>
                   </div>
               </div>
+
               <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 border border-gray-100 dark:border-gray-700">
-                  <h2 className="text-xl font-bold mb-6">Manage FAQs</h2>
+                  <div className="flex items-center mb-6"><IconEdit className="w-6 h-6 text-purple-600 mr-2" /><h2 className="text-xl font-bold">Contract Templates</h2></div>
                   <div className="space-y-6">
-                      {cmsContent.faqs.map((faq, index) => (
+                     <div>
+                        <label className="block text-sm font-bold mb-1">English Contract</label>
+                        <textarea 
+                          value={cmsContent.contractTemplates.en} 
+                          onChange={(e) => updateCmsContent({ contractTemplates: { ...cmsContent.contractTemplates, en: e.target.value } })} 
+                          className="w-full p-2 border rounded-lg h-48 dark:bg-gray-700 dark:border-gray-600 font-mono text-sm" 
+                        />
+                     </div>
+                     <div>
+                        <label className="block text-sm font-bold mb-1">French Contract</label>
+                        <textarea 
+                          value={cmsContent.contractTemplates.fr} 
+                          onChange={(e) => updateCmsContent({ contractTemplates: { ...cmsContent.contractTemplates, fr: e.target.value } })} 
+                          className="w-full p-2 border rounded-lg h-48 dark:bg-gray-700 dark:border-gray-600 font-mono text-sm" 
+                        />
+                     </div>
+                     <div>
+                        <label className="block text-sm font-bold mb-1">Russian Contract</label>
+                        <textarea 
+                          value={cmsContent.contractTemplates.ru} 
+                          onChange={(e) => updateCmsContent({ contractTemplates: { ...cmsContent.contractTemplates, ru: e.target.value } })} 
+                          className="w-full p-2 border rounded-lg h-48 dark:bg-gray-700 dark:border-gray-600 font-mono text-sm" 
+                        />
+                     </div>
+                  </div>
+              </div>
+
+              <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 border border-gray-100 dark:border-gray-700">
+                  <h2 className="text-xl font-bold mb-6">Manage FAQs (English)</h2>
+                  <div className="space-y-6">
+                      {(cmsContent.faqs.en || []).map((faq, index) => (
                           <div key={faq.id} className="p-4 border rounded-lg dark:border-gray-700 space-y-3 relative">
                               <button onClick={() => handleRemoveFaq(faq.id)} className="absolute -top-3 -right-3 bg-red-500 text-white rounded-full p-1 hover:bg-red-600"><IconTrash className="w-4 h-4" /></button>
                               <div>

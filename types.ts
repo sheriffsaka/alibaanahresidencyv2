@@ -3,20 +3,22 @@ export type Language = 'en' | 'ar' | 'ru' | 'fr' | 'uz' | 'zh';
 
 export type Page = 'home' | 'booking' | 'dashboard' | 'auth' | 'support';
 
-export enum RoomType {
-  SINGLE = 'Single',
-  DOUBLE = 'Double',
-  SUITE = 'Suite',
+export enum AccommodationType {
+  STANDARD_SHARED = 'Standard Shared',
+  STANDARD_PRIVATE = 'Standard Private',
+  PREMIUM_SHARED = 'Premium Shared',
+  PREMIUM_PRIVATE = 'Premium Private',
 }
 
 export interface Room {
   id: number;
   property_id: string;
   room_number: string;
-  type: RoomType;
+  type: AccommodationType;
   price_per_month: number;
   amenities: string[];
   image_urls: string[];
+  video_urls?: string[];
   is_available: boolean;
   created_at: string;
   gender_restriction: 'Male' | 'Female' | 'Any';
@@ -33,25 +35,42 @@ export enum BookingStatus {
   PENDING_VERIFICATION = 'Pending Verification'
 }
 
-export enum PaymentMethod {
-    ONLINE = 'Online',
-    BANK_TRANSFER = 'Bank Transfer',
-}
+// PaymentMethod enum removed as payment is now handled upon arrival.
 
 export interface Booking {
   id: number;
   student_id: string;
-  student_name?: string; // For mock display
   room_id: number;
-  academic_term_id: number;
-  booking_package_id: number;
   start_date: string;
   end_date: string;
   status: BookingStatus;
-  total_price: number;
   booked_at: string;
+
+  // New detailed student information
+  full_name: string; // As in passport
+  nationality: string;
+  passport_number: string;
+  passport_copy_url: string;
+  email: string;
+  phone_number: string; // WhatsApp active
+  expected_arrival_date: string;
+  duration_of_stay: string; // e.g., "6 months", "1 year"
+  preferred_accommodation: AccommodationType;
+  emergency_contact_details: string;
+  address_in_egypt?: string;
+
+  // Signature and Contract fields
+  contract_signed_at?: string;
+  signature_data?: string; // Base64 signature image or SVG path
+  contract_language?: 'en' | 'fr' | 'ru';
+
+  // Deprecated/optional fields for backward compatibility
+  student_name?: string;
+  academic_term_id?: number;
+  booking_package_id?: number;
+  total_price?: number;
   payment_proof_url?: string;
-  payment_method?: PaymentMethod;
+  payment_method?: 'Online' | 'Bank Transfer';
   checked_in_at?: string;
   checked_out_at?: string;
   rooms: Pick<Room, 'room_number' | 'type'>;
@@ -76,19 +95,33 @@ export interface User {
 }
 
 export interface CmsContent {
-  heroTitle: string;
-  heroSubtitle: string;
+  logoUrl: string;
+  hero: {
+    [key in Language]?: {
+      title: string;
+      subtitle: string;
+    }
+  };
   heroImageUrl: string;
   features: {
-    id: number;
-    title: string;
-    desc: string;
-  }[];
+    [key in Language]?: {
+      id: number;
+      title: string;
+      desc: string;
+    }[];
+  };
   faqs: {
-    id: number;
-    q: string;
-    a: string;
-  }[];
+    [key in Language]?: {
+      id: number;
+      q: string;
+      a: string;
+    }[];
+  };
+  contractTemplates: {
+    en: string;
+    fr: string;
+    ru: string;
+  };
 }
 
 export interface AppContextType {

@@ -1,6 +1,6 @@
 
 import React, { useState, ChangeEvent } from 'react';
-import { Room, RoomType } from '../types';
+import { Room, AccommodationType } from '../types';
 import { IconClose } from './Icon';
 
 interface RoomEditorModalProps {
@@ -12,7 +12,7 @@ interface RoomEditorModalProps {
 const RoomEditorModal: React.FC<RoomEditorModalProps> = ({ room, onClose, onSave }) => {
   const [formData, setFormData] = useState({
     room_number: room?.room_number || '',
-    type: room?.type || RoomType.SINGLE,
+    type: room?.type || AccommodationType.STANDARD_SHARED,
     price_per_month: room?.price_per_month || 0,
   });
   const [amenitiesStr, setAmenitiesStr] = useState(room?.amenities.join(', ') || '');
@@ -83,7 +83,7 @@ const RoomEditorModal: React.FC<RoomEditorModalProps> = ({ room, onClose, onSave
               <div>
                 <label htmlFor="type" className="block text-sm font-bold">Room Type</label>
                 <select name="type" id="type" value={formData.type} onChange={handleInputChange} className="mt-1 block w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600">
-                  {Object.values(RoomType).map(type => <option key={type} value={type}>{type}</option>)}
+                  {Object.values(AccommodationType).map(type => <option key={type} value={type}>{type}</option>)}
                 </select>
               </div>
             </div>
