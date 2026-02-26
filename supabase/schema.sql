@@ -100,7 +100,14 @@ CREATE TABLE bookings (
     duration_of_stay VARCHAR(100) NOT NULL,
     preferred_accommodation accommodation_type NOT NULL,
     emergency_contact_details TEXT NOT NULL,
-    address_in_egypt TEXT,
+    
+    -- Detailed Address in Egypt
+    building_no VARCHAR(50),
+    flat_no VARCHAR(50),
+    street_name VARCHAR(255),
+    district_name VARCHAR(255),
+    state VARCHAR(100),
+    address_in_egypt TEXT, -- Kept for backward compatibility or summary
 
     -- Contract and Signature
     contract_language VARCHAR(5) DEFAULT 'en',
@@ -121,7 +128,7 @@ CREATE TABLE cms_content (
     hero_image_url TEXT,
     features JSONB,
     faqs JSONB,
-    contract_templates JSONB,
+    contract_templates JSONB, -- Structure: { "Standard Shared": { "en": "...", "fr": "..." }, ... }
     updated_at TIMESTAMPTZ DEFAULT now()
 );
 

@@ -11,7 +11,7 @@ import { supabase } from '../lib/supabaseClient';
 
 const DashboardPage: React.FC = () => {
   const t = useTranslation();
-  const { user, bookings, activities, setPage, cmsContent, addActivity } = useApp();
+  const { user, bookings, activities, setPage, cmsContent, addActivity, updateBooking } = useApp();
   const [selectedInvoice, setSelectedInvoice] = useState<Booking | null>(null);
   const [signingBooking, setSigningBooking] = useState<Booking | null>(null);
   
@@ -22,26 +22,32 @@ const DashboardPage: React.FC = () => {
     if (!signingBooking) return;
 
     try {
+      const signedAt = new Date().toISOString();
       const { error } = await supabase
         .from('bookings')
         .update({
           signature_data: signatureData,
-          contract_signed_at: new Date().toISOString()
+          contract_signed_at: signedAt
         })
         .eq('id', signingBooking.id);
 
       if (error) throw error;
 
+      // Update local state immediately
+      updateBooking(signingBooking.id, {
+        signature_data: signatureData,
+        contract_signed_at: signedAt
+      });
+
       addActivity({
         user_id: user!.id,
         type: 'system',
         description: `Signed residency agreement for BK${signingBooking.id}`,
-        timestamp: new Date().toISOString()
+        timestamp: signedAt
       });
 
       alert("Contract signed successfully!");
       setSigningBooking(null);
-      // In a real app, we'd refresh the bookings list here
     } catch (error: any) {
       alert(`Failed to sign contract: ${error.message}`);
     }
@@ -170,7 +176,7 @@ const DashboardPage: React.FC = () => {
       {/* Contract Signing Modal */}
       {signingBooking && (
         <ContractSigningModal 
-          contractText={cmsContent.contractTemplates[signingBooking.contract_language || 'en']}
+          contractText={cmsContent.contractTemplates[signingBooking.rooms.type]?.[signingBooking.contract_language || 'en'] || 'Contract template not found for this room type and language.'}
           onSign={handleSignContract}
           onClose={() => setSigningBooking(null)}
         />

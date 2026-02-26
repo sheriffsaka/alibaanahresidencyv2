@@ -1,6 +1,6 @@
 
 import React, { createContext, useState, ReactNode, useCallback, useEffect, useRef } from 'react';
-import { AppContextType, Language, Page, User, Room, Booking, BookingStatus, CmsContent, Activity, AcademicTerm, BookingPackage } from '../types';
+import { AppContextType, Language, Page, User, Room, Booking, BookingStatus, CmsContent, Activity, AcademicTerm, BookingPackage, AccommodationType } from '../types';
 import { supabase } from '../lib/supabaseClient';
 import { Session } from '@supabase/supabase-js';
 
@@ -36,9 +36,11 @@ const INITIAL_CMS: CmsContent = {
     ]
   },
   contractTemplates: {
-    en: 'This is the English contract for Al-Ibaanah Student Residency. By signing this, you agree to the terms and conditions...',
-    fr: 'Ceci est le contrat français pour la résidence étudiante Al-Ibaanah. En signant ceci, vous acceptez les termes et conditions...',
-    ru: 'Это русский контракт для студенческой резиденции Аль-Ибана. Подписывая это, вы соглашаетесь с условиями...',
+    [AccommodationType.STANDARD_SHARED]: {
+      en: 'This is the English contract for Standard Shared rooms...',
+      fr: 'Ceci est le contrat français pour les chambres Standard Shared...',
+      ru: 'Это русский контракт для комнат Standard Shared...'
+    }
   }
 };
 
@@ -107,10 +109,11 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   useEffect(() => {
     // Fetch public data that everyone can see. This runs once on mount.
     const fetchPublicData = async () => {
-        const [roomsRes, termsRes, packagesRes] = await Promise.all([
+        const [roomsRes, termsRes, packagesRes, cmsRes] = await Promise.all([
             supabase.from('rooms').select('*'),
             supabase.from('academic_terms').select('*').eq('is_active', true),
-            supabase.from('booking_packages').select('*').eq('is_active', true)
+            supabase.from('booking_packages').select('*').eq('is_active', true),
+            supabase.from('cms_content').select('*').single()
         ]);
         if (roomsRes.error) console.error('Error fetching rooms:', roomsRes.error);
         else setRooms(roomsRes.data || []);
@@ -118,17 +121,32 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         else setAcademicTerms(termsRes.data || []);
         if (packagesRes.error) console.error('Error fetching booking packages:', packagesRes.error);
         else setBookingPackages(packagesRes.data || []);
+        if (cmsRes.data) {
+          setCmsContent({
+            ...INITIAL_CMS,
+            ...cmsRes.data,
+            hero: cmsRes.data.hero || INITIAL_CMS.hero,
+            features: cmsRes.data.features || INITIAL_CMS.features,
+            faqs: cmsRes.data.faqs || INITIAL_CMS.faqs,
+            contractTemplates: cmsRes.data.contract_templates || INITIAL_CMS.contractTemplates
+          });
+        }
     };
     fetchPublicData();
 
+    // Check initial session
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      updateUserSession(session);
+      if (!isInitialized.current) {
+        setLoading(false);
+        isInitialized.current = true;
+      }
+    });
+
     // Set up the single source of truth for auth state.
-    // onAuthStateChange fires with the initial session, and on every subsequent change.
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (_event, session) => {
         await updateUserSession(session);
-
-        // On the very first auth event (INITIAL_SESSION), dismiss the loading screen.
-        // The ref ensures this only happens once.
         if (!isInitialized.current) {
             setLoading(false);
             isInitialized.current = true;
@@ -158,8 +176,20 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     setBookings(prev => prev.map(b => b.id === id ? { ...b, status } : b));
   };
 
+  const updateBooking = (id: number, updates: Partial<Booking>) => {
+    setBookings(prev => prev.map(b => b.id === id ? { ...b, ...updates } : b));
+  };
+
   const updateCmsContent = (content: Partial<CmsContent>) => {
     setCmsContent(prev => ({ ...prev, ...content }));
+  };
+
+  const logout = async () => {
+    await supabase.auth.signOut();
+    setUser(null);
+    setSession(null);
+    setBookings([]);
+    setPage('home');
   };
 
   const addRoom = (newRoom: Room) => {
@@ -182,9 +212,11 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     user,
     selectedRoom,
     session,
+    logout,
     bookings,
     addBooking,
     updateBookingStatus,
+    updateBooking,
     cmsContent,
     updateCmsContent,
     rooms,

@@ -6,19 +6,15 @@ import LanguageSwitcher from './LanguageSwitcher';
 import { supabase } from '../lib/supabaseClient';
 
 const Header: React.FC = () => {
-  const { user, setPage, cmsContent } = useApp();
+  const { user, setPage, cmsContent, logout } = useApp();
   const t = useTranslation();
 
   const handleLogout = async () => {
-    const { error } = await supabase.auth.signOut();
-
-    if (error) {
-        console.error('Error signing out:', error.message);
-        alert(`Logout failed: ${error.message}`);
-    } else {
-        // On successful sign out, the onAuthStateChange listener will clear the user state.
-        // We can now safely navigate to the home page.
-        setPage('home');
+    try {
+      await logout();
+    } catch (error: any) {
+      console.error('Error signing out:', error.message);
+      alert(`Logout failed: ${error.message}`);
     }
   };
 

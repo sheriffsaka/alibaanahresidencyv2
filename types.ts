@@ -57,6 +57,13 @@ export interface Booking {
   duration_of_stay: string; // e.g., "6 months", "1 year"
   preferred_accommodation: AccommodationType;
   emergency_contact_details: string;
+  
+  // Detailed Address in Egypt
+  building_no?: string;
+  flat_no?: string;
+  street_name?: string;
+  district_name?: string;
+  state?: string;
   address_in_egypt?: string;
 
   // Signature and Contract fields
@@ -118,9 +125,9 @@ export interface CmsContent {
     }[];
   };
   contractTemplates: {
-    en: string;
-    fr: string;
-    ru: string;
+    [roomType in AccommodationType]?: {
+      [lang in Language]?: string;
+    }
   };
 }
 
@@ -132,9 +139,11 @@ export interface AppContextType {
   user: User | null;
   selectedRoom: Room | null;
   session: any;
+  logout: () => Promise<void>;
   bookings: Booking[];
   addBooking: (booking: Booking) => void;
   updateBookingStatus: (id: number, status: BookingStatus) => void;
+  updateBooking: (id: number, updates: Partial<Booking>) => void;
   cmsContent: CmsContent;
   updateCmsContent: (content: Partial<CmsContent>) => void;
   rooms: Room[];

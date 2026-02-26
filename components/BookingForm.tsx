@@ -23,7 +23,11 @@ const BookingForm: React.FC<BookingFormProps> = ({ room }) => {
     duration: '',
     accommodationType: room.type,
     emergencyContact: '',
-    addressInEgypt: '',
+    buildingNo: '',
+    flatNo: '',
+    streetName: '',
+    districtName: '',
+    state: '',
     contractLanguage: 'en',
   });
   const [passportCopy, setPassportCopy] = useState<File | null>(null);
@@ -77,7 +81,12 @@ const BookingForm: React.FC<BookingFormProps> = ({ room }) => {
         duration_of_stay: formData.duration,
         preferred_accommodation: formData.accommodationType,
         emergency_contact_details: formData.emergencyContact,
-        address_in_egypt: formData.addressInEgypt,
+        building_no: formData.buildingNo,
+        flat_no: formData.flatNo,
+        street_name: formData.streetName,
+        district_name: formData.districtName,
+        state: formData.state,
+        address_in_egypt: `${formData.buildingNo}, ${formData.flatNo}, ${formData.streetName}, ${formData.districtName}, ${formData.state}`,
         contract_language: formData.contractLanguage,
         rooms: { room_number: room.room_number, type: room.type },
     };
@@ -113,7 +122,14 @@ const BookingForm: React.FC<BookingFormProps> = ({ room }) => {
           </select>
         </div>
         <InputField name="emergencyContact" label={t.emergencyContact} value={formData.emergencyContact} onChange={handleInputChange} required />
-        <InputField name="addressInEgypt" label={t.addressInEgypt} value={formData.addressInEgypt} onChange={handleInputChange} />
+        <div className="md:col-span-2 grid grid-cols-2 md:grid-cols-5 gap-4 bg-gray-50 dark:bg-gray-800/50 p-4 rounded-xl border dark:border-gray-700">
+          <h4 className="col-span-full text-xs font-bold uppercase tracking-widest text-gray-500 mb-2">{t.addressInEgypt}</h4>
+          <InputField name="buildingNo" label="Bldg No." value={formData.buildingNo} onChange={handleInputChange} />
+          <InputField name="flatNo" label="Flat No." value={formData.flatNo} onChange={handleInputChange} />
+          <InputField name="streetName" label="Street" value={formData.streetName} onChange={handleInputChange} />
+          <InputField name="districtName" label="District" value={formData.districtName} onChange={handleInputChange} />
+          <InputField name="state" label="State" value={formData.state} onChange={handleInputChange} />
+        </div>
         <div>
           <label htmlFor="contractLanguage" className="block text-sm font-medium text-gray-700 dark:text-gray-300">{t.contractLanguage}</label>
           <select id="contractLanguage" name="contractLanguage" value={formData.contractLanguage} onChange={handleInputChange} className="mt-1 block w-full pl-3 pr-10 py-3 text-base border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-lg">

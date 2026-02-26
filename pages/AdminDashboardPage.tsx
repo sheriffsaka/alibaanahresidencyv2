@@ -2,7 +2,7 @@
 import React, { useState, useMemo, ChangeEvent } from 'react';
 import { useTranslation } from '../hooks/useTranslation';
 import { useApp } from '../hooks/useApp';
-import { Booking, BookingStatus, Room, AccommodationType, User } from '../types';
+import { Booking, BookingStatus, Room, AccommodationType, User, Language } from '../types';
 import { IconEdit, IconClose, IconBuilding, IconCheckCircle, IconPlus, IconTrash } from '../components/Icon';
 import BookingStatusBadge from '../components/BookingStatusBadge';
 import RoomEditorModal from '../components/RoomEditorModal';
@@ -79,34 +79,65 @@ const AdminDashboardPage: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'analytics' | 'pending' | 'rooms' | 'students' | 'cms'>('analytics');
   const [selectedProof, setSelectedProof] = useState<string | null>(null);
   const [roomFilter, setRoomFilter] = useState<'all' | 'occupied' | 'available'>('all');
+  const [studentSort, setStudentSort] = useState<{ field: keyof Booking; direction: 'asc' | 'desc' }>({ field: 'full_name', direction: 'asc' });
   
   const [isRoomModalOpen, setIsRoomModalOpen] = useState(false);
   const [selectedRoomForEdit, setSelectedRoomForEdit] = useState<Room | null>(null);
 
-  const visibleBookings = useMemo(() => {
-    // The `bookings` array from context is already filtered by RLS policies
-    // for staff users, so no additional client-side filtering is needed.
-    return bookings;
-  }, [bookings]);
+  const [editingContract, setEditingContract] = useState<{ roomType: AccommodationType; lang: Language } | null>(null);
+
+  const sortedBookings = useMemo(() => {
+    return [...bookings].sort((a, b) => {
+      const valA = a[studentSort.field] || '';
+      const valB = b[studentSort.field] || '';
+      if (valA < valB) return studentSort.direction === 'asc' ? -1 : 1;
+      if (valA > valB) return studentSort.direction === 'asc' ? 1 : -1;
+      return 0;
+    });
+  }, [bookings, studentSort]);
+
+  const exportToCSV = () => {
+    const headers = ['ID', 'Student Name', 'Email', 'Nationality', 'Room', 'Status', 'Booked At'];
+    const rows = sortedBookings.map(b => [
+      `BK${b.id}`,
+      b.full_name,
+      b.email,
+      b.nationality,
+      b.rooms.room_number,
+      b.status,
+      new Date(b.booked_at).toLocaleDateString()
+    ]);
+    
+    const csvContent = [headers, ...rows].map(e => e.join(",")).join("\n");
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement("a");
+    const url = URL.createObjectURL(blob);
+    link.setAttribute("href", url);
+    link.setAttribute("download", `students_export_${new Date().toISOString().split('T')[0]}.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
 
   const analytics = useMemo(() => {
-    const occupiedBookings = visibleBookings.filter(b => b.status === BookingStatus.OCCUPIED || b.status === BookingStatus.CONFIRMED);
+    const occupiedBookings = bookings.filter(b => b.status === BookingStatus.OCCUPIED || b.status === BookingStatus.CONFIRMED);
     const occupiedRoomIds = new Set(occupiedBookings.map(b => b.room_id));
     const occupiedRooms = rooms.filter(r => occupiedRoomIds.has(r.id));
     
     return {
-      pendingVerifications: visibleBookings.filter(b => b.status === BookingStatus.PENDING_VERIFICATION),
+      pendingVerifications: bookings.filter(b => b.status === BookingStatus.PENDING_VERIFICATION),
       occupiedRoomIds,
       occupancyByType: Object.values(AccommodationType).map(type => ({
         name: type,
         value: occupiedRooms.filter(r => r.type === type).length
       })),
-      totalRevenue: occupiedBookings.reduce((sum, b) => sum + b.total_price, 0),
+      totalRevenue: occupiedBookings.reduce((sum, b) => sum + (b.total_price || 0), 0),
       occupancyRate: rooms.length > 0 ? Math.round((occupiedRoomIds.size / rooms.length) * 100) : 0,
       totalRooms: rooms.length,
       availableRooms: rooms.length - occupiedRoomIds.size
     };
-  }, [visibleBookings, rooms]);
+  }, [bookings, rooms]);
 
   const filteredRooms = useMemo(() => {
     // Also filter rooms by admin's gender scope if they are a staff member
@@ -294,15 +325,33 @@ const AdminDashboardPage: React.FC = () => {
 
           {activeTab === 'students' && (
              <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg overflow-hidden border border-gray-100 dark:border-gray-700">
-                <div className="px-6 py-4 border-b dark:border-gray-700"><h2 className="text-xl font-bold">{t.studentsList}</h2></div>
+                <div className="px-6 py-4 border-b dark:border-gray-700 flex justify-between items-center">
+                  <h2 className="text-xl font-bold">{t.studentsList}</h2>
+                  <button 
+                    onClick={exportToCSV}
+                    className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-xs font-bold transition-colors flex items-center gap-2"
+                  >
+                    📥 Export CSV
+                  </button>
+                </div>
                 <div className="overflow-x-auto"><table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
                     <thead className="bg-gray-50 dark:bg-gray-900"><tr>
-                        <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase">Name</th>
+                        <th 
+                          className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase cursor-pointer hover:text-blue-600"
+                          onClick={() => setStudentSort({ field: 'full_name', direction: studentSort.field === 'full_name' && studentSort.direction === 'asc' ? 'desc' : 'asc' })}
+                        >
+                          Name {studentSort.field === 'full_name' && (studentSort.direction === 'asc' ? '↑' : '↓')}
+                        </th>
                         <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase">Room</th>
-                        <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase">Status</th>
+                        <th 
+                          className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase cursor-pointer hover:text-blue-600"
+                          onClick={() => setStudentSort({ field: 'status', direction: studentSort.field === 'status' && studentSort.direction === 'asc' ? 'desc' : 'asc' })}
+                        >
+                          Status {studentSort.field === 'status' && (studentSort.direction === 'asc' ? '↑' : '↓')}
+                        </th>
                     </tr></thead>
-                    <tbody className="divide-y divide-gray-100 dark:divide-gray-700">{visibleBookings.map(booking => (<tr key={booking.id}>
-                        <td className="px-6 py-4 font-bold">{booking.student_name}</td>
+                    <tbody className="divide-y divide-gray-100 dark:divide-gray-700">{sortedBookings.map(booking => (<tr key={booking.id}>
+                        <td className="px-6 py-4 font-bold">{booking.full_name}</td>
                         <td className="px-6 py-4 text-sm font-bold text-blue-600">Room {booking.rooms.room_number}</td>
                         <td className="px-6 py-4"><BookingStatusBadge status={booking.status} /></td>
                     </tr>))}</tbody>
@@ -322,34 +371,111 @@ const AdminDashboardPage: React.FC = () => {
               </div>
 
               <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 border border-gray-100 dark:border-gray-700">
-                  <div className="flex items-center mb-6"><IconEdit className="w-6 h-6 text-purple-600 mr-2" /><h2 className="text-xl font-bold">Contract Templates</h2></div>
-                  <div className="space-y-6">
-                     <div>
-                        <label className="block text-sm font-bold mb-1">English Contract</label>
-                        <textarea 
-                          value={cmsContent.contractTemplates.en} 
-                          onChange={(e) => updateCmsContent({ contractTemplates: { ...cmsContent.contractTemplates, en: e.target.value } })} 
-                          className="w-full p-2 border rounded-lg h-48 dark:bg-gray-700 dark:border-gray-600 font-mono text-sm" 
-                        />
-                     </div>
-                     <div>
-                        <label className="block text-sm font-bold mb-1">French Contract</label>
-                        <textarea 
-                          value={cmsContent.contractTemplates.fr} 
-                          onChange={(e) => updateCmsContent({ contractTemplates: { ...cmsContent.contractTemplates, fr: e.target.value } })} 
-                          className="w-full p-2 border rounded-lg h-48 dark:bg-gray-700 dark:border-gray-600 font-mono text-sm" 
-                        />
-                     </div>
-                     <div>
-                        <label className="block text-sm font-bold mb-1">Russian Contract</label>
-                        <textarea 
-                          value={cmsContent.contractTemplates.ru} 
-                          onChange={(e) => updateCmsContent({ contractTemplates: { ...cmsContent.contractTemplates, ru: e.target.value } })} 
-                          className="w-full p-2 border rounded-lg h-48 dark:bg-gray-700 dark:border-gray-600 font-mono text-sm" 
-                        />
-                     </div>
+                  <div className="flex items-center justify-between mb-6">
+                    <div className="flex items-center">
+                      <IconEdit className="w-6 h-6 text-purple-600 mr-2" />
+                      <h2 className="text-xl font-bold">Contract Templates</h2>
+                    </div>
+                    <button 
+                      onClick={() => setEditingContract({ roomType: AccommodationType.STANDARD_SHARED, lang: 'en' })}
+                      className="bg-blue-600 text-white px-4 py-2 rounded-lg text-xs font-bold"
+                    >
+                      + Add/Edit Template
+                    </button>
+                  </div>
+                  
+                  <div className="overflow-x-auto">
+                    <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                      <thead className="bg-gray-50 dark:bg-gray-900">
+                        <tr>
+                          <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase">Room Type</th>
+                          <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase">Languages</th>
+                          <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
+                        {Object.values(AccommodationType).map(type => (
+                          <tr key={type}>
+                            <td className="px-6 py-4 font-bold text-sm">{type}</td>
+                            <td className="px-6 py-4">
+                              <div className="flex gap-2">
+                                {['en', 'fr', 'ru', 'ar', 'uz', 'zh'].map(lang => {
+                                  const exists = cmsContent.contractTemplates[type]?.[lang as Language];
+                                  return (
+                                    <span 
+                                      key={lang} 
+                                      className={`px-2 py-1 rounded text-[10px] font-bold uppercase ${exists ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-400'}`}
+                                    >
+                                      {lang}
+                                    </span>
+                                  );
+                                })}
+                              </div>
+                            </td>
+                            <td className="px-6 py-4">
+                              <button 
+                                onClick={() => setEditingContract({ roomType: type, lang: 'en' })}
+                                className="text-blue-600 text-xs font-bold underline"
+                              >
+                                Manage
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
                   </div>
               </div>
+
+              {editingContract && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+                  <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl w-full max-w-2xl flex flex-col max-h-[90vh]">
+                    <div className="p-6 border-b dark:border-gray-800 flex justify-between items-center">
+                      <div>
+                        <h3 className="text-xl font-bold">Edit Contract Template</h3>
+                        <p className="text-xs text-gray-500">{editingContract.roomType} - {editingContract.lang.toUpperCase()}</p>
+                      </div>
+                      <button onClick={() => setEditingContract(null)}><IconClose className="w-6 h-6" /></button>
+                    </div>
+                    <div className="p-6 space-y-4 overflow-y-auto">
+                      <div className="flex gap-4">
+                        <div className="flex-1">
+                          <label className="block text-xs font-bold mb-1">Language</label>
+                          <select 
+                            value={editingContract.lang} 
+                            onChange={(e) => setEditingContract({ ...editingContract, lang: e.target.value as Language })}
+                            className="w-full p-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600"
+                          >
+                            {['en', 'fr', 'ru', 'ar', 'uz', 'zh'].map(l => <option key={l} value={l}>{l.toUpperCase()}</option>)}
+                          </select>
+                        </div>
+                      </div>
+                      <div>
+                        <label className="block text-xs font-bold mb-1">Contract Text</label>
+                        <textarea 
+                          value={cmsContent.contractTemplates[editingContract.roomType]?.[editingContract.lang] || ''} 
+                          onChange={(e) => {
+                            const newTemplates = { ...cmsContent.contractTemplates };
+                            if (!newTemplates[editingContract.roomType]) newTemplates[editingContract.roomType] = {};
+                            newTemplates[editingContract.roomType]![editingContract.lang] = e.target.value;
+                            updateCmsContent({ contractTemplates: newTemplates });
+                          }}
+                          className="w-full p-2 border rounded-lg h-64 dark:bg-gray-700 dark:border-gray-600 font-serif text-sm"
+                          placeholder="Enter contract text here..."
+                        />
+                      </div>
+                    </div>
+                    <div className="p-6 border-t dark:border-gray-800 flex justify-end">
+                      <button 
+                        onClick={() => setEditingContract(null)}
+                        className="bg-blue-600 text-white px-8 py-2 rounded-xl font-bold"
+                      >
+                        Done
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
 
               <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 border border-gray-100 dark:border-gray-700">
                   <h2 className="text-xl font-bold mb-6">Manage FAQs (English)</h2>
