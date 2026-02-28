@@ -15,8 +15,8 @@ const DashboardPage: React.FC = () => {
   const [selectedInvoice, setSelectedInvoice] = useState<Booking | null>(null);
   const [signingBooking, setSigningBooking] = useState<Booking | null>(null);
   
-  const userBookings = bookings.filter(b => b.student_id === user?.id);
-  const userActivities = activities.filter(a => a.user_id === user?.id).slice(0, 5);
+  const userBookings = (bookings || []).filter(b => b.student_id === user?.id);
+  const userActivities = (activities || []).filter(a => a.user_id === user?.id).slice(0, 5);
 
   const handleSignContract = async (signatureData: string) => {
     if (!signingBooking) return;

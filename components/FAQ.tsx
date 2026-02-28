@@ -27,7 +27,7 @@ const FAQ: React.FC<FAQProps> = ({ faqs }) => {
                 </p>
             </div>
             <div className="space-y-4">
-                {faqs.map((faq, index) => (
+                {(faqs || []).map((faq, index) => (
                     <div key={faq.id} className="border-b border-gray-200 dark:border-gray-700 pb-4">
                         <button
                             onClick={() => toggleFaq(index)}

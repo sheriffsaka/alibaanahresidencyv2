@@ -13,7 +13,7 @@ interface AuthFormProps {
 
 const AuthForm: React.FC<AuthFormProps> = ({ isLogin, setIsLogin }) => {
     const t = useTranslation();
-    const { setPage } = useApp();
+    const { setPage, cmsContent } = useApp();
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [name, setName] = useState('');
@@ -75,7 +75,7 @@ const AuthForm: React.FC<AuthFormProps> = ({ isLogin, setIsLogin }) => {
         <div>
             <div>
                 <div className="flex justify-center">
-                    <IconBuilding className="w-12 h-12 text-blue-600" />
+                    <img src={cmsContent.logoUrl} alt="Logo" className="h-20 object-contain" />
                 </div>
                 <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900 dark:text-white">
                     {isLogin ? t.loginTitle : t.registerTitle}

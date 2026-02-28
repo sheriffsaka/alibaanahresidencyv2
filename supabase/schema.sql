@@ -167,8 +167,9 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
+DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
 CREATE TRIGGER on_auth_user_created
-AFTER INSERT ON auth.users FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
+  AFTER INSERT ON auth.users FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
 
 --- SEED DATA ---
 
@@ -187,7 +188,7 @@ VALUES
 INSERT INTO cms_content (property_id, logo_url, hero_title, hero_subtitle, hero_image_url, features, faqs, contract_templates)
 VALUES (
     (SELECT id FROM properties LIMIT 1),
-    'https://res.cloudinary.com/di7okmjsx/image/upload/v1740321960/al-ibaanah-logo_new.png',
+    'https://storage.googleapis.com/user-uploads-ais-prod/petzxt2545463tvkunzpbm/v1/image_98.png',
     'Your Home for Knowledge and Comfort',
     'Secure, comfortable, and studious living, just moments away from the Al-Ibaanah Arabic Center.',
     'https://res.cloudinary.com/di7okmjsx/image/upload/v1770400290/heroalibaanah_ghqtok.jpg',

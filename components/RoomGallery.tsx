@@ -16,6 +16,14 @@ const RoomGallery: React.FC<RoomGalleryProps> = ({ rooms }) => {
         rooms.find(r => r.type === AccommodationType.PREMIUM_PRIVATE),
     ].filter((r): r is Room => !!r); // Type guard to filter out undefined
 
+    if (galleryRooms.length === 0) {
+        return (
+            <div className="max-w-7xl mx-auto text-center py-12 bg-gray-50 dark:bg-gray-800/50 rounded-2xl border-2 border-dashed border-gray-200 dark:border-gray-700">
+                <p className="text-gray-500 dark:text-gray-400">No rooms available to display in the gallery.</p>
+            </div>
+        );
+    }
+
     return (
         <div className="max-w-7xl mx-auto">
             <div className="text-center mb-12">

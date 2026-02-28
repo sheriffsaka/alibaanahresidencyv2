@@ -121,21 +121,22 @@ const AdminDashboardPage: React.FC = () => {
   };
 
   const analytics = useMemo(() => {
-    const occupiedBookings = bookings.filter(b => b.status === BookingStatus.OCCUPIED || b.status === BookingStatus.CONFIRMED);
+    const safeBookings = bookings || [];
+    const occupiedBookings = safeBookings.filter(b => b.status === BookingStatus.OCCUPIED || b.status === BookingStatus.CONFIRMED);
     const occupiedRoomIds = new Set(occupiedBookings.map(b => b.room_id));
-    const occupiedRooms = rooms.filter(r => occupiedRoomIds.has(r.id));
+    const occupiedRooms = (rooms || []).filter(r => occupiedRoomIds.has(r.id));
     
     return {
-      pendingVerifications: bookings.filter(b => b.status === BookingStatus.PENDING_VERIFICATION),
+      pendingVerifications: safeBookings.filter(b => b.status === BookingStatus.PENDING_VERIFICATION),
       occupiedRoomIds,
       occupancyByType: Object.values(AccommodationType).map(type => ({
         name: type,
         value: occupiedRooms.filter(r => r.type === type).length
       })),
       totalRevenue: occupiedBookings.reduce((sum, b) => sum + (b.total_price || 0), 0),
-      occupancyRate: rooms.length > 0 ? Math.round((occupiedRoomIds.size / rooms.length) * 100) : 0,
-      totalRooms: rooms.length,
-      availableRooms: rooms.length - occupiedRoomIds.size
+      occupancyRate: (rooms || []).length > 0 ? Math.round((occupiedRoomIds.size / (rooms || []).length) * 100) : 0,
+      totalRooms: (rooms || []).length,
+      availableRooms: (rooms || []).length - occupiedRoomIds.size
     };
   }, [bookings, rooms]);
 
@@ -504,7 +505,7 @@ const AdminDashboardPage: React.FC = () => {
 
         {/* Right Sidebar */}
         <div className="space-y-6">
-           <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-lg border"><h3 className="text-lg font-bold mb-6">🕒 {t.recentActivities}</h3><div className="space-y-6">{activities.map(act => <div key={act.id} className="flex gap-4 relative">
+           <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-lg border"><h3 className="text-lg font-bold mb-6">🕒 {t.recentActivities}</h3><div className="space-y-6">{(activities || []).map(act => <div key={act.id} className="flex gap-4 relative">
               <div className={`flex-shrink-0 w-2 h-2 rounded-full mt-2 z-10 ${act.type === 'payment' ? 'bg-green-500' : 'bg-blue-500'}`}></div>
               <div className="absolute left-[3px] top-4 w-[2px] h-full bg-gray-100 dark:bg-gray-700 last:hidden"></div>
               <div><p className="text-sm font-medium">{act.description}</p><p className="text-[10px] text-gray-500 mt-1 uppercase">{new Date(act.timestamp).toLocaleString()}</p></div>

@@ -71,35 +71,67 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     setSession(session);
 
     if (session?.user) {
-        const { data: profile, error: profileError } = await supabase
-            .from('profiles')
-            .select('*')
-            .eq('id', session.user.id)
-            .single();
+      try {
+        // Retry logic for profile fetching (useful right after registration)
+        let profile = null;
+        let profileError = null;
+        let attempts = 0;
+        const maxAttempts = 3;
 
-        if (profileError) {
-            console.warn("Could not fetch user profile:", profileError.message);
+        while (attempts < maxAttempts) {
+            const { data, error } = await supabase
+                .from('profiles')
+                .select('*')
+                .eq('id', session.user.id)
+                .maybeSingle();
+            
+            if (data) {
+                profile = data;
+                break;
+            }
+            
+            profileError = error;
+            attempts++;
+            if (attempts < maxAttempts) {
+                await new Promise(resolve => setTimeout(resolve, 500 * attempts));
+            }
+        }
+
+        if (!profile) {
+            console.warn("Could not fetch user profile after retries:", profileError?.message || "Not found");
             setUser(null);
             setBookings([]);
         } else {
             const loggedInUser = { id: profile.id, email: session.user.email, full_name: profile.full_name, role: profile.role, gender: profile.gender };
             setUser(loggedInUser);
 
-            const { data: bookingsData, error: bookingsError } = await supabase
+            // Role-aware booking query
+            let query = supabase
                 .from('bookings')
                 .select('*, rooms(room_number, type), profiles:student_id(full_name)');
+            
+            if (profile.role === 'student') {
+                query = query.eq('student_id', session.user.id);
+            }
+
+            const { data: bookingsData, error: bookingsError } = await query;
 
             if (bookingsError) {
                 console.error("Error fetching bookings:", bookingsError.message);
                 setBookings([]);
             } else {
-                const mappedBookings = bookingsData.map((b: any) => ({
+                const mappedBookings = (bookingsData || []).map((b: any) => ({
                     ...b,
                     student_name: b.profiles?.full_name,
                 }));
-                setBookings(mappedBookings || []);
+                setBookings(mappedBookings);
             }
         }
+      } catch (err) {
+        console.error("Unexpected error in updateUserSession:", err);
+        setUser(null);
+        setBookings([]);
+      }
     } else {
       setUser(null);
       setBookings([]);
@@ -109,53 +141,100 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   useEffect(() => {
     // Fetch public data that everyone can see. This runs once on mount.
     const fetchPublicData = async () => {
-        const [roomsRes, termsRes, packagesRes, cmsRes] = await Promise.all([
-            supabase.from('rooms').select('*'),
-            supabase.from('academic_terms').select('*').eq('is_active', true),
-            supabase.from('booking_packages').select('*').eq('is_active', true),
-            supabase.from('cms_content').select('*').single()
-        ]);
-        if (roomsRes.error) console.error('Error fetching rooms:', roomsRes.error);
-        else setRooms(roomsRes.data || []);
-        if (termsRes.error) console.error('Error fetching academic terms:', termsRes.error);
-        else setAcademicTerms(termsRes.data || []);
-        if (packagesRes.error) console.error('Error fetching booking packages:', packagesRes.error);
-        else setBookingPackages(packagesRes.data || []);
-        if (cmsRes.data) {
-          setCmsContent({
-            ...INITIAL_CMS,
-            ...cmsRes.data,
-            hero: cmsRes.data.hero || INITIAL_CMS.hero,
-            features: cmsRes.data.features || INITIAL_CMS.features,
-            faqs: cmsRes.data.faqs || INITIAL_CMS.faqs,
-            contractTemplates: cmsRes.data.contract_templates || INITIAL_CMS.contractTemplates
-          });
+        try {
+            console.log("Fetching public data...");
+            const [roomsRes, termsRes, packagesRes, cmsRes] = await Promise.all([
+                supabase.from('rooms').select('*'),
+                supabase.from('academic_terms').select('*').eq('is_active', true),
+                supabase.from('booking_packages').select('*').eq('is_active', true),
+                supabase.from('cms_content').select('*').limit(1).maybeSingle()
+            ]);
+            
+            if (roomsRes.error) console.error('Error fetching rooms:', roomsRes.error.message);
+            else {
+                console.log(`Fetched ${roomsRes.data?.length || 0} rooms`);
+                setRooms(roomsRes.data || []);
+            }
+            
+            if (termsRes.error) console.error('Error fetching academic terms:', termsRes.error.message);
+            else setAcademicTerms(termsRes.data || []);
+            
+            if (packagesRes.error) console.error('Error fetching booking packages:', packagesRes.error.message);
+            else setBookingPackages(packagesRes.data || []);
+            
+            if (cmsRes.data) {
+              const dbCms = cmsRes.data;
+              console.log("Fetched CMS content from DB");
+              setCmsContent({
+                ...INITIAL_CMS,
+                logoUrl: dbCms.logo_url || dbCms.logoUrl || INITIAL_CMS.logoUrl,
+                heroImageUrl: dbCms.hero_image_url || dbCms.heroImageUrl || INITIAL_CMS.heroImageUrl,
+                hero: {
+                    en: { 
+                        title: dbCms.hero_title || (dbCms.hero?.en?.title) || INITIAL_CMS.hero.en?.title || '', 
+                        subtitle: dbCms.hero_subtitle || (dbCms.hero?.en?.subtitle) || INITIAL_CMS.hero.en?.subtitle || '' 
+                    },
+                    ar: dbCms.hero?.ar || INITIAL_CMS.hero.ar
+                },
+                features: dbCms.features || INITIAL_CMS.features,
+                faqs: dbCms.faqs || INITIAL_CMS.faqs,
+                contractTemplates: dbCms.contract_templates || dbCms.contractTemplates || INITIAL_CMS.contractTemplates
+              });
+            } else if (cmsRes.error) {
+                console.warn('CMS content not found or error:', cmsRes.error.message);
+            }
+        } catch (err) {
+            console.error('Unexpected error fetching public data:', err);
         }
     };
     fetchPublicData();
 
+    // Safety timeout: If initialization takes more than 10 seconds, force dismiss the loader
+    const safetyTimeout = setTimeout(() => {
+      if (!isInitialized.current) {
+        console.warn("Initialization safety timeout reached. Forcing loader dismissal.");
+        setLoading(false);
+        isInitialized.current = true;
+      }
+    }, 10000);
+
     // Check initial session
     supabase.auth.getSession().then(({ data: { session } }) => {
+      console.log("Initial session check complete");
       updateUserSession(session);
+      
+      // Dismiss loader as soon as we have the initial auth state
       if (!isInitialized.current) {
         setLoading(false);
         isInitialized.current = true;
+        clearTimeout(safetyTimeout);
+      }
+    }).catch(err => {
+      console.error("Error getting initial session:", err);
+      if (!isInitialized.current) {
+        setLoading(false);
+        isInitialized.current = true;
+        clearTimeout(safetyTimeout);
       }
     });
 
     // Set up the single source of truth for auth state.
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (_event, session) => {
+        console.log("Auth state change detected:", _event);
         await updateUserSession(session);
+        
         if (!isInitialized.current) {
             setLoading(false);
             isInitialized.current = true;
+            clearTimeout(safetyTimeout);
         }
       }
     );
 
     return () => {
       subscription?.unsubscribe();
+      clearTimeout(safetyTimeout);
     };
   }, [updateUserSession]);
 
@@ -228,9 +307,9 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     bookingPackages,
   };
 
-  if (loading) {
-      // This will now only appear on the very first application load.
-      return (
+  return (
+    <AppContext.Provider value={value}>
+      {loading ? (
         <div className="flex items-center justify-center min-h-screen bg-gray-50 dark:bg-gray-900">
           <div className="text-center">
             <div className="relative inline-flex">
@@ -244,8 +323,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">Setting up your secure environment</p>
           </div>
         </div>
-      );
-  }
-
-  return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
+      ) : children}
+    </AppContext.Provider>
+  );
 };

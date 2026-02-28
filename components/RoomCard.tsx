@@ -33,7 +33,7 @@ const RoomCard: React.FC<RoomCardProps> = ({ room, isOccupied }) => {
         
         <h3 className="font-semibold text-gray-700 dark:text-gray-300 mb-2">{t.amenities}</h3>
         <ul className="space-y-2 text-gray-600 dark:text-gray-400">
-          {room.amenities.map((amenity, index) => (
+          {(room.amenities || []).map((amenity, index) => (
             <li key={index} className="flex items-center">
               <IconCheckCircle className="w-5 h-5 text-green-500 me-2 flex-shrink-0" />
               <span>{amenity}</span>
