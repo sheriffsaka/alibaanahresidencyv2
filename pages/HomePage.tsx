@@ -6,6 +6,7 @@ import FAQ from '../components/FAQ';
 import { IconMapPin, IconShieldCheck, IconSofa } from '../components/Icon';
 import RoomGallery from '../components/RoomGallery';
 import { useApp } from '../hooks/useApp';
+import { INITIAL_CMS } from '../contexts/AppContext';
 import { BookingStatus, AccommodationType } from '../types';
 
 const HomePage: React.FC = () => {
@@ -13,8 +14,17 @@ const HomePage: React.FC = () => {
   const { cmsContent, rooms, user, bookings, language } = useApp();
 
   const currentHero = (cmsContent.hero || {})[language] || (cmsContent.hero || {})['en'] || { title: '', subtitle: '' };
-  const currentFeatures = (cmsContent.features || {})[language] || (cmsContent.features || {})['en'] || [];
-  const currentFaqs = (cmsContent.faqs || {})[language] || (cmsContent.faqs || {})['en'] || [];
+  const currentFeatures = (cmsContent.features?.[language] && cmsContent.features[language]!.length > 0) 
+    ? cmsContent.features[language]! 
+    : (cmsContent.features?.['en'] && cmsContent.features['en']!.length > 0) 
+        ? cmsContent.features['en']! 
+        : INITIAL_CMS.features.en;
+        
+  const currentFaqs = (cmsContent.faqs?.[language] && cmsContent.faqs[language]!.length > 0) 
+    ? cmsContent.faqs[language]! 
+    : (cmsContent.faqs?.['en'] && cmsContent.faqs['en']!.length > 0) 
+        ? cmsContent.faqs['en']! 
+        : INITIAL_CMS.faqs.en;
 
   const handleScrollToRooms = () => {
     const roomsSection = document.getElementById('rooms-section');

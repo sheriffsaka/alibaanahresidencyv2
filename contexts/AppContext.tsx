@@ -6,7 +6,7 @@ import { Session } from '@supabase/supabase-js';
 
 export const AppContext = createContext<AppContextType | undefined>(undefined);
 
-const INITIAL_CMS: CmsContent = {
+export const INITIAL_CMS: CmsContent = {
   logoUrl: 'https://res.cloudinary.com/di7okmjsx/image/upload/v1740321960/al-ibaanah-logo_new.png',
   hero: {
     en: { title: 'Your Home for Knowledge and Comfort', subtitle: 'Secure, comfortable, and studious living, just moments away from the Al-Ibaanah Arabic Center.' },
@@ -51,6 +51,7 @@ const MOCK_ACTIVITIES: Activity[] = [
 ];
 
 export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
+  const hasData = (obj: any) => obj && typeof obj === 'object' && Object.keys(obj).length > 0;
   const [language, setLanguage] = useState<Language>('en');
   const [page, setPageState] = useState<Page>('home');
   const [user, setUser] = useState<User | null>(null);
@@ -99,7 +100,16 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
         if (!profile) {
             console.warn("Could not fetch user profile after retries:", profileError?.message || "Not found");
-            setUser(null);
+            // Fallback: Create a temporary user object so the app doesn't stay stuck on the loader
+            // This allows the user to at least see the dashboard, though some features might be limited.
+            const fallbackUser = { 
+                id: session.user.id, 
+                email: session.user.email, 
+                full_name: session.user.user_metadata?.full_name || 'Student', 
+                role: 'student' as const, 
+                gender: session.user.user_metadata?.gender as any
+            };
+            setUser(fallbackUser);
             setBookings([]);
         } else {
             const loggedInUser = { id: profile.id, email: session.user.email, full_name: profile.full_name, role: profile.role, gender: profile.gender };
@@ -164,24 +174,45 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             
             if (cmsRes.data) {
               const dbCms = cmsRes.data;
-              console.log("Fetched CMS content from DB");
+              console.log("Fetched CMS content from DB:", dbCms);
+              
+              // Helper to normalize CMS data that might be an array or an object keyed by language
+              const normalizeCmsData = (data: any, fallback: any) => {
+                if (!hasData(data)) return fallback;
+                // If it's an array, wrap it in an object with 'en' as the default key
+                if (Array.isArray(data)) {
+                    return { ...fallback, en: data };
+                }
+                // If it's an object, merge it with fallback
+                return { ...fallback, ...data };
+              };
+
               setCmsContent({
                 ...INITIAL_CMS,
                 logoUrl: dbCms.logo_url || dbCms.logoUrl || INITIAL_CMS.logoUrl,
                 heroImageUrl: dbCms.hero_image_url || dbCms.heroImageUrl || INITIAL_CMS.heroImageUrl,
-                hero: {
+                hero: hasData(dbCms.hero) ? {
+                    ...INITIAL_CMS.hero,
+                    ...dbCms.hero,
                     en: { 
-                        title: dbCms.hero_title || (dbCms.hero?.en?.title) || INITIAL_CMS.hero.en?.title || '', 
-                        subtitle: dbCms.hero_subtitle || (dbCms.hero?.en?.subtitle) || INITIAL_CMS.hero.en?.subtitle || '' 
-                    },
-                    ar: dbCms.hero?.ar || INITIAL_CMS.hero.ar
+                        title: dbCms.hero_title || dbCms.hero?.en?.title || INITIAL_CMS.hero.en?.title || '', 
+                        subtitle: dbCms.hero_subtitle || dbCms.hero?.en?.subtitle || INITIAL_CMS.hero.en?.subtitle || '' 
+                    }
+                } : {
+                    ...INITIAL_CMS.hero,
+                    en: {
+                        title: dbCms.hero_title || INITIAL_CMS.hero.en?.title || '',
+                        subtitle: dbCms.hero_subtitle || INITIAL_CMS.hero.en?.subtitle || ''
+                    }
                 },
-                features: dbCms.features || INITIAL_CMS.features,
-                faqs: dbCms.faqs || INITIAL_CMS.faqs,
-                contractTemplates: dbCms.contract_templates || dbCms.contractTemplates || INITIAL_CMS.contractTemplates
+                features: normalizeCmsData(dbCms.features, INITIAL_CMS.features),
+                faqs: normalizeCmsData(dbCms.faqs, INITIAL_CMS.faqs),
+                contractTemplates: hasData(dbCms.contract_templates || dbCms.contractTemplates) 
+                    ? (dbCms.contract_templates || dbCms.contractTemplates) 
+                    : INITIAL_CMS.contractTemplates
               });
-            } else if (cmsRes.error) {
-                console.warn('CMS content not found or error:', cmsRes.error.message);
+            } else {
+                console.log("No CMS content found in DB, using defaults");
             }
         } catch (err) {
             console.error('Unexpected error fetching public data:', err);

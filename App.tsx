@@ -12,8 +12,25 @@ import AuthPage from './pages/AuthPage';
 import SupportPage from './pages/SupportPage';
 import Chatbot from './components/Chatbot';
 
+const DashboardLoadingFallback: React.FC<{ setPage: (page: any) => void }> = ({ setPage }) => {
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      console.warn("Dashboard loading timeout reached, redirecting to auth...");
+      setPage('auth');
+    }, 8000);
+    return () => clearTimeout(timer);
+  }, [setPage]);
+
+  return (
+    <div className="flex flex-col items-center justify-center py-20">
+      <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mb-4"></div>
+      <p className="text-gray-500 animate-pulse">Loading your profile...</p>
+    </div>
+  );
+};
+
 const AppContent: React.FC = () => {
-  const { page, language, user, selectedRoom } = useApp();
+  const { page, language, user, selectedRoom, setPage } = useApp();
 
   useEffect(() => {
     document.documentElement.lang = language;
@@ -27,6 +44,12 @@ const AppContent: React.FC = () => {
     
     // Auth guard for protected pages
     if (!user) {
+      // If we are on a protected page but user is not yet loaded, 
+      // show a small loading indicator instead of immediately redirecting to AuthPage.
+      // This prevents the "flicker" back to login right after a successful signIn.
+      if (page === 'dashboard' || page === 'booking') {
+          return <DashboardLoadingFallback setPage={setPage} />;
+      }
       return <AuthPage />;
     }
     

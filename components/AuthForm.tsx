@@ -24,15 +24,21 @@ const AuthForm: React.FC<AuthFormProps> = ({ isLogin, setIsLogin }) => {
     const [error, setError] = useState<string | null>(null);
 
     const handleLogin = async () => {
+        console.log("Attempting login for:", email);
         const { error } = await supabase.auth.signInWithPassword({
             email,
             password,
         });
-        if (error) throw error;
+        if (error) {
+            console.error("Login error:", error.message);
+            throw error;
+        }
+        console.log("Login successful, redirecting to dashboard...");
         setPage('dashboard');
     };
     
     const handleRegister = async () => {
+        console.log("Attempting registration for:", email);
         const { data, error } = await supabase.auth.signUp({
             email,
             password,
@@ -43,9 +49,11 @@ const AuthForm: React.FC<AuthFormProps> = ({ isLogin, setIsLogin }) => {
                 },
             },
         });
-        // Supabase handles creating the profile via a trigger we should add to schema.sql
-        if (error) throw error;
-        // Optional: show a "please check your email" message if email confirmation is on.
+        if (error) {
+            console.error("Registration error:", error.message);
+            throw error;
+        }
+        console.log("Registration successful:", data);
         alert('Registration successful! Please login.');
         setIsLogin(true); // Switch to login form
     };
