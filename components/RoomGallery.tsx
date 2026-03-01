@@ -10,11 +10,18 @@ interface RoomGalleryProps {
 const RoomGallery: React.FC<RoomGalleryProps> = ({ rooms }) => {
     const t = useTranslation();
 
-    const galleryRooms = [
-        rooms.find(r => r.type === AccommodationType.STANDARD_SHARED),
-        rooms.find(r => r.type === AccommodationType.STANDARD_PRIVATE),
-        rooms.find(r => r.type === AccommodationType.PREMIUM_PRIVATE),
-    ].filter((r): r is Room => !!r); // Type guard to filter out undefined
+    const galleryRooms = React.useMemo(() => {
+        const types = [
+            AccommodationType.STANDARD_SHARED,
+            AccommodationType.STANDARD_PRIVATE,
+            AccommodationType.PREMIUM_SHARED,
+            AccommodationType.PREMIUM_PRIVATE,
+        ];
+        
+        return types.map(type => {
+            return rooms.find(r => r.type?.toLowerCase() === type.toLowerCase());
+        }).filter((r): r is Room => !!r);
+    }, [rooms]);
 
     if (galleryRooms.length === 0) {
         return (
@@ -39,7 +46,7 @@ const RoomGallery: React.FC<RoomGalleryProps> = ({ rooms }) => {
                     <div key={room.id} className="group relative block bg-black rounded-lg overflow-hidden">
                         <img
                             alt={`Image of ${room.type} room`}
-                            src={room.image_urls?.[0].replace('/upload/', '/upload/w_800,h_600,c_fill/')}
+                            src={room.image_urls?.[0] ? room.image_urls[0].replace('/upload/', '/upload/w_800,h_600,c_fill/') : 'https://images.unsplash.com/photo-1522771739844-6a9f6d5f14af?auto=format&fit=crop&w=800&q=80'}
                             className="absolute inset-0 h-full w-full object-cover opacity-75 transition-opacity group-hover:opacity-50"
                         />
                         <div className="relative p-6">

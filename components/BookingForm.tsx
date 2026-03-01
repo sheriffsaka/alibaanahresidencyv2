@@ -122,13 +122,17 @@ const BookingForm: React.FC<BookingFormProps> = ({ room }) => {
           </select>
         </div>
         <InputField name="emergencyContact" label={t.emergencyContact} value={formData.emergencyContact} onChange={handleInputChange} required />
-        <div className="md:col-span-2 grid grid-cols-2 md:grid-cols-5 gap-4 bg-gray-50 dark:bg-gray-800/50 p-4 rounded-xl border dark:border-gray-700">
-          <h4 className="col-span-full text-xs font-bold uppercase tracking-widest text-gray-500 mb-2">{t.addressInEgypt}</h4>
-          <InputField name="buildingNo" label="Bldg No." value={formData.buildingNo} onChange={handleInputChange} />
-          <InputField name="flatNo" label="Flat No." value={formData.flatNo} onChange={handleInputChange} />
-          <InputField name="streetName" label="Street" value={formData.streetName} onChange={handleInputChange} />
-          <InputField name="districtName" label="District" value={formData.districtName} onChange={handleInputChange} />
-          <InputField name="state" label="State" value={formData.state} onChange={handleInputChange} />
+        <div className="md:col-span-2 space-y-4 bg-gray-50 dark:bg-gray-800/50 p-6 rounded-xl border dark:border-gray-700">
+          <h4 className="text-sm font-bold uppercase tracking-widest text-gray-500 mb-2">{t.addressInEgypt}</h4>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <InputField name="buildingNo" label="Building No." value={formData.buildingNo} onChange={handleInputChange} placeholder="e.g., 12" />
+            <InputField name="flatNo" label="Flat No." value={formData.flatNo} onChange={handleInputChange} placeholder="e.g., 4B" />
+          </div>
+          <InputField name="streetName" label="Street Name" value={formData.streetName} onChange={handleInputChange} placeholder="e.g., Al-Nasr Street" />
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <InputField name="districtName" label="District" value={formData.districtName} onChange={handleInputChange} placeholder="e.g., Nasr City" />
+            <InputField name="state" label="State/City" value={formData.state} onChange={handleInputChange} placeholder="e.g., Cairo" />
+          </div>
         </div>
         <div>
           <label htmlFor="contractLanguage" className="block text-sm font-medium text-gray-700 dark:text-gray-300">{t.contractLanguage}</label>

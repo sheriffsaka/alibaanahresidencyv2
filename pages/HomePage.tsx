@@ -43,8 +43,13 @@ const HomePage: React.FC = () => {
   }, [bookings]);
 
   const visibleRooms = useMemo(() => {
+    console.log("Processing visible rooms. Total rooms:", rooms.length, "User:", user?.email, "Gender:", user?.gender);
     if (user?.role === 'student' && user.gender) {
-      return rooms.filter(room => room.gender_restriction === 'Any' || room.gender_restriction === user.gender);
+      const userGender = user.gender.toLowerCase();
+      return rooms.filter(room => {
+        const roomGender = (room.gender_restriction || 'Any').toLowerCase();
+        return roomGender === 'any' || roomGender === userGender;
+      });
     }
     return rooms;
   }, [rooms, user]);
