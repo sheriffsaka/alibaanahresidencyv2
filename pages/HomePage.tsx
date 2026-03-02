@@ -11,7 +11,7 @@ import { BookingStatus, AccommodationType } from '../types';
 
 const HomePage: React.FC = () => {
   const t = useTranslation();
-  const { cmsContent, rooms, user, bookings, language } = useApp();
+  const { cmsContent, rooms, user, bookings, language, loading } = useApp();
 
   const currentHero = (cmsContent.hero || {})[language] || (cmsContent.hero || {})['en'] || { title: '', subtitle: '' };
   const currentFeatures = (cmsContent.features?.[language] && cmsContent.features[language]!.length > 0) 
@@ -69,6 +69,15 @@ const HomePage: React.FC = () => {
 
     return Object.entries(summary).map(([type, counts]) => ({ type: type as AccommodationType, ...counts! }));
   }, [visibleRooms, occupiedRoomIds]);
+
+  if (loading) {
+    return (
+      <div className="flex flex-col items-center justify-center py-32 space-y-4">
+        <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+        <p className="text-gray-500 font-medium">Loading residency details...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-20">

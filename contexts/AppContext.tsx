@@ -149,7 +149,6 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   }, []);
 
   useEffect(() => {
-    // Fetch public data that everyone can see. This runs once on mount.
     const fetchPublicData = async () => {
         try {
             console.log("Fetching public data...");
@@ -162,10 +161,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             ]);
             
             if (roomsRes.error) console.error('Error fetching rooms:', roomsRes.error.message);
-            else {
-                console.log(`Fetched ${roomsRes.data?.length || 0} rooms`);
-                setRooms(roomsRes.data || []);
-            }
+            else setRooms(roomsRes.data || []);
             
             if (termsRes.error) console.error('Error fetching academic terms:', termsRes.error.message);
             else setAcademicTerms(termsRes.data || []);
@@ -186,16 +182,9 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             
             if (cmsRes.data) {
               const dbCms = cmsRes.data;
-              console.log("Fetched CMS content from DB:", dbCms);
-              
-              // Helper to normalize CMS data that might be an array or an object keyed by language
               const normalizeCmsData = (data: any, fallback: any) => {
                 if (!hasData(data)) return fallback;
-                // If it's an array, wrap it in an object with 'en' as the default key
-                if (Array.isArray(data)) {
-                    return { ...fallback, en: data };
-                }
-                // If it's an object, merge it with fallback
+                if (Array.isArray(data)) return { ...fallback, en: data };
                 return { ...fallback, ...data };
               };
 
@@ -223,61 +212,50 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                     ? (dbCms.contract_templates || dbCms.contractTemplates) 
                     : INITIAL_CMS.contractTemplates
               });
-            } else {
-                console.log("No CMS content found in DB, using defaults");
             }
         } catch (err) {
             console.error('Unexpected error fetching public data:', err);
         }
     };
-    fetchPublicData();
 
-    // Safety timeout: If initialization takes more than 10 seconds, force dismiss the loader
+    const initializeApp = async () => {
+        try {
+            // 1. Fetch public data
+            await fetchPublicData();
+            
+            // 2. Check session
+            const { data: { session } } = await supabase.auth.getSession();
+            if (session) {
+                await updateUserSession(session);
+            }
+        } catch (err) {
+            console.error("App initialization failed:", err);
+        } finally {
+            if (!isInitialized.current) {
+                setLoading(false);
+                isInitialized.current = true;
+            }
+        }
+    };
+
+    initializeApp();
+
+    // Safety timeout
     const safetyTimeout = setTimeout(() => {
       if (!isInitialized.current) {
-        console.warn("Initialization safety timeout reached. Forcing loader dismissal.");
+        console.warn("Initialization safety timeout reached.");
         setLoading(false);
         isInitialized.current = true;
       }
     }, 10000);
 
-    // Check initial session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      console.log("Initial session check complete");
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       updateUserSession(session);
-      
-      // Dismiss loader as soon as we have the initial auth state
-      if (!isInitialized.current) {
-        setLoading(false);
-        isInitialized.current = true;
-        clearTimeout(safetyTimeout);
-      }
-    }).catch(err => {
-      console.error("Error getting initial session:", err);
-      if (!isInitialized.current) {
-        setLoading(false);
-        isInitialized.current = true;
-        clearTimeout(safetyTimeout);
-      }
     });
 
-    // Set up the single source of truth for auth state.
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (_event, session) => {
-        console.log("Auth state change detected:", _event);
-        await updateUserSession(session);
-        
-        if (!isInitialized.current) {
-            setLoading(false);
-            isInitialized.current = true;
-            clearTimeout(safetyTimeout);
-        }
-      }
-    );
-
     return () => {
-      subscription?.unsubscribe();
-      clearTimeout(safetyTimeout);
+        subscription.unsubscribe();
+        clearTimeout(safetyTimeout);
     };
   }, [updateUserSession]);
 
