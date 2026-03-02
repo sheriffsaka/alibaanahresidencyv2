@@ -309,3 +309,27 @@ GRANT USAGE ON SCHEMA public TO anon, authenticated;
 GRANT ALL ON ALL TABLES IN SCHEMA public TO anon, authenticated;
 GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO anon, authenticated;
 GRANT ALL ON ALL FUNCTIONS IN SCHEMA public TO anon, authenticated;
+
+--------------------------------------------------------------------------------
+-- STORAGE POLICIES
+--------------------------------------------------------------------------------
+
+-- Allow public access to read files from public buckets
+DROP POLICY IF EXISTS "Public Access" ON storage.objects;
+CREATE POLICY "Public Access" ON storage.objects FOR SELECT USING ( bucket_id IN ('rooms', 'passports', 'cms') );
+
+-- Allow staff/proprietors to manage rooms and cms buckets
+DROP POLICY IF EXISTS "Staff Manage Rooms" ON storage.objects;
+CREATE POLICY "Staff Manage Rooms" ON storage.objects FOR ALL 
+USING ( bucket_id = 'rooms' AND (SELECT role FROM public.profiles WHERE id = auth.uid()) IN ('staff', 'proprietor') )
+WITH CHECK ( bucket_id = 'rooms' AND (SELECT role FROM public.profiles WHERE id = auth.uid()) IN ('staff', 'proprietor') );
+
+DROP POLICY IF EXISTS "Staff Manage CMS" ON storage.objects;
+CREATE POLICY "Staff Manage CMS" ON storage.objects FOR ALL 
+USING ( bucket_id = 'cms' AND (SELECT role FROM public.profiles WHERE id = auth.uid()) IN ('staff', 'proprietor') )
+WITH CHECK ( bucket_id = 'cms' AND (SELECT role FROM public.profiles WHERE id = auth.uid()) IN ('staff', 'proprietor') );
+
+-- Allow students to upload to passports bucket
+DROP POLICY IF EXISTS "Student Upload Passports" ON storage.objects;
+CREATE POLICY "Student Upload Passports" ON storage.objects FOR INSERT
+WITH CHECK ( bucket_id = 'passports' AND (SELECT role FROM public.profiles WHERE id = auth.uid()) = 'student' );

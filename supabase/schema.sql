@@ -114,11 +114,41 @@ CREATE TABLE bookings (
     contract_signed_at TIMESTAMPTZ,
     signature_data TEXT, -- Base64 or SVG
 
+    total_price NUMERIC(10, 2),
+    payment_proof_url TEXT,
+
     checked_in_at TIMESTAMPTZ,
     checked_out_at TIMESTAMPTZ
 );
 
--- 7. CMS Content Table
+-- 7. Payments Table
+CREATE TABLE payments (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    booking_id BIGINT NOT NULL REFERENCES bookings(id) ON DELETE CASCADE,
+    amount NUMERIC(10, 2) NOT NULL,
+    currency VARCHAR(3) DEFAULT 'USD',
+    status VARCHAR(50) DEFAULT 'Pending', -- Pending, Pending Verification, Completed, Failed
+    payment_method VARCHAR(50),
+    payment_proof_url TEXT,
+    transaction_id VARCHAR(255),
+    created_at TIMESTAMPTZ DEFAULT now(),
+    updated_at TIMESTAMPTZ DEFAULT now()
+);
+
+-- 8. Invoices Table
+CREATE TABLE invoices (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    payment_id UUID NOT NULL REFERENCES payments(id) ON DELETE CASCADE,
+    invoice_number VARCHAR(50) UNIQUE NOT NULL,
+    issue_date DATE DEFAULT CURRENT_DATE,
+    due_date DATE,
+    total_amount NUMERIC(10, 2) NOT NULL,
+    status VARCHAR(50) DEFAULT 'Unpaid',
+    pdf_url TEXT,
+    created_at TIMESTAMPTZ DEFAULT now()
+);
+
+-- 9. CMS Content Table
 CREATE TABLE cms_content (
     id SERIAL PRIMARY KEY,
     property_id UUID NOT NULL REFERENCES properties(id) UNIQUE,
@@ -132,7 +162,7 @@ CREATE TABLE cms_content (
     updated_at TIMESTAMPTZ DEFAULT now()
 );
 
--- 8. Admin Audit Log Table
+-- 10. Admin Audit Log Table
 CREATE TABLE admin_audit_log (
     id BIGSERIAL PRIMARY KEY,
     user_id UUID NOT NULL REFERENCES profiles(id),
@@ -158,6 +188,9 @@ $$ LANGUAGE plpgsql;
 CREATE TRIGGER set_timestamp
 BEFORE UPDATE ON profiles FOR EACH ROW EXECUTE FUNCTION trigger_set_timestamp();
 
+CREATE TRIGGER set_timestamp_payments
+BEFORE UPDATE ON payments FOR EACH ROW EXECUTE FUNCTION trigger_set_timestamp();
+
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS TRIGGER AS $$
 BEGIN
@@ -172,6 +205,14 @@ CREATE TRIGGER on_auth_user_created
   AFTER INSERT ON auth.users FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
 
 --- SEED DATA ---
+
+-- Create storage buckets
+INSERT INTO storage.buckets (id, name, public) 
+VALUES 
+    ('rooms', 'rooms', true),
+    ('passports', 'passports', true),
+    ('cms', 'cms', true)
+ON CONFLICT (id) DO NOTHING;
 
 -- Seed Properties
 INSERT INTO properties (name, logo_url, primary_color) VALUES ('Al-Ibaanah Student Residence', 'https://res.cloudinary.com/di7okmjsx/image/upload/v1740321960/al-ibaanah-logo_new.png', '#007BFF');
