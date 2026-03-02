@@ -4,6 +4,7 @@ import { Room, BookingStatus, Booking, AccommodationType } from '../types';
 import { useTranslation } from '../hooks/useTranslation';
 import { useApp } from '../hooks/useApp';
 import { IconUpload } from './Icon';
+import { uploadFile, generateFileName } from '../lib/storage';
 
 interface BookingFormProps {
   room: Room;
@@ -60,49 +61,60 @@ const BookingForm: React.FC<BookingFormProps> = ({ room }) => {
     setIsSubmitting(true);
     setError(null);
     
-    const passport_copy_url = 'https://example.com/passport.jpg';
+    try {
+      // 1. Upload passport copy to Supabase Storage
+      const fileName = generateFileName(passportCopy.name);
+      const passport_copy_url = await uploadFile('passports', fileName, passportCopy);
 
-    const bookingId = Math.floor(Math.random() * 9000) + 1000;
-    const newBooking: Booking = {
-        id: bookingId,
-        student_id: user.id,
-        room_id: room.id,
-        start_date: formData.arrivalDate,
-        end_date: formData.arrivalDate, 
-        status: BookingStatus.PENDING_VERIFICATION,
-        booked_at: new Date().toISOString(),
-        full_name: formData.fullName,
-        nationality: formData.nationality,
-        passport_number: formData.passportNumber,
-        passport_copy_url,
-        email: formData.email,
-        phone_number: formData.phoneNumber,
-        expected_arrival_date: formData.arrivalDate,
-        duration_of_stay: formData.duration,
-        preferred_accommodation: formData.accommodationType,
-        emergency_contact_details: formData.emergencyContact,
-        building_no: formData.buildingNo,
-        flat_no: formData.flatNo,
-        street_name: formData.streetName,
-        district_name: formData.districtName,
-        state: formData.state,
-        address_in_egypt: `${formData.buildingNo}, ${formData.flatNo}, ${formData.streetName}, ${formData.districtName}, ${formData.state}`,
-        contract_language: formData.contractLanguage,
-        rooms: { room_number: room.room_number, type: room.type },
-    };
+      // 2. Create booking object
+      const bookingId = Math.floor(Math.random() * 9000) + 1000;
+      const newBooking: Booking = {
+          id: bookingId,
+          student_id: user.id,
+          room_id: room.id,
+          start_date: formData.arrivalDate,
+          end_date: formData.arrivalDate, 
+          status: BookingStatus.PENDING_VERIFICATION,
+          booked_at: new Date().toISOString(),
+          full_name: formData.fullName,
+          nationality: formData.nationality,
+          passport_number: formData.passportNumber,
+          passport_copy_url,
+          email: formData.email,
+          phone_number: formData.phoneNumber,
+          expected_arrival_date: formData.arrivalDate,
+          duration_of_stay: formData.duration,
+          preferred_accommodation: formData.accommodationType,
+          emergency_contact_details: formData.emergencyContact,
+          building_no: formData.buildingNo,
+          flat_no: formData.flatNo,
+          street_name: formData.streetName,
+          district_name: formData.districtName,
+          state: formData.state,
+          address_in_egypt: `${formData.buildingNo}, ${formData.flatNo}, ${formData.streetName}, ${formData.districtName}, ${formData.state}`,
+          contract_language: formData.contractLanguage,
+          rooms: { room_number: room.room_number, type: room.type },
+      };
 
-    setTimeout(() => {
-        addBooking(newBooking);
-        addActivity({
-          user_id: user.id,
-          type: 'booking',
-          description: `New booking application for Room ${room.room_number} (BK${bookingId})`,
-          timestamp: new Date().toISOString()
-        });
-        alert(t.bookingSuccess);
-        setPage('dashboard');
-        setIsSubmitting(false);
-    }, 1500);
+      // 3. Save to database
+      await addBooking(newBooking);
+      
+      // 4. Add activity
+      await addActivity({
+        user_id: user.id,
+        type: 'booking',
+        description: `New booking application for Room ${room.room_number} (BK${bookingId})`,
+        timestamp: new Date().toISOString()
+      });
+
+      alert(t.bookingSuccess);
+      setPage('dashboard');
+    } catch (err: any) {
+      console.error("Booking submission error:", err);
+      setError(`Failed to submit booking: ${err.message || 'Unknown error'}`);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
   
   return (

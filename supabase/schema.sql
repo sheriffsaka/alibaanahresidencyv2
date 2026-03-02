@@ -121,7 +121,7 @@ CREATE TABLE bookings (
 -- 7. CMS Content Table
 CREATE TABLE cms_content (
     id SERIAL PRIMARY KEY,
-    property_id UUID NOT NULL REFERENCES properties(id),
+    property_id UUID NOT NULL REFERENCES properties(id) UNIQUE,
     logo_url TEXT,
     hero_title TEXT,
     hero_subtitle TEXT,

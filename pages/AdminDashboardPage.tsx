@@ -3,9 +3,10 @@ import React, { useState, useMemo, ChangeEvent } from 'react';
 import { useTranslation } from '../hooks/useTranslation';
 import { useApp } from '../hooks/useApp';
 import { Booking, BookingStatus, Room, AccommodationType, User, Language } from '../types';
-import { IconEdit, IconClose, IconBuilding, IconCheckCircle, IconPlus, IconTrash } from '../components/Icon';
+import { IconEdit, IconClose, IconBuilding, IconCheckCircle, IconPlus, IconTrash, IconUpload } from '../components/Icon';
 import BookingStatusBadge from '../components/BookingStatusBadge';
 import RoomEditorModal from '../components/RoomEditorModal';
+import { uploadFile, generateFileName } from '../lib/storage';
 
 // A simple, animated SVG Bar Chart component created for this page
 const OccupancyChart = ({ data }: { data: { name: string; value: number }[] }) => {
@@ -85,6 +86,24 @@ const AdminDashboardPage: React.FC = () => {
   const [selectedRoomForEdit, setSelectedRoomForEdit] = useState<Room | null>(null);
 
   const [editingContract, setEditingContract] = useState<{ roomType: AccommodationType; lang: Language } | null>(null);
+  const [isUploadingCms, setIsUploadingCms] = useState(false);
+
+  const handleCmsFileUpload = async (e: ChangeEvent<HTMLInputElement>, field: 'logoUrl' | 'heroImageUrl') => {
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0];
+      setIsUploadingCms(true);
+      try {
+        const fileName = generateFileName(file.name);
+        const publicUrl = await uploadFile('cms', fileName, file);
+        updateCmsContent({ [field]: publicUrl });
+        alert(`${field === 'logoUrl' ? 'Logo' : 'Hero Image'} updated successfully!`);
+      } catch (err) {
+        alert("Failed to upload image. Please try again.");
+      } finally {
+        setIsUploadingCms(false);
+      }
+    }
+  };
 
   const sortedBookings = useMemo(() => {
     return [...bookings].sort((a, b) => {
@@ -364,8 +383,31 @@ const AdminDashboardPage: React.FC = () => {
             <div className="space-y-8">
               <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 border border-gray-100 dark:border-gray-700">
                   <div className="flex items-center mb-6"><IconEdit className="w-6 h-6 text-blue-600 mr-2" /><h2 className="text-xl font-bold">Landing Page Content (English)</h2></div>
-                  <div className="space-y-4">
-                     <div><label className="block text-sm font-bold mb-1">Logo URL</label><input type="text" value={cmsContent.logoUrl} onChange={(e) => updateCmsContent({ logoUrl: e.target.value })} className="w-full p-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600" /></div>
+                  <div className="space-y-6">
+                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div className="space-y-2">
+                           <label className="block text-sm font-bold mb-1">Logo</label>
+                           <div className="flex items-center gap-4">
+                              <img src={cmsContent.logoUrl} alt="Logo" className="h-12 w-auto object-contain bg-gray-100 rounded p-1" />
+                              <label className="cursor-pointer bg-blue-50 text-blue-600 px-4 py-2 rounded-lg text-xs font-bold hover:bg-blue-100 flex items-center gap-2">
+                                 <IconUpload className="w-4 h-4" />
+                                 {isUploadingCms ? 'Uploading...' : 'Change Logo'}
+                                 <input type="file" className="hidden" onChange={(e) => handleCmsFileUpload(e, 'logoUrl')} accept="image/*" disabled={isUploadingCms} />
+                              </label>
+                           </div>
+                        </div>
+                        <div className="space-y-2">
+                           <label className="block text-sm font-bold mb-1">Hero Image</label>
+                           <div className="flex items-center gap-4">
+                              <img src={cmsContent.heroImageUrl} alt="Hero" className="h-12 w-20 object-cover bg-gray-100 rounded" />
+                              <label className="cursor-pointer bg-blue-50 text-blue-600 px-4 py-2 rounded-lg text-xs font-bold hover:bg-blue-100 flex items-center gap-2">
+                                 <IconUpload className="w-4 h-4" />
+                                 {isUploadingCms ? 'Uploading...' : 'Change Hero Image'}
+                                 <input type="file" className="hidden" onChange={(e) => handleCmsFileUpload(e, 'heroImageUrl')} accept="image/*" disabled={isUploadingCms} />
+                              </label>
+                           </div>
+                        </div>
+                     </div>
                      <div><label className="block text-sm font-bold mb-1">Hero Title (EN)</label><input type="text" value={cmsContent.hero.en?.title} onChange={(e) => updateCmsContent({ hero: { ...cmsContent.hero, en: { ...cmsContent.hero.en!, title: e.target.value } } })} className="w-full p-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600" /></div>
                      <div><label className="block text-sm font-bold mb-1">Hero Subtitle (EN)</label><textarea value={cmsContent.hero.en?.subtitle} onChange={(e) => updateCmsContent({ hero: { ...cmsContent.hero, en: { ...cmsContent.hero.en!, subtitle: e.target.value } } })} className="w-full p-2 border rounded-lg h-24 dark:bg-gray-700 dark:border-gray-600" /></div>
                   </div>

@@ -2,6 +2,7 @@
 import React, { useState, ChangeEvent } from 'react';
 import { Room, AccommodationType } from '../types';
 import { IconClose } from './Icon';
+import { uploadFile, generateFileName } from '../lib/storage';
 
 interface RoomEditorModalProps {
   room: Room | null; // null for creating a new room
@@ -14,9 +15,12 @@ const RoomEditorModal: React.FC<RoomEditorModalProps> = ({ room, onClose, onSave
     room_number: room?.room_number || '',
     type: room?.type || AccommodationType.STANDARD_SHARED,
     price_per_month: room?.price_per_month || 0,
+    gender_restriction: room?.gender_restriction || 'Any',
   });
   const [amenitiesStr, setAmenitiesStr] = useState(room?.amenities.join(', ') || '');
   const [imagePreview, setImagePreview] = useState<string | null>(room?.image_urls?.[0] || null);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
 
   const handleInputChange = (e: ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -26,19 +30,35 @@ const RoomEditorModal: React.FC<RoomEditorModalProps> = ({ room, onClose, onSave
   const handleImageChange = (e: ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
+      setSelectedFile(file);
       setImagePreview(URL.createObjectURL(file));
     }
   };
   
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const finalRoomData: Room = {
-      ...(room || { id: 0, created_at: '', property_id: '', is_available: true }),
-      ...formData,
-      amenities: amenitiesStr.split(',').map(a => a.trim()).filter(Boolean),
-      image_urls: imagePreview ? [imagePreview] : [],
-    };
-    onSave(finalRoomData);
+    setIsUploading(true);
+    
+    try {
+      let imageUrl = imagePreview;
+      
+      if (selectedFile) {
+        const fileName = generateFileName(selectedFile.name);
+        imageUrl = await uploadFile('rooms', fileName, selectedFile);
+      }
+
+      const finalRoomData: Room = {
+        ...(room || { id: 0, created_at: '', property_id: '', is_available: true }),
+        ...formData,
+        amenities: amenitiesStr.split(',').map(a => a.trim()).filter(Boolean),
+        image_urls: imageUrl ? [imageUrl] : [],
+      };
+      onSave(finalRoomData);
+    } catch (err) {
+      alert("Failed to upload image. Please try again.");
+    } finally {
+      setIsUploading(false);
+    }
   };
 
   return (
@@ -87,9 +107,19 @@ const RoomEditorModal: React.FC<RoomEditorModalProps> = ({ room, onClose, onSave
                 </select>
               </div>
             </div>
-            <div>
-              <label htmlFor="price_per_month" className="block text-sm font-bold">Price per Month ($)</label>
-              <input type="number" name="price_per_month" id="price_per_month" value={formData.price_per_month} onChange={handleInputChange} required className="mt-1 block w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600" />
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label htmlFor="price_per_month" className="block text-sm font-bold">Price per Month ($)</label>
+                <input type="number" name="price_per_month" id="price_per_month" value={formData.price_per_month} onChange={handleInputChange} required className="mt-1 block w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600" />
+              </div>
+              <div>
+                <label htmlFor="gender_restriction" className="block text-sm font-bold">Gender Restriction</label>
+                <select name="gender_restriction" id="gender_restriction" value={formData.gender_restriction} onChange={handleInputChange} className="mt-1 block w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600">
+                  <option value="Any">Any</option>
+                  <option value="Male">Male</option>
+                  <option value="Female">Female</option>
+                </select>
+              </div>
             </div>
             <div>
               <label htmlFor="amenities" className="block text-sm font-bold">Amenities (comma-separated)</label>
@@ -100,8 +130,10 @@ const RoomEditorModal: React.FC<RoomEditorModalProps> = ({ room, onClose, onSave
 
         {/* Footer */}
         <div className="flex-shrink-0 p-6 flex justify-end gap-4 border-t dark:border-gray-800">
-          <button type="button" onClick={onClose} className="px-6 py-2 rounded-lg bg-gray-200 dark:bg-gray-700 text-sm font-bold">Cancel</button>
-          <button type="submit" form="room-editor-form" className="px-6 py-2 rounded-lg bg-blue-600 text-white text-sm font-bold hover:bg-blue-700">Save Room</button>
+          <button type="button" onClick={onClose} className="px-6 py-2 rounded-lg bg-gray-200 dark:bg-gray-700 text-sm font-bold disabled:opacity-50" disabled={isUploading}>Cancel</button>
+          <button type="submit" form="room-editor-form" className="px-6 py-2 rounded-lg bg-blue-600 text-white text-sm font-bold hover:bg-blue-700 disabled:bg-blue-400" disabled={isUploading}>
+            {isUploading ? 'Uploading...' : 'Save Room'}
+          </button>
         </div>
       </div>
     </div>

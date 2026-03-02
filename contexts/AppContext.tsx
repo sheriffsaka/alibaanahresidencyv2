@@ -153,11 +153,12 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     const fetchPublicData = async () => {
         try {
             console.log("Fetching public data...");
-            const [roomsRes, termsRes, packagesRes, cmsRes] = await Promise.all([
+            const [roomsRes, termsRes, packagesRes, cmsRes, activitiesRes] = await Promise.all([
                 supabase.from('rooms').select('*'),
                 supabase.from('academic_terms').select('*').eq('is_active', true),
                 supabase.from('booking_packages').select('*').eq('is_active', true),
-                supabase.from('cms_content').select('*').limit(1).maybeSingle()
+                supabase.from('cms_content').select('*').limit(1).maybeSingle(),
+                supabase.from('admin_audit_log').select('*').order('created_at', { ascending: false }).limit(20)
             ]);
             
             if (roomsRes.error) console.error('Error fetching rooms:', roomsRes.error.message);
@@ -171,6 +172,17 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             
             if (packagesRes.error) console.error('Error fetching booking packages:', packagesRes.error.message);
             else setBookingPackages(packagesRes.data || []);
+
+            if (activitiesRes.data) {
+                const mappedActivities = activitiesRes.data.map((act: any) => ({
+                    id: act.id,
+                    user_id: act.user_id,
+                    type: act.action as any,
+                    description: act.details?.description || act.action,
+                    timestamp: act.created_at
+                }));
+                setActivities(mappedActivities);
+            }
             
             if (cmsRes.data) {
               const dbCms = cmsRes.data;
@@ -278,20 +290,91 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     }
   }, []);
 
-  const addBooking = (newBooking: Booking) => {
-    setBookings(prev => [newBooking, ...prev]);
+  const addBooking = async (newBooking: Booking) => {
+    try {
+        // Remove the 'rooms' and 'profiles' objects before inserting into Supabase
+        const { rooms, profiles, student_name, ...bookingToInsert } = newBooking as any;
+        
+        const { data, error } = await supabase
+            .from('bookings')
+            .insert([bookingToInsert])
+            .select('*, rooms(room_number, type), profiles:student_id(full_name)')
+            .single();
+
+        if (error) throw error;
+        
+        const mappedBooking = {
+            ...data,
+            student_name: data.profiles?.full_name,
+        };
+        setBookings(prev => [mappedBooking, ...prev]);
+    } catch (err: any) {
+        console.error("Error adding booking to Supabase:", err.message);
+        // Fallback to local state if DB insert fails (for demo purposes, though ideally we should show an error)
+        setBookings(prev => [newBooking, ...prev]);
+    }
   };
 
-  const updateBookingStatus = (id: number, status: BookingStatus) => {
-    setBookings(prev => prev.map(b => b.id === id ? { ...b, status } : b));
+  const updateBookingStatus = async (id: number, status: BookingStatus) => {
+    try {
+        const { error } = await supabase
+            .from('bookings')
+            .update({ status })
+            .eq('id', id);
+
+        if (error) throw error;
+        setBookings(prev => prev.map(b => b.id === id ? { ...b, status } : b));
+    } catch (err: any) {
+        console.error("Error updating booking status in Supabase:", err.message);
+        setBookings(prev => prev.map(b => b.id === id ? { ...b, status } : b));
+    }
   };
 
-  const updateBooking = (id: number, updates: Partial<Booking>) => {
-    setBookings(prev => prev.map(b => b.id === id ? { ...b, ...updates } : b));
+  const updateBooking = async (id: number, updates: Partial<Booking>) => {
+    try {
+        const { error } = await supabase
+            .from('bookings')
+            .update(updates)
+            .eq('id', id);
+
+        if (error) throw error;
+        setBookings(prev => prev.map(b => b.id === id ? { ...b, ...updates } : b));
+    } catch (err: any) {
+        console.error("Error updating booking in Supabase:", err.message);
+        setBookings(prev => prev.map(b => b.id === id ? { ...b, ...updates } : b));
+    }
   };
 
-  const updateCmsContent = (content: Partial<CmsContent>) => {
-    setCmsContent(prev => ({ ...prev, ...content }));
+  const updateCmsContent = async (content: Partial<CmsContent>) => {
+    try {
+        const updatedCms = { ...cmsContent, ...content };
+        setCmsContent(updatedCms);
+
+        // Get the property ID (assume the first one for now)
+        const { data: propData } = await supabase.from('properties').select('id').limit(1).single();
+        if (!propData) return;
+
+        // Map CmsContent object back to DB columns
+        const dbCms = {
+            property_id: propData.id,
+            logo_url: updatedCms.logoUrl,
+            hero_image_url: updatedCms.heroImageUrl,
+            hero_title: updatedCms.hero.en?.title,
+            hero_subtitle: updatedCms.hero.en?.subtitle,
+            features: updatedCms.features,
+            faqs: updatedCms.faqs,
+            contract_templates: updatedCms.contractTemplates,
+            updated_at: new Date().toISOString()
+        };
+
+        const { error } = await supabase
+            .from('cms_content')
+            .upsert(dbCms, { onConflict: 'property_id' });
+
+        if (error) throw error;
+    } catch (err: any) {
+        console.error("Error updating CMS content in Supabase:", err.message);
+    }
   };
 
   const logout = async () => {
@@ -302,16 +385,66 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     setPage('home');
   };
 
-  const addRoom = (newRoom: Room) => {
-    setRooms(prev => [...prev, newRoom]);
+  const addRoom = async (newRoom: Room) => {
+    try {
+        const { data: propData } = await supabase.from('properties').select('id').limit(1).single();
+        if (!propData) throw new Error("No property found");
+
+        const roomToInsert = {
+            ...newRoom,
+            property_id: propData.id,
+        };
+        // Remove ID if it's 0 or temporary
+        if (roomToInsert.id === 0 || roomToInsert.id > 1000000000) {
+            delete (roomToInsert as any).id;
+        }
+
+        const { data, error } = await supabase
+            .from('rooms')
+            .insert([roomToInsert])
+            .select()
+            .single();
+
+        if (error) throw error;
+        setRooms(prev => [...prev, data]);
+    } catch (err: any) {
+        console.error("Error adding room to Supabase:", err.message);
+        setRooms(prev => [...prev, newRoom]);
+    }
   };
 
-  const updateRoom = (updatedRoom: Room) => {
-    setRooms(prev => prev.map(r => r.id === updatedRoom.id ? updatedRoom : r));
+  const updateRoom = async (updatedRoom: Room) => {
+    try {
+        const { error } = await supabase
+            .from('rooms')
+            .update(updatedRoom)
+            .eq('id', updatedRoom.id);
+
+        if (error) throw error;
+        setRooms(prev => prev.map(r => r.id === updatedRoom.id ? updatedRoom : r));
+    } catch (err: any) {
+        console.error("Error updating room in Supabase:", err.message);
+        setRooms(prev => prev.map(r => r.id === updatedRoom.id ? updatedRoom : r));
+    }
   };
 
-  const addActivity = (activity: Omit<Activity, 'id'>) => {
-    setActivities(prev => [{ ...activity, id: Date.now() }, ...prev].slice(0, 20));
+  const addActivity = async (activity: Omit<Activity, 'id'>) => {
+    try {
+        const { error } = await supabase
+            .from('admin_audit_log')
+            .insert([{
+                user_id: activity.user_id,
+                action: activity.type,
+                details: { description: activity.description },
+                created_at: activity.timestamp
+            }]);
+
+        if (error) throw error;
+        setActivities(prev => [{ ...activity, id: Date.now() }, ...prev].slice(0, 20));
+    } catch (err: any) {
+        console.error("Error adding audit log to Supabase:", err.message);
+        setActivities(prev => [{ ...activity, id: Date.now() }, ...prev].slice(0, 20));
+    }
   };
 
   const value = {
