@@ -172,22 +172,36 @@ const AdminDashboardPage: React.FC = () => {
     }
   }, [rooms, roomFilter, analytics.occupiedRoomIds, user]);
 
-  const handleApprove = (id: number) => {
-    updateBookingStatus(id, BookingStatus.CONFIRMED);
-    addActivity({ user_id: user?.id || 'admin', type: 'payment', description: `Staff verified payment for BK${id}`, timestamp: new Date().toISOString() });
-    alert("Booking approved successfully!");
+  const handleApprove = async (id: number) => {
+    const result = await updateBookingStatus(id, BookingStatus.CONFIRMED);
+    if (result.success) {
+        addActivity({ user_id: user?.id || 'admin', type: 'payment', description: `Staff verified payment for BK${id}`, timestamp: new Date().toISOString() });
+        alert("Booking approved successfully!");
+    } else {
+        alert(`Failed to approve booking: ${result.error}`);
+    }
   };
 
-  const handleSaveRoom = (roomData: Room) => {
+  const handleSaveRoom = async (roomData: Room) => {
+    let result;
     if (roomData.id && rooms.some(r => r.id === roomData.id)) {
-        updateRoom(roomData);
-        addActivity({ user_id: user!.id, type: 'system', description: `Updated details for Room ${roomData.room_number}`, timestamp: new Date().toISOString() });
+        result = await updateRoom(roomData);
+        if (result.success) {
+            addActivity({ user_id: user!.id, type: 'system', description: `Updated details for Room ${roomData.room_number}`, timestamp: new Date().toISOString() });
+        }
     } else {
-        const newRoomWithId = { ...roomData, id: Date.now(), property_id: 'p1', created_at: new Date().toISOString(), is_available: true };
-        addRoom(newRoomWithId);
-        addActivity({ user_id: user!.id, type: 'system', description: `Added new room: ${newRoomWithId.room_number}`, timestamp: new Date().toISOString() });
+        const newRoom = { ...roomData, is_available: true };
+        result = await addRoom(newRoom);
+        if (result.success) {
+            addActivity({ user_id: user!.id, type: 'system', description: `Added new room: ${roomData.room_number}`, timestamp: new Date().toISOString() });
+        }
     }
-    setIsRoomModalOpen(false);
+
+    if (result?.success) {
+        setIsRoomModalOpen(false);
+    } else {
+        alert(`Failed to save room: ${result?.error || 'Unknown error'}`);
+    }
   };
 
   const handleOpenRoomModal = (room: Room | null) => {

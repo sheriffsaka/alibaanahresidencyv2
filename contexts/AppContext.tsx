@@ -286,10 +286,10 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             student_name: data.profiles?.full_name,
         };
         setBookings(prev => [mappedBooking, ...prev]);
+        return { success: true };
     } catch (err: any) {
         console.error("Error adding booking to Supabase:", err.message);
-        // Fallback to local state if DB insert fails (for demo purposes, though ideally we should show an error)
-        setBookings(prev => [newBooking, ...prev]);
+        return { success: false, error: err.message };
     }
   };
 
@@ -302,24 +302,29 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
         if (error) throw error;
         setBookings(prev => prev.map(b => b.id === id ? { ...b, status } : b));
+        return { success: true };
     } catch (err: any) {
         console.error("Error updating booking status in Supabase:", err.message);
-        setBookings(prev => prev.map(b => b.id === id ? { ...b, status } : b));
+        return { success: false, error: err.message };
     }
   };
 
   const updateBooking = async (id: number, updates: Partial<Booking>) => {
     try {
+        // Strip joined fields that might be in the updates object
+        const { rooms, profiles, ...dbUpdates } = updates as any;
+        
         const { error } = await supabase
             .from('bookings')
-            .update(updates)
+            .update(dbUpdates)
             .eq('id', id);
 
         if (error) throw error;
         setBookings(prev => prev.map(b => b.id === id ? { ...b, ...updates } : b));
+        return { success: true };
     } catch (err: any) {
         console.error("Error updating booking in Supabase:", err.message);
-        setBookings(prev => prev.map(b => b.id === id ? { ...b, ...updates } : b));
+        return { success: false, error: err.message };
     }
   };
 
@@ -330,7 +335,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
         // Get the property ID (assume the first one for now)
         const { data: propData } = await supabase.from('properties').select('id').limit(1).single();
-        if (!propData) return;
+        if (!propData) throw new Error("No property found");
 
         // Map CmsContent object back to DB columns
         const dbCms = {
@@ -350,8 +355,10 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             .upsert(dbCms, { onConflict: 'property_id' });
 
         if (error) throw error;
+        return { success: true };
     } catch (err: any) {
         console.error("Error updating CMS content in Supabase:", err.message);
+        return { success: false, error: err.message };
     }
   };
 
@@ -368,14 +375,13 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         const { data: propData } = await supabase.from('properties').select('id').limit(1).single();
         if (!propData) throw new Error("No property found");
 
+        // Strip fields that shouldn't be in the insert payload
+        const { id, created_at, ...roomData } = newRoom as any;
+        
         const roomToInsert = {
-            ...newRoom,
+            ...roomData,
             property_id: propData.id,
         };
-        // Remove ID if it's 0 or temporary
-        if (roomToInsert.id === 0 || roomToInsert.id > 1000000000) {
-            delete (roomToInsert as any).id;
-        }
 
         const { data, error } = await supabase
             .from('rooms')
@@ -385,24 +391,29 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
         if (error) throw error;
         setRooms(prev => [...prev, data]);
+        return { success: true };
     } catch (err: any) {
         console.error("Error adding room to Supabase:", err.message);
-        setRooms(prev => [...prev, newRoom]);
+        return { success: false, error: err.message };
     }
   };
 
   const updateRoom = async (updatedRoom: Room) => {
     try {
+        // Strip fields that shouldn't be in the update payload
+        const { id, created_at, property_id, ...updateData } = updatedRoom as any;
+
         const { error } = await supabase
             .from('rooms')
-            .update(updatedRoom)
+            .update(updateData)
             .eq('id', updatedRoom.id);
 
         if (error) throw error;
-        setRooms(prev => prev.map(r => r.id === updatedRoom.id ? updatedRoom : r));
+        setRooms(prev => prev.map(r => r.id === updatedRoom.id ? { ...r, ...updateData } : r));
+        return { success: true };
     } catch (err: any) {
         console.error("Error updating room in Supabase:", err.message);
-        setRooms(prev => prev.map(r => r.id === updatedRoom.id ? updatedRoom : r));
+        return { success: false, error: err.message };
     }
   };
 
