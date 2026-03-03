@@ -29,12 +29,12 @@ const RoomCard: React.FC<RoomCardProps> = ({ room, isOccupied }) => {
                 </span>
             </div>
         )}
-        <div className="absolute top-4 right-4 bg-white/90 dark:bg-gray-900/90 backdrop-blur-sm px-3 py-1 rounded-full text-xs font-bold text-blue-600 dark:text-blue-400 shadow-sm">
+        <div className="absolute top-4 right-4 bg-white/90 dark:bg-gray-900/90 backdrop-blur-sm px-3 py-1 rounded-full text-xs font-bold text-brand-600 dark:text-brand-400 shadow-sm">
             {room.gender_restriction === 'Any' ? 'All Genders' : room.gender_restriction}
         </div>
       </div>
       <div className="p-8">
-        <h2 className="text-xs font-bold text-blue-600 dark:text-blue-400 uppercase tracking-widest mb-1">{t.roomType}</h2>
+        <h2 className="text-xs font-bold text-brand-600 dark:text-brand-400 uppercase tracking-widest mb-1">{t.roomType}</h2>
         <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">{room.type || 'Room'}</h1>
         <p className="text-2xl font-bold text-gray-900 dark:text-white mb-6">
             {room.price_per_month ? t.pricePerMonth.replace('{price}', room.price_per_month.toString()) : 'Price on request'}
@@ -45,7 +45,7 @@ const RoomCard: React.FC<RoomCardProps> = ({ room, isOccupied }) => {
             <ul className="grid grid-cols-1 gap-3">
               {(room.amenities || []).slice(0, 4).map((amenity, index) => (
                 <li key={index} className="flex items-center text-sm text-gray-600 dark:text-gray-400">
-                  <IconCheckCircle className="w-5 h-5 text-blue-500 me-3 flex-shrink-0" />
+                  <IconCheckCircle className="w-5 h-5 text-brand-500 me-3 flex-shrink-0" />
                   <span>{amenity}</span>
                 </li>
               ))}
@@ -56,7 +56,7 @@ const RoomCard: React.FC<RoomCardProps> = ({ room, isOccupied }) => {
         <button 
           onClick={() => !isOccupied && setPage('booking', room)}
           disabled={isOccupied}
-          className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 px-6 rounded-xl transition-all duration-300 shadow-lg shadow-blue-600/20 active:scale-95 disabled:bg-gray-400 disabled:dark:bg-gray-600 disabled:cursor-not-allowed disabled:shadow-none"
+          className="w-full bg-brand-600 hover:bg-brand-700 text-white font-bold py-4 px-6 rounded-xl transition-all duration-300 shadow-lg shadow-brand-600/20 active:scale-95 disabled:bg-gray-400 disabled:dark:bg-gray-600 disabled:cursor-not-allowed disabled:shadow-none"
         >
           {isOccupied ? t.unavailable : t.bookNow}
         </button>

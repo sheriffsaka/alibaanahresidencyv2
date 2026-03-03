@@ -23,7 +23,7 @@ const LanguageSwitcher: React.FC = () => {
           onClick={() => setLanguage(lang.code)}
           className={`px-3 py-1 text-sm font-semibold rounded-full transition-colors duration-300 ${
             language === lang.code
-              ? 'bg-white dark:bg-gray-900 text-blue-600 dark:text-blue-400 shadow'
+              ? 'bg-white dark:bg-gray-900 text-brand-600 dark:text-brand-400 shadow'
               : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600'
           }`}
         >

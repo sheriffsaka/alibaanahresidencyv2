@@ -73,7 +73,7 @@ const HomePage: React.FC = () => {
   if (loading) {
     return (
       <div className="flex flex-col items-center justify-center py-32 space-y-4">
-        <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+        <div className="w-12 h-12 border-4 border-brand-600 border-t-transparent rounded-full animate-spin"></div>
         <p className="text-gray-500 font-medium">Loading residency details...</p>
       </div>
     );
@@ -97,7 +97,7 @@ const HomePage: React.FC = () => {
           <div className="mt-10">
             <button
               onClick={handleScrollToRooms}
-              className="rounded-md bg-blue-600 px-5 py-3 text-base font-semibold text-white shadow-sm hover:bg-blue-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 transition-all hover:scale-105"
+              className="rounded-md bg-brand-600 px-5 py-3 text-base font-semibold text-white shadow-sm hover:bg-brand-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600 transition-all hover:scale-105"
             >
               {t.heroCTA}
             </button>
@@ -124,12 +124,12 @@ const HomePage: React.FC = () => {
                 {availabilitySummary.map(({ type, total, available }) => (
                     <div key={type} className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-lg border border-gray-100 dark:border-gray-700">
                         <h3 className="text-xl font-bold text-gray-800 dark:text-white">{type} Rooms</h3>
-                        <p className="font-semibold text-blue-600 dark:text-blue-400 my-2 text-2xl">
+                        <p className="font-semibold text-brand-600 dark:text-brand-400 my-2 text-2xl">
                             {t.roomsAvailable.replace('{available}', (available || 0).toString()).replace('{total}', (total || 0).toString())}
                         </p>
                         <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2.5">
                             <div 
-                                className="bg-blue-600 h-2.5 rounded-full transition-all duration-500" 
+                                className="bg-brand-600 h-2.5 rounded-full transition-all duration-500" 
                                 style={{ width: `${total > 0 ? (available / total) * 100 : 0}%` }}
                             ></div>
                         </div>
@@ -174,7 +174,7 @@ const HomePage: React.FC = () => {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8 text-center">
             {currentFeatures.map((feat, idx) => (
               <div key={feat.id} className="flex flex-col items-center">
-                  <div className="flex items-center justify-center h-16 w-16 rounded-full bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-300 mb-4 shadow-sm">
+                  <div className="flex items-center justify-center h-16 w-16 rounded-full bg-brand-100 dark:bg-brand-900 text-brand-600 dark:text-brand-300 mb-4 shadow-sm">
                       {idx === 0 && <IconMapPin className="h-8 w-8" />}
                       {idx === 1 && <IconSofa className="h-8 w-8" />}
                       {idx === 2 && <IconShieldCheck className="h-8 w-8" />}

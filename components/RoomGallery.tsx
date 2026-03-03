@@ -52,7 +52,7 @@ const RoomGallery: React.FC<RoomGalleryProps> = ({ rooms }) => {
                         <div className="relative h-full flex flex-col justify-end p-8 bg-gradient-to-t from-black/80 via-black/20 to-transparent">
                             <div className="transform-gpu text-white transition-all duration-500 group-hover:translate-y-0 translate-y-4">
                                 <p className="text-3xl font-bold tracking-tight">{room.type}</p>
-                                <p className="text-lg font-medium text-blue-300 mt-2">
+                                <p className="text-lg font-medium text-brand-300 mt-2">
                                     {t.pricePerMonth.replace('{price}', room.price_per_month.toString())}
                                 </p>
                             </div>

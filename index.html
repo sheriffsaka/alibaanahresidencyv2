@@ -27,6 +27,43 @@
     <meta property="twitter:image" content="https://res.cloudinary.com/di7okmjsx/image/upload/v1771428370/alibaanahlogo1_iprhyj.png" />
 
     <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        darkMode: 'class',
+        theme: {
+          extend: {
+            colors: {
+              brand: {
+                50: '#f0f7ff',
+                100: '#e0effe',
+                200: '#bae0fd',
+                300: '#7cc8fb',
+                400: '#38acf7',
+                500: '#0e91e9',
+                600: '#0072c6', // Primary Brand Blue
+                700: '#005ba1',
+                800: '#004d87',
+                900: '#064170',
+                950: '#04294a',
+              },
+              accent: {
+                50: '#fffbeb',
+                100: '#fef3c7',
+                200: '#fde68a',
+                300: '#fcd34d',
+                400: '#fbbf24',
+                500: '#f59e0b', // Secondary Brand Gold
+                600: '#d97706',
+                700: '#b45309',
+                800: '#92400e',
+                900: '#78350f',
+                950: '#451a03',
+              }
+            }
+          }
+        }
+      }
+    </script>
     <style>
       /* Additional style for better font rendering and RTL support */
       @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;700&family=Poppins:wght@400;600;700&display=swap');
@@ -35,9 +72,20 @@
       }
       body {
         font-family: 'Poppins', sans-serif;
+        @apply bg-gray-50 dark:bg-gray-950 text-gray-900 dark:text-gray-100;
       }
       html[dir="rtl"] body {
         font-family: 'Cairo', sans-serif;
+      }
+      /* Custom scrollbar for brand consistency */
+      ::-webkit-scrollbar {
+        width: 8px;
+      }
+      ::-webkit-scrollbar-track {
+        @apply bg-gray-100 dark:bg-gray-900;
+      }
+      ::-webkit-scrollbar-thumb {
+        @apply bg-brand-600 rounded-full hover:bg-brand-700 transition-colors;
       }
     </style>
   <script type="importmap">

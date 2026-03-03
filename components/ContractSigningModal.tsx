@@ -141,7 +141,7 @@ const ContractSigningModal: React.FC<ContractSigningModalProps> = ({ contractTex
               <button
                 onClick={handleSubmit}
                 disabled={!hasSigned}
-                className="px-8 py-3 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white rounded-xl font-bold shadow-lg shadow-blue-200 dark:shadow-none transition-all transform hover:-translate-y-1 active:scale-95"
+                className="px-8 py-3 bg-brand-600 hover:bg-brand-700 disabled:bg-gray-400 text-white rounded-xl font-bold shadow-lg shadow-brand-200 dark:shadow-none transition-all transform hover:-translate-y-1 active:scale-95"
               >
                 {t.submitSignature}
               </button>

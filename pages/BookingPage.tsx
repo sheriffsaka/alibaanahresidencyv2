@@ -31,7 +31,7 @@ const BookingPage: React.FC<BookingPageProps> = ({ room }) => {
                     ? t.roomMaintenanceMessage
                     : t.roomBookedMessage}
             </p>
-            <button onClick={() => setPage('home')} className="mt-8 rounded-md bg-blue-600 px-5 py-3 text-base font-semibold text-white shadow-sm hover:bg-blue-500">
+            <button onClick={() => setPage('home')} className="mt-8 rounded-md bg-brand-600 px-5 py-3 text-base font-semibold text-white shadow-sm hover:bg-brand-500">
                 {t.backToRooms}
             </button>
         </div>

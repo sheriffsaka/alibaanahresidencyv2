@@ -61,7 +61,7 @@ const DashboardPage: React.FC = () => {
           <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Manage your residency and stay updated.</p>
         </div>
         <div className="hidden sm:block text-sm text-gray-500 dark:text-gray-400">
-            Welcome back, <span className="font-semibold text-blue-600">{user?.full_name}</span>
+            Welcome back, <span className="font-semibold text-brand-600">{user?.full_name}</span>
         </div>
       </div>
 
@@ -87,7 +87,7 @@ const DashboardPage: React.FC = () => {
                   <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
                     {userBookings.map((booking: Booking) => (
                       <tr key={booking.id} className="hover:bg-gray-50 dark:hover:bg-gray-750 transition-colors">
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-blue-600 dark:text-blue-400">BK{booking.id}</td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-brand-600 dark:text-brand-400">BK{booking.id}</td>
                         <td className="px-6 py-4 whitespace-nowrap">
                             <div className="text-sm font-medium text-gray-900 dark:text-white">{booking.rooms.type}</div>
                             <div className="text-xs text-gray-500 dark:text-gray-400">Room {booking.rooms.room_number}</div>
@@ -100,7 +100,7 @@ const DashboardPage: React.FC = () => {
                                 {booking.status === BookingStatus.CONFIRMED || booking.status === BookingStatus.OCCUPIED ? (
                                     <button 
                                       onClick={() => setSelectedInvoice(booking)}
-                                      className="text-blue-600 hover:text-blue-800 dark:text-blue-400 text-xs font-bold underline decoration-dotted text-left"
+                                      className="text-brand-600 hover:text-brand-800 dark:text-brand-400 text-xs font-bold underline decoration-dotted text-left"
                                     >
                                       {t.viewInvoice}
                                     </button>
@@ -131,10 +131,10 @@ const DashboardPage: React.FC = () => {
         <div className="space-y-6">
            {/* Book New Accommodation Card */}
             <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-lg border border-gray-100 dark:border-gray-700 text-center">
-              <IconBuilding className="w-12 h-12 text-blue-500 mx-auto mb-4" />
+              <IconBuilding className="w-12 h-12 text-brand-500 mx-auto mb-4" />
               <h3 className="text-lg font-bold mb-2">{t.bookNewAccommodation}</h3>
               <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">{t.bookNewDescription}</p>
-              <button onClick={() => setPage('home')} className="w-full bg-blue-600 text-white py-2 rounded-lg font-bold text-sm hover:bg-blue-700 transition-colors">
+              <button onClick={() => setPage('home')} className="w-full bg-brand-600 text-white py-2 rounded-lg font-bold text-sm hover:bg-brand-700 transition-colors">
                 {t.heroCTA}
               </button>
             </div>
@@ -147,7 +147,7 @@ const DashboardPage: React.FC = () => {
               <div className="space-y-6">
                 {userActivities.map(activity => (
                   <div key={activity.id} className="flex gap-4 relative">
-                    <div className="flex-shrink-0 w-2 h-2 rounded-full bg-blue-500 mt-2 z-10"></div>
+                    <div className="flex-shrink-0 w-2 h-2 rounded-full bg-brand-500 mt-2 z-10"></div>
                     <div className="absolute left-[3px] top-4 w-full h-[2px] bg-gray-100 dark:bg-gray-700 last:hidden"></div>
                     <div>
                       <p className="text-sm text-gray-800 dark:text-gray-200 font-medium leading-tight">{activity.description}</p>

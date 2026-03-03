@@ -102,7 +102,7 @@ const AuthForm: React.FC<AuthFormProps> = ({ isLogin, setIsLogin }) => {
                                     required
                                     value={name}
                                     onChange={(e) => setName(e.target.value)}
-                                    className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-t-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white"
+                                    className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-t-md focus:outline-none focus:ring-brand-500 focus:border-brand-500 focus:z-10 sm:text-sm dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white"
                                     placeholder={t.fullName}
                                 />
                             </div>
@@ -110,11 +110,11 @@ const AuthForm: React.FC<AuthFormProps> = ({ isLogin, setIsLogin }) => {
                                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Gender</label>
                                 <div className="flex items-center space-x-4">
                                     <label className="flex items-center">
-                                        <input type="radio" value="Male" checked={gender === 'Male'} onChange={() => setGender('Male')} name="gender" className="h-4 w-4 text-blue-600 border-gray-300 focus:ring-blue-500" />
+                                        <input type="radio" value="Male" checked={gender === 'Male'} onChange={() => setGender('Male')} name="gender" className="h-4 w-4 text-brand-600 border-gray-300 focus:ring-brand-500" />
                                         <span className="ml-2 text-sm text-gray-900 dark:text-white">Male</span>
                                     </label>
                                     <label className="flex items-center">
-                                        <input type="radio" value="Female" checked={gender === 'Female'} onChange={() => setGender('Female')} name="gender" className="h-4 w-4 text-blue-600 border-gray-300 focus:ring-blue-500" />
+                                        <input type="radio" value="Female" checked={gender === 'Female'} onChange={() => setGender('Female')} name="gender" className="h-4 w-4 text-brand-600 border-gray-300 focus:ring-brand-500" />
                                         <span className="ml-2 text-sm text-gray-900 dark:text-white">Female</span>
                                     </label>
                                 </div>
@@ -131,7 +131,7 @@ const AuthForm: React.FC<AuthFormProps> = ({ isLogin, setIsLogin }) => {
                             required
                             value={email}
                             onChange={(e) => setEmail(e.target.value)}
-                            className={`appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 ${isLogin ? 'rounded-t-md' : ''} focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white`}
+                            className={`appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 ${isLogin ? 'rounded-t-md' : ''} focus:outline-none focus:ring-brand-500 focus:border-brand-500 focus:z-10 sm:text-sm dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white`}
                             placeholder={t.email}
                         />
                     </div>
@@ -145,7 +145,7 @@ const AuthForm: React.FC<AuthFormProps> = ({ isLogin, setIsLogin }) => {
                             required
                             value={password}
                             onChange={(e) => setPassword(e.target.value)}
-                            className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-b-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white"
+                            className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-b-md focus:outline-none focus:ring-brand-500 focus:border-brand-500 focus:z-10 sm:text-sm dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white"
                             placeholder={t.password}
                         />
                     </div>
@@ -157,14 +157,14 @@ const AuthForm: React.FC<AuthFormProps> = ({ isLogin, setIsLogin }) => {
                     <button
                         type="submit"
                         disabled={isLoading}
-                        className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:bg-blue-400"
+                        className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-brand-600 hover:bg-brand-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand-500 disabled:bg-brand-400"
                     >
                         {isLoading ? '...' : (isLogin ? t.login : t.register)}
                     </button>
                 </div>
             </form>
             <div className="text-sm text-center mt-4">
-                <button onClick={() => setIsLogin(!isLogin)} className="font-medium text-blue-600 hover:text-blue-500 dark:text-blue-400 dark:hover:text-blue-300">
+                <button onClick={() => setIsLogin(!isLogin)} className="font-medium text-brand-600 hover:text-brand-500 dark:text-brand-400 dark:hover:text-brand-300">
                     {isLogin ? t.switchToRegister : t.switchToLogin}
                 </button>
             </div>

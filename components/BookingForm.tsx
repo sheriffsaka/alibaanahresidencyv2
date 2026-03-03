@@ -129,7 +129,7 @@ const BookingForm: React.FC<BookingFormProps> = ({ room }) => {
         <InputField name="duration" label={t.durationOfStay} value={formData.duration} onChange={handleInputChange} required placeholder="e.g., 6 months" />
         <div>
           <label htmlFor="accommodationType" className="block text-sm font-medium text-gray-700 dark:text-gray-300">{t.preferredAccommodation}</label>
-          <select id="accommodationType" name="accommodationType" value={formData.accommodationType} onChange={handleInputChange} className="mt-1 block w-full pl-3 pr-10 py-3 text-base border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-lg">
+          <select id="accommodationType" name="accommodationType" value={formData.accommodationType} onChange={handleInputChange} className="mt-1 block w-full pl-3 pr-10 py-3 text-base border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white focus:outline-none focus:ring-brand-500 focus:border-brand-500 sm:text-sm rounded-lg">
             {Object.values(AccommodationType).map(type => <option key={type} value={type}>{type}</option>)}
           </select>
         </div>
@@ -148,7 +148,7 @@ const BookingForm: React.FC<BookingFormProps> = ({ room }) => {
         </div>
         <div>
           <label htmlFor="contractLanguage" className="block text-sm font-medium text-gray-700 dark:text-gray-300">{t.contractLanguage}</label>
-          <select id="contractLanguage" name="contractLanguage" value={formData.contractLanguage} onChange={handleInputChange} className="mt-1 block w-full pl-3 pr-10 py-3 text-base border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-lg">
+          <select id="contractLanguage" name="contractLanguage" value={formData.contractLanguage} onChange={handleInputChange} className="mt-1 block w-full pl-3 pr-10 py-3 text-base border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white focus:outline-none focus:ring-brand-500 focus:border-brand-500 sm:text-sm rounded-lg">
             <option value="en">{t.contractLanguageEn}</option>
             <option value="fr">{t.contractLanguageFr}</option>
             <option value="ru">{t.contractLanguageRu}</option>
@@ -159,7 +159,7 @@ const BookingForm: React.FC<BookingFormProps> = ({ room }) => {
       <div>
         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">{t.passportCopy}</label>
         <div className="mt-2">
-          <label htmlFor="passport-upload" className="relative cursor-pointer bg-white dark:bg-gray-700 rounded-md font-bold text-blue-600 hover:text-blue-500 border border-gray-300 dark:border-gray-600 p-3 flex items-center justify-center shadow-sm">
+          <label htmlFor="passport-upload" className="relative cursor-pointer bg-white dark:bg-gray-700 rounded-md font-bold text-brand-600 hover:text-brand-500 border border-gray-300 dark:border-gray-600 p-3 flex items-center justify-center shadow-sm">
             <IconUpload className="w-5 h-5 me-2" />
             <span>{passportCopy ? passportCopy.name : 'Upload Passport Copy'}</span>
             <input id="passport-upload" name="passport-upload" type="file" className="sr-only" onChange={handleFileChange} accept="image/*,.pdf" required />
@@ -172,7 +172,7 @@ const BookingForm: React.FC<BookingFormProps> = ({ room }) => {
       <button 
         type="submit"
         disabled={isSubmitting}
-        className="w-full flex justify-center py-4 px-4 border border-transparent rounded-lg shadow-xl text-base font-bold text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:bg-gray-400 disabled:cursor-not-allowed transition-all transform active:scale-95"
+        className="w-full flex justify-center py-4 px-4 border border-transparent rounded-lg shadow-xl text-base font-bold text-white bg-brand-600 hover:bg-brand-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand-500 disabled:bg-gray-400 disabled:cursor-not-allowed transition-all transform active:scale-95"
       >
         {isSubmitting ? 'Submitting Application...' : t.confirmBooking}
       </button>
@@ -183,7 +183,7 @@ const BookingForm: React.FC<BookingFormProps> = ({ room }) => {
 const InputField = ({ label, ...props }) => (
   <div>
     <label htmlFor={props.name} className="block text-sm font-medium text-gray-700 dark:text-gray-300">{label}</label>
-    <input id={props.name} {...props} className="mt-1 block w-full pl-3 pr-10 py-3 text-base border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-lg" />
+    <input id={props.name} {...props} className="mt-1 block w-full pl-3 pr-10 py-3 text-base border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white focus:outline-none focus:ring-brand-500 focus:border-brand-500 sm:text-sm rounded-lg" />
   </div>
 );
 

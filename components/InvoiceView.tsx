@@ -55,7 +55,7 @@ const InvoiceView: React.FC<InvoiceViewProps> = ({ booking, onClose, isReceipt }
             {/* Header */}
             <div className="flex justify-between items-start mb-10 border-b pb-8 dark:border-gray-800">
               <div className="flex items-center">
-                <IconBuilding className="w-12 h-12 text-blue-600 mr-4" />
+                <IconBuilding className="w-12 h-12 text-brand-600 mr-4" />
                 <div>
                   <h2 className="text-xl font-bold">Al-Ibaanah Residence</h2>
                   <p className="text-xs text-gray-500">Nasr City, Cairo, Egypt</p>
@@ -66,7 +66,7 @@ const InvoiceView: React.FC<InvoiceViewProps> = ({ booking, onClose, isReceipt }
                 <h1 className="text-3xl font-black text-gray-800 dark:text-white uppercase tracking-tighter">
                   {isReceipt ? 'Receipt' : 'Invoice'}
                 </h1>
-                <p className="text-sm font-bold text-blue-600">#{isReceipt ? 'RC' : 'INV'}{booking.id}</p>
+                <p className="text-sm font-bold text-brand-600">#{isReceipt ? 'RC' : 'INV'}{booking.id}</p>
                 <p className="text-xs text-gray-500 mt-1">Date: {new Date().toLocaleDateString()}</p>
               </div>
             </div>
@@ -120,7 +120,7 @@ const InvoiceView: React.FC<InvoiceViewProps> = ({ booking, onClose, isReceipt }
                 </div>
                 <div className="flex justify-between text-lg border-t pt-2 dark:border-gray-800">
                   <span className="font-black">Total:</span>
-                  <span className="font-black text-blue-600">${booking.total_price.toFixed(2)}</span>
+                  <span className="font-black text-brand-600">${booking.total_price.toFixed(2)}</span>
                 </div>
               </div>
             </div>
@@ -136,7 +136,7 @@ const InvoiceView: React.FC<InvoiceViewProps> = ({ booking, onClose, isReceipt }
             <div className="mt-8 flex gap-4 no-print">
               <button 
                 onClick={() => window.print()}
-                className="flex-1 bg-blue-600 text-white py-3 rounded-xl font-bold hover:bg-blue-700 transition-all shadow-lg"
+                className="flex-1 bg-brand-600 text-white py-3 rounded-xl font-bold hover:bg-brand-700 transition-all shadow-lg"
               >
                 Print / Download PDF
               </button>

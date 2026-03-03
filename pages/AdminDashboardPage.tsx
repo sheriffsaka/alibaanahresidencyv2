@@ -44,8 +44,8 @@ const OccupancyChart = ({ data }: { data: { name: string; value: number }[] }) =
             })}
             <defs>
                 <linearGradient id="gradient" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="#3b82f6" />
-                    <stop offset="100%" stopColor="#2563eb" />
+                    <stop offset="0%" stopColor="#0072c6" />
+                    <stop offset="100%" stopColor="#005ba1" />
                 </linearGradient>
             </defs>
         </svg>
@@ -237,7 +237,7 @@ const AdminDashboardPage: React.FC = () => {
         </div>
         <div className="flex flex-wrap bg-gray-100 dark:bg-gray-800 p-1 rounded-xl shadow-inner w-full xl:w-auto">
           {['analytics', 'pending', 'rooms', 'students', 'cms'].map((tab) => (
-            <button key={tab} onClick={() => setActiveTab(tab as any)} className={`flex-1 xl:flex-none px-4 py-2 rounded-lg text-xs font-bold transition-all capitalize ${activeTab === tab ? 'bg-white dark:bg-gray-700 text-blue-600 shadow-sm' : 'text-gray-500'}`}>
+            <button key={tab} onClick={() => setActiveTab(tab as any)} className={`flex-1 xl:flex-none px-4 py-2 rounded-lg text-xs font-bold transition-all capitalize ${activeTab === tab ? 'bg-white dark:bg-gray-700 text-brand-600 shadow-sm' : 'text-gray-500'}`}>
               {tab === 'analytics' ? 'Dashboard' : tab === 'pending' ? `Pending (${analytics.pendingVerifications.length})` : tab}
             </button>
           ))}
@@ -262,7 +262,7 @@ const AdminDashboardPage: React.FC = () => {
                     value={`${analytics.occupancyRate}%`} 
                     icon="🏠" 
                     trend="3% growth"
-                    colorClass="bg-blue-100 dark:bg-blue-900/30 text-blue-600"
+                    colorClass="bg-brand-100 dark:bg-brand-900/30 text-brand-600"
                   />
                   <SummaryCard 
                     label="Total Rooms" 
@@ -282,7 +282,7 @@ const AdminDashboardPage: React.FC = () => {
               <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 border border-gray-100 dark:border-gray-700">
                   <h2 className="text-xl font-bold mb-4">{t.quickActions}</h2>
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                      <button onClick={() => handleOpenRoomModal(null)} className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg text-center font-bold text-blue-700 dark:text-blue-300 hover:bg-blue-100 dark:hover:bg-blue-900/40">
+                      <button onClick={() => handleOpenRoomModal(null)} className="p-4 bg-brand-50 dark:bg-brand-900/20 rounded-lg text-center font-bold text-brand-700 dark:text-brand-300 hover:bg-brand-100 dark:hover:bg-brand-900/40">
                           {t.addNewRoom}
                       </button>
                       <button onClick={() => setActiveTab('pending')} className="p-4 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg text-center font-bold text-yellow-700 dark:text-yellow-300 hover:bg-yellow-100 dark:hover:bg-yellow-900/40 relative">
@@ -315,10 +315,10 @@ const AdminDashboardPage: React.FC = () => {
                       </tr></thead>
                       <tbody className="divide-y divide-gray-100 dark:divide-gray-700">{analytics.pendingVerifications.map(item => (<tr key={item.id}>
                           <td className="px-6 py-4 font-medium">{item.student_name}</td>
-                          <td className="px-6 py-4 font-bold text-blue-600">${item.total_price}</td>
+                          <td className="px-6 py-4 font-bold text-brand-600">${item.total_price}</td>
                           <td className="px-6 py-4"><div className="flex gap-2">
                               <button onClick={() => handleApprove(item.id)} className="bg-green-100 text-green-700 px-3 py-1.5 rounded-md text-xs font-bold">Approve</button>
-                              {item.payment_proof_url && <button onClick={() => setSelectedProof(item.payment_proof_url!)} className="bg-blue-100 text-blue-700 px-3 py-1.5 rounded-md text-xs font-bold">View Proof</button>}
+                              {item.payment_proof_url && <button onClick={() => setSelectedProof(item.payment_proof_url!)} className="bg-brand-100 text-brand-700 px-3 py-1.5 rounded-md text-xs font-bold">View Proof</button>}
                           </div></td>
                       </tr>))}</tbody>
                   </table></div>
@@ -332,9 +332,9 @@ const AdminDashboardPage: React.FC = () => {
                    <h2 className="text-xl font-bold">{t.manageRooms}</h2>
                    <div className="flex items-center gap-4">
                       <div className="flex bg-gray-100 dark:bg-gray-700 rounded-lg p-1">
-                         {['all', 'occupied', 'available'].map(f => <button key={f} onClick={() => setRoomFilter(f as any)} className={`px-3 py-1 text-xs font-bold rounded-md capitalize ${roomFilter === f ? 'bg-white dark:bg-gray-600 text-blue-600 shadow-sm' : 'text-gray-500'}`}>{f}</button>)}
+                         {['all', 'occupied', 'available'].map(f => <button key={f} onClick={() => setRoomFilter(f as any)} className={`px-3 py-1 text-xs font-bold rounded-md capitalize ${roomFilter === f ? 'bg-white dark:bg-gray-600 text-brand-600 shadow-sm' : 'text-gray-500'}`}>{f}</button>)}
                       </div>
-                      <button onClick={() => handleOpenRoomModal(null)} className="bg-blue-600 text-white px-4 py-2 rounded-lg text-xs font-bold">+ {t.addNewRoom}</button>
+                      <button onClick={() => handleOpenRoomModal(null)} className="bg-brand-600 text-white px-4 py-2 rounded-lg text-xs font-bold">+ {t.addNewRoom}</button>
                    </div>
                 </div>
                 <div className="overflow-x-auto"><table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
@@ -349,8 +349,8 @@ const AdminDashboardPage: React.FC = () => {
                         return (<tr key={room.id}>
                             <td className="px-6 py-4 font-bold">{room.room_number} <span className="text-xs font-normal text-gray-500">({room.type})</span></td>
                             <td className="px-6 py-4"><span className={`px-2 py-1 text-[10px] rounded-full font-bold ${isOccupied ? 'bg-orange-100 text-orange-700' : 'bg-green-100 text-green-700'}`}>{isOccupied ? t.occupied : t.unoccupied}</span></td>
-                            <td className="px-6 py-4 text-sm font-bold text-blue-600">${room.price_per_month}</td>
-                            <td className="px-6 py-4"><button onClick={() => handleOpenRoomModal(room)} className="text-blue-600 text-xs font-bold underline">Edit</button></td>
+                            <td className="px-6 py-4 text-sm font-bold text-brand-600">${room.price_per_month}</td>
+                            <td className="px-6 py-4"><button onClick={() => handleOpenRoomModal(room)} className="text-brand-600 text-xs font-bold underline">Edit</button></td>
                         </tr>);
                     })}</tbody>
                 </table></div>
@@ -371,14 +371,14 @@ const AdminDashboardPage: React.FC = () => {
                 <div className="overflow-x-auto"><table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
                     <thead className="bg-gray-50 dark:bg-gray-900"><tr>
                         <th 
-                          className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase cursor-pointer hover:text-blue-600"
+                          className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase cursor-pointer hover:text-brand-600"
                           onClick={() => setStudentSort({ field: 'full_name', direction: studentSort.field === 'full_name' && studentSort.direction === 'asc' ? 'desc' : 'asc' })}
                         >
                           Name {studentSort.field === 'full_name' && (studentSort.direction === 'asc' ? '↑' : '↓')}
                         </th>
                         <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase">Room</th>
                         <th 
-                          className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase cursor-pointer hover:text-blue-600"
+                          className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase cursor-pointer hover:text-brand-600"
                           onClick={() => setStudentSort({ field: 'status', direction: studentSort.field === 'status' && studentSort.direction === 'asc' ? 'desc' : 'asc' })}
                         >
                           Status {studentSort.field === 'status' && (studentSort.direction === 'asc' ? '↑' : '↓')}
@@ -386,7 +386,7 @@ const AdminDashboardPage: React.FC = () => {
                     </tr></thead>
                     <tbody className="divide-y divide-gray-100 dark:divide-gray-700">{sortedBookings.map(booking => (<tr key={booking.id}>
                         <td className="px-6 py-4 font-bold">{booking.full_name}</td>
-                        <td className="px-6 py-4 text-sm font-bold text-blue-600">Room {booking.rooms.room_number}</td>
+                        <td className="px-6 py-4 text-sm font-bold text-brand-600">Room {booking.rooms.room_number}</td>
                         <td className="px-6 py-4"><BookingStatusBadge status={booking.status} /></td>
                     </tr>))}</tbody>
                 </table></div>
@@ -396,14 +396,14 @@ const AdminDashboardPage: React.FC = () => {
           {activeTab === 'cms' && (
             <div className="space-y-8">
               <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 border border-gray-100 dark:border-gray-700">
-                  <div className="flex items-center mb-6"><IconEdit className="w-6 h-6 text-blue-600 mr-2" /><h2 className="text-xl font-bold">Landing Page Content (English)</h2></div>
+                  <div className="flex items-center mb-6"><IconEdit className="w-6 h-6 text-brand-600 mr-2" /><h2 className="text-xl font-bold">Landing Page Content (English)</h2></div>
                   <div className="space-y-6">
                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div className="space-y-2">
                            <label className="block text-sm font-bold mb-1">Logo</label>
                            <div className="flex items-center gap-4">
                               <img src={cmsContent.logoUrl} alt="Logo" className="h-12 w-auto object-contain bg-gray-100 rounded p-1" />
-                              <label className="cursor-pointer bg-blue-50 text-blue-600 px-4 py-2 rounded-lg text-xs font-bold hover:bg-blue-100 flex items-center gap-2">
+                              <label className="cursor-pointer bg-brand-50 text-brand-600 px-4 py-2 rounded-lg text-xs font-bold hover:bg-brand-100 flex items-center gap-2">
                                  <IconUpload className="w-4 h-4" />
                                  {isUploadingCms ? 'Uploading...' : 'Change Logo'}
                                  <input type="file" className="hidden" onChange={(e) => handleCmsFileUpload(e, 'logoUrl')} accept="image/*" disabled={isUploadingCms} />
@@ -414,7 +414,7 @@ const AdminDashboardPage: React.FC = () => {
                            <label className="block text-sm font-bold mb-1">Hero Image</label>
                            <div className="flex items-center gap-4">
                               <img src={cmsContent.heroImageUrl} alt="Hero" className="h-12 w-20 object-cover bg-gray-100 rounded" />
-                              <label className="cursor-pointer bg-blue-50 text-blue-600 px-4 py-2 rounded-lg text-xs font-bold hover:bg-blue-100 flex items-center gap-2">
+                              <label className="cursor-pointer bg-brand-50 text-brand-600 px-4 py-2 rounded-lg text-xs font-bold hover:bg-brand-100 flex items-center gap-2">
                                  <IconUpload className="w-4 h-4" />
                                  {isUploadingCms ? 'Uploading...' : 'Change Hero Image'}
                                  <input type="file" className="hidden" onChange={(e) => handleCmsFileUpload(e, 'heroImageUrl')} accept="image/*" disabled={isUploadingCms} />
@@ -435,7 +435,7 @@ const AdminDashboardPage: React.FC = () => {
                     </div>
                     <button 
                       onClick={() => setEditingContract({ roomType: AccommodationType.STANDARD_SHARED, lang: 'en' })}
-                      className="bg-blue-600 text-white px-4 py-2 rounded-lg text-xs font-bold"
+                      className="bg-brand-600 text-white px-4 py-2 rounded-lg text-xs font-bold"
                     >
                       + Add/Edit Template
                     </button>
@@ -472,7 +472,7 @@ const AdminDashboardPage: React.FC = () => {
                             <td className="px-6 py-4">
                               <button 
                                 onClick={() => setEditingContract({ roomType: type, lang: 'en' })}
-                                className="text-blue-600 text-xs font-bold underline"
+                                className="text-brand-600 text-xs font-bold underline"
                               >
                                 Manage
                               </button>
@@ -525,7 +525,7 @@ const AdminDashboardPage: React.FC = () => {
                     <div className="p-6 border-t dark:border-gray-800 flex justify-end">
                       <button 
                         onClick={() => setEditingContract(null)}
-                        className="bg-blue-600 text-white px-8 py-2 rounded-xl font-bold"
+                        className="bg-brand-600 text-white px-8 py-2 rounded-xl font-bold"
                       >
                         Done
                       </button>
@@ -562,7 +562,7 @@ const AdminDashboardPage: React.FC = () => {
         {/* Right Sidebar */}
         <div className="space-y-6">
            <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-lg border"><h3 className="text-lg font-bold mb-6">🕒 {t.recentActivities}</h3><div className="space-y-6">{(activities || []).map(act => <div key={act.id} className="flex gap-4 relative">
-              <div className={`flex-shrink-0 w-2 h-2 rounded-full mt-2 z-10 ${act.type === 'payment' ? 'bg-green-500' : 'bg-blue-500'}`}></div>
+              <div className={`flex-shrink-0 w-2 h-2 rounded-full mt-2 z-10 ${act.type === 'payment' ? 'bg-green-500' : 'bg-brand-500'}`}></div>
               <div className="absolute left-[3px] top-4 w-[2px] h-full bg-gray-100 dark:bg-gray-700 last:hidden"></div>
               <div><p className="text-sm font-medium">{act.description}</p><p className="text-[10px] text-gray-500 mt-1 uppercase">{new Date(act.timestamp).toLocaleString()}</p></div>
            </div>)}</div></div>

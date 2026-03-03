@@ -83,7 +83,7 @@ const Chatbot: React.FC = () => {
             <div className={`fixed bottom-5 right-5 sm:bottom-8 sm:right-8 z-40 transition-all duration-300 ease-in-out ${isOpen ? 'opacity-0 scale-90' : 'opacity-100 scale-100'}`}>
                 <button
                     onClick={() => setIsOpen(true)}
-                    className="bg-blue-600 text-white rounded-full p-4 shadow-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+                    className="bg-brand-600 text-white rounded-full p-4 shadow-lg hover:bg-brand-700 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2"
                     aria-label="Open chat"
                 >
                     <IconChat className="w-8 h-8" />
@@ -94,7 +94,7 @@ const Chatbot: React.FC = () => {
                 {/* Header */}
                 <div className="flex justify-between items-center p-4 border-b border-gray-200 dark:border-gray-700">
                     <h3 className="text-lg font-bold text-gray-900 dark:text-white">{t.chatbotTitle}</h3>
-                    <button onClick={() => setIsOpen(false)} className="p-2 rounded-full text-gray-600 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-blue-500" aria-label="Close chat">
+                    <button onClick={() => setIsOpen(false)} className="p-2 rounded-full text-gray-600 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-brand-500" aria-label="Close chat">
                         <IconClose className="w-6 h-6" />
                     </button>
                 </div>
@@ -103,7 +103,7 @@ const Chatbot: React.FC = () => {
                 <div ref={chatContainerRef} className="flex-1 p-4 space-y-4 overflow-y-auto">
                     {messages.map((msg, index) => (
                         <div key={index} className={`flex items-end gap-2 ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                            <div className={`max-w-xs md:max-w-sm px-4 py-2 rounded-2xl ${msg.role === 'user' ? 'bg-blue-600 text-white rounded-br-none' : 'bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 rounded-bl-none'}`}>
+                            <div className={`max-w-xs md:max-w-sm px-4 py-2 rounded-2xl ${msg.role === 'user' ? 'bg-brand-600 text-white rounded-br-none' : 'bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 rounded-bl-none'}`}>
                                 <p className="text-sm">{msg.text}</p>
                             </div>
                         </div>
@@ -129,10 +129,10 @@ const Chatbot: React.FC = () => {
                             value={input}
                             onChange={(e) => setInput(e.target.value)}
                             placeholder={t.chatbotPlaceholder}
-                            className="flex-1 block w-full px-4 py-2 text-gray-900 dark:text-white bg-gray-100 dark:bg-gray-600 border border-transparent rounded-full focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            className="flex-1 block w-full px-4 py-2 text-gray-900 dark:text-white bg-gray-100 dark:bg-gray-600 border border-transparent rounded-full focus:outline-none focus:ring-2 focus:ring-brand-500"
                             disabled={isLoading}
                         />
-                        <button type="submit" disabled={isLoading || !input.trim()} className="p-3 bg-blue-600 text-white rounded-full disabled:bg-blue-300 dark:disabled:bg-blue-800 disabled:cursor-not-allowed hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">
+                        <button type="submit" disabled={isLoading || !input.trim()} className="p-3 bg-brand-600 text-white rounded-full disabled:bg-brand-300 dark:disabled:bg-brand-800 disabled:cursor-not-allowed hover:bg-brand-700 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2">
                             <IconSend className="w-5 h-5" />
                         </button>
                     </form>
