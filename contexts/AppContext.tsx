@@ -372,6 +372,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
   const addRoom = async (newRoom: Room) => {
     try {
+        console.log("Adding room to Supabase:", newRoom);
         const { data: propData } = await supabase.from('properties').select('id').limit(1).single();
         if (!propData) throw new Error("No property found");
 
@@ -389,31 +390,43 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             .select()
             .single();
 
-        if (error) throw error;
+        if (error) {
+            console.error("Supabase insert error:", error);
+            throw error;
+        }
+        
+        console.log("Room added successfully:", data);
         setRooms(prev => [...prev, data]);
         return { success: true };
     } catch (err: any) {
-        console.error("Error adding room to Supabase:", err.message);
-        return { success: false, error: err.message };
+        console.error("Error adding room to Supabase:", err);
+        return { success: false, error: err.message || JSON.stringify(err) };
     }
   };
 
   const updateRoom = async (updatedRoom: Room) => {
     try {
+        console.log("Updating room in Supabase:", updatedRoom.id, updatedRoom);
         // Strip fields that shouldn't be in the update payload
         const { id, created_at, property_id, ...updateData } = updatedRoom as any;
 
-        const { error } = await supabase
+        const { error, data } = await supabase
             .from('rooms')
             .update(updateData)
-            .eq('id', updatedRoom.id);
+            .eq('id', updatedRoom.id)
+            .select();
 
-        if (error) throw error;
+        if (error) {
+            console.error("Supabase update error:", error);
+            throw error;
+        }
+        
+        console.log("Room updated successfully:", data);
         setRooms(prev => prev.map(r => r.id === updatedRoom.id ? { ...r, ...updateData } : r));
         return { success: true };
     } catch (err: any) {
-        console.error("Error updating room in Supabase:", err.message);
-        return { success: false, error: err.message };
+        console.error("Error updating room in Supabase:", err);
+        return { success: false, error: err.message || JSON.stringify(err) };
     }
   };
 

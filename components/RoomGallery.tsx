@@ -41,22 +41,20 @@ const RoomGallery: React.FC<RoomGalleryProps> = ({ rooms }) => {
                     {t.gallerySubtitle}
                 </p>
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-10 max-w-6xl mx-auto">
                 {galleryRooms.map(room => (
-                    <div key={room.id} className="group relative block bg-black rounded-lg overflow-hidden">
+                    <div key={room.id} className="group relative block bg-black rounded-2xl overflow-hidden shadow-xl aspect-[4/3]">
                         <img
                             alt={`Image of ${room.type} room`}
-                            src={room.image_urls?.[0] ? room.image_urls[0].replace('/upload/', '/upload/w_800,h_600,c_fill/') : 'https://images.unsplash.com/photo-1522771739844-6a9f6d5f14af?auto=format&fit=crop&w=800&q=80'}
-                            className="absolute inset-0 h-full w-full object-cover opacity-75 transition-opacity group-hover:opacity-50"
+                            src={room.image_urls?.[0] ? room.image_urls[0].replace('/upload/', '/upload/w_1200,h_900,c_fill/') : 'https://images.unsplash.com/photo-1522771739844-6a9f6d5f14af?auto=format&fit=crop&w=1200&q=80'}
+                            className="absolute inset-0 h-full w-full object-cover opacity-80 transition-all duration-500 group-hover:opacity-60 group-hover:scale-110"
                         />
-                        <div className="relative p-6">
-                           <div className="mt-32">
-                                <div
-                                    className="transform-gpu text-white transition-all group-hover:translate-y-0 group-hover:opacity-100 translate-y-8 opacity-0"
-                                >
-                                    <p className="text-2xl font-bold">{room.type}</p>
-                                    <p className="text-sm">{t.pricePerMonth.replace('{price}', room.price_per_month.toString())}</p>
-                                </div>
+                        <div className="relative h-full flex flex-col justify-end p-8 bg-gradient-to-t from-black/80 via-black/20 to-transparent">
+                            <div className="transform-gpu text-white transition-all duration-500 group-hover:translate-y-0 translate-y-4">
+                                <p className="text-3xl font-bold tracking-tight">{room.type}</p>
+                                <p className="text-lg font-medium text-blue-300 mt-2">
+                                    {t.pricePerMonth.replace('{price}', room.price_per_month.toString())}
+                                </p>
                             </div>
                         </div>
                     </div>
