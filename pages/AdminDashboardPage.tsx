@@ -44,8 +44,8 @@ const OccupancyChart = ({ data }: { data: { name: string; value: number }[] }) =
             })}
             <defs>
                 <linearGradient id="gradient" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="#0072c6" />
-                    <stop offset="100%" stopColor="#005ba1" />
+                    <stop offset="0%" stopColor="#347d5c" />
+                    <stop offset="100%" stopColor="#286046" />
                 </linearGradient>
             </defs>
         </svg>
@@ -274,7 +274,7 @@ const AdminDashboardPage: React.FC = () => {
                     label="Pending Verif." 
                     value={analytics.pendingVerifications.length} 
                     icon="⏳" 
-                    colorClass="bg-yellow-100 dark:bg-yellow-900/30 text-yellow-600"
+                    colorClass="bg-accent-100 dark:bg-accent-900/30 text-accent-600"
                   />
               </div>
 
@@ -285,9 +285,9 @@ const AdminDashboardPage: React.FC = () => {
                       <button onClick={() => handleOpenRoomModal(null)} className="p-4 bg-brand-50 dark:bg-brand-900/20 rounded-lg text-center font-bold text-brand-700 dark:text-brand-300 hover:bg-brand-100 dark:hover:bg-brand-900/40">
                           {t.addNewRoom}
                       </button>
-                      <button onClick={() => setActiveTab('pending')} className="p-4 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg text-center font-bold text-yellow-700 dark:text-yellow-300 hover:bg-yellow-100 dark:hover:bg-yellow-900/40 relative">
+                      <button onClick={() => setActiveTab('pending')} className="p-4 bg-accent-50 dark:bg-accent-900/20 rounded-lg text-center font-bold text-accent-700 dark:text-accent-300 hover:bg-accent-100 dark:hover:bg-accent-900/40 relative">
                           {t.reviewPayments}
-                          {analytics.pendingVerifications.length > 0 && <span className="absolute -top-1 -right-1 flex h-4 w-4"><span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-yellow-400 opacity-75"></span><span className="relative inline-flex rounded-full h-4 w-4 bg-yellow-500 text-white text-[10px] items-center justify-center">{analytics.pendingVerifications.length}</span></span>}
+                          {analytics.pendingVerifications.length > 0 && <span className="absolute -top-1 -right-1 flex h-4 w-4"><span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-accent-400 opacity-75"></span><span className="relative inline-flex rounded-full h-4 w-4 bg-accent-500 text-white text-[10px] items-center justify-center">{analytics.pendingVerifications.length}</span></span>}
                       </button>
                   </div>
               </div>

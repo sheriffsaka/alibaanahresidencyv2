@@ -319,7 +319,7 @@ VALUES
 ON CONFLICT (id) DO NOTHING;
 
 -- Seed Properties
-INSERT INTO properties (name, logo_url, primary_color) VALUES ('Al-Ibaanah Student Residence', 'https://res.cloudinary.com/di7okmjsx/image/upload/v1740321960/al-ibaanah-logo_new.png', '#007BFF');
+INSERT INTO properties (name, logo_url, primary_color) VALUES ('Al-Ibaanah Student Residence', 'https://res.cloudinary.com/di7okmjsx/image/upload/v1740321960/al-ibaanah-logo_new.png', '#286046');
 
 -- Seed Rooms
 INSERT INTO rooms (property_id, room_number, type, price_per_month, amenities, image_urls, video_urls, gender_restriction)
