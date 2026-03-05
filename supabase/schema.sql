@@ -43,6 +43,8 @@ CREATE TABLE rooms (
     image_urls TEXT[],
     video_urls TEXT[],
     is_available BOOLEAN DEFAULT true,
+    capacity INT NOT NULL DEFAULT 1,
+    occupied_slots INT NOT NULL DEFAULT 0,
     gender_restriction TEXT NOT NULL DEFAULT 'Any' CHECK (gender_restriction IN ('Male', 'Female', 'Any')),
     created_at TIMESTAMPTZ DEFAULT now(),
     UNIQUE(property_id, room_number)
@@ -116,6 +118,7 @@ CREATE TABLE bookings (
 
     total_price NUMERIC(10, 2),
     payment_proof_url TEXT,
+    payment_expiry_date DATE,
 
     checked_in_at TIMESTAMPTZ,
     checked_out_at TIMESTAMPTZ
@@ -217,11 +220,15 @@ ALTER TABLE cms_content ENABLE ROW LEVEL SECURITY;
 ALTER TABLE admin_audit_log ENABLE ROW LEVEL SECURITY;
 
 -- Profiles: Users can view all profiles, but only update their own
+DROP POLICY IF EXISTS "Profiles are viewable by everyone" ON profiles;
 CREATE POLICY "Profiles are viewable by everyone" ON profiles FOR SELECT USING (true);
+DROP POLICY IF EXISTS "Users can update their own profile" ON profiles;
 CREATE POLICY "Users can update their own profile" ON profiles FOR UPDATE USING (auth.uid() = id);
 
 -- Rooms: Anyone can view, only staff/proprietor can manage
+DROP POLICY IF EXISTS "Rooms are viewable by everyone" ON rooms;
 CREATE POLICY "Rooms are viewable by everyone" ON rooms FOR SELECT USING (true);
+DROP POLICY IF EXISTS "Rooms are manageable by staff and proprietors" ON rooms;
 CREATE POLICY "Rooms are manageable by staff and proprietors" ON rooms
     FOR ALL USING (
         EXISTS (
@@ -232,7 +239,9 @@ CREATE POLICY "Rooms are manageable by staff and proprietors" ON rooms
     );
 
 -- Properties: Viewable by everyone, manageable by staff/proprietor
+DROP POLICY IF EXISTS "Properties are viewable by everyone" ON properties;
 CREATE POLICY "Properties are viewable by everyone" ON properties FOR SELECT USING (true);
+DROP POLICY IF EXISTS "Properties are manageable by staff and proprietors" ON properties;
 CREATE POLICY "Properties are manageable by staff and proprietors" ON properties
     FOR ALL USING (
         EXISTS (
@@ -243,8 +252,11 @@ CREATE POLICY "Properties are manageable by staff and proprietors" ON properties
     );
 
 -- Bookings: Students can view/manage their own, staff can manage all
+DROP POLICY IF EXISTS "Students can view their own bookings" ON bookings;
 CREATE POLICY "Students can view their own bookings" ON bookings FOR SELECT USING (auth.uid() = student_id);
+DROP POLICY IF EXISTS "Students can create their own bookings" ON bookings;
 CREATE POLICY "Students can create their own bookings" ON bookings FOR INSERT WITH CHECK (auth.uid() = student_id);
+DROP POLICY IF EXISTS "Staff can manage all bookings" ON bookings;
 CREATE POLICY "Staff can manage all bookings" ON bookings
     FOR ALL USING (
         EXISTS (
@@ -255,7 +267,9 @@ CREATE POLICY "Staff can manage all bookings" ON bookings
     );
 
 -- CMS Content: Viewable by everyone, manageable by staff/proprietor
+DROP POLICY IF EXISTS "CMS content is viewable by everyone" ON cms_content;
 CREATE POLICY "CMS content is viewable by everyone" ON cms_content FOR SELECT USING (true);
+DROP POLICY IF EXISTS "CMS content is manageable by staff and proprietors" ON cms_content;
 CREATE POLICY "CMS content is manageable by staff and proprietors" ON cms_content
     FOR ALL USING (
         EXISTS (
@@ -266,6 +280,7 @@ CREATE POLICY "CMS content is manageable by staff and proprietors" ON cms_conten
     );
 
 -- Audit Log: Only staff/proprietor can view and create
+DROP POLICY IF EXISTS "Audit logs are manageable by staff and proprietors" ON admin_audit_log;
 CREATE POLICY "Audit logs are manageable by staff and proprietors" ON admin_audit_log
     FOR ALL USING (
         EXISTS (
@@ -277,7 +292,9 @@ CREATE POLICY "Audit logs are manageable by staff and proprietors" ON admin_audi
 
 -- Storage Policies
 -- Rooms bucket: Public read, staff/proprietor can upload/delete
+DROP POLICY IF EXISTS "Room images are publicly accessible" ON storage.objects;
 CREATE POLICY "Room images are publicly accessible" ON storage.objects FOR SELECT USING (bucket_id = 'rooms');
+DROP POLICY IF EXISTS "Staff can upload room images" ON storage.objects;
 CREATE POLICY "Staff can upload room images" ON storage.objects FOR INSERT WITH CHECK (
     bucket_id = 'rooms' AND
     EXISTS (
@@ -286,6 +303,7 @@ CREATE POLICY "Staff can upload room images" ON storage.objects FOR INSERT WITH 
         AND profiles.role IN ('staff', 'proprietor')
     )
 );
+DROP POLICY IF EXISTS "Staff can update/delete room images" ON storage.objects;
 CREATE POLICY "Staff can update/delete room images" ON storage.objects FOR ALL USING (
     bucket_id = 'rooms' AND
     EXISTS (
@@ -296,7 +314,9 @@ CREATE POLICY "Staff can update/delete room images" ON storage.objects FOR ALL U
 );
 
 -- Passports bucket: Only staff and the owner can view
+DROP POLICY IF EXISTS "Users can upload their own passport" ON storage.objects;
 CREATE POLICY "Users can upload their own passport" ON storage.objects FOR INSERT WITH CHECK (bucket_id = 'passports');
+DROP POLICY IF EXISTS "Staff and owners can view passports" ON storage.objects;
 CREATE POLICY "Staff and owners can view passports" ON storage.objects FOR SELECT USING (
     bucket_id = 'passports' AND (
         auth.uid()::text = (storage.foldername(name))[1] OR
@@ -322,12 +342,12 @@ ON CONFLICT (id) DO NOTHING;
 INSERT INTO properties (name, logo_url, primary_color) VALUES ('Al-Ibaanah Student Residence', 'https://res.cloudinary.com/di7okmjsx/image/upload/v1740321960/al-ibaanah-logo_new.png', '#286046');
 
 -- Seed Rooms
-INSERT INTO rooms (property_id, room_number, type, price_per_month, amenities, image_urls, video_urls, gender_restriction)
+INSERT INTO rooms (property_id, room_number, type, price_per_month, capacity, amenities, image_urls, video_urls, gender_restriction)
 VALUES
-    ((SELECT id FROM properties LIMIT 1), '101A', 'Standard Shared', 200.00, '{"Shared Bathroom", "Air Conditioning", "High-Speed Wi-Fi"}', '{"https://res.cloudinary.com/di7okmjsx/image/upload/v1770401824/single-room_j0n7nd.jpg"}', '{"https://example.com/video1.mp4"}', 'Male'),
-    ((SELECT id FROM properties LIMIT 1), '102A', 'Standard Private', 325.00, '{"Private Bathroom", "Air Conditioning", "High-Speed Wi-Fi"}', '{"https://res.cloudinary.com/di7okmjsx/image/upload/v1770388212/single_room2_zhd9uo.jpg"}', '{"https://example.com/video2.mp4"}', 'Female'),
-    ((SELECT id FROM properties LIMIT 1), '202B', 'Premium Shared', 225.00, '{"Shared Bathroom", "Premium Furnishing", "Air Conditioning", "High-Speed Wi-Fi"}', '{"https://res.cloudinary.com/di7okmjsx/image/upload/v1770388212/Suite2_q62y4w.jpg"}', '{"https://example.com/video3.mp4"}', 'Male'),
-    ((SELECT id FROM properties LIMIT 1), '301C', 'Premium Private', 400.00, '{"Private Bathroom", "Kitchenette", "Living Area", "Premium Furnishing", "Air Conditioning", "High-Speed Wi-Fi"}', '{"https://res.cloudinary.com/di7okmjsx/image/upload/v1770388212/Suite1_t4dczv.jpg"}', '{"https://example.com/video4.mp4"}', 'Any');
+    ((SELECT id FROM properties LIMIT 1), '101A', 'Standard Shared', 200.00, 7, '{"Shared Bathroom", "Air Conditioning", "High-Speed Wi-Fi"}', '{"https://res.cloudinary.com/di7okmjsx/image/upload/v1770401824/single-room_j0n7nd.jpg"}', '{"https://example.com/video1.mp4"}', 'Male'),
+    ((SELECT id FROM properties LIMIT 1), '102A', 'Standard Private', 325.00, 7, '{"Private Bathroom", "Air Conditioning", "High-Speed Wi-Fi"}', '{"https://res.cloudinary.com/di7okmjsx/image/upload/v1770388212/single_room2_zhd9uo.jpg"}', '{"https://example.com/video2.mp4"}', 'Female'),
+    ((SELECT id FROM properties LIMIT 1), '202B', 'Premium Shared', 225.00, 4, '{"Shared Bathroom", "Premium Furnishing", "Air Conditioning", "High-Speed Wi-Fi"}', '{"https://res.cloudinary.com/di7okmjsx/image/upload/v1770388212/Suite2_q62y4w.jpg"}', '{"https://example.com/video3.mp4"}', 'Male'),
+    ((SELECT id FROM properties LIMIT 1), '301C', 'Premium Private', 400.00, 4, '{"Private Bathroom", "Kitchenette", "Living Area", "Premium Furnishing", "Air Conditioning", "High-Speed Wi-Fi"}', '{"https://res.cloudinary.com/di7okmjsx/image/upload/v1770388212/Suite1_t4dczv.jpg"}', '{"https://example.com/video4.mp4"}', 'Any');
 
 -- Seed CMS Content
 INSERT INTO cms_content (property_id, logo_url, hero_title, hero_subtitle, hero_image_url, features, faqs, contract_templates)

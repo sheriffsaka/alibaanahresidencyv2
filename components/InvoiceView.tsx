@@ -75,7 +75,7 @@ const InvoiceView: React.FC<InvoiceViewProps> = ({ booking, onClose, isReceipt }
             <div className="grid grid-cols-2 gap-8 mb-10">
               <div>
                 <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Student Details</h3>
-                <p className="font-bold text-gray-900 dark:text-white">{booking.student_name}</p>
+                <p className="font-bold text-gray-900 dark:text-white">{booking.full_name}</p>
                 <p className="text-sm text-gray-600 dark:text-gray-400">ID: {booking.student_id.slice(0,8)}...</p>
               </div>
               <div className="text-right">
@@ -101,8 +101,8 @@ const InvoiceView: React.FC<InvoiceViewProps> = ({ booking, onClose, isReceipt }
                     <p className="text-xs text-gray-500">Room Number: {booking.rooms.room_number}</p>
                     <p className="text-xs text-gray-500">{new Date(booking.start_date).toLocaleDateString()} to {new Date(booking.end_date).toLocaleDateString()}</p>
                   </td>
-                  <td className="py-6 text-center text-sm font-medium">3 Months</td>
-                  <td className="py-6 text-right font-bold text-gray-900 dark:text-white">${booking.total_price.toFixed(2)}</td>
+                  <td className="py-6 text-center text-sm font-medium">{booking.duration_of_stay}</td>
+                  <td className="py-6 text-right font-bold text-gray-900 dark:text-white">${booking.total_price?.toFixed(2)}</td>
                 </tr>
               </tbody>
             </table>
@@ -112,7 +112,7 @@ const InvoiceView: React.FC<InvoiceViewProps> = ({ booking, onClose, isReceipt }
               <div className="w-full max-w-[200px] space-y-2">
                 <div className="flex justify-between text-sm">
                   <span className="text-gray-500">Subtotal:</span>
-                  <span className="font-bold">${booking.total_price.toFixed(2)}</span>
+                  <span className="font-bold">${booking.total_price?.toFixed(2)}</span>
                 </div>
                 <div className="flex justify-between text-sm">
                   <span className="text-gray-500">Discount:</span>
@@ -120,7 +120,7 @@ const InvoiceView: React.FC<InvoiceViewProps> = ({ booking, onClose, isReceipt }
                 </div>
                 <div className="flex justify-between text-lg border-t pt-2 dark:border-gray-800">
                   <span className="font-black">Total:</span>
-                  <span className="font-black text-brand-600">${booking.total_price.toFixed(2)}</span>
+                  <span className="font-black text-brand-600">${booking.total_price?.toFixed(2)}</span>
                 </div>
               </div>
             </div>

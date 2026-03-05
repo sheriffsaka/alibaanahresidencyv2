@@ -78,6 +78,7 @@ const AdminDashboardPage: React.FC = () => {
   const t = useTranslation();
   const { user, bookings, updateBookingStatus, cmsContent, updateCmsContent, rooms, addRoom, updateRoom, activities, addActivity } = useApp();
   const [activeTab, setActiveTab] = useState<'analytics' | 'pending' | 'rooms' | 'students' | 'cms'>('analytics');
+  const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
   const [selectedProof, setSelectedProof] = useState<string | null>(null);
   const [roomFilter, setRoomFilter] = useState<'all' | 'occupied' | 'available'>('all');
   const [studentSort, setStudentSort] = useState<{ field: keyof Booking; direction: 'asc' | 'desc' }>({ field: 'full_name', direction: 'asc' });
@@ -314,11 +315,11 @@ const AdminDashboardPage: React.FC = () => {
                           <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase">Actions</th>
                       </tr></thead>
                       <tbody className="divide-y divide-gray-100 dark:divide-gray-700">{analytics.pendingVerifications.map(item => (<tr key={item.id}>
-                          <td className="px-6 py-4 font-medium">{item.student_name}</td>
+                          <td className="px-6 py-4 font-medium">{item.full_name}</td>
                           <td className="px-6 py-4 font-bold text-brand-600">${item.total_price}</td>
                           <td className="px-6 py-4"><div className="flex gap-2">
-                              <button onClick={() => handleApprove(item.id)} className="bg-green-100 text-green-700 px-3 py-1.5 rounded-md text-xs font-bold">Approve</button>
-                              {item.payment_proof_url && <button onClick={() => setSelectedProof(item.payment_proof_url!)} className="bg-brand-100 text-brand-700 px-3 py-1.5 rounded-md text-xs font-bold">View Proof</button>}
+                              <button onClick={() => setSelectedBooking(item)} className="bg-brand-100 text-brand-700 px-3 py-1.5 rounded-md text-xs font-bold">Review Details</button>
+                              <button onClick={() => handleApprove(item.id)} className="bg-green-100 text-green-700 px-3 py-1.5 rounded-md text-xs font-bold">Quick Approve</button>
                           </div></td>
                       </tr>))}</tbody>
                   </table></div>
@@ -377,17 +378,33 @@ const AdminDashboardPage: React.FC = () => {
                           Name {studentSort.field === 'full_name' && (studentSort.direction === 'asc' ? '↑' : '↓')}
                         </th>
                         <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase">Room</th>
+                        <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase">Duration</th>
+                        <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase">Expiry</th>
                         <th 
                           className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase cursor-pointer hover:text-brand-600"
                           onClick={() => setStudentSort({ field: 'status', direction: studentSort.field === 'status' && studentSort.direction === 'asc' ? 'desc' : 'asc' })}
                         >
                           Status {studentSort.field === 'status' && (studentSort.direction === 'asc' ? '↑' : '↓')}
                         </th>
+                        <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase">Actions</th>
                     </tr></thead>
                     <tbody className="divide-y divide-gray-100 dark:divide-gray-700">{sortedBookings.map(booking => (<tr key={booking.id}>
                         <td className="px-6 py-4 font-bold">{booking.full_name}</td>
                         <td className="px-6 py-4 text-sm font-bold text-brand-600">Room {booking.rooms.room_number}</td>
+                        <td className="px-6 py-4 text-xs">{booking.duration_of_stay}</td>
+                        <td className="px-6 py-4 text-xs font-bold text-red-600">{booking.payment_expiry_date ? new Date(booking.payment_expiry_date).toLocaleDateString() : 'N/A'}</td>
                         <td className="px-6 py-4"><BookingStatusBadge status={booking.status} /></td>
+                        <td className="px-6 py-4">
+                            <div className="flex gap-2">
+                                <button onClick={() => setSelectedBooking(booking)} className="text-brand-600 hover:text-brand-700 text-xs font-bold underline">View</button>
+                                <button 
+                                    onClick={() => alert(`Reminder sent to ${booking.email}`)}
+                                    className="bg-brand-50 text-brand-600 px-2 py-1 rounded text-[10px] font-bold hover:bg-brand-100"
+                                >
+                                    Send Reminder
+                                </button>
+                            </div>
+                        </td>
                     </tr>))}</tbody>
                 </table></div>
              </div>
@@ -570,6 +587,88 @@ const AdminDashboardPage: React.FC = () => {
       </div>
 
       {/* Modals */}
+      {selectedBooking && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+          <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl w-full max-w-4xl flex flex-col max-h-[90vh]">
+            <div className="p-6 border-b dark:border-gray-800 flex justify-between items-center">
+              <h3 className="text-xl font-bold">Booking Details - BK{selectedBooking.id}</h3>
+              <button onClick={() => setSelectedBooking(null)}><IconClose className="w-6 h-6" /></button>
+            </div>
+            <div className="p-6 overflow-y-auto space-y-8">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                {/* Student Info */}
+                <div className="space-y-4">
+                  <h4 className="font-bold text-brand-600 uppercase tracking-wider text-xs">Student Information</h4>
+                  <div className="grid grid-cols-2 gap-4 text-sm">
+                    <div><p className="text-gray-500 text-[10px] uppercase font-bold">Full Name</p><p className="font-medium">{selectedBooking.full_name}</p></div>
+                    <div><p className="text-gray-500 text-[10px] uppercase font-bold">Nationality</p><p className="font-medium">{selectedBooking.nationality}</p></div>
+                    <div><p className="text-gray-500 text-[10px] uppercase font-bold">Passport No.</p><p className="font-medium">{selectedBooking.passport_number}</p></div>
+                    <div><p className="text-gray-500 text-[10px] uppercase font-bold">Email</p><p className="font-medium">{selectedBooking.email}</p></div>
+                    <div><p className="text-gray-500 text-[10px] uppercase font-bold">Phone</p><p className="font-medium">{selectedBooking.phone_number}</p></div>
+                    <div><p className="text-gray-500 text-[10px] uppercase font-bold">Arrival Date</p><p className="font-medium">{new Date(selectedBooking.expected_arrival_date).toLocaleDateString()}</p></div>
+                    <div><p className="text-gray-500 text-[10px] uppercase font-bold">Duration</p><p className="font-medium">{selectedBooking.duration_of_stay}</p></div>
+                    <div><p className="text-gray-500 text-[10px] uppercase font-bold">Accommodation</p><p className="font-medium">{selectedBooking.preferred_accommodation}</p></div>
+                  </div>
+                  <div className="mt-4">
+                    <p className="text-gray-500 text-[10px] uppercase font-bold">Emergency Contact</p>
+                    <p className="text-sm">{selectedBooking.emergency_contact_details}</p>
+                  </div>
+                  <div className="mt-4">
+                    <p className="text-gray-500 text-[10px] uppercase font-bold">Address in Egypt</p>
+                    <p className="text-sm">{selectedBooking.address_in_egypt || 'N/A'}</p>
+                  </div>
+                </div>
+
+                {/* Documents */}
+                <div className="space-y-6">
+                  <div>
+                    <h4 className="font-bold text-brand-600 uppercase tracking-wider text-xs mb-2">Passport Copy</h4>
+                    <a href={selectedBooking.passport_copy_url} target="_blank" rel="noreferrer" className="block p-4 border rounded-xl hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
+                      <p className="text-xs font-bold text-brand-600">View Passport Document ↗</p>
+                    </a>
+                  </div>
+
+                  <div>
+                    <h4 className="font-bold text-brand-600 uppercase tracking-wider text-xs mb-2">Signed Contract Signature</h4>
+                    {selectedBooking.signature_data ? (
+                      <div className="p-4 border rounded-xl bg-gray-50 dark:bg-gray-800">
+                        <img src={selectedBooking.signature_data} alt="Signature" className="max-h-24 mx-auto" />
+                        <p className="text-[10px] text-center text-gray-500 mt-2">Signed on {selectedBooking.contract_signed_at ? new Date(selectedBooking.contract_signed_at).toLocaleString() : 'N/A'}</p>
+                      </div>
+                    ) : (
+                      <p className="text-sm text-red-500 italic">Contract not yet signed.</p>
+                    )}
+                  </div>
+
+                  {selectedBooking.payment_proof_url && (
+                    <div>
+                      <h4 className="font-bold text-brand-600 uppercase tracking-wider text-xs mb-2">Payment Proof</h4>
+                      <img src={selectedBooking.payment_proof_url} alt="Payment Proof" className="w-full h-auto rounded-xl border" />
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+            <div className="p-6 border-t dark:border-gray-800 flex gap-4">
+              {selectedBooking.status === BookingStatus.PENDING_VERIFICATION && (
+                <button 
+                  onClick={() => { handleApprove(selectedBooking.id); setSelectedBooking(null); }}
+                  className="flex-1 bg-green-600 text-white py-3 rounded-xl font-bold hover:bg-green-700 transition-colors"
+                >
+                  Confirm Payment & Approve
+                </button>
+              )}
+              <button 
+                onClick={() => setSelectedBooking(null)}
+                className="flex-1 bg-gray-100 dark:bg-gray-800 py-3 rounded-xl font-bold hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {isRoomModalOpen && (
         <RoomEditorModal room={selectedRoomForEdit} onClose={() => setIsRoomModalOpen(false)} onSave={handleSaveRoom} />
       )}

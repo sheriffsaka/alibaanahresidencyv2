@@ -36,9 +36,20 @@ const RoomCard: React.FC<RoomCardProps> = ({ room, isOccupied }) => {
       <div className="p-8">
         <h2 className="text-xs font-bold text-brand-600 dark:text-brand-400 uppercase tracking-widest mb-1">{t.roomType}</h2>
         <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">{room.type || 'Room'}</h1>
-        <p className="text-2xl font-bold text-gray-900 dark:text-white mb-6">
+        <p className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
             {room.price_per_month ? t.pricePerMonth.replace('{price}', room.price_per_month.toString()) : 'Price on request'}
         </p>
+        <div className="flex items-center gap-2 mb-6">
+            <div className="flex-1 h-2 bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden">
+                <div 
+                    className={`h-full transition-all duration-500 ${((room.occupied_slots || 0) / (room.capacity || 1)) > 0.8 ? 'bg-red-500' : 'bg-brand-600'}`}
+                    style={{ width: `${((room.occupied_slots || 0) / (room.capacity || 1)) * 100}%` }}
+                ></div>
+            </div>
+            <span className="text-[10px] font-bold text-gray-500 uppercase">
+                {room.capacity! - room.occupied_slots!} Slots Left
+            </span>
+        </div>
         
         <div className="space-y-4">
             <h3 className="text-sm font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">{t.amenities}</h3>

@@ -6,6 +6,8 @@ import { useApp } from '../hooks/useApp';
 import { IconUpload } from './Icon';
 import { uploadFile, generateFileName } from '../lib/storage';
 
+import { COUNTRIES } from '../countries';
+
 interface BookingFormProps {
   room: Room;
 }
@@ -16,7 +18,7 @@ const BookingForm: React.FC<BookingFormProps> = ({ room }) => {
   
   const [formData, setFormData] = useState({
     fullName: '',
-    nationality: '',
+    nationality: '', 
     passportNumber: '',
     email: user?.email || '',
     phoneNumber: '',
@@ -121,7 +123,22 @@ const BookingForm: React.FC<BookingFormProps> = ({ room }) => {
     <form onSubmit={handleSubmit} className="space-y-6">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <InputField name="fullName" label={t.fullName} value={formData.fullName} onChange={handleInputChange} required />
-        <InputField name="nationality" label={t.nationality} value={formData.nationality} onChange={handleInputChange} required />
+        <div>
+          <label htmlFor="nationality" className="block text-sm font-medium text-gray-700 dark:text-gray-300">{t.nationality}</label>
+          <select 
+            id="nationality" 
+            name="nationality" 
+            value={formData.nationality} 
+            onChange={handleInputChange} 
+            className="mt-1 block w-full pl-3 pr-10 py-3 text-base border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white focus:outline-none focus:ring-brand-500 focus:border-brand-500 sm:text-sm rounded-lg"
+            required
+          >
+            <option value="">Select Nationality</option>
+            {COUNTRIES.map(country => (
+              <option key={country} value={country}>{country}</option>
+            ))}
+          </select>
+        </div>
         <InputField name="passportNumber" label={t.passportNumber} value={formData.passportNumber} onChange={handleInputChange} required />
         <InputField name="email" label={t.email} type="email" value={formData.email} onChange={handleInputChange} required />
         <InputField name="phoneNumber" label={t.phoneNumber} value={formData.phoneNumber} onChange={handleInputChange} required />

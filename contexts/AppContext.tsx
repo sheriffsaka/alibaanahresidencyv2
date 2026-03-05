@@ -224,7 +224,17 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             await fetchPublicData();
             
             // 2. Check session
-            const { data: { session } } = await supabase.auth.getSession();
+            const { data: { session }, error: authError } = await supabase.auth.getSession();
+            
+            if (authError) {
+                console.error("Auth session error:", authError.message);
+                // If the refresh token is invalid or not found, clear the local session
+                if (authError.message.toLowerCase().includes('refresh token') || authError.message.includes('refresh_token_not_found')) {
+                    console.warn("Stale refresh token detected. Clearing session...");
+                    await supabase.auth.signOut();
+                }
+            }
+
             if (session) {
                 await updateUserSession(session);
             }
@@ -295,12 +305,26 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
   const updateBookingStatus = async (id: number, status: BookingStatus) => {
     try {
+        const booking = bookings.find(b => b.id === id);
+        if (!booking) throw new Error("Booking not found");
+
         const { error } = await supabase
             .from('bookings')
             .update({ status })
             .eq('id', id);
 
         if (error) throw error;
+
+        // If status changed to CONFIRMED or OCCUPIED, increment occupied_slots
+        if (status === BookingStatus.CONFIRMED || status === BookingStatus.OCCUPIED) {
+            const room = rooms.find(r => r.id === booking.room_id);
+            if (room) {
+                const newOccupied = (room.occupied_slots || 0) + 1;
+                await supabase.from('rooms').update({ occupied_slots: newOccupied }).eq('id', room.id);
+                setRooms(prev => prev.map(r => r.id === room.id ? { ...r, occupied_slots: newOccupied } : r));
+            }
+        }
+
         setBookings(prev => prev.map(b => b.id === id ? { ...b, status } : b));
         return { success: true };
     } catch (err: any) {

@@ -61,14 +61,12 @@ const HomePage: React.FC = () => {
         if (!summary[room.type]) {
             summary[room.type] = { total: 0, available: 0 };
         }
-        summary[room.type]!.total++;
-        if (room.is_available && !occupiedRoomIds.has(room.id)) {
-            summary[room.type]!.available++;
-        }
+        summary[room.type]!.total += room.capacity || 1;
+        summary[room.type]!.available += (room.capacity || 1) - (room.occupied_slots || 0);
     });
 
     return Object.entries(summary).map(([type, counts]) => ({ type: type as AccommodationType, ...counts! }));
-  }, [visibleRooms, occupiedRoomIds]);
+  }, [visibleRooms]);
 
   if (loading) {
     return (
@@ -159,7 +157,7 @@ const HomePage: React.FC = () => {
                   <RoomCard 
                     key={room.id} 
                     room={room} 
-                    isOccupied={!room.is_available || occupiedRoomIds.has(room.id)}
+                    isOccupied={!room.is_available || (room.occupied_slots || 0) >= (room.capacity || 1)}
                   />
               ))}
             </div>

@@ -80,6 +80,8 @@ const DashboardPage: React.FC = () => {
                     <tr>
                       <th scope="col" className="px-6 py-4 text-left rtl:text-right text-xs font-semibold text-gray-500 dark:text-gray-300 uppercase tracking-wider">{t.bookingId}</th>
                       <th scope="col" className="px-6 py-4 text-left rtl:text-right text-xs font-semibold text-gray-500 dark:text-gray-300 uppercase tracking-wider">{t.room}</th>
+                      <th scope="col" className="px-6 py-4 text-left rtl:text-right text-xs font-semibold text-gray-500 dark:text-gray-300 uppercase tracking-wider">Duration</th>
+                      <th scope="col" className="px-6 py-4 text-left rtl:text-right text-xs font-semibold text-gray-500 dark:text-gray-300 uppercase tracking-wider">Expiry</th>
                       <th scope="col" className="px-6 py-4 text-left rtl:text-right text-xs font-semibold text-gray-500 dark:text-gray-300 uppercase tracking-wider">{t.status}</th>
                       <th scope="col" className="px-6 py-4 text-left rtl:text-right text-xs font-semibold text-gray-500 dark:text-gray-300 uppercase tracking-wider">Actions</th>
                     </tr>
@@ -92,21 +94,19 @@ const DashboardPage: React.FC = () => {
                             <div className="text-sm font-medium text-gray-900 dark:text-white">{booking.rooms.type}</div>
                             <div className="text-xs text-gray-500 dark:text-gray-400">Room {booking.rooms.room_number}</div>
                         </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-xs">{booking.duration_of_stay}</td>
+                        <td className="px-6 py-4 whitespace-nowrap text-xs font-bold text-red-600">{booking.payment_expiry_date ? new Date(booking.payment_expiry_date).toLocaleDateString() : 'N/A'}</td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm">
                           <BookingStatusBadge status={booking.status} />
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                             <div className="flex flex-col space-y-2">
-                                {booking.status === BookingStatus.CONFIRMED || booking.status === BookingStatus.OCCUPIED ? (
-                                    <button 
-                                      onClick={() => setSelectedInvoice(booking)}
-                                      className="text-brand-600 hover:text-brand-800 dark:text-brand-400 text-xs font-bold underline decoration-dotted text-left"
-                                    >
-                                      {t.viewInvoice}
-                                    </button>
-                                ) : (
-                                    <span className="text-gray-400 text-xs italic">Awaiting Conf.</span>
-                                )}
+                                <button 
+                                  onClick={() => setSelectedInvoice(booking)}
+                                  className="text-brand-600 hover:text-brand-800 dark:text-brand-400 text-xs font-bold underline decoration-dotted text-left"
+                                >
+                                  {booking.status === BookingStatus.CONFIRMED || booking.status === BookingStatus.OCCUPIED ? 'View Receipt' : 'View Invoice'}
+                                </button>
                                 
                                 {booking.status === BookingStatus.PENDING_VERIFICATION && !booking.contract_signed_at && (
                                   <button 

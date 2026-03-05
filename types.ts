@@ -16,6 +16,8 @@ export interface Room {
   room_number: string;
   type: AccommodationType;
   price_per_month: number;
+  capacity: number;
+  occupied_slots: number;
   amenities: string[];
   image_urls: string[];
   video_urls?: string[];
@@ -77,6 +79,7 @@ export interface Booking {
   booking_package_id?: number;
   total_price?: number;
   payment_proof_url?: string;
+  payment_expiry_date?: string;
   payment_method?: 'Online' | 'Bank Transfer';
   checked_in_at?: string;
   checked_out_at?: string;
