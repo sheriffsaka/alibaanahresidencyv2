@@ -445,6 +445,24 @@ const AdminDashboardPage: React.FC = () => {
               </div>
 
               <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 border border-gray-100 dark:border-gray-700">
+                  <div className="flex items-center mb-6"><IconEdit className="w-6 h-6 text-brand-600 mr-2" /><h2 className="text-xl font-bold">How-To Videos (YouTube Embed URLs)</h2></div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {['en', 'ar', 'fr', 'ru', 'uz', 'zh'].map(lang => (
+                      <div key={lang}>
+                        <label className="block text-sm font-bold mb-1 uppercase text-gray-500">{lang} Video URL</label>
+                        <input 
+                          type="text" 
+                          value={cmsContent.howToVideos?.[lang as Language] || ''} 
+                          onChange={(e) => updateCmsContent({ howToVideos: { ...cmsContent.howToVideos, [lang]: e.target.value } })} 
+                          placeholder="https://www.youtube.com/embed/..."
+                          className="w-full p-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600" 
+                        />
+                      </div>
+                    ))}
+                  </div>
+              </div>
+
+              <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 border border-gray-100 dark:border-gray-700">
                   <div className="flex items-center justify-between mb-6">
                     <div className="flex items-center">
                       <IconEdit className="w-6 h-6 text-purple-600 mr-2" />

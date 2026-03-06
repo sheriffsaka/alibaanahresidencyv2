@@ -130,4 +130,6 @@ export const uz = {
   contractLanguageEn: 'Ingliz tili',
   contractLanguageFr: 'Fransuz tili',
   contractLanguageRu: 'Rus tili',
+  howToTitle: 'Xonani qanday bron qilish kerak',
+  howToSubtitle: 'Al-Ibaanah talabalar turar joyida turar joyni bron qilish uchun ushbu oddiy qadamlarni bajaring.',
 };

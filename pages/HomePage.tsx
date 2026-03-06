@@ -184,6 +184,34 @@ const HomePage: React.FC = () => {
         </div>
       </section>
 
+      {/* How To Video Section */}
+      <section className="bg-brand-50 dark:bg-gray-800 -mx-4 sm:-mx-6 lg:-mx-8 py-20 px-4 sm:px-6 lg:px-8 rounded-3xl">
+        <div className="max-w-4xl mx-auto text-center">
+          <h2 className="text-3xl font-bold tracking-tight text-gray-900 dark:text-white sm:text-4xl mb-4">
+            {t.howToTitle}
+          </h2>
+          <p className="text-lg text-gray-600 dark:text-gray-300 mb-12">
+            {t.howToSubtitle}
+          </p>
+          <div className="aspect-video rounded-2xl overflow-hidden shadow-2xl border-8 border-white dark:border-gray-700 bg-gray-200 dark:bg-gray-900">
+            {cmsContent.howToVideos?.[language] || cmsContent.howToVideos?.['en'] ? (
+              <iframe
+                className="w-full h-full"
+                src={cmsContent.howToVideos?.[language] || cmsContent.howToVideos?.['en']}
+                title="How to book"
+                frameBorder="0"
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                allowFullScreen
+              ></iframe>
+            ) : (
+              <div className="flex items-center justify-center h-full">
+                <p className="text-gray-500">Video not available for this language.</p>
+              </div>
+            )}
+          </div>
+        </div>
+      </section>
+
       <section>
           <FAQ faqs={currentFaqs} />
       </section>

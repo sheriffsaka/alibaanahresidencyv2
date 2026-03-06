@@ -130,4 +130,6 @@ export const zh = {
   contractLanguageEn: '英语',
   contractLanguageFr: '法语',
   contractLanguageRu: '俄语',
+  howToTitle: '如何预订房间',
+  howToSubtitle: '按照这些简单的步骤在 Al-Ibaanah 学生宿舍预订您的住宿。',
 };

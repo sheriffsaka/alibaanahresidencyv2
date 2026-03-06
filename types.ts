@@ -132,6 +132,9 @@ export interface CmsContent {
       [lang in Language]?: string;
     }
   };
+  howToVideos?: {
+    [key in Language]?: string;
+  };
 }
 
 export interface AppContextType {

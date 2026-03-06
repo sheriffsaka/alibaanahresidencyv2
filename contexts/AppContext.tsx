@@ -41,6 +41,10 @@ export const INITIAL_CMS: CmsContent = {
       fr: 'Ceci est le contrat français pour les chambres Standard Shared...',
       ru: 'Это русский контракт для комнат Standard Shared...'
     }
+  },
+  howToVideos: {
+    en: 'https://www.youtube.com/embed/dQw4w9WgXcQ',
+    ar: 'https://www.youtube.com/embed/dQw4w9WgXcQ'
   }
 };
 
@@ -210,7 +214,10 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                 faqs: normalizeCmsData(dbCms.faqs, INITIAL_CMS.faqs),
                 contractTemplates: hasData(dbCms.contract_templates || dbCms.contractTemplates) 
                     ? (dbCms.contract_templates || dbCms.contractTemplates) 
-                    : INITIAL_CMS.contractTemplates
+                    : INITIAL_CMS.contractTemplates,
+                howToVideos: hasData(dbCms.how_to_videos || dbCms.howToVideos)
+                    ? (dbCms.how_to_videos || dbCms.howToVideos)
+                    : INITIAL_CMS.howToVideos
               });
             }
         } catch (err) {
@@ -371,6 +378,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             features: updatedCms.features,
             faqs: updatedCms.faqs,
             contract_templates: updatedCms.contractTemplates,
+            how_to_videos: updatedCms.howToVideos,
             updated_at: new Date().toISOString()
         };
 

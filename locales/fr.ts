@@ -130,4 +130,6 @@ export const fr = {
   contractLanguageEn: 'Anglais',
   contractLanguageFr: 'Français',
   contractLanguageRu: 'Russe',
+  howToTitle: 'Comment réserver votre chambre',
+  howToSubtitle: 'Suivez ces étapes simples pour sécuriser votre hébergement à la résidence étudiante Al-Ibaanah.',
 };

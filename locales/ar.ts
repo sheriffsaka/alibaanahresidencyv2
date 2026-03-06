@@ -130,4 +130,6 @@ export const ar = {
   contractLanguageEn: 'الإنجليزية',
   contractLanguageFr: 'الفرنسية',
   contractLanguageRu: 'الروسية',
+  howToTitle: 'كيفية حجز غرفتك',
+  howToSubtitle: 'اتبع هذه الخطوات البسيطة لتأمين سكنك في سكن طلاب الإبانة.',
 };

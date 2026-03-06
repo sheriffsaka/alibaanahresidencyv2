@@ -130,4 +130,6 @@ export const ru = {
   contractLanguageEn: 'Английский',
   contractLanguageFr: 'Французский',
   contractLanguageRu: 'Русский',
+  howToTitle: 'Как забронировать комнату',
+  howToSubtitle: 'Следуйте этим простым шагам, чтобы забронировать жилье в студенческой резиденции Аль-Ибана.',
 };

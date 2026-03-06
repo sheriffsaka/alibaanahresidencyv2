@@ -130,4 +130,6 @@ export const en = {
   contractLanguageEn: 'English',
   contractLanguageFr: 'French',
   contractLanguageRu: 'Russian',
+  howToTitle: 'How to Book Your Room',
+  howToSubtitle: 'Follow these simple steps to secure your accommodation at Al-Ibaanah Student Residency.',
 };

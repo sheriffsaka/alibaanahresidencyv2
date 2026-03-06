@@ -162,6 +162,7 @@ CREATE TABLE cms_content (
     features JSONB,
     faqs JSONB,
     contract_templates JSONB, -- Structure: { "Standard Shared": { "en": "...", "fr": "..." }, ... }
+    how_to_videos JSONB, -- Structure: { "en": "...", "fr": "..." }
     updated_at TIMESTAMPTZ DEFAULT now()
 );
 
