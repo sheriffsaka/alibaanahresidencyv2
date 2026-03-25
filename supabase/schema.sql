@@ -216,6 +216,31 @@ ALTER TABLE academic_terms ENABLE ROW LEVEL SECURITY;
 ALTER TABLE booking_packages ENABLE ROW LEVEL SECURITY;
 ALTER TABLE bookings ENABLE ROW LEVEL SECURITY;
 ALTER TABLE payments ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Students can view their own payments" ON payments;
+CREATE POLICY "Students can view their own payments" ON payments FOR SELECT USING (
+    EXISTS (
+        SELECT 1 FROM bookings
+        WHERE bookings.id = payments.booking_id
+        AND bookings.student_id = auth.uid()
+    )
+);
+DROP POLICY IF EXISTS "Staff can manage all payments" ON payments;
+CREATE POLICY "Staff can manage all payments" ON payments
+    FOR ALL TO authenticated
+    USING (
+        EXISTS (
+            SELECT 1 FROM profiles
+            WHERE profiles.id = auth.uid()
+            AND profiles.role IN ('staff', 'proprietor')
+        )
+    )
+    WITH CHECK (
+        EXISTS (
+            SELECT 1 FROM profiles
+            WHERE profiles.id = auth.uid()
+            AND profiles.role IN ('staff', 'proprietor')
+        )
+    );
 ALTER TABLE invoices ENABLE ROW LEVEL SECURITY;
 ALTER TABLE cms_content ENABLE ROW LEVEL SECURITY;
 ALTER TABLE admin_audit_log ENABLE ROW LEVEL SECURITY;
@@ -259,6 +284,8 @@ DROP POLICY IF EXISTS "Students can view their own bookings" ON bookings;
 CREATE POLICY "Students can view their own bookings" ON bookings FOR SELECT USING (auth.uid() = student_id);
 DROP POLICY IF EXISTS "Students can create their own bookings" ON bookings;
 CREATE POLICY "Students can create their own bookings" ON bookings FOR INSERT WITH CHECK (auth.uid() = student_id);
+DROP POLICY IF EXISTS "Students can update their own bookings" ON bookings;
+CREATE POLICY "Students can update their own bookings" ON bookings FOR UPDATE USING (auth.uid() = student_id) WITH CHECK (auth.uid() = student_id);
 DROP POLICY IF EXISTS "Staff can manage all bookings" ON bookings;
 CREATE POLICY "Staff can manage all bookings" ON bookings
     FOR ALL TO authenticated
@@ -326,11 +353,17 @@ CREATE POLICY "Staff can update/delete room images" ON storage.objects FOR ALL U
 
 -- Passports bucket: Only staff and the owner can view
 DROP POLICY IF EXISTS "Users can upload their own passport" ON storage.objects;
-CREATE POLICY "Users can upload their own passport" ON storage.objects FOR INSERT WITH CHECK (bucket_id = 'passports');
+CREATE POLICY "Users can upload their own passport" ON storage.objects FOR INSERT TO authenticated WITH CHECK (
+    bucket_id = 'passports' AND (storage.foldername(name))[1] = auth.uid()::text
+);
+DROP POLICY IF EXISTS "Users can update their own passport" ON storage.objects;
+CREATE POLICY "Users can update their own passport" ON storage.objects FOR UPDATE TO authenticated USING (
+    bucket_id = 'passports' AND (storage.foldername(name))[1] = auth.uid()::text
+);
 DROP POLICY IF EXISTS "Staff and owners can view passports" ON storage.objects;
-CREATE POLICY "Staff and owners can view passports" ON storage.objects FOR SELECT USING (
+CREATE POLICY "Staff and owners can view passports" ON storage.objects FOR SELECT TO authenticated USING (
     bucket_id = 'passports' AND (
-        auth.uid()::text = (storage.foldername(name))[1] OR
+        (storage.foldername(name))[1] = auth.uid()::text OR
         EXISTS (
             SELECT 1 FROM public.profiles
             WHERE profiles.id = auth.uid()
@@ -341,11 +374,17 @@ CREATE POLICY "Staff and owners can view passports" ON storage.objects FOR SELEC
 
 -- Payments bucket: Only staff and the owner can view
 DROP POLICY IF EXISTS "Users can upload their own payment proof" ON storage.objects;
-CREATE POLICY "Users can upload their own payment proof" ON storage.objects FOR INSERT WITH CHECK (bucket_id = 'payments');
+CREATE POLICY "Users can upload their own payment proof" ON storage.objects FOR INSERT TO authenticated WITH CHECK (
+    bucket_id = 'payments' AND (storage.foldername(name))[1] = auth.uid()::text
+);
+DROP POLICY IF EXISTS "Users can update their own payment proof" ON storage.objects;
+CREATE POLICY "Users can update their own payment proof" ON storage.objects FOR UPDATE TO authenticated USING (
+    bucket_id = 'payments' AND (storage.foldername(name))[1] = auth.uid()::text
+);
 DROP POLICY IF EXISTS "Staff and owners can view payment proof" ON storage.objects;
-CREATE POLICY "Staff and owners can view payment proof" ON storage.objects FOR SELECT USING (
+CREATE POLICY "Staff and owners can view payment proof" ON storage.objects FOR SELECT TO authenticated USING (
     bucket_id = 'payments' AND (
-        auth.uid()::text = (storage.foldername(name))[1] OR
+        (storage.foldername(name))[1] = auth.uid()::text OR
         EXISTS (
             SELECT 1 FROM public.profiles
             WHERE profiles.id = auth.uid()

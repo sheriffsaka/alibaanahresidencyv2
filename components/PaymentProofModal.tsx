@@ -3,6 +3,7 @@ import React, { useState, ChangeEvent } from 'react';
 import { IconClose, IconUpload } from './Icon';
 import { uploadFile, generateFileName } from '../lib/storage';
 import { useTranslation } from '../hooks/useTranslation';
+import { useApp } from '../hooks/useApp';
 
 interface PaymentProofModalProps {
   onUpload: (url: string) => void;
@@ -11,6 +12,7 @@ interface PaymentProofModalProps {
 
 const PaymentProofModal: React.FC<PaymentProofModalProps> = ({ onUpload, onClose }) => {
   const t = useTranslation();
+  const { user } = useApp();
   const [file, setFile] = useState<File | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -22,7 +24,7 @@ const PaymentProofModal: React.FC<PaymentProofModalProps> = ({ onUpload, onClose
   };
 
   const handleSubmit = async () => {
-    if (!file) {
+    if (!file || !user) {
       setError("Please select a file to upload.");
       return;
     }
@@ -32,11 +34,13 @@ const PaymentProofModal: React.FC<PaymentProofModalProps> = ({ onUpload, onClose
 
     try {
       const fileName = generateFileName(file.name);
-      const url = await uploadFile('payments', fileName, file);
+      // Prepend user ID to the path to match RLS policies
+      const path = `${user.id}/${fileName}`;
+      const url = await uploadFile('payments', path, file);
       onUpload(url);
     } catch (err: any) {
       console.error("Upload error:", err);
-      setError("Failed to upload payment proof. Please try again.");
+      setError(err.message || "Failed to upload payment proof. Please try again.");
     } finally {
       setIsUploading(false);
     }

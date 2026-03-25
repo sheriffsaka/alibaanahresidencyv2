@@ -192,6 +192,18 @@ USING (
 )
 WITH CHECK (get_my_role() IN ('staff', 'proprietor'));
 
+-- Staff/Proprietors can insert bookings for students in their property.
+DROP POLICY IF EXISTS "Allow staff/proprietors to insert property bookings" ON bookings;
+CREATE POLICY "Allow staff/proprietors to insert property bookings"
+ON bookings FOR INSERT
+WITH CHECK (
+  (get_my_role() IN ('staff', 'proprietor')) AND
+  EXISTS (
+    SELECT 1 FROM rooms r
+    WHERE r.id = bookings.room_id AND r.property_id = get_my_property_id()
+  )
+);
+
 
 --------------------------------------------------------------------------------
 -- Table: payments & invoices (Financial Records)
@@ -230,6 +242,38 @@ USING (
         SELECT 1 FROM profiles p WHERE p.id = b.student_id AND p.gender = get_my_gender()
       ))
     )
+  )
+);
+
+-- Staff/Proprietors can manage all payments for their property.
+DROP POLICY IF EXISTS "Allow staff/proprietors to manage property payments" ON payments;
+CREATE POLICY "Allow staff/proprietors to manage property payments"
+ON payments FOR ALL
+USING (
+  get_my_role() IN ('staff', 'proprietor') AND
+  EXISTS (
+    SELECT 1 FROM bookings b JOIN rooms r ON b.room_id = r.id
+    WHERE b.id = payments.booking_id AND r.property_id = get_my_property_id()
+  )
+)
+WITH CHECK (
+  get_my_role() IN ('staff', 'proprietor')
+);
+
+-- Students can update their own payments to add proof.
+DROP POLICY IF EXISTS "Allow students to update their own payments" ON payments;
+CREATE POLICY "Allow students to update their own payments"
+ON payments FOR UPDATE
+USING (
+  EXISTS (
+    SELECT 1 FROM bookings b
+    WHERE b.id = payments.booking_id AND b.student_id = auth.uid()
+  )
+)
+WITH CHECK (
+  EXISTS (
+    SELECT 1 FROM bookings b
+    WHERE b.id = payments.booking_id AND b.student_id = auth.uid()
   )
 );
 
@@ -332,4 +376,18 @@ WITH CHECK ( bucket_id = 'cms' AND (SELECT role FROM public.profiles WHERE id = 
 -- Allow students to upload to passports bucket
 DROP POLICY IF EXISTS "Student Upload Passports" ON storage.objects;
 CREATE POLICY "Student Upload Passports" ON storage.objects FOR INSERT
-WITH CHECK ( bucket_id = 'passports' AND (SELECT role FROM public.profiles WHERE id = auth.uid()) = 'student' );
+WITH CHECK ( bucket_id = 'passports' AND (storage.foldername(name))[1] = auth.uid()::text );
+
+-- Allow students to upload to payments bucket
+DROP POLICY IF EXISTS "Student Upload Payments" ON storage.objects;
+CREATE POLICY "Student Upload Payments" ON storage.objects FOR INSERT
+WITH CHECK ( bucket_id = 'payments' AND (storage.foldername(name))[1] = auth.uid()::text );
+
+-- Allow staff/proprietors to view all files in passports and payments buckets
+DROP POLICY IF EXISTS "Staff View Passports" ON storage.objects;
+CREATE POLICY "Staff View Passports" ON storage.objects FOR SELECT
+USING ( bucket_id = 'passports' AND (SELECT role FROM public.profiles WHERE id = auth.uid()) IN ('staff', 'proprietor') );
+
+DROP POLICY IF EXISTS "Staff View Payments" ON storage.objects;
+CREATE POLICY "Staff View Payments" ON storage.objects FOR SELECT
+USING ( bucket_id = 'payments' AND (SELECT role FROM public.profiles WHERE id = auth.uid()) IN ('staff', 'proprietor') );

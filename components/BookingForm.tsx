@@ -67,7 +67,9 @@ const BookingForm: React.FC<BookingFormProps> = ({ room }) => {
     try {
       // 1. Upload passport copy to Supabase Storage
       const fileName = generateFileName(passportCopy.name);
-      const passport_copy_url = await uploadFile('passports', fileName, passportCopy);
+      // Prepend user ID to the path to match RLS policies
+      const path = `${user.id}/${fileName}`;
+      const passport_copy_url = await uploadFile('passports', path, passportCopy);
 
       // 2. Calculate end date and total price
       const startDate = new Date(formData.arrivalDate);
