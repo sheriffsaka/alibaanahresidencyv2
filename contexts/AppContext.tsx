@@ -123,7 +123,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             // Role-aware booking query
             let query = supabase
                 .from('bookings')
-                .select('*, rooms(room_number, type), profiles:student_id(full_name)');
+                .select('*, rooms(room_number, type), profiles:student_id(full_name)')
+                .order('booked_at', { ascending: false });
             
             if (profile.role === 'student') {
                 query = query.eq('student_id', session.user.id);
