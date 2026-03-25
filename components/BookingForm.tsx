@@ -68,14 +68,22 @@ const BookingForm: React.FC<BookingFormProps> = ({ room }) => {
       const fileName = generateFileName(passportCopy.name);
       const passport_copy_url = await uploadFile('passports', fileName, passportCopy);
 
-      // 2. Create booking object
-      const bookingId = Math.floor(Math.random() * 9000) + 1000;
-      const newBooking: Booking = {
-          id: bookingId,
+      // 2. Calculate end date and total price
+      const startDate = new Date(formData.arrivalDate);
+      const durationMatch = formData.duration.match(/(\d+)/);
+      const durationMonths = durationMatch ? parseInt(durationMatch[1]) : 1;
+      
+      const endDate = new Date(startDate);
+      endDate.setMonth(startDate.getMonth() + durationMonths);
+      
+      const totalPrice = room.price_per_month * durationMonths;
+
+      // 3. Create booking object
+      const newBooking: Partial<Booking> = {
           student_id: user.id,
           room_id: room.id,
           start_date: formData.arrivalDate,
-          end_date: formData.arrivalDate, 
+          end_date: endDate.toISOString().split('T')[0], 
           status: BookingStatus.PENDING_PAYMENT,
           booked_at: new Date().toISOString(),
           full_name: formData.fullName,
@@ -95,17 +103,24 @@ const BookingForm: React.FC<BookingFormProps> = ({ room }) => {
           state: formData.state,
           address_in_egypt: `${formData.buildingNo}, ${formData.flatNo}, ${formData.streetName}, ${formData.districtName}, ${formData.state}`,
           contract_language: formData.contractLanguage,
+          total_price: totalPrice,
           rooms: { room_number: room.room_number, type: room.type },
       };
 
-      // 3. Save to database
-      await addBooking(newBooking);
+      // 4. Save to database
+      const result = await addBooking(newBooking as Booking);
       
-      // 4. Add activity
+      if (!result.success) {
+          throw new Error(result.error || "Failed to save booking");
+      }
+      
+      const savedBooking = result.data;
+
+      // 5. Add activity
       await addActivity({
         user_id: user.id,
         type: 'booking',
-        description: `New booking application for Room ${room.room_number} (BK${bookingId})`,
+        description: `New booking application for Room ${room.room_number} (BK${savedBooking.id})`,
         timestamp: new Date().toISOString()
       });
 

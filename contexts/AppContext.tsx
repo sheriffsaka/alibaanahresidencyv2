@@ -71,6 +71,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const [bookingPackages, setBookingPackages] = useState<BookingPackage[]>([]);
   const [cmsContent, setCmsContent] = useState<CmsContent>(INITIAL_CMS);
   const [activities, setActivities] = useState<Activity[]>(MOCK_ACTIVITIES);
+  const bookingsSubscriptionRef = useRef<any>(null);
 
   const updateUserSession = useCallback(async (session: Session | null) => {
     setSession(session);
@@ -153,7 +154,72 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   }, []);
 
   useEffect(() => {
-    const fetchPublicData = async () => {
+    if (user) {
+        // Real-time subscription for bookings
+        if (bookingsSubscriptionRef.current) {
+            supabase.removeChannel(bookingsSubscriptionRef.current);
+        }
+
+        bookingsSubscriptionRef.current = supabase
+            .channel('bookings-changes')
+            .on('postgres_changes', { 
+                event: '*', 
+                schema: 'public', 
+                table: 'bookings' 
+            }, async (payload) => {
+                console.log('Real-time booking update:', payload);
+                
+                if (payload.eventType === 'INSERT') {
+                    // Fetch the full booking with joins
+                    const { data, error } = await supabase
+                        .from('bookings')
+                        .select('*, rooms(room_number, type), profiles:student_id(full_name)')
+                        .eq('id', payload.new.id)
+                        .single();
+                    
+                    if (data && !error) {
+                        const mapped = { ...data, student_name: data.profiles?.full_name };
+                        // Only add if it belongs to the student or if user is admin
+                        if (user.role !== 'student' || data.student_id === user.id) {
+                            setBookings(prev => {
+                                if (prev.some(b => b.id === mapped.id)) return prev;
+                                return [mapped, ...prev];
+                            });
+                        }
+                    }
+                } else if (payload.eventType === 'UPDATE') {
+                    // Fetch updated data to get joins
+                    const { data, error } = await supabase
+                        .from('bookings')
+                        .select('*, rooms(room_number, type), profiles:student_id(full_name)')
+                        .eq('id', payload.new.id)
+                        .single();
+                    
+                    if (data && !error) {
+                        const mapped = { ...data, student_name: data.profiles?.full_name };
+                        setBookings(prev => prev.map(b => b.id === mapped.id ? mapped : b));
+                    }
+                } else if (payload.eventType === 'DELETE') {
+                    setBookings(prev => prev.filter(b => b.id !== payload.old.id));
+                }
+            })
+            .subscribe();
+    } else {
+        if (bookingsSubscriptionRef.current) {
+            supabase.removeChannel(bookingsSubscriptionRef.current);
+            bookingsSubscriptionRef.current = null;
+        }
+    }
+
+    return () => {
+        if (bookingsSubscriptionRef.current) {
+            supabase.removeChannel(bookingsSubscriptionRef.current);
+            bookingsSubscriptionRef.current = null;
+        }
+    };
+  }, [user]);
+
+  const fetchPublicData = useCallback(async () => {
         try {
             console.log("Fetching public data...");
             const [roomsRes, termsRes, packagesRes, cmsRes, activitiesRes] = await Promise.all([
@@ -223,9 +289,9 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         } catch (err) {
             console.error('Unexpected error fetching public data:', err);
         }
-    };
+  }, []);
 
-    const initializeApp = async () => {
+  const initializeApp = useCallback(async () => {
         try {
             // 1. Fetch public data
             await fetchPublicData();
@@ -253,8 +319,9 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                 isInitialized.current = true;
             }
         }
-    };
+  }, [fetchPublicData, updateUserSession]);
 
+  useEffect(() => {
     initializeApp();
 
     // Safety timeout
@@ -274,7 +341,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         subscription.unsubscribe();
         clearTimeout(safetyTimeout);
     };
-  }, [updateUserSession]);
+  }, [initializeApp, updateUserSession]);
 
   const setPage = useCallback((page: Page, room?: Room) => {
     setPageState(page);
@@ -287,8 +354,9 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
   const addBooking = async (newBooking: Booking) => {
     try {
-        // Remove the 'rooms' and 'profiles' objects before inserting into Supabase
-        const { rooms, profiles, student_name, ...bookingToInsert } = newBooking as any;
+        // Remove the 'rooms', 'profiles', and 'id' objects before inserting into Supabase
+        // We let Supabase generate the ID
+        const { rooms, profiles, student_name, id, ...bookingToInsert } = newBooking as any;
         
         const { data, error } = await supabase
             .from('bookings')
@@ -303,7 +371,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             student_name: data.profiles?.full_name,
         };
         setBookings(prev => [mappedBooking, ...prev]);
-        return { success: true };
+        return { success: true, data: mappedBooking };
     } catch (err: any) {
         console.error("Error adding booking to Supabase:", err.message);
         return { success: false, error: err.message };

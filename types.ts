@@ -148,7 +148,7 @@ export interface AppContextType {
   loading: boolean;
   logout: () => Promise<void>;
   bookings: Booking[];
-  addBooking: (booking: Booking) => Promise<{ success: boolean; error?: string }>;
+  addBooking: (booking: Booking) => Promise<{ success: boolean; error?: string; data?: Booking }>;
   updateBookingStatus: (id: number, status: BookingStatus) => Promise<{ success: boolean; error?: string }>;
   updateBooking: (id: number, updates: Partial<Booking>) => Promise<{ success: boolean; error?: string }>;
   cmsContent: CmsContent;
