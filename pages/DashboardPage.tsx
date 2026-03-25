@@ -7,6 +7,7 @@ import { useApp } from '../hooks/useApp';
 import InvoiceView from '../components/InvoiceView';
 import { IconBuilding } from '../components/Icon';
 import ContractSigningModal from '../components/ContractSigningModal';
+import PaymentProofModal from '../components/PaymentProofModal';
 import { supabase } from '../lib/supabaseClient';
 
 const DashboardPage: React.FC = () => {
@@ -14,6 +15,7 @@ const DashboardPage: React.FC = () => {
   const { user, bookings, activities, setPage, cmsContent, addActivity, updateBooking } = useApp();
   const [selectedInvoice, setSelectedInvoice] = useState<Booking | null>(null);
   const [signingBooking, setSigningBooking] = useState<Booking | null>(null);
+  const [uploadingProofBooking, setUploadingProofBooking] = useState<Booking | null>(null);
   
   const userBookings = (bookings || []).filter(b => b.student_id === user?.id);
   const userActivities = (activities || []).filter(a => a.user_id === user?.id).slice(0, 5);
@@ -50,6 +52,39 @@ const DashboardPage: React.FC = () => {
       setSigningBooking(null);
     } catch (error: any) {
       alert(`Failed to sign contract: ${error.message}`);
+    }
+  };
+
+  const handleUploadProof = async (url: string) => {
+    if (!uploadingProofBooking) return;
+
+    try {
+      const { error } = await supabase
+        .from('bookings')
+        .update({
+          payment_proof_url: url,
+          status: BookingStatus.PENDING_VERIFICATION
+        })
+        .eq('id', uploadingProofBooking.id);
+
+      if (error) throw error;
+
+      updateBooking(uploadingProofBooking.id, {
+        payment_proof_url: url,
+        status: BookingStatus.PENDING_VERIFICATION
+      });
+
+      addActivity({
+        user_id: user!.id,
+        type: 'payment',
+        description: `Uploaded payment proof for BK${uploadingProofBooking.id}`,
+        timestamp: new Date().toISOString()
+      });
+
+      alert("Payment proof uploaded successfully! Our team will verify it shortly.");
+      setUploadingProofBooking(null);
+    } catch (error: any) {
+      alert(`Failed to upload proof: ${error.message}`);
     }
   };
 
@@ -116,6 +151,15 @@ const DashboardPage: React.FC = () => {
                                     {t.signContract}
                                   </button>
                                 )}
+
+                                {booking.status === BookingStatus.PENDING_PAYMENT && (
+                                  <button 
+                                    onClick={() => setUploadingProofBooking(booking)}
+                                    className="text-accent-600 hover:text-accent-800 dark:text-accent-400 text-xs font-bold underline decoration-dotted text-left"
+                                  >
+                                    {t.uploadProof}
+                                  </button>
+                                )}
                             </div>
                         </td>
                       </tr>
@@ -179,6 +223,13 @@ const DashboardPage: React.FC = () => {
           contractText={cmsContent.contractTemplates[signingBooking.rooms.type]?.[signingBooking.contract_language || 'en'] || 'Contract template not found for this room type and language.'}
           onSign={handleSignContract}
           onClose={() => setSigningBooking(null)}
+        />
+      )}
+      {/* Payment Proof Modal */}
+      {uploadingProofBooking && (
+        <PaymentProofModal 
+          onUpload={handleUploadProof}
+          onClose={() => setUploadingProofBooking(null)}
         />
       )}
     </div>

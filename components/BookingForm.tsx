@@ -76,7 +76,7 @@ const BookingForm: React.FC<BookingFormProps> = ({ room }) => {
           room_id: room.id,
           start_date: formData.arrivalDate,
           end_date: formData.arrivalDate, 
-          status: BookingStatus.PENDING_VERIFICATION,
+          status: BookingStatus.PENDING_PAYMENT,
           booked_at: new Date().toISOString(),
           full_name: formData.fullName,
           nationality: formData.nationality,

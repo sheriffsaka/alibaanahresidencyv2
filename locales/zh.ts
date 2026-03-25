@@ -132,4 +132,5 @@ export const zh = {
   contractLanguageRu: '俄语',
   howToTitle: '如何预订房间',
   howToSubtitle: '按照这些简单的步骤在 Al-Ibaanah 学生宿舍预订您的住宿。',
+  contactSchoolForPayment: '要完成付款，请使用下面提供的详细信息直接联系学校管理部门。完成付款后，请返回此处上传付款证明以供核实。',
 };

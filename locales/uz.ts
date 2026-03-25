@@ -31,7 +31,7 @@ export const uz = {
   faqQ3: 'Qanday qulayliklar mavjud?',
   faqA3: 'Barcha yashovchilar yuqori tezlikdagi Wi-Fi dan foydalanishlari mumkin. Xona turiga qarab, qulayliklarga shaxsiy yoki umumiy hammomlar kiradi. Barcha talabalar uchun umumiy maydonlar ham mavjud.',
   faqQ4: 'To‘lovni qanday amalga oshirishim mumkin?',
-  faqA4: 'Biz Stripe orqali xavfsiz onlayn to‘lovlarni va to‘g‘ridan-to‘g‘ri bank o‘tkazmalarini qabul qilamiz. Bank o‘tkazmalari uchun tekshirish uchun to‘lov isbotini yuklashingiz kerak bo‘ladi.',
+  faqA4: 'Biz Stripe orqali xavfsiz onlayn to‘lovlarni va to‘g‘ridan-to‘گ‘ri bank o‘tkazmalarini qabul qilamiz. Bank o‘tkazmalari uchun tekshirish uchun to‘lov isbotini yuklashingiz kerak bo‘ladi.',
   availabilityOverview: 'Mavjudlik holati',
   roomsAvailable: '{total} dan {available} ta mavjud',
   // Room Card
@@ -132,4 +132,5 @@ export const uz = {
   contractLanguageRu: 'Rus tili',
   howToTitle: 'Xonani qanday bron qilish kerak',
   howToSubtitle: 'Al-Ibaanah talabalar turar joyida turar joyni bron qilish uchun ushbu oddiy qadamlarni bajaring.',
+  contactSchoolForPayment: 'To‘lovni yakunlash uchun quyidagi ma’lumotlardan foydalanib to‘g‘ridan-to‘g‘ri maktab ma’muriyati bilan bog‘laning. To‘lovni amalga oshirganingizdan so‘ng, tekshirish uchun to‘lov isbotini yuklash uchun shu yerga qayting.',
 };

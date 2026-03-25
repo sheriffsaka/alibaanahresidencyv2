@@ -148,6 +148,7 @@ const AdminDashboardPage: React.FC = () => {
     
     return {
       pendingVerifications: safeBookings.filter(b => b.status === BookingStatus.PENDING_VERIFICATION),
+      pendingPayments: safeBookings.filter(b => b.status === BookingStatus.PENDING_PAYMENT),
       occupiedRoomIds,
       occupancyByType: Object.values(AccommodationType).map(type => ({
         name: type,
@@ -239,7 +240,7 @@ const AdminDashboardPage: React.FC = () => {
         <div className="flex flex-wrap bg-gray-100 dark:bg-gray-800 p-1 rounded-xl shadow-inner w-full xl:w-auto">
           {['analytics', 'pending', 'rooms', 'students', 'cms'].map((tab) => (
             <button key={tab} onClick={() => setActiveTab(tab as any)} className={`flex-1 xl:flex-none px-4 py-2 rounded-lg text-xs font-bold transition-all capitalize ${activeTab === tab ? 'bg-white dark:bg-gray-700 text-brand-600 shadow-sm' : 'text-gray-500'}`}>
-              {tab === 'analytics' ? 'Dashboard' : tab === 'pending' ? `Pending (${analytics.pendingVerifications.length})` : tab}
+              {tab === 'analytics' ? 'Dashboard' : tab === 'pending' ? `Pending (${analytics.pendingVerifications.length + analytics.pendingPayments.length})` : tab}
             </button>
           ))}
         </div>
@@ -305,25 +306,56 @@ const AdminDashboardPage: React.FC = () => {
           )}
 
           {activeTab === 'pending' && (
-             <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg overflow-hidden border border-gray-100 dark:border-gray-700">
-                <div className="px-6 py-4 border-b dark:border-gray-700"><h2 className="text-xl font-bold">Payment Verifications</h2></div>
-                {analytics.pendingVerifications.length > 0 ? (
-                  <div className="overflow-x-auto"><table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-                      <thead className="bg-gray-50 dark:bg-gray-900"><tr>
-                          <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase">Student</th>
-                          <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase">Amount</th>
-                          <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase">Actions</th>
-                      </tr></thead>
-                      <tbody className="divide-y divide-gray-100 dark:divide-gray-700">{analytics.pendingVerifications.map(item => (<tr key={item.id}>
-                          <td className="px-6 py-4 font-medium">{item.full_name}</td>
-                          <td className="px-6 py-4 font-bold text-brand-600">${item.total_price}</td>
-                          <td className="px-6 py-4"><div className="flex gap-2">
-                              <button onClick={() => setSelectedBooking(item)} className="bg-brand-100 text-brand-700 px-3 py-1.5 rounded-md text-xs font-bold">Review Details</button>
-                              <button onClick={() => handleApprove(item.id)} className="bg-green-100 text-green-700 px-3 py-1.5 rounded-md text-xs font-bold">Quick Approve</button>
-                          </div></td>
-                      </tr>))}</tbody>
-                  </table></div>
-                ) : <div className="p-12 text-center text-gray-500">No pending verifications.</div>}
+             <div className="space-y-8">
+               <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg overflow-hidden border border-gray-100 dark:border-gray-700">
+                  <div className="px-6 py-4 border-b dark:border-gray-700 flex justify-between items-center">
+                    <h2 className="text-xl font-bold">Payment Verifications</h2>
+                    <span className="bg-purple-100 text-purple-700 px-2 py-1 rounded text-[10px] font-bold uppercase">Awaiting Review</span>
+                  </div>
+                  {analytics.pendingVerifications.length > 0 ? (
+                    <div className="overflow-x-auto"><table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                        <thead className="bg-gray-50 dark:bg-gray-900"><tr>
+                            <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase">Student</th>
+                            <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase">Amount</th>
+                            <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase">Actions</th>
+                        </tr></thead>
+                        <tbody className="divide-y divide-gray-100 dark:divide-gray-700">{analytics.pendingVerifications.map(item => (<tr key={item.id}>
+                            <td className="px-6 py-4 font-medium">{item.full_name}</td>
+                            <td className="px-6 py-4 font-bold text-brand-600">${item.total_price}</td>
+                            <td className="px-6 py-4"><div className="flex gap-2">
+                                <button onClick={() => setSelectedBooking(item)} className="bg-brand-100 text-brand-700 px-3 py-1.5 rounded-md text-xs font-bold">Review Details</button>
+                                <button onClick={() => handleApprove(item.id)} className="bg-green-100 text-green-700 px-3 py-1.5 rounded-md text-xs font-bold">Quick Approve</button>
+                            </div></td>
+                        </tr>))}</tbody>
+                    </table></div>
+                  ) : <div className="p-12 text-center text-gray-500">No pending verifications.</div>}
+               </div>
+
+               <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg overflow-hidden border border-gray-100 dark:border-gray-700">
+                  <div className="px-6 py-4 border-b dark:border-gray-700 flex justify-between items-center">
+                    <h2 className="text-xl font-bold">Awaiting Payment</h2>
+                    <span className="bg-accent-100 text-accent-700 px-2 py-1 rounded text-[10px] font-bold uppercase">Waiting for Student</span>
+                  </div>
+                  {analytics.pendingPayments.length > 0 ? (
+                    <div className="overflow-x-auto"><table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                        <thead className="bg-gray-50 dark:bg-gray-900"><tr>
+                            <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase">Student</th>
+                            <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase">Amount</th>
+                            <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase">Contact</th>
+                        </tr></thead>
+                        <tbody className="divide-y divide-gray-100 dark:divide-gray-700">{analytics.pendingPayments.map(item => (<tr key={item.id}>
+                            <td className="px-6 py-4 font-medium">{item.full_name}</td>
+                            <td className="px-6 py-4 font-bold text-brand-600">${item.total_price}</td>
+                            <td className="px-6 py-4">
+                              <div className="flex flex-col gap-1">
+                                <p className="text-xs text-gray-500">{item.email}</p>
+                                <p className="text-xs text-gray-500">{item.phone_number}</p>
+                              </div>
+                            </td>
+                        </tr>))}</tbody>
+                    </table></div>
+                  ) : <div className="p-12 text-center text-gray-500">No bookings awaiting payment.</div>}
+               </div>
              </div>
           )}
 

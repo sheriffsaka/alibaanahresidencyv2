@@ -132,4 +132,5 @@ export const en = {
   contractLanguageRu: 'Russian',
   howToTitle: 'How to Book Your Room',
   howToSubtitle: 'Follow these simple steps to secure your accommodation at Al-Ibaanah Student Residency.',
+  contactSchoolForPayment: 'To complete your payment, please contact the school administration directly using the details below. Once you have made the payment, return here to upload your proof of payment for verification.',
 };

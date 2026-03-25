@@ -1,7 +1,9 @@
 
 import React, { useEffect } from 'react';
-import { Booking } from '../types';
+import { Booking, BookingStatus } from '../types';
 import { IconBuilding, IconClose } from './Icon';
+import { useApp } from '../hooks/useApp';
+import { useTranslation } from '../hooks/useTranslation';
 
 interface InvoiceViewProps {
   booking: Booking;
@@ -10,6 +12,8 @@ interface InvoiceViewProps {
 }
 
 const InvoiceView: React.FC<InvoiceViewProps> = ({ booking, onClose, isReceipt }) => {
+  const t = useTranslation();
+  const { cmsContent } = useApp();
 
   useEffect(() => {
     // Automatically trigger print dialog when component mounts
@@ -124,6 +128,29 @@ const InvoiceView: React.FC<InvoiceViewProps> = ({ booking, onClose, isReceipt }
                 </div>
               </div>
             </div>
+
+            {/* Bank Details for Pending Payment */}
+            {booking.status === BookingStatus.PENDING_PAYMENT && (
+              <div className="mt-10 p-6 bg-brand-50 dark:bg-brand-900/20 rounded-2xl border border-brand-100 dark:border-brand-800">
+                <h3 className="text-sm font-bold text-brand-800 dark:text-brand-300 uppercase tracking-widest mb-4">Payment Instructions</h3>
+                <p className="text-sm text-brand-700 dark:text-brand-400 mb-4">
+                  {t.contactSchoolForPayment}
+                </p>
+                <div className="flex flex-col gap-2 text-sm font-medium text-brand-800 dark:text-brand-200">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-bold text-brand-600 uppercase">Email:</span>
+                    <span>support@alibaanah.com</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-bold text-brand-600 uppercase">WhatsApp:</span>
+                    <span>+20 123 456 7890</span>
+                  </div>
+                </div>
+                <div className="mt-6 text-[10px] text-brand-600 font-bold border-t border-brand-100 dark:border-brand-800 pt-4">
+                  * After making the payment, please upload your receipt on the dashboard for verification.
+                </div>
+              </div>
+            )}
 
             {/* Terms */}
             <div className="mt-12 p-4 bg-gray-50 dark:bg-gray-800/50 rounded-lg text-[10px] text-gray-500 leading-relaxed">

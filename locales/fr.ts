@@ -132,4 +132,5 @@ export const fr = {
   contractLanguageRu: 'Russe',
   howToTitle: 'Comment réserver votre chambre',
   howToSubtitle: 'Suivez ces étapes simples pour sécuriser votre hébergement à la résidence étudiante Al-Ibaanah.',
+  contactSchoolForPayment: 'Pour finaliser votre paiement, veuillez contacter directement l\'administration de l\'école en utilisant les coordonnées ci-dessous. Une fois le paiement effectué, revenez ici pour télécharger votre preuve de paiement pour vérification.',
 };

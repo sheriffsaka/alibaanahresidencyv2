@@ -329,6 +329,21 @@ CREATE POLICY "Staff and owners can view passports" ON storage.objects FOR SELEC
     )
 );
 
+-- Payments bucket: Only staff and the owner can view
+DROP POLICY IF EXISTS "Users can upload their own payment proof" ON storage.objects;
+CREATE POLICY "Users can upload their own payment proof" ON storage.objects FOR INSERT WITH CHECK (bucket_id = 'payments');
+DROP POLICY IF EXISTS "Staff and owners can view payment proof" ON storage.objects;
+CREATE POLICY "Staff and owners can view payment proof" ON storage.objects FOR SELECT USING (
+    bucket_id = 'payments' AND (
+        auth.uid()::text = (storage.foldername(name))[1] OR
+        EXISTS (
+            SELECT 1 FROM public.profiles
+            WHERE profiles.id = auth.uid()
+            AND profiles.role IN ('staff', 'proprietor')
+        )
+    )
+);
+
 --- SEED DATA ---
 
 -- Create storage buckets
@@ -336,7 +351,8 @@ INSERT INTO storage.buckets (id, name, public)
 VALUES 
     ('rooms', 'rooms', true),
     ('passports', 'passports', true),
-    ('cms', 'cms', true)
+    ('cms', 'cms', true),
+    ('payments', 'payments', true)
 ON CONFLICT (id) DO NOTHING;
 
 -- Seed Properties
