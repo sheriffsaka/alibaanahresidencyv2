@@ -158,6 +158,7 @@ export interface AppContextType {
   updateRoom: (room: Room) => Promise<{ success: boolean; error?: string }>;
   activities: Activity[];
   addActivity: (activity: Omit<Activity, 'id'>) => void;
+  students: User[];
   academicTerms: AcademicTerm[];
   bookingPackages: BookingPackage[];
 }

@@ -71,6 +71,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const [bookingPackages, setBookingPackages] = useState<BookingPackage[]>([]);
   const [cmsContent, setCmsContent] = useState<CmsContent>(INITIAL_CMS);
   const [activities, setActivities] = useState<Activity[]>(MOCK_ACTIVITIES);
+  const [students, setStudents] = useState<User[]>([]);
   const bookingsSubscriptionRef = useRef<any>(null);
 
   const updateUserSession = useCallback(async (session: Session | null) => {
@@ -104,53 +105,91 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         }
 
         if (!profile) {
-            console.warn("Could not fetch user profile after retries:", profileError?.message || "Not found");
-            // Fallback: Create a temporary user object so the app doesn't stay stuck on the loader
-            // This allows the user to at least see the dashboard, though some features might be limited.
-            const fallbackUser = { 
-                id: session.user.id, 
-                email: session.user.email, 
-                full_name: session.user.user_metadata?.full_name || 'Student', 
-                role: 'student' as const, 
-                gender: session.user.user_metadata?.gender as any
-            };
-            setUser(fallbackUser);
+            console.warn("Could not fetch user profile after retries, attempting to create one...");
+            
+            // Try to create the profile if it's missing (self-healing)
+            const { data: newProfile, error: insertError } = await supabase
+                .from('profiles')
+                .insert({
+                    id: session.user.id,
+                    full_name: session.user.user_metadata?.full_name || 'User',
+                    role: (session.user.user_metadata?.role as any) || 'student',
+                    gender: session.user.user_metadata?.gender
+                })
+                .select()
+                .maybeSingle();
+
+            if (newProfile) {
+                console.log("Profile created successfully via self-healing.");
+                profile = newProfile;
+            } else {
+                console.error("Failed to create profile via self-healing:", insertError?.message);
+                // Fallback: Create a temporary user object so the app doesn't stay stuck on the loader
+                const fallbackUser = { 
+                    id: session.user.id, 
+                    email: session.user.email, 
+                    full_name: session.user.user_metadata?.full_name || 'Student', 
+                    role: 'student' as const, 
+                    gender: session.user.user_metadata?.gender as any
+                };
+                setUser(fallbackUser);
+                setBookings([]);
+                return; // Exit early as we don't have a real profile to fetch bookings for
+            }
+        }
+
+        // If we reach here, we have a profile (either fetched or created)
+        const loggedInUser = { id: profile.id, email: session.user.email, full_name: profile.full_name, role: profile.role, gender: profile.gender };
+        setUser(loggedInUser);
+
+        // Role-aware booking query
+        let query = supabase
+            .from('bookings')
+            .select('*, rooms(room_number, type), profiles:student_id(full_name)')
+            .order('booked_at', { ascending: false });
+        
+        if (profile.role === 'student') {
+            query = query.eq('student_id', session.user.id);
+        } else {
+            // If admin, fetch all students for the booking form
+            const { data: studentsData } = await supabase
+                .from('profiles')
+                .select('*')
+                .eq('role', 'student');
+            
+            if (studentsData) {
+                setStudents(studentsData.map((p: any) => ({
+                    id: p.id,
+                    email: '', // Email is not in profiles
+                    full_name: p.full_name,
+                    role: p.role,
+                    gender: p.gender
+                })));
+            }
+        }
+
+        const { data: bookingsData, error: bookingsError } = await query;
+
+        if (bookingsError) {
+            console.error("Error fetching bookings:", bookingsError.message);
             setBookings([]);
         } else {
-            const loggedInUser = { id: profile.id, email: session.user.email, full_name: profile.full_name, role: profile.role, gender: profile.gender };
-            setUser(loggedInUser);
-
-            // Role-aware booking query
-            let query = supabase
-                .from('bookings')
-                .select('*, rooms(room_number, type), profiles:student_id(full_name)')
-                .order('booked_at', { ascending: false });
-            
-            if (profile.role === 'student') {
-                query = query.eq('student_id', session.user.id);
-            }
-
-            const { data: bookingsData, error: bookingsError } = await query;
-
-            if (bookingsError) {
-                console.error("Error fetching bookings:", bookingsError.message);
-                setBookings([]);
-            } else {
-                const mappedBookings = (bookingsData || []).map((b: any) => ({
-                    ...b,
-                    student_name: b.profiles?.full_name,
-                }));
-                setBookings(mappedBookings);
-            }
+            const mappedBookings = (bookingsData || []).map((b: any) => ({
+                ...b,
+                student_name: b.profiles?.full_name,
+            }));
+            setBookings(mappedBookings);
         }
       } catch (err) {
         console.error("Unexpected error in updateUserSession:", err);
         setUser(null);
         setBookings([]);
+        setStudents([]);
       }
     } else {
       setUser(null);
       setBookings([]);
+      setStudents([]);
     }
   }, []);
 
@@ -570,6 +609,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     updateRoom,
     activities,
     addActivity,
+    students,
     academicTerms,
     bookingPackages,
   };

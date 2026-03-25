@@ -225,6 +225,8 @@ DROP POLICY IF EXISTS "Profiles are viewable by everyone" ON profiles;
 CREATE POLICY "Profiles are viewable by everyone" ON profiles FOR SELECT USING (true);
 DROP POLICY IF EXISTS "Users can update their own profile" ON profiles;
 CREATE POLICY "Users can update their own profile" ON profiles FOR UPDATE USING (auth.uid() = id);
+DROP POLICY IF EXISTS "Users can insert their own profile" ON profiles;
+CREATE POLICY "Users can insert their own profile" ON profiles FOR INSERT WITH CHECK (auth.uid() = id);
 
 -- Rooms: Anyone can view, only staff/proprietor can manage
 DROP POLICY IF EXISTS "Rooms are viewable by everyone" ON rooms;
@@ -259,7 +261,15 @@ DROP POLICY IF EXISTS "Students can create their own bookings" ON bookings;
 CREATE POLICY "Students can create their own bookings" ON bookings FOR INSERT WITH CHECK (auth.uid() = student_id);
 DROP POLICY IF EXISTS "Staff can manage all bookings" ON bookings;
 CREATE POLICY "Staff can manage all bookings" ON bookings
-    FOR ALL USING (
+    FOR ALL TO authenticated
+    USING (
+        EXISTS (
+            SELECT 1 FROM profiles
+            WHERE profiles.id = auth.uid()
+            AND profiles.role IN ('staff', 'proprietor')
+        )
+    )
+    WITH CHECK (
         EXISTS (
             SELECT 1 FROM profiles
             WHERE profiles.id = auth.uid()

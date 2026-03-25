@@ -14,7 +14,8 @@ interface BookingFormProps {
 
 const BookingForm: React.FC<BookingFormProps> = ({ room }) => {
   const t = useTranslation();
-  const { user, setPage, addBooking, addActivity } = useApp();
+  const { user, setPage, addBooking, addActivity, students } = useApp();
+  const [selectedStudentId, setSelectedStudentId] = useState<string>('');
   
   const [formData, setFormData] = useState({
     fullName: '',
@@ -31,7 +32,7 @@ const BookingForm: React.FC<BookingFormProps> = ({ room }) => {
     streetName: '',
     districtName: '',
     state: '',
-    contractLanguage: 'en',
+    contractLanguage: 'en' as 'en' | 'fr' | 'ru',
   });
   const [passportCopy, setPassportCopy] = useState<File | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -80,7 +81,7 @@ const BookingForm: React.FC<BookingFormProps> = ({ room }) => {
 
       // 3. Create booking object
       const newBooking: Partial<Booking> = {
-          student_id: user.id,
+          student_id: (user.role !== 'student' && selectedStudentId) ? selectedStudentId : user.id,
           room_id: room.id,
           start_date: formData.arrivalDate,
           end_date: endDate.toISOString().split('T')[0], 
@@ -102,7 +103,7 @@ const BookingForm: React.FC<BookingFormProps> = ({ room }) => {
           district_name: formData.districtName,
           state: formData.state,
           address_in_egypt: `${formData.buildingNo}, ${formData.flatNo}, ${formData.streetName}, ${formData.districtName}, ${formData.state}`,
-          contract_language: formData.contractLanguage,
+          contract_language: formData.contractLanguage as any,
           total_price: totalPrice,
           rooms: { room_number: room.room_number, type: room.type },
       };
@@ -136,6 +137,36 @@ const BookingForm: React.FC<BookingFormProps> = ({ room }) => {
   
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
+      {user?.role !== 'student' && students.length > 0 && (
+        <div className="bg-brand-50 dark:bg-brand-900/20 p-4 rounded-xl border border-brand-100 dark:border-brand-800 mb-6">
+          <label className="block text-sm font-bold text-brand-800 dark:text-brand-200 mb-2">
+            Book on behalf of an existing student (Optional)
+          </label>
+          <select
+            value={selectedStudentId}
+            onChange={(e) => {
+              const studentId = e.target.value;
+              setSelectedStudentId(studentId);
+              if (studentId) {
+                const student = students.find(s => s.id === studentId);
+                if (student) {
+                  setFormData(prev => ({
+                    ...prev,
+                    fullName: student.full_name || '',
+                  }));
+                }
+              }
+            }}
+            className="w-full p-3 border border-brand-200 dark:border-brand-800 rounded-lg dark:bg-gray-800"
+          >
+            <option value="">-- Select Student --</option>
+            {students.map(s => (
+              <option key={s.id} value={s.id}>{s.full_name}</option>
+            ))}
+          </select>
+          <p className="text-[10px] text-brand-600 mt-1">If no student is selected, the booking will be associated with your admin account.</p>
+        </div>
+      )}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <InputField name="fullName" label={t.fullName} value={formData.fullName} onChange={handleInputChange} required />
         <div>
