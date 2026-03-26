@@ -405,12 +405,12 @@ VALUES
 ON CONFLICT (id) DO NOTHING;
 
 -- Seed Properties
-INSERT INTO properties (name, logo_url, primary_color) VALUES ('Al-Ibaanah Student Residence', 'https://res.cloudinary.com/di7okmjsx/image/upload/v1740321960/al-ibaanah-logo_new.png', '#286046');
+INSERT INTO properties (name, logo_url, primary_color) VALUES ('Al-Ibaanah Student Residence', 'https://res.cloudinary.com/di7okmjsx/image/upload/v1771428370/alibaanahlogo1_iprhyj.png', '#286046');
 
 -- Seed Rooms
 INSERT INTO rooms (property_id, room_number, type, price_per_month, capacity, amenities, image_urls, video_urls, gender_restriction)
 VALUES
-    ((SELECT id FROM properties LIMIT 1), '101A', 'Standard Shared', 200.00, 7, '{"Shared Bathroom", "Air Conditioning", "High-Speed Wi-Fi"}', '{"https://res.cloudinary.com/di7okmjsx/image/upload/v1770401824/single-room_j0n7nd.jpg"}', '{"https://example.com/video1.mp4"}', 'Male'),
+    ((SELECT id FROM properties LIMIT 1), '101A', 'Standard Shared', 200.00, 7, '{"Shared Bathroom", "Air Conditioning", "High-Speed Wi-Fi"}', '{"https://res.cloudinary.com/di7okmjsx/image/upload/v1770388212/shared_bathroom1_hlxjdg.jpg"}', '{"https://example.com/video1.mp4"}', 'Male'),
     ((SELECT id FROM properties LIMIT 1), '102A', 'Standard Private', 325.00, 7, '{"Private Bathroom", "Air Conditioning", "High-Speed Wi-Fi"}', '{"https://res.cloudinary.com/di7okmjsx/image/upload/v1770388212/single_room2_zhd9uo.jpg"}', '{"https://example.com/video2.mp4"}', 'Female'),
     ((SELECT id FROM properties LIMIT 1), '202B', 'Premium Shared', 225.00, 4, '{"Shared Bathroom", "Premium Furnishing", "Air Conditioning", "High-Speed Wi-Fi"}', '{"https://res.cloudinary.com/di7okmjsx/image/upload/v1770388212/Suite2_q62y4w.jpg"}', '{"https://example.com/video3.mp4"}', 'Male'),
     ((SELECT id FROM properties LIMIT 1), '301C', 'Premium Private', 400.00, 4, '{"Private Bathroom", "Kitchenette", "Living Area", "Premium Furnishing", "Air Conditioning", "High-Speed Wi-Fi"}', '{"https://res.cloudinary.com/di7okmjsx/image/upload/v1770388212/Suite1_t4dczv.jpg"}', '{"https://example.com/video4.mp4"}', 'Any');
@@ -419,7 +419,7 @@ VALUES
 INSERT INTO cms_content (property_id, logo_url, hero_title, hero_subtitle, hero_image_url, features, faqs, contract_templates)
 VALUES (
     (SELECT id FROM properties LIMIT 1),
-    'https://storage.googleapis.com/user-uploads-ais-prod/petzxt2545463tvkunzpbm/v1/image_98.png',
+    'https://res.cloudinary.com/di7okmjsx/image/upload/v1771428370/alibaanahlogo1_iprhyj.png',
     'Your Home for Knowledge and Comfort',
     'Secure, comfortable, and studious living, just moments away from the Al-Ibaanah Arabic Center.',
     'https://res.cloudinary.com/di7okmjsx/image/upload/v1770400290/heroalibaanah_ghqtok.jpg',
