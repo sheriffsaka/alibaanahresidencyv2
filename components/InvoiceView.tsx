@@ -1,7 +1,7 @@
 
 import React, { useEffect } from 'react';
 import { Booking, BookingStatus } from '../types';
-import { IconBuilding, IconClose } from './Icon';
+import { IconClose } from './Icon';
 import { useApp } from '../hooks/useApp';
 import { useTranslation } from '../hooks/useTranslation';
 
@@ -28,18 +28,41 @@ const InvoiceView: React.FC<InvoiceViewProps> = ({ booking, onClose, isReceipt }
     <>
       <style>{`
         @media print {
-          body > *:not(.printable-invoice-container) {
-            display: none !important;
+          body {
+            visibility: hidden;
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+            background: white !important;
+          }
+          #root {
+            visibility: hidden !important;
           }
           .printable-invoice-container {
-            display: block !important;
+            visibility: visible !important;
             position: absolute !important;
             top: 0 !important;
             left: 0 !important;
             width: 100% !important;
             height: auto !important;
-            -webkit-print-color-adjust: exact;
-            color-adjust: exact;
+            background: white !important;
+            display: block !important;
+            padding: 0 !important;
+            margin: 0 !important;
+            z-index: 9999 !important;
+          }
+          .printable-invoice-container > div {
+            box-shadow: none !important;
+            border: none !important;
+            width: 100% !important;
+            max-width: none !important;
+            height: auto !important;
+            max-height: none !important;
+            overflow: visible !important;
+            margin: 0 !important;
+            padding: 0 !important;
+          }
+          .printable-invoice-container * {
+            visibility: visible !important;
           }
           .no-print {
             display: none !important;
@@ -59,7 +82,12 @@ const InvoiceView: React.FC<InvoiceViewProps> = ({ booking, onClose, isReceipt }
             {/* Header */}
             <div className="flex justify-between items-start mb-10 border-b pb-8 dark:border-gray-800">
               <div className="flex items-center">
-                <IconBuilding className="w-12 h-12 text-brand-600 mr-4" />
+                <img 
+                  src={cmsContent.logoUrl} 
+                  alt="Al-Ibaanah Logo" 
+                  className="w-16 h-16 object-contain mr-4"
+                  referrerPolicy="no-referrer"
+                />
                 <div>
                   <h2 className="text-xl font-bold">Al-Ibaanah Residence</h2>
                   <p className="text-xs text-gray-500">Nasr City, Cairo, Egypt</p>
