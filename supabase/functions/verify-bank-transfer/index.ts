@@ -6,6 +6,7 @@ declare const Deno: any;
 // supabase/functions/verify-bank-transfer/index.ts
 // An admin-only function to manually verify a bank transfer and confirm a booking.
 
+// @ts-ignore
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { corsHeaders } from '../_shared/cors.ts';
 

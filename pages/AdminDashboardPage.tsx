@@ -3,7 +3,7 @@ import React, { useState, useMemo, ChangeEvent } from 'react';
 import { useTranslation } from '../hooks/useTranslation';
 import { useApp } from '../hooks/useApp';
 import { Booking, BookingStatus, Room, AccommodationType, User, Language } from '../types';
-import { IconEdit, IconClose, IconBuilding, IconCheckCircle, IconPlus, IconTrash, IconUpload } from '../components/Icon';
+import { IconEdit, IconClose, IconBuilding, IconCheckCircle, IconPlus, IconTrash, IconUpload, IconFile } from '../components/Icon';
 import BookingStatusBadge from '../components/BookingStatusBadge';
 import RoomEditorModal from '../components/RoomEditorModal';
 import { uploadFile, generateFileName } from '../lib/storage';
@@ -76,7 +76,7 @@ const SummaryCard: React.FC<SummaryCardProps> = ({ label, value, icon, trend, co
 
 const AdminDashboardPage: React.FC = () => {
   const t = useTranslation();
-  const { user, bookings, updateBookingStatus, cmsContent, updateCmsContent, rooms, addRoom, updateRoom, activities, addActivity } = useApp();
+  const { user, bookings, updateBookingStatus, cmsContent, updateCmsContent, rooms, addRoom, updateRoom, activities, addActivity, language, setPage } = useApp();
   const [activeTab, setActiveTab] = useState<'analytics' | 'pending' | 'rooms' | 'students' | 'cms'>('analytics');
   const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
   const [selectedProof, setSelectedProof] = useState<string | null>(null);
@@ -225,6 +225,26 @@ const AdminDashboardPage: React.FC = () => {
   const handleRemoveFaq = (id: number) => {
     if (confirm('Are you sure you want to delete this FAQ?')) {
         updateCmsContent({ faqs: { ...cmsContent.faqs, en: (cmsContent.faqs.en || []).filter(f => f.id !== id) } });
+    }
+  };
+
+  const handleAddAnnouncement = () => {
+    const newAnnouncements = [...(cmsContent.announcements?.[language] || [])];
+    const nextId = newAnnouncements.length > 0 ? Math.max(...newAnnouncements.map(a => a.id)) + 1 : 1;
+    newAnnouncements.push({ id: nextId, title: 'New Announcement', content: '', date: new Date().toISOString() });
+    updateCmsContent({ announcements: { ...cmsContent.announcements, [language]: newAnnouncements } });
+  };
+
+  const handleAnnouncementChange = (index: number, field: 'title' | 'content', value: string) => {
+    const newAnnouncements = [...(cmsContent.announcements?.[language] || [])];
+    newAnnouncements[index] = { ...newAnnouncements[index], [field]: value };
+    updateCmsContent({ announcements: { ...cmsContent.announcements, [language]: newAnnouncements } });
+  };
+
+  const handleRemoveAnnouncement = (id: number) => {
+    if (confirm('Are you sure you want to delete this announcement?')) {
+      const newAnnouncements = (cmsContent.announcements?.[language] || []).filter(a => a.id !== id);
+      updateCmsContent({ announcements: { ...cmsContent.announcements, [language]: newAnnouncements } });
     }
   };
 
@@ -602,7 +622,30 @@ const AdminDashboardPage: React.FC = () => {
               )}
 
               <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 border border-gray-100 dark:border-gray-700">
-                  <h2 className="text-xl font-bold mb-6">Manage FAQs (English)</h2>
+                  <h2 className="text-xl font-bold mb-6">Manage Announcements ({language.toUpperCase()})</h2>
+                  <div className="space-y-6">
+                      {(cmsContent.announcements?.[language] || []).map((ann, index) => (
+                          <div key={ann.id} className="p-4 border rounded-lg dark:border-gray-700 space-y-3 relative">
+                              <button onClick={() => handleRemoveAnnouncement(ann.id)} className="absolute -top-3 -right-3 bg-red-500 text-white rounded-full p-1 hover:bg-red-600"><IconTrash className="w-4 h-4" /></button>
+                              <div>
+                                  <label className="text-xs font-bold">Title</label>
+                                  <input type="text" value={ann.title} onChange={(e) => handleAnnouncementChange(index, 'title', e.target.value)} className="w-full p-2 mt-1 border rounded-md dark:bg-gray-700 dark:border-gray-600"/>
+                              </div>
+                              <div>
+                                  <label className="text-xs font-bold">Content</label>
+                                  <textarea value={ann.content} onChange={(e) => handleAnnouncementChange(index, 'content', e.target.value)} rows={3} className="w-full p-2 mt-1 border rounded-md dark:bg-gray-700 dark:border-gray-600"/>
+                              </div>
+                              <p className="text-[10px] text-gray-400 italic">Posted on: {new Date(ann.date).toLocaleString()}</p>
+                          </div>
+                      ))}
+                      <button onClick={handleAddAnnouncement} className="w-full flex items-center justify-center gap-2 border-2 border-dashed p-3 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-750 dark:border-gray-600">
+                          <IconPlus className="w-5 h-5" /> Add Announcement
+                      </button>
+                  </div>
+              </div>
+
+              <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 border border-gray-100 dark:border-gray-700">
+                  <h2 className="text-xl font-bold mb-6">Manage FAQs ({language.toUpperCase()})</h2>
                   <div className="space-y-6">
                       {(cmsContent.faqs.en || []).map((faq, index) => (
                           <div key={faq.id} className="p-4 border rounded-lg dark:border-gray-700 space-y-3 relative">
@@ -693,7 +736,20 @@ const AdminDashboardPage: React.FC = () => {
                   {selectedBooking.payment_proof_url && (
                     <div>
                       <h4 className="font-bold text-brand-600 uppercase tracking-wider text-xs mb-2">Payment Proof</h4>
-                      <img src={selectedBooking.payment_proof_url} alt="Payment Proof" className="w-full h-auto rounded-xl border" />
+                      {selectedBooking.payment_proof_url.toLowerCase().endsWith('.pdf') ? (
+                        <a 
+                          href={selectedBooking.payment_proof_url} 
+                          target="_blank" 
+                          rel="noreferrer" 
+                          className="block p-4 border rounded-xl bg-gray-50 dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                        >
+                          <p className="text-xs font-bold text-brand-600 flex items-center gap-2">
+                            <IconFile className="w-4 h-4" /> View Payment Proof PDF ↗
+                          </p>
+                        </a>
+                      ) : (
+                        <img src={selectedBooking.payment_proof_url} alt="Payment Proof" className="w-full h-auto rounded-xl border" />
+                      )}
                     </div>
                   )}
                 </div>

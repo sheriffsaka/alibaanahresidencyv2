@@ -45,6 +45,14 @@ export const INITIAL_CMS: CmsContent = {
   howToVideos: {
     en: 'https://www.youtube.com/embed/dQw4w9WgXcQ',
     ar: 'https://www.youtube.com/embed/dQw4w9WgXcQ'
+  },
+  announcements: {
+    en: [
+      { id: 1, title: 'Welcome to Al-Ibaanah', content: 'We are excited to have you here. Please complete your registration and payment to secure your room.', date: new Date().toISOString() }
+    ],
+    ar: [
+      { id: 1, title: 'مرحباً بكم في الإبانة', content: 'نحن سعداء بوجودكم هنا. يرجى إكمال التسجيل والدفع لتأمين غرفتك.', date: new Date().toISOString() }
+    ]
   }
 };
 
@@ -323,7 +331,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                     : INITIAL_CMS.contractTemplates,
                 howToVideos: hasData(dbCms.how_to_videos || dbCms.howToVideos)
                     ? (dbCms.how_to_videos || dbCms.howToVideos)
-                    : INITIAL_CMS.howToVideos
+                    : INITIAL_CMS.howToVideos,
+                announcements: normalizeCmsData(dbCms.announcements, INITIAL_CMS.announcements)
               });
             }
         } catch (err) {
@@ -487,6 +496,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             faqs: updatedCms.faqs,
             contract_templates: updatedCms.contractTemplates,
             how_to_videos: updatedCms.howToVideos,
+            announcements: updatedCms.announcements,
             updated_at: new Date().toISOString()
         };
 

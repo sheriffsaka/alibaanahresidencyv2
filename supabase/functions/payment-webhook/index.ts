@@ -6,6 +6,7 @@ declare const Deno: any;
 // supabase/functions/payment-webhook/index.ts
 // Handles incoming webhooks from payment providers (e.g., Stripe) to confirm successful payments.
 
+// @ts-ignore
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { corsHeaders } from '../_shared/cors.ts';
 

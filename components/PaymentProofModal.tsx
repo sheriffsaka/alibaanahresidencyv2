@@ -70,6 +70,9 @@ const PaymentProofModal: React.FC<PaymentProofModalProps> = ({ onUpload, onClose
               <span className="text-sm">{file ? file.name : 'Click to select file'}</span>
               <input id="proof-upload" name="proof-upload" type="file" className="sr-only" onChange={handleFileChange} accept="image/*,.pdf" />
             </label>
+            <p className="text-[10px] text-gray-500 mt-1 italic">
+              * Supported formats: JPG, PNG, PDF.
+            </p>
           </div>
           
           {error && <p className="text-xs text-red-500 font-bold">{error}</p>}

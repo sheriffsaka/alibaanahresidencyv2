@@ -127,7 +127,7 @@ const BookingForm: React.FC<BookingFormProps> = ({ room }) => {
         timestamp: new Date().toISOString()
       });
 
-      alert(t.bookingSuccess);
+      alert(`${t.bookingSuccess}\n\nPlease check your dashboard and view the invoice for detailed payment instructions and bank details.`);
       setPage('dashboard');
     } catch (err: any) {
       console.error("Booking submission error:", err);

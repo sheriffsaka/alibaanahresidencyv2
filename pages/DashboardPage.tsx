@@ -12,13 +12,14 @@ import { supabase } from '../lib/supabaseClient';
 
 const DashboardPage: React.FC = () => {
   const t = useTranslation();
-  const { user, bookings, activities, setPage, cmsContent, addActivity, updateBooking } = useApp();
+  const { user, bookings, activities, setPage, cmsContent, addActivity, updateBooking, language } = useApp();
   const [selectedInvoice, setSelectedInvoice] = useState<Booking | null>(null);
   const [signingBooking, setSigningBooking] = useState<Booking | null>(null);
   const [uploadingProofBooking, setUploadingProofBooking] = useState<Booking | null>(null);
   
   const userBookings = (bookings || []).filter(b => b.student_id === user?.id);
   const userActivities = (activities || []).filter(a => a.user_id === user?.id).slice(0, 5);
+  const announcements = cmsContent.announcements?.[language] || [];
 
   const handleSignContract = async (signatureData: string) => {
     if (!signingBooking) return;
@@ -99,6 +100,24 @@ const DashboardPage: React.FC = () => {
             Welcome back, <span className="font-semibold text-brand-600">{user?.full_name}</span>
         </div>
       </div>
+
+      {/* Announcements Section */}
+      {announcements.length > 0 && (
+        <div className="space-y-4">
+          <h2 className="text-xl font-bold flex items-center gap-2">
+            <span className="text-brand-600">📢</span> Announcements
+          </h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {announcements.map(ann => (
+              <div key={ann.id} className="bg-brand-50 dark:bg-brand-900/20 p-4 rounded-xl border border-brand-100 dark:border-brand-800 shadow-sm relative overflow-hidden">
+                <h3 className="font-bold text-brand-800 dark:text-brand-300 mb-1">{ann.title}</h3>
+                <p className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed">{ann.content}</p>
+                <p className="text-[10px] text-brand-600/60 dark:text-brand-400/60 mt-3 font-bold uppercase">{new Date(ann.date).toLocaleDateString()}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         {/* Bookings Section */}

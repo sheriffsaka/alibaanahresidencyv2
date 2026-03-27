@@ -3,6 +3,7 @@
 // @ts-ignore
 declare const Deno: any;
 
+// @ts-ignore
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { corsHeaders } from '../_shared/cors.ts';
 

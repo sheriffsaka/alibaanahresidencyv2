@@ -6,6 +6,7 @@ declare const Deno: any;
 // supabase/functions/create-booking/index.ts
 // Handles the creation of a new booking in a secure, transactional manner.
 
+// @ts-ignore
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { corsHeaders } from '../_shared/cors.ts';
 
