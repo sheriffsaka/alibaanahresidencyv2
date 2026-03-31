@@ -10,7 +10,6 @@ import DashboardPage from './pages/DashboardPage';
 import AdminDashboardPage from './pages/AdminDashboardPage';
 import AuthPage from './pages/AuthPage';
 import SupportPage from './pages/SupportPage';
-import Chatbot from './components/Chatbot';
 
 const DashboardLoadingFallback: React.FC<{ setPage: (page: any) => void }> = ({ setPage }) => {
   useEffect(() => {
@@ -76,7 +75,6 @@ const AppContent: React.FC = () => {
         {renderPage()}
       </main>
       <Footer />
-      <Chatbot />
     </div>
   );
 };
