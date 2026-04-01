@@ -190,7 +190,7 @@ const DashboardPage: React.FC = () => {
                                   <button 
                                     onClick={() => {
                                       const room = rooms.find(r => r.id === booking.room_id);
-                                      if (room) setPage('booking', room);
+                                      if (room) setPage('booking', room, booking);
                                     }}
                                     className="text-brand-600 hover:text-brand-800 dark:text-brand-400 text-xs font-bold underline decoration-dotted text-left"
                                   >

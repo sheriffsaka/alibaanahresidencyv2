@@ -7,7 +7,6 @@ interface BookingStatusBadgeProps {
 }
 
 const BookingStatusBadge: React.FC<BookingStatusBadgeProps> = ({ status }) => {
-  // Fix: Added missing 'Reserved', 'Maintenance', and 'Pending Verification' statuses to the style map.
   const statusStyles: { [key in BookingStatus]: string } = {
     [BookingStatus.RESERVED]: 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900 dark:text-indigo-300',
     [BookingStatus.PENDING_PAYMENT]: 'bg-accent-100 text-accent-800 dark:bg-accent-900 dark:text-accent-300',
@@ -20,9 +19,14 @@ const BookingStatusBadge: React.FC<BookingStatusBadgeProps> = ({ status }) => {
     [BookingStatus.PENDING_CONTRACT]: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300',
   };
 
+  // Custom labels for specific statuses if needed
+  const statusLabels: Partial<{ [key in BookingStatus]: string }> = {
+    [BookingStatus.PENDING_CONTRACT]: 'Pending Contract',
+  };
+
   return (
     <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${statusStyles[status]}`}>
-      {status}
+      {statusLabels[status] || status}
     </span>
   );
 };

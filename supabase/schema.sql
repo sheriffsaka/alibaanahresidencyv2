@@ -21,7 +21,7 @@ DROP TYPE IF EXISTS user_role CASCADE;
 -- Create custom types (enums)
 CREATE TYPE user_role AS ENUM ('student', 'staff', 'proprietor');
 CREATE TYPE accommodation_type AS ENUM ('Standard Shared', 'Standard Private', 'Premium Shared', 'Premium Private');
-CREATE TYPE booking_status AS ENUM ('Reserved', 'Pending Payment', 'Pending Verification', 'Confirmed', 'Occupied', 'Completed', 'Cancelled', 'Maintenance');
+CREATE TYPE booking_status AS ENUM ('Reserved', 'Pending Payment', 'Pending Contract', 'Pending Verification', 'Confirmed', 'Occupied', 'Completed', 'Cancelled', 'Maintenance');
 
 -- 1. Properties Table
 CREATE TABLE properties (

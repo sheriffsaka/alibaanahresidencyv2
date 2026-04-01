@@ -14,15 +14,16 @@ interface BookingFormProps {
 
 const BookingForm: React.FC<BookingFormProps> = ({ room }) => {
   const t = useTranslation();
-  const { user, setPage, addBooking, addActivity, students, bookings } = useApp();
+  const { user, setPage, addBooking, addActivity, students, bookings, extendingBooking } = useApp();
   const [selectedStudentId, setSelectedStudentId] = useState<string>('');
   
-  // Find latest booking for pre-filling
+  // Find latest booking for pre-filling (use extendingBooking if available)
   const latestBooking = React.useMemo(() => {
+    if (extendingBooking) return extendingBooking;
     if (!user) return null;
     const userBookings = bookings.filter(b => b.student_id === user.id);
     return userBookings.length > 0 ? userBookings[0] : null;
-  }, [bookings, user]);
+  }, [bookings, user, extendingBooking]);
 
   const [formData, setFormData] = useState({
     fullName: latestBooking?.full_name || user?.full_name || '',
@@ -30,7 +31,7 @@ const BookingForm: React.FC<BookingFormProps> = ({ room }) => {
     passportNumber: latestBooking?.passport_number || '',
     email: latestBooking?.email || user?.email || '',
     phoneNumber: latestBooking?.phone_number || '',
-    arrivalDate: '',
+    arrivalDate: latestBooking && extendingBooking ? latestBooking.end_date : '',
     duration: '',
     accommodationType: room.type,
     emergencyContact: latestBooking?.emergency_contact_details || '',
@@ -63,7 +64,7 @@ const BookingForm: React.FC<BookingFormProps> = ({ room }) => {
       return;
     }
     
-    if (!passportCopy) {
+    if (!passportCopy && !latestBooking?.passport_copy_url) {
       setError("A copy of your international passport is mandatory.");
       return;
     }
@@ -72,11 +73,19 @@ const BookingForm: React.FC<BookingFormProps> = ({ room }) => {
     setError(null);
     
     try {
-      // 1. Upload passport copy to Supabase Storage
-      const fileName = generateFileName(passportCopy.name);
-      // Prepend user ID to the path to match RLS policies
-      const path = `${user.id}/${fileName}`;
-      const passport_copy_url = await uploadFile('passports', path, passportCopy);
+      // 1. Upload passport copy to Supabase Storage (if a new one is provided)
+      let passport_copy_url = latestBooking?.passport_copy_url || '';
+      
+      if (passportCopy) {
+        const fileName = generateFileName(passportCopy.name);
+        // Prepend user ID to the path to match RLS policies
+        const path = `${user.id}/${fileName}`;
+        passport_copy_url = await uploadFile('passports', path, passportCopy);
+      }
+
+      if (!passport_copy_url) {
+        throw new Error("A copy of your international passport is mandatory.");
+      }
 
       // 2. Calculate end date and total price
       const startDate = new Date(formData.arrivalDate);
@@ -233,8 +242,8 @@ const BookingForm: React.FC<BookingFormProps> = ({ room }) => {
         <div className="mt-2">
           <label htmlFor="passport-upload" className="relative cursor-pointer bg-white dark:bg-gray-700 rounded-md font-bold text-brand-600 hover:text-brand-500 border border-gray-300 dark:border-gray-600 p-3 flex items-center justify-center shadow-sm">
             <IconUpload className="w-5 h-5 me-2" />
-            <span>{passportCopy ? passportCopy.name : 'Upload Passport Copy'}</span>
-            <input id="passport-upload" name="passport-upload" type="file" className="sr-only" onChange={handleFileChange} accept="image/*,.pdf" required />
+            <span>{passportCopy ? passportCopy.name : (latestBooking?.passport_copy_url ? 'Passport copy on file (Click to update)' : 'Upload Passport Copy')}</span>
+            <input id="passport-upload" name="passport-upload" type="file" className="sr-only" onChange={handleFileChange} accept="image/*,.pdf" required={!latestBooking?.passport_copy_url} />
           </label>
         </div>
       </div>

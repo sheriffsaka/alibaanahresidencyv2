@@ -150,9 +150,10 @@ export interface AppContextType {
   language: Language;
   setLanguage: (lang: Language) => void;
   page: Page;
-  setPage: (page: Page, room?: Room) => void;
+  setPage: (page: Page, room?: Room, extendingBooking?: Booking) => void;
   user: User | null;
   selectedRoom: Room | null;
+  extendingBooking: Booking | null;
   session: any;
   loading: boolean;
   logout: () => Promise<void>;

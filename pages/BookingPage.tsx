@@ -12,12 +12,16 @@ interface BookingPageProps {
 
 const BookingPage: React.FC<BookingPageProps> = ({ room }) => {
   const t = useTranslation();
-  const { bookings, setPage } = useApp();
+  const { bookings, setPage, user, extendingBooking } = useApp();
 
   const isOccupied = useMemo(() => {
     const occupiedStatuses = [BookingStatus.CONFIRMED, BookingStatus.OCCUPIED];
+    // If extending, we allow booking even if it's currently occupied (by the same user)
+    if (extendingBooking && extendingBooking.room_id === room.id) {
+        return false;
+    }
     return bookings.some(b => b.room_id === room.id && occupiedStatuses.includes(b.status));
-  }, [bookings, room.id]);
+  }, [bookings, room.id, extendingBooking]);
 
   const isUnavailableForMaintenance = !room.is_available;
   

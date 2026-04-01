@@ -70,6 +70,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true); // This state is now ONLY for the very first app load.
   const [selectedRoom, setSelectedRoom] = useState<Room | null>(null);
+  const [extendingBooking, setExtendingBooking] = useState<Booking | null>(null);
   const isInitialized = useRef(false);
   
   // App data state
@@ -392,12 +393,14 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     };
   }, [initializeApp, updateUserSession]);
 
-  const setPage = useCallback((page: Page, room?: Room) => {
+  const setPage = useCallback((page: Page, room?: Room, extendingBooking?: Booking) => {
     setPageState(page);
     if (page === 'booking' && room) {
         setSelectedRoom(room);
+        setExtendingBooking(extendingBooking || null);
     } else if (page !== 'booking') {
         setSelectedRoom(null);
+        setExtendingBooking(null);
     }
   }, []);
 
@@ -606,6 +609,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     setPage,
     user,
     selectedRoom,
+    extendingBooking,
     session,
     logout,
     bookings,
