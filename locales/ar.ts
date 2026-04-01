@@ -44,7 +44,7 @@ export const ar = {
   durationOfStay: 'مدة الإقامة',
   preferredAccommodation: 'نوع الإقامة المفضل',
   emergencyContact: 'تفاصيل الاتصال في حالات الطوارئ',
-  addressInEgypt: 'العنوان في مصر (إن وجد)',
+  addressInEgypt: 'العنوان الدائم',
   // Room Card
   roomType: 'نوع الغرفة',
   pricePerMonth: 'ابتداءً من {price}/شهر',

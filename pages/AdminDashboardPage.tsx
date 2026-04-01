@@ -7,6 +7,7 @@ import { IconEdit, IconClose, IconBuilding, IconCheckCircle, IconPlus, IconTrash
 import BookingStatusBadge from '../components/BookingStatusBadge';
 import RoomEditorModal from '../components/RoomEditorModal';
 import { uploadFile, generateFileName } from '../lib/storage';
+import { sendEmail, getApprovalEmailTemplate } from '../lib/email';
 
 // A simple, animated SVG Bar Chart component created for this page
 const OccupancyChart = ({ data }: { data: { name: string; value: number }[] }) => {
@@ -175,10 +176,22 @@ const AdminDashboardPage: React.FC = () => {
   }, [rooms, roomFilter, analytics.occupiedRoomIds, user]);
 
   const handleApprove = async (id: number) => {
+    const booking = bookings.find(b => b.id === id);
     const result = await updateBookingStatus(id, BookingStatus.CONFIRMED);
     if (result.success) {
         addActivity({ user_id: user?.id || 'admin', type: 'payment', description: `Staff verified payment for BK${id}`, timestamp: new Date().toISOString() });
-        alert("Booking approved successfully!");
+        
+        // Send email notification
+        if (booking) {
+            const emailTemplate = getApprovalEmailTemplate(booking.full_name, booking.id, booking.rooms.room_number);
+            sendEmail({
+                to: booking.email,
+                subject: emailTemplate.subject,
+                body: emailTemplate.body
+            }).catch(err => console.error("Failed to send approval email:", err));
+        }
+
+        alert("Booking approved successfully! Student has been notified via email.");
     } else {
         alert(`Failed to approve booking: ${result.error}`);
     }
@@ -707,7 +720,7 @@ const AdminDashboardPage: React.FC = () => {
                     <p className="text-sm">{selectedBooking.emergency_contact_details}</p>
                   </div>
                   <div className="mt-4">
-                    <p className="text-gray-500 text-[10px] uppercase font-bold">Address in Egypt</p>
+                    <p className="text-gray-500 text-[10px] uppercase font-bold">Home Address</p>
                     <p className="text-sm">{selectedBooking.address_in_egypt || 'N/A'}</p>
                   </div>
                 </div>

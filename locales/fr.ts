@@ -118,7 +118,7 @@ export const fr = {
   durationOfStay: 'Durée du séjour',
   preferredAccommodation: 'Type d\'hébergement préféré',
   emergencyContact: 'Coordonnées en cas d\'urgence',
-  addressInEgypt: 'Adresse en Égypte (si déjà disponible)',
+  addressInEgypt: 'Adresse personnelle',
   // Contracts
   contractTitle: 'Contrat de résidence',
   contractSubtitle: 'Veuillez consulter et signer votre contrat ci-dessous.',

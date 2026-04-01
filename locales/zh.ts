@@ -118,7 +118,7 @@ export const zh = {
   durationOfStay: '住宿时长',
   preferredAccommodation: '首选住宿类型',
   emergencyContact: '紧急联系人详情',
-  addressInEgypt: '在埃及的地址（如果已有）',
+  addressInEgypt: '家庭住址',
   // Contracts
   contractTitle: '居住协议',
   contractSubtitle: '请在下面查看并签署您的合同。',

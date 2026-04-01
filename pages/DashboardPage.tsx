@@ -12,7 +12,7 @@ import { supabase } from '../lib/supabaseClient';
 
 const DashboardPage: React.FC = () => {
   const t = useTranslation();
-  const { user, bookings, activities, setPage, cmsContent, addActivity, updateBooking, language } = useApp();
+  const { user, bookings, activities, setPage, cmsContent, addActivity, updateBooking, language, rooms } = useApp();
   const [selectedInvoice, setSelectedInvoice] = useState<Booking | null>(null);
   const [signingBooking, setSigningBooking] = useState<Booking | null>(null);
   const [uploadingProofBooking, setUploadingProofBooking] = useState<Booking | null>(null);
@@ -26,11 +26,16 @@ const DashboardPage: React.FC = () => {
 
     try {
       const signedAt = new Date().toISOString();
+      const nextStatus = signingBooking.status === BookingStatus.PENDING_CONTRACT 
+        ? BookingStatus.PENDING_PAYMENT 
+        : signingBooking.status;
+
       const { error } = await supabase
         .from('bookings')
         .update({
           signature_data: signatureData,
-          contract_signed_at: signedAt
+          contract_signed_at: signedAt,
+          status: nextStatus
         })
         .eq('id', signingBooking.id);
 
@@ -39,7 +44,8 @@ const DashboardPage: React.FC = () => {
       // Update local state immediately
       updateBooking(signingBooking.id, {
         signature_data: signatureData,
-        contract_signed_at: signedAt
+        contract_signed_at: signedAt,
+        status: nextStatus
       });
 
       addActivity({
@@ -162,7 +168,7 @@ const DashboardPage: React.FC = () => {
                                   {booking.status === BookingStatus.CONFIRMED || booking.status === BookingStatus.OCCUPIED ? 'View Receipt' : 'View Invoice'}
                                 </button>
                                 
-                                {booking.status === BookingStatus.PENDING_VERIFICATION && !booking.contract_signed_at && (
+                                {booking.status === BookingStatus.PENDING_CONTRACT && (
                                   <button 
                                     onClick={() => setSigningBooking(booking)}
                                     className="text-purple-600 hover:text-purple-800 dark:text-purple-400 text-xs font-bold underline decoration-dotted text-left"
@@ -177,6 +183,18 @@ const DashboardPage: React.FC = () => {
                                     className="text-accent-600 hover:text-accent-800 dark:text-accent-400 text-xs font-bold underline decoration-dotted text-left"
                                   >
                                     {t.uploadProof}
+                                  </button>
+                                )}
+
+                                {(booking.status === BookingStatus.CONFIRMED || booking.status === BookingStatus.OCCUPIED) && (
+                                  <button 
+                                    onClick={() => {
+                                      const room = rooms.find(r => r.id === booking.room_id);
+                                      if (room) setPage('booking', room);
+                                    }}
+                                    className="text-brand-600 hover:text-brand-800 dark:text-brand-400 text-xs font-bold underline decoration-dotted text-left"
+                                  >
+                                    Extend Booking
                                   </button>
                                 )}
                             </div>

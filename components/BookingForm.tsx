@@ -14,25 +14,32 @@ interface BookingFormProps {
 
 const BookingForm: React.FC<BookingFormProps> = ({ room }) => {
   const t = useTranslation();
-  const { user, setPage, addBooking, addActivity, students } = useApp();
+  const { user, setPage, addBooking, addActivity, students, bookings } = useApp();
   const [selectedStudentId, setSelectedStudentId] = useState<string>('');
   
+  // Find latest booking for pre-filling
+  const latestBooking = React.useMemo(() => {
+    if (!user) return null;
+    const userBookings = bookings.filter(b => b.student_id === user.id);
+    return userBookings.length > 0 ? userBookings[0] : null;
+  }, [bookings, user]);
+
   const [formData, setFormData] = useState({
-    fullName: '',
-    nationality: '', 
-    passportNumber: '',
-    email: user?.email || '',
-    phoneNumber: '',
+    fullName: latestBooking?.full_name || user?.full_name || '',
+    nationality: latestBooking?.nationality || '', 
+    passportNumber: latestBooking?.passport_number || '',
+    email: latestBooking?.email || user?.email || '',
+    phoneNumber: latestBooking?.phone_number || '',
     arrivalDate: '',
     duration: '',
     accommodationType: room.type,
-    emergencyContact: '',
-    buildingNo: '',
-    flatNo: '',
-    streetName: '',
-    districtName: '',
-    state: '',
-    contractLanguage: 'en' as 'en' | 'fr' | 'ru',
+    emergencyContact: latestBooking?.emergency_contact_details || '',
+    buildingNo: latestBooking?.building_no || '',
+    flatNo: latestBooking?.flat_no || '',
+    streetName: latestBooking?.street_name || '',
+    districtName: latestBooking?.district_name || '',
+    state: latestBooking?.state || '',
+    contractLanguage: (latestBooking?.contract_language as any) || 'en',
   });
   const [passportCopy, setPassportCopy] = useState<File | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -87,7 +94,7 @@ const BookingForm: React.FC<BookingFormProps> = ({ room }) => {
           room_id: room.id,
           start_date: formData.arrivalDate,
           end_date: endDate.toISOString().split('T')[0], 
-          status: BookingStatus.PENDING_PAYMENT,
+          status: BookingStatus.PENDING_CONTRACT,
           booked_at: new Date().toISOString(),
           full_name: formData.fullName,
           nationality: formData.nationality,

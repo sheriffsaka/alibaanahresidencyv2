@@ -44,7 +44,7 @@ export const en = {
   durationOfStay: 'Duration of Stay',
   preferredAccommodation: 'Preferred Accommodation Type',
   emergencyContact: 'Emergency Contact Details',
-  addressInEgypt: 'Address in Egypt (if already available)',
+  addressInEgypt: 'Home Address',
   // Room Card
   roomType: 'Room Type',
   pricePerMonth: 'From {price}/month',

@@ -29,6 +29,7 @@ export interface Room {
 export enum BookingStatus {
   RESERVED = 'Reserved',
   PENDING_PAYMENT = 'Pending Payment',
+  PENDING_CONTRACT = 'Pending Contract',
   CONFIRMED = 'Confirmed',
   OCCUPIED = 'Occupied',
   COMPLETED = 'Completed',
@@ -60,7 +61,7 @@ export interface Booking {
   preferred_accommodation: AccommodationType;
   emergency_contact_details: string;
   
-  // Detailed Address in Egypt
+  // Home Address
   building_no?: string;
   flat_no?: string;
   street_name?: string;

@@ -118,7 +118,7 @@ export const ru = {
   durationOfStay: 'Продолжительность пребывания',
   preferredAccommodation: 'Предпочтительный тип размещения',
   emergencyContact: 'Контактные данные для экстренных случаев',
-  addressInEgypt: 'Адрес в Египте (если уже есть)',
+  addressInEgypt: 'Домашний адрес',
   // Contracts
   contractTitle: 'Договор проживания',
   contractSubtitle: 'Пожалуйста, ознакомьтесь и подпишите ваш договор ниже.',

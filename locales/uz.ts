@@ -118,7 +118,7 @@ export const uz = {
   durationOfStay: 'Yashash muddati',
   preferredAccommodation: 'Afzal ko\'rilgan turar joy turi',
   emergencyContact: 'Favqulodda bog\'lanish ma\'lumotlari',
-  addressInEgypt: 'Misrdagi manzili (agar mavjud bo\'lsa)',
+  addressInEgypt: 'Uy manzili',
   // Contracts
   contractTitle: 'Yashash shartnomasi',
   contractSubtitle: 'Iltimos, shartnomani ko\'rib chiqing va imzolang.',
