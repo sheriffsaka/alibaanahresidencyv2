@@ -2,30 +2,27 @@
 import React, { useMemo } from 'react';
 import { BookingStatus, Room } from '../types';
 import { useTranslation } from '../hooks/useTranslation';
-import BookingForm from '../components/BookingForm';
+import MultiStepBookingForm from '../components/MultiStepBookingForm';
 import { useApp } from '../hooks/useApp';
 import { IconBuilding } from '../components/Icon';
 
-interface BookingPageProps {
-  room: Room;
-}
-
-const BookingPage: React.FC<BookingPageProps> = ({ room }) => {
+const BookingPage: React.FC = () => {
   const t = useTranslation();
-  const { bookings, setPage, user, extendingBooking } = useApp();
+  const { bookings, setPage, selectedRoom, extendingBooking } = useApp();
 
   const isOccupied = useMemo(() => {
+    if (!selectedRoom) return false;
     const occupiedStatuses = [BookingStatus.CONFIRMED, BookingStatus.OCCUPIED];
     // If extending, we allow booking even if it's currently occupied (by the same user)
-    if (extendingBooking && extendingBooking.room_id === room.id) {
+    if (extendingBooking && extendingBooking.room_id === selectedRoom.id) {
         return false;
     }
-    return bookings.some(b => b.room_id === room.id && occupiedStatuses.includes(b.status));
-  }, [bookings, room.id, extendingBooking]);
+    return bookings.some(b => b.room_id === selectedRoom.id && occupiedStatuses.includes(b.status));
+  }, [bookings, selectedRoom, extendingBooking]);
 
-  const isUnavailableForMaintenance = !room.is_available;
+  const isUnavailableForMaintenance = selectedRoom ? !selectedRoom.is_available : false;
   
-  if (isUnavailableForMaintenance || isOccupied) {
+  if (selectedRoom && (isUnavailableForMaintenance || isOccupied)) {
     return (
         <div className="text-center py-20 animate-fade-in">
             <IconBuilding className="w-16 h-16 text-red-500 mx-auto mb-4" />
@@ -43,24 +40,18 @@ const BookingPage: React.FC<BookingPageProps> = ({ room }) => {
   }
 
   return (
-    <div className="max-w-4xl mx-auto animate-fade-in">
-      <div className="text-center mb-8">
-        <h1 className="text-3xl font-bold text-gray-900 dark:text-white sm:text-4xl">
-          {t.bookingTitle}
+    <div className="max-w-5xl mx-auto animate-fade-in pb-20">
+      <div className="text-center mb-12">
+        <h1 className="text-4xl font-black text-gray-900 dark:text-white sm:text-5xl">
+          Book Your Residency
         </h1>
-        <p className="mt-3 text-lg text-gray-600 dark:text-gray-300">
-          {t.bookingFor.replace('{roomType}', room.type)}
+        <p className="mt-4 text-xl text-gray-600 dark:text-gray-300">
+          Complete the steps below to secure your room and activate distance enrolment.
         </p>
       </div>
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl p-6 md:p-8">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-            <div>
-                <img src={room.image_urls?.[0]} alt={room.type} className="rounded-lg object-cover w-full h-full" />
-            </div>
-            <div>
-                <BookingForm room={room} />
-            </div>
-        </div>
+      
+      <div className="bg-white dark:bg-gray-800 rounded-3xl shadow-2xl p-8 md:p-12 border border-gray-100 dark:border-gray-700">
+        <MultiStepBookingForm />
       </div>
     </div>
   );

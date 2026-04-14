@@ -11,7 +11,7 @@ import { BookingStatus, AccommodationType } from '../types';
 
 const HomePage: React.FC = () => {
   const t = useTranslation();
-  const { cmsContent, rooms, user, bookings, language, loading } = useApp();
+  const { cmsContent, rooms, user, bookings, language, loading, setPage } = useApp();
 
   const currentHero = (cmsContent.hero || {})[language] || (cmsContent.hero || {})['en'] || { title: '', subtitle: '' };
   const currentFeatures = (cmsContent.features?.[language] && cmsContent.features[language]!.length > 0) 
@@ -92,16 +92,52 @@ const HomePage: React.FC = () => {
           <p className="mt-6 max-w-2xl mx-auto text-lg leading-8 text-gray-200">
             {currentHero.subtitle}
           </p>
-          <div className="mt-10">
+          
+          {/* Distance Enrolment Advantage Highlight */}
+          <div className="mt-8 bg-brand-600/90 backdrop-blur-sm border border-brand-400 p-4 rounded-xl max-w-xl mx-auto animate-bounce-slow">
+            <p className="text-white font-bold text-lg">
+              ✨ Distance Enrolment Advantage: Secure your residency and activate your enrolment eligibility instantly!
+            </p>
+          </div>
+
+          <div className="mt-10 flex flex-col sm:flex-row items-center justify-center gap-4">
+            <button
+              onClick={() => setPage('booking')}
+              className="w-full sm:w-auto rounded-md bg-brand-600 px-8 py-4 text-lg font-bold text-white shadow-xl hover:bg-brand-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600 transition-all hover:scale-105"
+            >
+              Book Your Room
+            </button>
             <button
               onClick={handleScrollToRooms}
-              className="rounded-md bg-brand-600 px-5 py-3 text-base font-semibold text-white shadow-sm hover:bg-brand-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600 transition-all hover:scale-105"
+              className="w-full sm:w-auto rounded-md bg-white/10 backdrop-blur-md px-8 py-4 text-lg font-bold text-white border border-white/30 hover:bg-white/20 transition-all"
             >
-              {t.heroCTA}
+              View Apartments
             </button>
           </div>
         </div>
       </div>
+
+      {/* Ratings & Key Benefits Section */}
+      <section className="bg-white dark:bg-gray-900 py-12 rounded-3xl shadow-sm border border-gray-100 dark:border-gray-800">
+        <div className="max-w-6xl mx-auto px-4 grid grid-cols-2 md:grid-cols-4 gap-8 text-center">
+          <div>
+            <p className="text-4xl font-bold text-brand-600">4.9/5</p>
+            <p className="text-sm font-medium text-gray-500 uppercase tracking-wider mt-1">Cleanliness Rating</p>
+          </div>
+          <div>
+            <p className="text-4xl font-bold text-brand-600">5.0/5</p>
+            <p className="text-sm font-medium text-gray-500 uppercase tracking-wider mt-1">Safety Rating</p>
+          </div>
+          <div>
+            <p className="text-4xl font-bold text-brand-600">5 mins</p>
+            <p className="text-sm font-medium text-gray-500 uppercase tracking-wider mt-1">From Centre</p>
+          </div>
+          <div>
+            <p className="text-4xl font-bold text-brand-600">100%</p>
+            <p className="text-sm font-medium text-gray-500 uppercase tracking-wider mt-1">Enrolment Success</p>
+          </div>
+        </div>
+      </section>
 
       {/* Room Gallery Section */}
       <section>

@@ -10,6 +10,7 @@
     "lint": "tsc --noEmit"
   },
   "dependencies": {
+    "@docuseal/react": "^1.0.71",
     "@google/genai": "latest",
     "@supabase/supabase-js": "2",
     "get-image-colors": "^4.0.1",

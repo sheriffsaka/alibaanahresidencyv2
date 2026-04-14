@@ -54,7 +54,7 @@ const AppContent: React.FC = () => {
     
     switch (page) {
       case 'booking':
-        return selectedRoom ? <BookingPage room={selectedRoom} /> : <HomePage />;
+        return <BookingPage />;
       case 'dashboard':
         if (user.role === 'staff' || user.role === 'proprietor') {
             return <AdminDashboardPage />;

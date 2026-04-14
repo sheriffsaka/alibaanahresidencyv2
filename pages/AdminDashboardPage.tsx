@@ -150,6 +150,7 @@ const AdminDashboardPage: React.FC = () => {
     return {
       pendingVerifications: safeBookings.filter(b => b.status === BookingStatus.PENDING_VERIFICATION),
       pendingPayments: safeBookings.filter(b => b.status === BookingStatus.PENDING_PAYMENT),
+      pendingContracts: safeBookings.filter(b => b.status === BookingStatus.PENDING_CONTRACT),
       occupiedRoomIds,
       occupancyByType: Object.values(AccommodationType).map(type => ({
         name: type,
@@ -273,7 +274,7 @@ const AdminDashboardPage: React.FC = () => {
         <div className="flex flex-wrap bg-gray-100 dark:bg-gray-800 p-1 rounded-xl shadow-inner w-full xl:w-auto">
           {['analytics', 'pending', 'rooms', 'students', 'cms'].map((tab) => (
             <button key={tab} onClick={() => setActiveTab(tab as any)} className={`flex-1 xl:flex-none px-4 py-2 rounded-lg text-xs font-bold transition-all capitalize ${activeTab === tab ? 'bg-white dark:bg-gray-700 text-brand-600 shadow-sm' : 'text-gray-500'}`}>
-              {tab === 'analytics' ? 'Dashboard' : tab === 'pending' ? `Pending (${analytics.pendingVerifications.length + analytics.pendingPayments.length})` : tab}
+              {tab === 'analytics' ? 'Dashboard' : tab === 'pending' ? `Pending (${analytics.pendingVerifications.length + analytics.pendingPayments.length + analytics.pendingContracts.length})` : tab}
             </button>
           ))}
         </div>
@@ -340,6 +341,27 @@ const AdminDashboardPage: React.FC = () => {
 
           {activeTab === 'pending' && (
              <div className="space-y-8">
+               <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg overflow-hidden border border-gray-100 dark:border-gray-700">
+                  <div className="px-6 py-4 border-b dark:border-gray-700 flex justify-between items-center">
+                    <h2 className="text-xl font-bold">Pending Contracts</h2>
+                    <span className="bg-yellow-100 text-yellow-700 px-2 py-1 rounded text-[10px] font-bold uppercase">Started Booking</span>
+                  </div>
+                  {analytics.pendingContracts.length > 0 ? (
+                    <div className="overflow-x-auto"><table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                        <thead className="bg-gray-50 dark:bg-gray-900"><tr>
+                            <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase">Student</th>
+                            <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase">Room</th>
+                            <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase">Contact</th>
+                        </tr></thead>
+                        <tbody className="divide-y divide-gray-100 dark:divide-gray-700">{analytics.pendingContracts.map(item => (<tr key={item.id}>
+                            <td className="px-6 py-4 font-medium">{item.full_name}</td>
+                            <td className="px-6 py-4 font-bold text-brand-600">Room {item.rooms.room_number}</td>
+                            <td className="px-6 py-4 text-xs text-gray-500">{item.whatsappNumber || item.phone_number}</td>
+                        </tr>))}</tbody>
+                    </table></div>
+                  ) : <div className="p-12 text-center text-gray-500">No pending contracts.</div>}
+               </div>
+
                <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg overflow-hidden border border-gray-100 dark:border-gray-700">
                   <div className="px-6 py-4 border-b dark:border-gray-700 flex justify-between items-center">
                     <h2 className="text-xl font-bold">Payment Verifications</h2>

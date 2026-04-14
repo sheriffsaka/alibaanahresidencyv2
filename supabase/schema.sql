@@ -37,6 +37,8 @@ CREATE TABLE rooms (
     id SERIAL PRIMARY KEY,
     property_id UUID NOT NULL REFERENCES properties(id),
     room_number VARCHAR(10) NOT NULL,
+    apartment_name VARCHAR(50) NOT NULL,
+    category VARCHAR(50) NOT NULL CHECK (category IN ('Standard', 'Premium')),
     type accommodation_type NOT NULL,
     price_per_month NUMERIC(10, 2) NOT NULL,
     amenities TEXT[],
@@ -119,6 +121,7 @@ CREATE TABLE bookings (
     total_price NUMERIC(10, 2),
     payment_proof_url TEXT,
     payment_expiry_date DATE,
+    parent_booking_id BIGINT REFERENCES bookings(id),
 
     checked_in_at TIMESTAMPTZ,
     checked_out_at TIMESTAMPTZ
@@ -408,12 +411,14 @@ ON CONFLICT (id) DO NOTHING;
 INSERT INTO properties (name, logo_url, primary_color) VALUES ('Al-Ibaanah Student Residence', 'https://res.cloudinary.com/di7okmjsx/image/upload/v1771428370/alibaanahlogo1_iprhyj.png', '#286046');
 
 -- Seed Rooms
-INSERT INTO rooms (property_id, room_number, type, price_per_month, capacity, amenities, image_urls, video_urls, gender_restriction)
+INSERT INTO rooms (property_id, room_number, apartment_name, category, type, price_per_month, capacity, amenities, image_urls, video_urls, gender_restriction)
 VALUES
-    ((SELECT id FROM properties LIMIT 1), '101A', 'Standard Shared', 200.00, 7, '{"Shared Bathroom", "Air Conditioning", "High-Speed Wi-Fi"}', '{"https://res.cloudinary.com/di7okmjsx/image/upload/v1770388212/shared_bathroom1_hlxjdg.jpg"}', '{"https://example.com/video1.mp4"}', 'Male'),
-    ((SELECT id FROM properties LIMIT 1), '102A', 'Standard Private', 325.00, 7, '{"Private Bathroom", "Air Conditioning", "High-Speed Wi-Fi"}', '{"https://res.cloudinary.com/di7okmjsx/image/upload/v1770388212/single_room2_zhd9uo.jpg"}', '{"https://example.com/video2.mp4"}', 'Female'),
-    ((SELECT id FROM properties LIMIT 1), '202B', 'Premium Shared', 225.00, 4, '{"Shared Bathroom", "Premium Furnishing", "Air Conditioning", "High-Speed Wi-Fi"}', '{"https://res.cloudinary.com/di7okmjsx/image/upload/v1770388212/Suite2_q62y4w.jpg"}', '{"https://example.com/video3.mp4"}', 'Male'),
-    ((SELECT id FROM properties LIMIT 1), '301C', 'Premium Private', 400.00, 4, '{"Private Bathroom", "Kitchenette", "Living Area", "Premium Furnishing", "Air Conditioning", "High-Speed Wi-Fi"}', '{"https://res.cloudinary.com/di7okmjsx/image/upload/v1770388212/Suite1_t4dczv.jpg"}', '{"https://example.com/video4.mp4"}', 'Any');
+    ((SELECT id FROM properties LIMIT 1), '101', 'Apartment 1', 'Premium', 'Premium Shared', 250.00, 4, '{"Shared Bathroom", "Air Conditioning", "High-Speed Wi-Fi", "Premium Furnishing"}', '{"https://res.cloudinary.com/di7okmjsx/image/upload/v1770388212/Suite2_q62y4w.jpg"}', '{"https://example.com/video1.mp4"}', 'Male'),
+    ((SELECT id FROM properties LIMIT 1), '102', 'Apartment 1', 'Premium', 'Premium Private', 450.00, 1, '{"Private Bathroom", "Air Conditioning", "High-Speed Wi-Fi", "Premium Furnishing"}', '{"https://res.cloudinary.com/di7okmjsx/image/upload/v1770388212/Suite1_t4dczv.jpg"}', '{"https://example.com/video2.mp4"}', 'Male'),
+    ((SELECT id FROM properties LIMIT 1), '201', 'Apartment 2', 'Standard', 'Standard Shared', 180.00, 6, '{"Shared Bathroom", "Air Conditioning", "High-Speed Wi-Fi"}', '{"https://res.cloudinary.com/di7okmjsx/image/upload/v1770388212/shared_bathroom1_hlxjdg.jpg"}', '{"https://example.com/video3.mp4"}', 'Female'),
+    ((SELECT id FROM properties LIMIT 1), '202', 'Apartment 2', 'Standard', 'Standard Private', 300.00, 1, '{"Private Bathroom", "Air Conditioning", "High-Speed Wi-Fi"}', '{"https://res.cloudinary.com/di7okmjsx/image/upload/v1770388212/single_room2_zhd9uo.jpg"}', '{"https://example.com/video4.mp4"}', 'Female'),
+    ((SELECT id FROM properties LIMIT 1), '301', 'Apartment 3', 'Premium', 'Premium Shared', 250.00, 4, '{"Shared Bathroom", "Air Conditioning", "High-Speed Wi-Fi", "Premium Furnishing"}', '{"https://res.cloudinary.com/di7okmjsx/image/upload/v1770388212/Suite2_q62y4w.jpg"}', '{"https://example.com/video5.mp4"}', 'Male'),
+    ((SELECT id FROM properties LIMIT 1), '302', 'Apartment 3', 'Premium', 'Premium Private', 450.00, 1, '{"Private Bathroom", "Air Conditioning", "High-Speed Wi-Fi", "Premium Furnishing"}', '{"https://res.cloudinary.com/di7okmjsx/image/upload/v1770388212/Suite1_t4dczv.jpg"}', '{"https://example.com/video6.mp4"}', 'Male');
 
 -- Seed CMS Content
 INSERT INTO cms_content (property_id, logo_url, hero_title, hero_subtitle, hero_image_url, features, faqs, contract_templates)

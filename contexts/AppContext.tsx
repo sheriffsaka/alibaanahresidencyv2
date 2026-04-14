@@ -395,10 +395,10 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
   const setPage = useCallback((page: Page, room?: Room, extendingBooking?: Booking) => {
     setPageState(page);
-    if (page === 'booking' && room) {
-        setSelectedRoom(room);
+    if (page === 'booking') {
+        setSelectedRoom(room || null);
         setExtendingBooking(extendingBooking || null);
-    } else if (page !== 'booking') {
+    } else {
         setSelectedRoom(null);
         setExtendingBooking(null);
     }
@@ -413,7 +413,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         const { data, error } = await supabase
             .from('bookings')
             .insert([bookingToInsert])
-            .select('*, rooms(room_number, type), profiles:student_id(full_name)')
+            .select('*, rooms(room_number, type, apartment_name, category), profiles:student_id(full_name)')
             .single();
 
         if (error) throw error;

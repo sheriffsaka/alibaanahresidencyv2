@@ -123,7 +123,12 @@ const BookingForm: React.FC<BookingFormProps> = ({ room }) => {
           address_in_egypt: `${formData.buildingNo}, ${formData.flatNo}, ${formData.streetName}, ${formData.districtName}, ${formData.state}`,
           contract_language: formData.contractLanguage as any,
           total_price: totalPrice,
-          rooms: { room_number: room.room_number, type: room.type },
+          rooms: { 
+          room_number: room.room_number, 
+          type: room.type,
+          apartment_name: room.apartment_name,
+          category: room.category
+        },
       };
 
       // 4. Save to database

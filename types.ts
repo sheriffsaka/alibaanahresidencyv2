@@ -15,6 +15,8 @@ export interface Room {
   property_id: string;
   room_number: string;
   type: AccommodationType;
+  apartment_name: string;
+  category: 'Standard' | 'Premium';
   price_per_month: number;
   capacity: number;
   occupied_slots: number;
@@ -81,10 +83,11 @@ export interface Booking {
   total_price?: number;
   payment_proof_url?: string;
   payment_expiry_date?: string;
+  parent_booking_id?: number;
   payment_method?: 'Online' | 'Bank Transfer';
   checked_in_at?: string;
   checked_out_at?: string;
-  rooms: Pick<Room, 'room_number' | 'type'>;
+  rooms: Pick<Room, 'room_number' | 'type' | 'apartment_name' | 'category'>;
 }
 
 export interface Activity {
