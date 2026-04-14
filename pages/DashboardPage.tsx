@@ -187,15 +187,23 @@ const DashboardPage: React.FC = () => {
                                 )}
 
                                 {(booking.status === BookingStatus.CONFIRMED || booking.status === BookingStatus.OCCUPIED) && (
-                                  <button 
-                                    onClick={() => {
-                                      const room = rooms.find(r => r.id === booking.room_id);
-                                      if (room) setPage('booking', room, booking);
-                                    }}
-                                    className="text-brand-600 hover:text-brand-800 dark:text-brand-400 text-xs font-bold underline decoration-dotted text-left"
-                                  >
-                                    Extend Booking
-                                  </button>
+                                  <>
+                                    <button 
+                                      onClick={() => {
+                                        const room = rooms.find(r => r.id === booking.room_id);
+                                        if (room) setPage('booking', room, booking);
+                                      }}
+                                      className="text-brand-600 hover:text-brand-800 dark:text-brand-400 text-xs font-bold underline decoration-dotted text-left"
+                                    >
+                                      Extend Booking
+                                    </button>
+                                    <button 
+                                      onClick={() => window.open(booking.signature_data || '#', '_blank')}
+                                      className="text-green-600 hover:text-green-800 dark:text-green-400 text-xs font-bold underline decoration-dotted text-left"
+                                    >
+                                      View Agreement
+                                    </button>
+                                  </>
                                 )}
                             </div>
                         </td>

@@ -6,37 +6,62 @@ import { useApp } from '../hooks/useApp';
 import { IconCheck, IconChevronRight, IconChevronLeft, IconInfo, IconSignature } from './Icon';
 import { DocusealForm } from '@docuseal/react';
 
+import { TENANCY_AGREEMENT_TEMPLATE } from '../constants/tenancyAgreement';
+
 const MultiStepBookingForm: React.FC = () => {
   const t = useTranslation();
   const { user, setPage, addBooking, addActivity, rooms, bookings, selectedRoom, extendingBooking } = useApp();
   
-  const [step, setStep] = useState(selectedRoom ? 4 : 1);
+  const [step, setStep] = useState(1);
   const [formData, setFormData] = useState({
-    category: extendingBooking?.rooms?.category || selectedRoom?.category || '' as 'Standard' | 'Premium' | '',
-    apartment: extendingBooking?.rooms?.apartment_name || selectedRoom?.apartment_name || '',
-    roomType: extendingBooking?.rooms?.type || selectedRoom?.type || '' as AccommodationType | '',
+    category: '' as 'Standard' | 'Premium' | '',
+    apartment: '',
+    roomType: '' as AccommodationType | '',
     duration: '',
-    fullName: extendingBooking?.full_name || user?.full_name || '',
-    nationality: extendingBooking?.nationality || '',
-    passportNumber: extendingBooking?.passport_number || '',
-    homeAddress: extendingBooking?.address_in_egypt || '',
-    whatsappNumber: extendingBooking?.phone_number || '',
-    email: extendingBooking?.email || user?.email || '',
-    arrivalDate: extendingBooking?.end_date || '',
+    fullName: '',
+    nationality: '',
+    passportNumber: '',
+    homeAddress: '',
+    whatsappNumber: '',
+    email: '',
+    arrivalDate: '',
   });
 
-  // If selectedRoom changes (e.g. user goes back and picks another), update form
+  // Sync with user and selectedRoom/extendingBooking
   useEffect(() => {
-    if (selectedRoom) {
+    if (extendingBooking) {
+      setFormData(prev => ({
+        ...prev,
+        category: extendingBooking.rooms?.category || '',
+        apartment: extendingBooking.rooms?.apartment_name || '',
+        roomType: extendingBooking.rooms?.type || '',
+        fullName: extendingBooking.full_name || user?.full_name || '',
+        nationality: extendingBooking.nationality || '',
+        passportNumber: extendingBooking.passport_number || '',
+        homeAddress: extendingBooking.address_in_egypt || '',
+        whatsappNumber: extendingBooking.phone_number || '',
+        email: extendingBooking.email || user?.email || '',
+        arrivalDate: extendingBooking.end_date || '',
+      }));
+      setStep(1); // Start from beginning but pre-filled
+    } else if (selectedRoom) {
       setFormData(prev => ({
         ...prev,
         category: selectedRoom.category,
         apartment: selectedRoom.apartment_name,
-        roomType: selectedRoom.type
+        roomType: selectedRoom.type,
+        fullName: user?.full_name || '',
+        email: user?.email || '',
       }));
-      setStep(4);
+      setStep(2); // Show features even if room is picked from homepage
+    } else if (user) {
+      setFormData(prev => ({
+        ...prev,
+        fullName: prev.fullName || user.full_name || '',
+        email: prev.email || user.email || '',
+      }));
     }
-  }, [selectedRoom]);
+  }, [selectedRoom, extendingBooking, user]);
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -62,14 +87,52 @@ const MultiStepBookingForm: React.FC = () => {
 
   const selectedRoomData = useMemo(() => {
     if (!formData.apartment || !formData.roomType) return null;
-    return rooms.find(r => r.apartment_name === formData.apartment && r.type === formData.roomType);
+    return rooms.find(r => 
+      r.apartment_name.toLowerCase() === formData.apartment.toLowerCase() && 
+      r.type.toLowerCase() === formData.roomType.toLowerCase()
+    );
   }, [rooms, formData.apartment, formData.roomType]);
 
+  const calculateMonthlyRate = (category: string, type: string, duration: string) => {
+    const months = parseInt(duration) || 0;
+    const isPrivate = type.toLowerCase().includes('private');
+    
+    if (category === 'Standard') {
+      if (isPrivate) {
+        if (months <= 2) return 300;
+        if (months <= 4) return 285;
+        if (months <= 6) return 270;
+        return 260;
+      } else {
+        if (months <= 2) return 175;
+        if (months <= 4) return 165;
+        if (months <= 6) return 155;
+        return 150;
+      }
+    } else { // Premium
+      if (isPrivate) {
+        if (months <= 2) return 350;
+        if (months <= 4) return 330;
+        if (months <= 6) return 315;
+        return 300;
+      } else {
+        if (months <= 2) return 200;
+        if (months <= 4) return 190;
+        if (months <= 6) return 180;
+        return 175;
+      }
+    }
+  };
+
+  const monthlyRate = useMemo(() => {
+    if (!formData.category || !formData.roomType || !formData.duration) return 0;
+    return calculateMonthlyRate(formData.category, formData.roomType, formData.duration);
+  }, [formData.category, formData.roomType, formData.duration]);
+
   const totalPrice = useMemo(() => {
-    if (!selectedRoomData || !formData.duration) return 0;
-    const months = parseInt(formData.duration) || 0;
-    return selectedRoomData.price_per_month * months;
-  }, [selectedRoomData, formData.duration]);
+    if (!monthlyRate || !formData.duration) return 0;
+    return monthlyRate * parseInt(formData.duration);
+  }, [monthlyRate, formData.duration]);
 
   const nextStep = () => setStep(prev => prev + 1);
   const prevStep = () => setStep(prev => prev - 1);
@@ -153,14 +216,22 @@ const MultiStepBookingForm: React.FC = () => {
                 desc="Comfortable living in Apartment 2. Great value for students." 
                 price="From $180/mo"
                 selected={formData.category === 'Standard'}
-                onClick={() => setFormData({...formData, category: 'Standard', apartment: '', roomType: ''})}
+                onClick={() => {
+                  if (formData.category !== 'Standard') {
+                    setFormData({...formData, category: 'Standard', apartment: '', roomType: ''});
+                  }
+                }}
               />
               <CategoryCard 
                 title="Premium" 
                 desc="Enhanced living in Apartment 1 or 3. Superior amenities and space." 
                 price="From $250/mo"
                 selected={formData.category === 'Premium'}
-                onClick={() => setFormData({...formData, category: 'Premium', apartment: '', roomType: ''})}
+                onClick={() => {
+                  if (formData.category !== 'Premium') {
+                    setFormData({...formData, category: 'Premium', apartment: '', roomType: ''});
+                  }
+                }}
               />
             </div>
             <div className="flex justify-end mt-8">
@@ -175,7 +246,73 @@ const MultiStepBookingForm: React.FC = () => {
           </div>
         );
 
-      case 2: // Step 4: Choose Apartment
+      case 2: // Step 3.5: Room Features (New)
+        const categoryRooms = rooms.filter(r => r.category === formData.category);
+        const sampleRoom = categoryRooms[0];
+        
+        return (
+          <div className="space-y-8 animate-fade-in">
+            <div className="text-center">
+              <h2 className="text-2xl font-bold text-gray-900 dark:text-white">{formData.category} Residency Features</h2>
+              <p className="text-gray-600 dark:text-gray-400 mt-2">Take a look at what's included in your selected category.</p>
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+              {/* Image Gallery */}
+              <div className="space-y-4">
+                <h3 className="font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                  <IconInfo className="w-5 h-5 text-brand-600" /> Room Sections
+                </h3>
+                <div className="grid grid-cols-2 gap-4">
+                  {(sampleRoom?.image_urls || [
+                    'https://images.unsplash.com/photo-1522771739844-6a9f6d5f14af?auto=format&fit=crop&w=400&q=80',
+                    'https://images.unsplash.com/photo-1554995207-c18c203602cb?auto=format&fit=crop&w=400&q=80',
+                    'https://images.unsplash.com/photo-1584622650111-993a426fbf0a?auto=format&fit=crop&w=400&q=80',
+                    'https://images.unsplash.com/photo-1595526114035-0d45ed16cfbf?auto=format&fit=crop&w=400&q=80'
+                  ]).slice(0, 4).map((url, i) => (
+                    <div key={i} className="aspect-square rounded-xl overflow-hidden shadow-sm border dark:border-gray-700">
+                      <img src={url} alt="Room section" className="w-full h-full object-cover hover:scale-110 transition-transform duration-500" />
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Video Tour */}
+              <div className="space-y-4">
+                <h3 className="font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                  <IconSignature className="w-5 h-5 text-brand-600" /> Video Tour
+                </h3>
+                <div className="aspect-video rounded-2xl overflow-hidden shadow-lg border-4 border-white dark:border-gray-800 bg-gray-100 dark:bg-gray-900">
+                  <iframe
+                    className="w-full h-full"
+                    src={sampleRoom?.video_urls?.[0] || "https://www.youtube.com/embed/dQw4w9WgXcQ"}
+                    title="Room Tour"
+                    frameBorder="0"
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                    allowFullScreen
+                  ></iframe>
+                </div>
+                <div className="p-4 bg-brand-50 dark:bg-brand-900/20 rounded-xl border border-brand-100 dark:border-brand-800">
+                  <p className="text-sm text-brand-800 dark:text-brand-200 font-medium">
+                    Note: This is a representative tour of the {formData.category} category. Individual apartments may vary slightly in layout.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex justify-between mt-8">
+              <button onClick={prevStep} className="flex items-center gap-2 text-gray-600 font-bold"><IconChevronLeft className="w-5 h-5" /> Back</button>
+              <button 
+                onClick={nextStep}
+                className="flex items-center gap-2 bg-brand-600 text-white px-8 py-3 rounded-lg font-bold shadow-lg hover:bg-brand-500 transition-all"
+              >
+                Continue to Select Apartment <IconChevronRight className="w-5 h-5" />
+              </button>
+            </div>
+          </div>
+        );
+
+      case 3: // Step 4: Choose Apartment
         return (
           <div className="space-y-6 animate-fade-in">
             <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Select Apartment</h2>
@@ -185,7 +322,11 @@ const MultiStepBookingForm: React.FC = () => {
                   key={apt}
                   title={apt}
                   selected={formData.apartment === apt}
-                  onClick={() => setFormData({...formData, apartment: apt, roomType: ''})}
+                  onClick={() => {
+                    if (formData.apartment !== apt) {
+                      setFormData({...formData, apartment: apt, roomType: ''});
+                    }
+                  }}
                 />
               ))}
             </div>
@@ -202,7 +343,7 @@ const MultiStepBookingForm: React.FC = () => {
           </div>
         );
 
-      case 3: // Step 5: Choose Room Type
+      case 4: // Step 5: Choose Room Type
         return (
           <div className="space-y-6 animate-fade-in">
             <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Choose Room Type</h2>
@@ -210,7 +351,7 @@ const MultiStepBookingForm: React.FC = () => {
               {filteredRoomTypes.map(type => (
                 <SelectionCard 
                   key={type}
-                  title={type}
+                  title={type.includes('Shared') ? 'Shared Room' : 'Private Room'}
                   selected={formData.roomType === type}
                   onClick={() => setFormData({...formData, roomType: type as AccommodationType})}
                 />
@@ -229,7 +370,7 @@ const MultiStepBookingForm: React.FC = () => {
           </div>
         );
 
-      case 4: // Step 6: Choose Duration
+      case 5: // Step 6: Choose Duration
         return (
           <div className="space-y-6 animate-fade-in">
             <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Duration of Stay</h2>
@@ -268,7 +409,7 @@ const MultiStepBookingForm: React.FC = () => {
           </div>
         );
 
-      case 5: // Step 7: Personal Details
+      case 6: // Step 7: Personal Details
         return (
           <div className="space-y-6 animate-fade-in">
             <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Personal Details</h2>
@@ -296,7 +437,7 @@ const MultiStepBookingForm: React.FC = () => {
           </div>
         );
 
-      case 6: // Step 8: Review & Submit
+      case 7: // Step 8: Review & Submit
         return (
           <div className="space-y-6 animate-fade-in">
             <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Review Your Booking</h2>
@@ -337,7 +478,7 @@ const MultiStepBookingForm: React.FC = () => {
           </div>
         );
 
-      case 7: // Step 9: Digital Signing
+      case 8: // Step 9: Digital Signing
         return (
           <div className="space-y-6 animate-fade-in text-center">
             <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-brand-100 text-brand-600 mb-4">
@@ -351,21 +492,31 @@ const MultiStepBookingForm: React.FC = () => {
             <div className="bg-white dark:bg-gray-800 rounded-2xl border-4 border-brand-100 dark:border-brand-900 overflow-hidden shadow-2xl min-h-[600px] relative">
               {/* DocuSeal Embedded Form */}
               <DocusealForm
-                src="https://www.docuseal.com/s/demo-template" // Replace with real template URL
+                src="https://www.docuseal.com/s/demo-template" // Replace with your real DocuSeal template URL
                 email={formData.email}
-                onComplete={() => {
+                onComplete={(e: any) => {
+                  console.log('DocuSeal Complete:', e);
                   setIsSigned(true);
+                  // In a real app, you'd save the e.doc_url to Supabase
                   nextStep();
                 }}
                 values={{
-                  'Full Name': formData.fullName,
-                  'Nationality': formData.nationality,
-                  'Passport Number': formData.passportNumber,
-                  'Move-in Date': formData.arrivalDate,
-                  'Apartment': formData.apartment,
-                  'Room Type': formData.roomType,
-                  'Duration': `${formData.duration} Months`,
-                  'Total Price': `$${totalPrice}`
+                  'fullName': formData.fullName,
+                  'nationality': formData.nationality,
+                  'passportNumber': formData.passportNumber,
+                  'homeAddress': formData.homeAddress,
+                  'email': formData.email,
+                  'whatsappNumber': formData.whatsappNumber,
+                  'apartment': formData.apartment,
+                  'roomType': formData.roomType,
+                  'category': formData.category,
+                  'duration': `${formData.duration} Months`,
+                  'startDate': formData.arrivalDate,
+                  'endDate': formData.arrivalDate && formData.duration ? new Date(new Date(formData.arrivalDate).setMonth(new Date(formData.arrivalDate).getMonth() + parseInt(formData.duration))).toLocaleDateString() : '',
+                  'monthlyRent': monthlyRate.toString(),
+                  'depositAmount': monthlyRate.toString(),
+                  'totalPrice': `$${totalPrice}`,
+                  'date': new Date().toLocaleDateString()
                 }}
               />
             </div>
@@ -381,7 +532,7 @@ const MultiStepBookingForm: React.FC = () => {
           </div>
         );
 
-      case 8: // Step 10: Confirmation Screen
+      case 9: // Step 10: Confirmation Screen
         return (
           <div className="space-y-8 animate-fade-in text-center py-10">
             <div className="inline-flex items-center justify-center w-24 h-24 rounded-full bg-green-100 text-green-600 mb-4 shadow-inner">
@@ -421,16 +572,16 @@ const MultiStepBookingForm: React.FC = () => {
   return (
     <div className="max-w-4xl mx-auto">
       {/* Progress Bar */}
-      {step < 8 && (
+      {step < 9 && (
         <div className="mb-12">
           <div className="flex justify-between mb-2">
-            <span className="text-xs font-bold text-brand-600 uppercase tracking-widest">Step {step + 2} of 9</span>
-            <span className="text-xs font-bold text-gray-400 uppercase tracking-widest">{Math.round(((step + 2) / 9) * 100)}% Complete</span>
+            <span className="text-xs font-bold text-brand-600 uppercase tracking-widest">Step {step + 2} of 10</span>
+            <span className="text-xs font-bold text-gray-400 uppercase tracking-widest">{Math.round(((step + 2) / 10) * 100)}% Complete</span>
           </div>
           <div className="w-full bg-gray-200 dark:bg-gray-700 h-2 rounded-full overflow-hidden">
             <div 
               className="bg-brand-600 h-full transition-all duration-500 ease-out"
-              style={{ width: `${((step + 2) / 9) * 100}%` }}
+              style={{ width: `${((step + 2) / 10) * 100}%` }}
             ></div>
           </div>
         </div>
