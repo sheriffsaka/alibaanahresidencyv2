@@ -35,7 +35,9 @@ const RoomCard: React.FC<RoomCardProps> = ({ room, isOccupied }) => {
       </div>
       <div className="p-8">
         <h2 className="text-xs font-bold text-brand-600 dark:text-brand-400 uppercase tracking-widest mb-1">{t.roomType}</h2>
-        <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">{room.type || 'Room'}</h1>
+        <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
+          {room.type?.toLowerCase().includes('private') ? 'Private Room' : 'Shared Room'}
+        </h1>
         <p className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
             {room.price_per_month ? t.pricePerMonth.replace('{price}', room.price_per_month.toString()) : 'Price on request'}
         </p>

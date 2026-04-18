@@ -411,20 +411,20 @@ const MultiStepBookingForm: React.FC = () => {
               {filteredRoomTypes.map(type => (
                 <SelectionCard 
                   key={type}
-                  title={type.includes('Shared') ? 'Shared Room' : 'Private Room'}
+                  title={type.toLowerCase().includes('private') ? 'Private Room' : 'Shared Room'}
                   selected={formData.roomType === type}
                   onClick={() => setFormData({...formData, roomType: type as AccommodationType})}
                 />
               ))}
             </div>
             <div className="flex justify-between mt-8">
-              <button onClick={prevStep} className="flex items-center gap-2 text-gray-600 font-bold"><IconChevronLeft className="w-5 h-5" /> Back</button>
+              <button onClick={prevStep} className="flex items-center gap-2 text-gray-600 font-bold hover:text-brand-600"><IconChevronLeft className="w-5 h-5" /> Back</button>
               <button 
                 disabled={!formData.roomType}
                 onClick={nextStep}
-                className="flex items-center gap-2 bg-brand-600 text-white px-6 py-3 rounded-lg font-bold disabled:opacity-50"
+                className="flex items-center gap-2 bg-brand-600 text-white px-8 py-3 rounded-xl font-bold disabled:opacity-50 hover:bg-brand-500 transition-all shadow-lg"
               >
-                Next <IconChevronRight className="w-5 h-5" />
+                Next Step <IconChevronRight className="w-5 h-5" />
               </button>
             </div>
           </div>
@@ -444,26 +444,38 @@ const MultiStepBookingForm: React.FC = () => {
                 />
               ))}
             </div>
-            {selectedRoomData && formData.duration && (
-              <div className="bg-brand-50 dark:bg-brand-900/20 p-6 rounded-xl border border-brand-100 dark:border-brand-800 mt-8">
-                <div className="flex justify-between items-center">
-                  <span className="text-gray-600 dark:text-gray-400 font-medium">Monthly Rate:</span>
-                  <span className="text-xl font-bold text-gray-900 dark:text-white">${selectedRoomData.price_per_month}</span>
-                </div>
-                <div className="flex justify-between items-center mt-2 pt-2 border-t border-brand-100 dark:border-brand-800">
-                  <span className="text-brand-800 dark:text-brand-200 font-bold">Total Price:</span>
-                  <span className="text-3xl font-black text-brand-600">${totalPrice}</span>
+            {formData.roomType && formData.duration && (
+              <div className="bg-white dark:bg-gray-800 p-8 rounded-3xl border-2 border-brand-100 dark:border-brand-900 shadow-xl mt-8 animate-fade-in">
+                <div className="flex flex-col md:flex-row justify-between items-center gap-6">
+                  <div className="space-y-1 text-center md:text-left">
+                    <p className="text-brand-600 font-bold uppercase tracking-widest text-xs">Pricing Details</p>
+                    <h3 className="text-xl font-black text-gray-900 dark:text-white">
+                      {formData.roomType.toLowerCase().includes('private') ? 'Private' : 'Shared'} Room - {formData.duration} Months
+                    </h3>
+                    <p className="text-sm text-gray-500">Tiered pricing applied based on duration</p>
+                  </div>
+                  <div className="flex items-center gap-8 w-full md:w-auto">
+                    <div className="text-center md:text-right">
+                      <span className="block text-xs text-gray-400 font-bold uppercase">Monthly Rate</span>
+                      <span className="text-2xl font-black text-gray-900 dark:text-white">${monthlyRate}</span>
+                    </div>
+                    <div className="h-10 w-px bg-gray-200 dark:bg-gray-700 hidden md:block"></div>
+                    <div className="text-center md:text-right flex-1 md:flex-none">
+                      <span className="block text-xs text-brand-500 font-bold uppercase">Total for {formData.duration} months</span>
+                      <span className="text-4xl font-black text-brand-600">${totalPrice}</span>
+                    </div>
+                  </div>
                 </div>
               </div>
             )}
             <div className="flex justify-between mt-8">
-              <button onClick={prevStep} className="flex items-center gap-2 text-gray-600 font-bold"><IconChevronLeft className="w-5 h-5" /> Back</button>
+              <button onClick={prevStep} className="flex items-center gap-2 text-gray-600 font-bold hover:text-brand-600"><IconChevronLeft className="w-5 h-5" /> Back</button>
               <button 
                 disabled={!formData.duration}
                 onClick={nextStep}
-                className="flex items-center gap-2 bg-brand-600 text-white px-6 py-3 rounded-lg font-bold disabled:opacity-50"
+                className="flex items-center gap-3 bg-brand-600 text-white px-10 py-4 rounded-2xl font-bold disabled:opacity-50 hover:bg-brand-500 transition-all shadow-xl"
               >
-                Next <IconChevronRight className="w-5 h-5" />
+                Continue to Details <IconChevronRight className="w-5 h-5" />
               </button>
             </div>
           </div>
@@ -507,7 +519,7 @@ const MultiStepBookingForm: React.FC = () => {
                 <div className="mt-4 grid grid-cols-2 gap-4">
                   <SummaryItem label="Category" value={formData.category} />
                   <SummaryItem label="Apartment" value={formData.apartment} />
-                  <SummaryItem label="Room Type" value={formData.roomType} />
+                  <SummaryItem label="Room Type" value={formData.roomType.toLowerCase().includes('private') ? 'Private Room' : 'Shared Room'} />
                   <SummaryItem label="Duration" value={`${formData.duration} Months`} />
                 </div>
               </div>

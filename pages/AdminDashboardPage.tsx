@@ -439,7 +439,9 @@ const AdminDashboardPage: React.FC = () => {
                         return (<tr key={room.id}>
                             <td className="px-6 py-4">
                                 <span className="font-bold">{room.room_number}</span>
-                                <div className="text-[10px] text-gray-500">{room.type}</div>
+                                <div className="text-[10px] text-gray-500">
+                                  {room.type?.toLowerCase().includes('private') ? 'Private Room' : 'Shared Room'}
+                                </div>
                             </td>
                             <td className="px-6 py-4 text-xs font-medium">{room.apartment_name}</td>
                             <td className="px-6 py-4 text-xs">{room.category}</td>

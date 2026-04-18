@@ -23,7 +23,7 @@ const RoomEditorModal: React.FC<RoomEditorModalProps> = ({ room, onClose, onSave
   const [amenitiesStr, setAmenitiesStr] = useState(room?.amenities.join(', ') || '');
   const [imageUrls, setImageUrls] = useState<string[]>(room?.image_urls || []);
   const [videoUrl, setVideoUrl] = useState<string>(room?.video_urls?.[0] || '');
-  const [selectedFiles, setSelectedFiles] = useState<FileList | null>(null);
+  const [newFiles, setNewFiles] = useState<File[]>([]);
   const [isUploading, setIsUploading] = useState(false);
 
   const handleInputChange = (e: ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
@@ -33,12 +33,23 @@ const RoomEditorModal: React.FC<RoomEditorModalProps> = ({ room, onClose, onSave
   
   const handleImageChange = (e: ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
-      setSelectedFiles(e.target.files);
+      const remainingSlots = 4 - imageUrls.length - newFiles.length;
+      if (remainingSlots <= 0) {
+        alert("You can only add up to 4 images per room.");
+        return;
+      }
+      
+      const filesToAdd = Array.from(e.target.files).slice(0, remainingSlots);
+      setNewFiles(prev => [...prev, ...filesToAdd]);
     }
   };
   
   const removeImage = (index: number) => {
     setImageUrls(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const removeNewFile = (index: number) => {
+    setNewFiles(prev => prev.filter((_, i) => i !== index));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -48,9 +59,8 @@ const RoomEditorModal: React.FC<RoomEditorModalProps> = ({ room, onClose, onSave
     try {
       let finalImageUrls = [...imageUrls];
       
-      if (selectedFiles) {
-        for (let i = 0; i < selectedFiles.length; i++) {
-          const file = selectedFiles[i];
+      if (newFiles.length > 0) {
+        for (const file of newFiles) {
           const fileName = generateFileName(file.name);
           const url = await uploadFile('rooms', fileName, file);
           finalImageUrls.push(url);
@@ -90,27 +100,43 @@ const RoomEditorModal: React.FC<RoomEditorModalProps> = ({ room, onClose, onSave
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="space-y-4">
                 <label className="block text-sm font-bold text-gray-700 dark:text-gray-300">Room Images</label>
-                <div className="grid grid-cols-3 gap-2">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                   {imageUrls.map((url, idx) => (
-                    <div key={idx} className="relative aspect-square border-2 border-brand-500 rounded-lg overflow-hidden group">
+                    <div key={`existing-${idx}`} className="relative aspect-square border-2 border-brand-500 rounded-lg overflow-hidden group">
                       <img src={url} alt={`Room ${idx}`} className="w-full h-full object-cover" />
                       <button 
                         type="button"
                         onClick={() => removeImage(idx)}
-                        className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                        className="absolute top-1 right-1 bg-red-600 text-white rounded-full p-1 shadow-lg transform hover:scale-110 transition-transform"
                       >
-                        <IconClose className="w-3 h-3" />
+                        <IconClose className="w-4 h-4" />
                       </button>
                     </div>
                   ))}
-                  <label className="aspect-square border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg flex flex-col items-center justify-center cursor-pointer hover:border-brand-500 transition-all">
-                    <span className="text-2xl text-gray-400">+</span>
-                    <span className="text-[10px] font-bold text-gray-500 uppercase mt-1">Add</span>
-                    <input type="file" className="hidden" onChange={handleImageChange} accept="image/*" multiple />
-                  </label>
+                  {newFiles.map((file, idx) => (
+                    <div key={`new-${idx}`} className="relative aspect-square border-2 border-dashed border-brand-300 rounded-lg overflow-hidden group">
+                      <div className="absolute inset-0 bg-gray-100 dark:bg-gray-800 flex items-center justify-center">
+                        <span className="text-[10px] font-bold text-gray-400 text-center px-1">NEW: {file.name.substring(0, 10)}...</span>
+                      </div>
+                      <button 
+                        type="button"
+                        onClick={() => removeNewFile(idx)}
+                        className="absolute top-1 right-1 bg-red-600 text-white rounded-full p-1 shadow-lg transform hover:scale-110 transition-transform"
+                      >
+                        <IconClose className="w-4 h-4" />
+                      </button>
+                    </div>
+                  ))}
+                  {(imageUrls.length + newFiles.length) < 4 && (
+                    <label className="aspect-square border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg flex flex-col items-center justify-center cursor-pointer hover:border-brand-500 transition-all bg-gray-50 dark:bg-gray-800/50">
+                      <span className="text-2xl text-gray-400">+</span>
+                      <span className="text-[10px] font-bold text-gray-500 uppercase mt-1">Add</span>
+                      <input type="file" className="hidden" onChange={handleImageChange} accept="image/*" multiple />
+                    </label>
+                  )}
                 </div>
-                {selectedFiles && (
-                  <p className="text-xs text-brand-600 font-bold">{selectedFiles.length} new images selected</p>
+                {newFiles.length > 0 && (
+                  <p className="text-xs text-brand-600 font-bold">{newFiles.length} new images ready for upload</p>
                 )}
               </div>
 

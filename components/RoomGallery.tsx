@@ -19,7 +19,9 @@ const RoomGallery: React.FC<RoomGalleryProps> = ({ rooms }) => {
         ];
         
         return types.map(type => {
-            return rooms.find(r => r.type?.toLowerCase() === type.toLowerCase());
+            // Priority: find rooms of this type that have images first
+            return rooms.filter(r => r.type?.toLowerCase() === type.toLowerCase())
+                        .sort((a, b) => (b.image_urls?.length || 0) - (a.image_urls?.length || 0))[0];
         }).filter((r): r is Room => !!r);
     }, [rooms]);
 
