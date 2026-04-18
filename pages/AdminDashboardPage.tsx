@@ -428,6 +428,8 @@ const AdminDashboardPage: React.FC = () => {
                 <div className="overflow-x-auto"><table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
                     <thead className="bg-gray-50 dark:bg-gray-900"><tr>
                         <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase">Room</th>
+                        <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase">Apartment</th>
+                        <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase">Category</th>
                         <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase">Status</th>
                         <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase">Price</th>
                         <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase">Actions</th>
@@ -435,7 +437,12 @@ const AdminDashboardPage: React.FC = () => {
                     <tbody className="divide-y divide-gray-100 dark:divide-gray-700">{filteredRooms.map(room => {
                         const isOccupied = analytics.occupiedRoomIds.has(room.id);
                         return (<tr key={room.id}>
-                            <td className="px-6 py-4 font-bold">{room.room_number} <span className="text-xs font-normal text-gray-500">({room.type})</span></td>
+                            <td className="px-6 py-4">
+                                <span className="font-bold">{room.room_number}</span>
+                                <div className="text-[10px] text-gray-500">{room.type}</div>
+                            </td>
+                            <td className="px-6 py-4 text-xs font-medium">{room.apartment_name}</td>
+                            <td className="px-6 py-4 text-xs">{room.category}</td>
                             <td className="px-6 py-4"><span className={`px-2 py-1 text-[10px] rounded-full font-bold ${isOccupied ? 'bg-orange-100 text-orange-700' : 'bg-green-100 text-green-700'}`}>{isOccupied ? t.occupied : t.unoccupied}</span></td>
                             <td className="px-6 py-4 text-sm font-bold text-brand-600">${room.price_per_month}</td>
                             <td className="px-6 py-4"><button onClick={() => handleOpenRoomModal(room)} className="text-brand-600 text-xs font-bold underline">Edit</button></td>

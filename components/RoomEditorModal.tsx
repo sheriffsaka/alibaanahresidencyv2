@@ -14,48 +14,60 @@ const RoomEditorModal: React.FC<RoomEditorModalProps> = ({ room, onClose, onSave
   const [formData, setFormData] = useState({
     room_number: room?.room_number || '',
     type: room?.type || AccommodationType.STANDARD_SHARED,
+    apartment_name: room?.apartment_name || '',
+    category: room?.category || 'Standard',
     price_per_month: room?.price_per_month || 0,
     gender_restriction: room?.gender_restriction || 'Any',
+    capacity: room?.capacity || 1,
   });
   const [amenitiesStr, setAmenitiesStr] = useState(room?.amenities.join(', ') || '');
-  const [imagePreview, setImagePreview] = useState<string | null>(room?.image_urls?.[0] || null);
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [imageUrls, setImageUrls] = useState<string[]>(room?.image_urls || []);
+  const [videoUrl, setVideoUrl] = useState<string>(room?.video_urls?.[0] || '');
+  const [selectedFiles, setSelectedFiles] = useState<FileList | null>(null);
   const [isUploading, setIsUploading] = useState(false);
 
   const handleInputChange = (e: ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: name === 'price_per_month' ? parseFloat(value) : value }));
+    setFormData(prev => ({ ...prev, [name]: (name === 'price_per_month' || name === 'capacity') ? parseFloat(value) : value }));
   };
   
   const handleImageChange = (e: ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      const file = e.target.files[0];
-      setSelectedFile(file);
-      setImagePreview(URL.createObjectURL(file));
+    if (e.target.files && e.target.files.length > 0) {
+      setSelectedFiles(e.target.files);
     }
   };
   
+  const removeImage = (index: number) => {
+    setImageUrls(prev => prev.filter((_, i) => i !== index));
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsUploading(true);
     
     try {
-      let imageUrl = imagePreview;
+      let finalImageUrls = [...imageUrls];
       
-      if (selectedFile) {
-        const fileName = generateFileName(selectedFile.name);
-        imageUrl = await uploadFile('rooms', fileName, selectedFile);
+      if (selectedFiles) {
+        for (let i = 0; i < selectedFiles.length; i++) {
+          const file = selectedFiles[i];
+          const fileName = generateFileName(file.name);
+          const url = await uploadFile('rooms', fileName, file);
+          finalImageUrls.push(url);
+        }
       }
 
       const finalRoomData: Room = {
-        ...(room || { id: 0, created_at: '', property_id: '', is_available: true }),
+        ...(room || { id: 0, created_at: '', property_id: '', is_available: true, occupied_slots: 0 }),
         ...formData,
         amenities: amenitiesStr.split(',').map(a => a.trim()).filter(Boolean),
-        image_urls: imageUrl ? [imageUrl] : [],
-      };
+        image_urls: finalImageUrls,
+        video_urls: videoUrl ? [videoUrl] : [],
+      } as Room;
       onSave(finalRoomData);
     } catch (err) {
-      alert("Failed to upload image. Please try again.");
+      console.error(err);
+      alert("Failed to save room details. Please try again.");
     } finally {
       setIsUploading(false);
     }
@@ -63,7 +75,7 @@ const RoomEditorModal: React.FC<RoomEditorModalProps> = ({ room, onClose, onSave
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 animate-fade-in backdrop-blur-sm">
-      <div className="relative bg-white dark:bg-gray-900 rounded-2xl shadow-2xl w-full max-w-md flex flex-col max-h-[90vh]">
+      <div className="relative bg-white dark:bg-gray-900 rounded-2xl shadow-2xl w-full max-w-2xl flex flex-col max-h-[90vh]">
         {/* Header */}
         <div className="flex-shrink-0 p-6 flex justify-between items-center border-b dark:border-gray-800">
           <h2 className="text-2xl font-bold">{room ? 'Edit Room' : 'Add New Room'}</h2>
@@ -75,55 +87,95 @@ const RoomEditorModal: React.FC<RoomEditorModalProps> = ({ room, onClose, onSave
         {/* Form Body - Scrollable */}
         <div className="flex-grow overflow-y-auto p-6">
           <form id="room-editor-form" onSubmit={handleSubmit} className="space-y-6">
-            <div>
-              <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">Room Image</label>
-              <div className="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-gray-300 dark:border-gray-600 border-dashed rounded-md">
-                <div className="space-y-1 text-center">
-                  {imagePreview ? (
-                    <img src={imagePreview} alt="Room preview" className="mx-auto h-32 w-auto rounded-md object-cover" />
-                  ) : (
-                    <svg className="mx-auto h-12 w-12 text-gray-400" stroke="currentColor" fill="none" viewBox="0 0 48 48" aria-hidden="true"><path d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg>
-                  )}
-                  <div className="flex text-sm text-gray-600 dark:text-gray-400">
-                    <label htmlFor="file-upload" className="relative cursor-pointer bg-white dark:bg-gray-900 rounded-md font-medium text-brand-600 hover:text-brand-500 focus-within:outline-none">
-                      <span>Upload a file</span>
-                      <input id="file-upload" name="file-upload" type="file" className="sr-only" onChange={handleImageChange} accept="image/*"/>
-                    </label>
-                    <p className="pl-1">or drag and drop</p>
-                  </div>
-                  <p className="text-xs text-gray-500">PNG, JPG up to 2MB</p>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="space-y-4">
+                <label className="block text-sm font-bold text-gray-700 dark:text-gray-300">Room Images</label>
+                <div className="grid grid-cols-3 gap-2">
+                  {imageUrls.map((url, idx) => (
+                    <div key={idx} className="relative aspect-square border-2 border-brand-500 rounded-lg overflow-hidden group">
+                      <img src={url} alt={`Room ${idx}`} className="w-full h-full object-cover" />
+                      <button 
+                        type="button"
+                        onClick={() => removeImage(idx)}
+                        className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                      >
+                        <IconClose className="w-3 h-3" />
+                      </button>
+                    </div>
+                  ))}
+                  <label className="aspect-square border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg flex flex-col items-center justify-center cursor-pointer hover:border-brand-500 transition-all">
+                    <span className="text-2xl text-gray-400">+</span>
+                    <span className="text-[10px] font-bold text-gray-500 uppercase mt-1">Add</span>
+                    <input type="file" className="hidden" onChange={handleImageChange} accept="image/*" multiple />
+                  </label>
                 </div>
+                {selectedFiles && (
+                  <p className="text-xs text-brand-600 font-bold">{selectedFiles.length} new images selected</p>
+                )}
+              </div>
+
+              <div className="space-y-4">
+                <label className="block text-sm font-bold text-gray-700 dark:text-gray-300">Video Embed URL</label>
+                <input 
+                  type="text" 
+                  value={videoUrl} 
+                  onChange={(e) => setVideoUrl(e.target.value)}
+                  placeholder="e.g. YouTube embed URL"
+                  className="w-full p-3 border rounded-xl dark:bg-gray-700 dark:border-gray-600 text-sm"
+                />
+                <p className="text-[10px] text-gray-500 italic">Provide a YouTube embed link for the apartment/room video tour.</p>
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-4">
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label htmlFor="room_number" className="block text-sm font-bold">Room Number</label>
-                <input type="text" name="room_number" id="room_number" value={formData.room_number} onChange={handleInputChange} required className="mt-1 block w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600" />
+                <input type="text" name="room_number" id="room_number" value={formData.room_number} onChange={handleInputChange} required className="mt-1 block w-full p-3 border rounded-xl dark:bg-gray-700 dark:border-gray-600" />
               </div>
               <div>
-                <label htmlFor="type" className="block text-sm font-bold">Room Type</label>
-                <select name="type" id="type" value={formData.type} onChange={handleInputChange} className="mt-1 block w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600">
+                <label htmlFor="apartment_name" className="block text-sm font-bold">Apartment Name</label>
+                <input type="text" name="apartment_name" id="apartment_name" value={formData.apartment_name} onChange={handleInputChange} required className="mt-1 block w-full p-3 border rounded-xl dark:bg-gray-700 dark:border-gray-600" placeholder="e.g. Garden View 101" />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label htmlFor="category" className="block text-sm font-bold">Category</label>
+                <select name="category" id="category" value={formData.category} onChange={handleInputChange} className="mt-1 block w-full p-3 border rounded-xl dark:bg-gray-700 dark:border-gray-600">
+                  <option value="Standard">Standard</option>
+                  <option value="Premium">Premium</option>
+                </select>
+              </div>
+              <div>
+                <label htmlFor="type" className="block text-sm font-bold">Accommodation Type</label>
+                <select name="type" id="type" value={formData.type} onChange={handleInputChange} className="mt-1 block w-full p-3 border rounded-xl dark:bg-gray-700 dark:border-gray-600">
                   {Object.values(AccommodationType).map(type => <option key={type} value={type}>{type}</option>)}
                 </select>
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-4">
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
                 <label htmlFor="price_per_month" className="block text-sm font-bold">Price per Month ($)</label>
-                <input type="number" name="price_per_month" id="price_per_month" value={formData.price_per_month} onChange={handleInputChange} required className="mt-1 block w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600" />
+                <input type="number" name="price_per_month" id="price_per_month" value={formData.price_per_month} onChange={handleInputChange} required className="mt-1 block w-full p-3 border rounded-xl dark:bg-gray-700 dark:border-gray-600" />
               </div>
               <div>
-                <label htmlFor="gender_restriction" className="block text-sm font-bold">Gender Restriction</label>
-                <select name="gender_restriction" id="gender_restriction" value={formData.gender_restriction} onChange={handleInputChange} className="mt-1 block w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600">
+                <label htmlFor="capacity" className="block text-sm font-bold">Capacity (Students)</label>
+                <input type="number" name="capacity" id="capacity" value={formData.capacity} onChange={handleInputChange} required className="mt-1 block w-full p-3 border rounded-xl dark:bg-gray-700 dark:border-gray-600" />
+              </div>
+              <div>
+                <label htmlFor="gender_restriction" className="block text-sm font-bold">Gender</label>
+                <select name="gender_restriction" id="gender_restriction" value={formData.gender_restriction} onChange={handleInputChange} className="mt-1 block w-full p-3 border rounded-xl dark:bg-gray-700 dark:border-gray-600">
                   <option value="Any">Any</option>
                   <option value="Male">Male</option>
                   <option value="Female">Female</option>
                 </select>
               </div>
             </div>
+
             <div>
               <label htmlFor="amenities" className="block text-sm font-bold">Amenities (comma-separated)</label>
-              <textarea name="amenities" id="amenities" value={amenitiesStr} onChange={(e) => setAmenitiesStr(e.target.value)} rows={3} className="mt-1 block w-full p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600"></textarea>
+              <textarea name="amenities" id="amenities" value={amenitiesStr} onChange={(e) => setAmenitiesStr(e.target.value)} rows={3} className="mt-1 block w-full p-3 border rounded-xl dark:bg-gray-700 dark:border-gray-600" placeholder="e.g. Wi-Fi, AC, Study Desk, En-suite Bathroom"></textarea>
             </div>
           </form>
         </div>
