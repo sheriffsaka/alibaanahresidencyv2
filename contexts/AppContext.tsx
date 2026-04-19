@@ -81,6 +81,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const [cmsContent, setCmsContent] = useState<CmsContent>(INITIAL_CMS);
   const [activities, setActivities] = useState<Activity[]>(MOCK_ACTIVITIES);
   const [students, setStudents] = useState<User[]>([]);
+  const [users, setUsers] = useState<User[]>([]);
   const bookingsSubscriptionRef = useRef<any>(null);
 
   const updateUserSession = useCallback(async (session: Session | null) => {
@@ -170,6 +171,22 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                 setStudents(studentsData.map((p: any) => ({
                     id: p.id,
                     email: '', // Email is not in profiles
+                    full_name: p.full_name,
+                    role: p.role,
+                    gender: p.gender
+                })));
+            }
+
+            // Fetch all staff and proprietors for management
+            const { data: adminUsers } = await supabase
+                .from('profiles')
+                .select('*')
+                .in('role', ['staff', 'proprietor']);
+            
+            if (adminUsers) {
+                setUsers(adminUsers.map((p: any) => ({
+                    id: p.id,
+                    email: p.email || '',
                     full_name: p.full_name,
                     role: p.role,
                     gender: p.gender
@@ -602,6 +619,68 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     }
   };
 
+  const addUser = async (userData: Partial<User>) => {
+    try {
+      // NOTE: Creating a user in Supabase Auth from the client is restricted.
+      // We are managing the 'profiles' table entry here. 
+      // In a real app, you'd use a service role or invitation system.
+      // For this implementation, we assume we are managing existing identities or metadata.
+      const { data, error } = await supabase
+        .from('profiles')
+        .insert([{
+          id: userData.id || crypto.randomUUID(), // Fallback ID if creating new
+          full_name: userData.full_name,
+          role: userData.role,
+          gender: userData.gender
+        }])
+        .select()
+        .single();
+
+      if (error) throw error;
+      setUsers(prev => [...prev, data]);
+      return { success: true };
+    } catch (err: any) {
+      console.error("Error adding user:", err.message);
+      return { success: false, error: err.message };
+    }
+  };
+
+  const updateUser = async (id: string, updates: Partial<User>) => {
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .update({
+          full_name: updates.full_name,
+          role: updates.role,
+          gender: updates.gender
+        })
+        .eq('id', id);
+
+      if (error) throw error;
+      setUsers(prev => prev.map(u => u.id === id ? { ...u, ...updates } : u));
+      return { success: true };
+    } catch (err: any) {
+      console.error("Error updating user:", err.message);
+      return { success: false, error: err.message };
+    }
+  };
+
+  const deleteUser = async (id: string) => {
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .delete()
+        .eq('id', id);
+
+      if (error) throw error;
+      setUsers(prev => prev.filter(u => u.id !== id));
+      return { success: true };
+    } catch (err: any) {
+      console.error("Error deleting user:", err.message);
+      return { success: false, error: err.message };
+    }
+  };
+
   const value = {
     language,
     setLanguage,
@@ -624,6 +703,10 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     activities,
     addActivity,
     students,
+    users,
+    addUser,
+    updateUser,
+    deleteUser,
     academicTerms,
     bookingPackages,
     loading,

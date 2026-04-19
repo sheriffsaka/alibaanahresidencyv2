@@ -9,6 +9,7 @@ import RoomEditorModal from '../components/RoomEditorModal';
 import { uploadFile, generateFileName } from '../lib/storage';
 import { sendEmail, getApprovalEmailTemplate } from '../lib/email';
 import AgreementModal from '../components/AgreementModal';
+import UserEditorModal from '../components/UserEditorModal';
 
 // A simple, animated SVG Bar Chart component created for this page
 const OccupancyChart = ({ data }: { data: { name: string; value: number }[] }) => {
@@ -78,8 +79,8 @@ const SummaryCard: React.FC<SummaryCardProps> = ({ label, value, icon, trend, co
 
 const AdminDashboardPage: React.FC = () => {
   const t = useTranslation();
-  const { user, bookings, updateBookingStatus, cmsContent, updateCmsContent, rooms, addRoom, updateRoom, activities, addActivity, language, setPage } = useApp();
-  const [activeTab, setActiveTab] = useState<'analytics' | 'pending' | 'rooms' | 'students' | 'cms'>('analytics');
+  const { user, bookings, updateBookingStatus, cmsContent, updateCmsContent, rooms, addRoom, updateRoom, activities, addActivity, language, setPage, users, addUser, updateUser, deleteUser } = useApp();
+  const [activeTab, setActiveTab] = useState<'analytics' | 'pending' | 'rooms' | 'students' | 'cms' | 'users'>('analytics');
   const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
   const [selectedProof, setSelectedProof] = useState<string | null>(null);
   const [roomFilter, setRoomFilter] = useState<'all' | 'occupied' | 'available'>('all');
@@ -87,6 +88,10 @@ const AdminDashboardPage: React.FC = () => {
   
   const [isRoomModalOpen, setIsRoomModalOpen] = useState(false);
   const [selectedRoomForEdit, setSelectedRoomForEdit] = useState<Room | null>(null);
+  
+  const [isUserModalOpen, setIsUserModalOpen] = useState(false);
+  const [selectedUserForEdit, setSelectedUserForEdit] = useState<User | null>(null);
+  
   const [viewingAgreement, setViewingAgreement] = useState<Booking | null>(null);
 
   const [editingContract, setEditingContract] = useState<{ roomType: AccommodationType; lang: Language } | null>(null);
@@ -226,6 +231,47 @@ const AdminDashboardPage: React.FC = () => {
     setSelectedRoomForEdit(room);
     setIsRoomModalOpen(true);
   };
+
+  const handleOpenUserModal = (userData: User | null) => {
+    setSelectedUserForEdit(userData);
+    setIsUserModalOpen(true);
+  };
+
+  const handleSaveUser = async (userData: Partial<User>) => {
+    let result;
+    if (userData.id) {
+        result = await updateUser(userData.id, userData);
+        if (result.success) {
+            addActivity({ user_id: user!.id, type: 'system', description: `Updated admin user: ${userData.full_name}`, timestamp: new Date().toISOString() });
+        }
+    } else {
+        result = await addUser(userData);
+        if (result.success) {
+            addActivity({ user_id: user!.id, type: 'system', description: `Created new admin user: ${userData.full_name}`, timestamp: new Date().toISOString() });
+        }
+    }
+
+    if (result?.success) {
+        setIsUserModalOpen(false);
+    } else {
+        alert(`Failed to save user: ${result?.error || 'Unknown error'}`);
+    }
+  };
+
+  const handleDeleteUser = async (id: string) => {
+    if (id === user?.id) {
+        alert("You cannot delete your own account.");
+        return;
+    }
+    if (confirm('Are you sure you want to delete this admin user? This action cannot be undone.')) {
+        const result = await deleteUser(id);
+        if (result.success) {
+            addActivity({ user_id: user!.id, type: 'system', description: `Deleted admin user ID: ${id}`, timestamp: new Date().toISOString() });
+        } else {
+            alert(`Failed to delete user: ${result.error}`);
+        }
+    }
+  };
   
   const handleFaqChange = (index: number, field: 'q' | 'a', value: string) => {
     const updatedFaqs = [...(cmsContent.faqs.en || [])];
@@ -273,9 +319,9 @@ const AdminDashboardPage: React.FC = () => {
               {t.adminWelcome.replace('Proprietor', user?.full_name || 'Administrator')}
           </p>
         </div>
-        <div className="flex flex-wrap bg-gray-100 dark:bg-gray-800 p-1 rounded-xl shadow-inner w-full xl:w-auto">
-          {['analytics', 'pending', 'rooms', 'students', 'cms'].map((tab) => (
-            <button key={tab} onClick={() => setActiveTab(tab as any)} className={`flex-1 xl:flex-none px-4 py-2 rounded-lg text-xs font-bold transition-all capitalize ${activeTab === tab ? 'bg-white dark:bg-gray-700 text-brand-600 shadow-sm' : 'text-gray-500'}`}>
+        <div className="flex flex-nowrap bg-gray-100 dark:bg-gray-800 p-1 rounded-xl shadow-inner w-full xl:w-auto overflow-x-auto no-scrollbar">
+          {['analytics', 'pending', 'rooms', 'students', 'cms', 'users'].map((tab) => (
+            <button key={tab} onClick={() => setActiveTab(tab as any)} className={`flex-none px-6 py-2 rounded-lg text-xs font-bold transition-all capitalize whitespace-nowrap ${activeTab === tab ? 'bg-white dark:bg-gray-700 text-brand-600 shadow-sm' : 'text-gray-500'}`}>
               {tab === 'analytics' ? 'Dashboard' : tab === 'pending' ? `Pending (${analytics.pendingVerifications.length + analytics.pendingPayments.length + analytics.pendingContracts.length})` : tab}
             </button>
           ))}
@@ -713,6 +759,63 @@ const AdminDashboardPage: React.FC = () => {
               </div>
             </div>
           )}
+
+          {activeTab === 'users' && (
+             <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg overflow-hidden border border-gray-100 dark:border-gray-700">
+                <div className="px-6 py-4 border-b dark:border-gray-700 flex justify-between items-center">
+                  <h2 className="text-xl font-bold">Admin Users</h2>
+                  <button 
+                    onClick={() => handleOpenUserModal(null)}
+                    className="bg-brand-600 hover:bg-brand-700 text-white px-4 py-2 rounded-lg text-xs font-bold transition-colors flex items-center gap-2"
+                  >
+                    <IconPlus className="w-4 h-4" /> Add Admin
+                  </button>
+                </div>
+                <div className="overflow-x-auto">
+                    <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                        <thead className="bg-gray-50 dark:bg-gray-900">
+                            <tr>
+                                <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase">Name</th>
+                                <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase">Role</th>
+                                <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase">Gender</th>
+                                <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
+                            {users.map(u => (
+                                <tr key={u.id}>
+                                    <td className="px-6 py-4 font-bold">{u.full_name} {u.id === user?.id && <span className="ml-2 text-[10px] bg-brand-100 text-brand-600 px-1 rounded">You</span>}</td>
+                                    <td className="px-6 py-4">
+                                        <span className={`px-2 py-1 rounded text-[10px] font-bold uppercase ${u.role === 'proprietor' ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'}`}>
+                                            {u.role}
+                                        </span>
+                                    </td>
+                                    <td className="px-6 py-4 text-xs">{u.gender || 'Any'}</td>
+                                    <td className="px-6 py-4">
+                                        <div className="flex gap-4">
+                                            <button 
+                                              onClick={() => handleOpenUserModal(u)}
+                                              className="text-brand-600 hover:text-brand-700 text-xs font-bold underline"
+                                            >
+                                                Edit
+                                            </button>
+                                            {u.id !== user?.id && (
+                                              <button 
+                                                onClick={() => handleDeleteUser(u.id)}
+                                                className="text-red-500 hover:text-red-700"
+                                              >
+                                                  <IconTrash className="w-4 h-4" />
+                                              </button>
+                                            )}
+                                        </div>
+                                    </td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
+             </div>
+          )}
         </div>
 
         {/* Right Sidebar */}
@@ -838,6 +941,10 @@ const AdminDashboardPage: React.FC = () => {
 
       {isRoomModalOpen && (
         <RoomEditorModal room={selectedRoomForEdit} onClose={() => setIsRoomModalOpen(false)} onSave={handleSaveRoom} />
+      )}
+
+      {isUserModalOpen && (
+        <UserEditorModal user={selectedUserForEdit} onClose={() => setIsUserModalOpen(false)} onSave={handleSaveUser} />
       )}
 
       {selectedProof && (

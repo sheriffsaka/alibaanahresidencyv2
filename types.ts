@@ -172,6 +172,10 @@ export interface AppContextType {
   activities: Activity[];
   addActivity: (activity: Omit<Activity, 'id'>) => void;
   students: User[];
+  users: User[];
+  addUser: (userData: Partial<User>) => Promise<{ success: boolean; error?: string }>;
+  updateUser: (id: string, updates: Partial<User>) => Promise<{ success: boolean; error?: string }>;
+  deleteUser: (id: string) => Promise<{ success: boolean; error?: string }>;
   academicTerms: AcademicTerm[];
   bookingPackages: BookingPackage[];
 }
