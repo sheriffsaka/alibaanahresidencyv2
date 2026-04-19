@@ -16,6 +16,25 @@ const TenancyAgreementDocument: React.ForwardRefRenderFunction<HTMLDivElement, T
 ) => {
   const today = new Date().toLocaleDateString();
 
+  const getApartmentAddress = (aptName: string) => {
+    const name = aptName?.toLowerCase() || '';
+    if (name.includes('2')) {
+      return "24 Saqaliyyah Street, off Makram Ebeid, Nasr City, Cairo, Egypt";
+    }
+    if (name.includes('1')) {
+      return "11, Samir Moursey Street, Nasr City, Cairo";
+    }
+    if (name.includes('3')) {
+      return "2 Ezzat Salaam St, off Kaabool St, Makram Ebeid, Nasr City";
+    }
+    return '';
+  };
+
+  const apartmentAddress = getApartmentAddress(formData.apartment);
+  const formattedRoomType = formData.roomType ? 
+    (formData.roomType.toLowerCase().includes('private') ? 'Private Room' : 'Shared Room') 
+    : '';
+
   return (
     <div ref={ref} className="bg-white text-gray-900 p-8 sm:p-12 shadow-2xl max-w-4xl mx-auto font-serif leading-relaxed print:shadow-none print:p-0">
       {/* Header */}
@@ -71,13 +90,17 @@ const TenancyAgreementDocument: React.ForwardRefRenderFunction<HTMLDivElement, T
             <p><span className="font-bold">Accommodation Category Selected:</span> <span className="border-b border-gray-400 px-2">{formData.category || '___________________________'}</span></p>
             <div>
               <p className="font-bold mb-1">Apartment Selected, and Address:</p>
-              <div className="border-b border-gray-400 pb-1 italic text-gray-700">
-                {formData.apartment || '______________________________________'}
+              <div className="border-b border-gray-400 pb-1 italic text-gray-700 min-h-[1.5rem]">
+                {formData.apartment ? `${formData.apartment}: ${apartmentAddress}` : '______________________________________'}
               </div>
-              <div className="border-b border-gray-400 h-6"></div>
-              <div className="border-b border-gray-400 h-6"></div>
+              {!apartmentAddress && (
+                <>
+                  <div className="border-b border-gray-400 h-6"></div>
+                  <div className="border-b border-gray-400 h-6"></div>
+                </>
+              )}
             </div>
-            <p><span className="font-bold">Room Type Selected:</span> <span className="border-b border-gray-400 px-2">{formData.roomType || '_________________'}</span></p>
+            <p><span className="font-bold">Room Type Selected:</span> <span className="border-b border-gray-400 px-2">{formattedRoomType || '_________________'}</span></p>
           </div>
         </section>
 
