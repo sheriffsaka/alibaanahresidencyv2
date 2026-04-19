@@ -626,6 +626,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     students,
     academicTerms,
     bookingPackages,
+    loading,
   };
 
   return (

@@ -8,6 +8,7 @@ import BookingStatusBadge from '../components/BookingStatusBadge';
 import RoomEditorModal from '../components/RoomEditorModal';
 import { uploadFile, generateFileName } from '../lib/storage';
 import { sendEmail, getApprovalEmailTemplate } from '../lib/email';
+import AgreementModal from '../components/AgreementModal';
 
 // A simple, animated SVG Bar Chart component created for this page
 const OccupancyChart = ({ data }: { data: { name: string; value: number }[] }) => {
@@ -86,6 +87,7 @@ const AdminDashboardPage: React.FC = () => {
   
   const [isRoomModalOpen, setIsRoomModalOpen] = useState(false);
   const [selectedRoomForEdit, setSelectedRoomForEdit] = useState<Room | null>(null);
+  const [viewingAgreement, setViewingAgreement] = useState<Booking | null>(null);
 
   const [editingContract, setEditingContract] = useState<{ roomType: AccommodationType; lang: Language } | null>(null);
   const [isUploadingCms, setIsUploadingCms] = useState(false);
@@ -356,7 +358,7 @@ const AdminDashboardPage: React.FC = () => {
                         <tbody className="divide-y divide-gray-100 dark:divide-gray-700">{analytics.pendingContracts.map(item => (<tr key={item.id}>
                             <td className="px-6 py-4 font-medium">{item.full_name}</td>
                             <td className="px-6 py-4 font-bold text-brand-600">Room {item.rooms.room_number}</td>
-                            <td className="px-6 py-4 text-xs text-gray-500">{item.whatsappNumber || item.phone_number}</td>
+                            <td className="px-6 py-4 text-xs text-gray-500">{item.phone_number}</td>
                         </tr>))}</tbody>
                     </table></div>
                   ) : <div className="p-12 text-center text-gray-500">No pending contracts.</div>}
@@ -724,6 +726,13 @@ const AdminDashboardPage: React.FC = () => {
       </div>
 
       {/* Modals */}
+      {viewingAgreement && (
+        <AgreementModal 
+          booking={viewingAgreement}
+          onClose={() => setViewingAgreement(null)}
+          isReadOnly={true}
+        />
+      )}
       {selectedBooking && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
           <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl w-full max-w-4xl flex flex-col max-h-[90vh]">
@@ -766,11 +775,19 @@ const AdminDashboardPage: React.FC = () => {
                   </div>
 
                   <div>
-                    <h4 className="font-bold text-brand-600 uppercase tracking-wider text-xs mb-2">Signed Contract Signature</h4>
+                    <h4 className="font-bold text-brand-600 uppercase tracking-wider text-xs mb-2">Signed Tenancy Agreement</h4>
                     {selectedBooking.signature_data ? (
-                      <div className="p-4 border rounded-xl bg-gray-50 dark:bg-gray-800">
-                        <img src={selectedBooking.signature_data} alt="Signature" className="max-h-24 mx-auto" />
-                        <p className="text-[10px] text-center text-gray-500 mt-2">Signed on {selectedBooking.contract_signed_at ? new Date(selectedBooking.contract_signed_at).toLocaleString() : 'N/A'}</p>
+                      <div className="space-y-3">
+                        <div className="p-4 border rounded-xl bg-gray-50 dark:bg-gray-800">
+                           <img src={selectedBooking.signature_data} alt="Signature" className="max-h-16 mx-auto" />
+                           <p className="text-[10px] text-center text-gray-500 mt-2">Signed on {selectedBooking.contract_signed_at ? new Date(selectedBooking.contract_signed_at).toLocaleString() : 'N/A'}</p>
+                        </div>
+                        <button 
+                          onClick={() => setViewingAgreement(selectedBooking)}
+                          className="w-full py-2 bg-brand-600 text-white rounded-lg text-xs font-bold hover:bg-brand-700 transition-colors"
+                        >
+                          View Full Agreement
+                        </button>
                       </div>
                     ) : (
                       <p className="text-sm text-red-500 italic">Contract not yet signed.</p>

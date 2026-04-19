@@ -13,10 +13,13 @@
     "@docuseal/react": "^1.0.71",
     "@google/genai": "latest",
     "@supabase/supabase-js": "2",
+    "@types/react-signature-canvas": "^1.0.7",
     "get-image-colors": "^4.0.1",
     "node-fetch": "^2.7.0",
     "react": "^19.2.4",
-    "react-dom": "^19.2.4"
+    "react-dom": "^19.2.4",
+    "react-signature-canvas": "^1.1.0-alpha.2",
+    "react-to-print": "^3.3.0"
   },
   "devDependencies": {
     "@types/node": "^22.14.0",

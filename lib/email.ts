@@ -40,3 +40,23 @@ Al-Ibaanah Student Residency Team
     `.trim()
   };
 };
+
+export const getAgreementSignedTemplate = (studentName: string, bookingId: number) => {
+  return {
+    subject: `Tenancy Agreement Signed - (BK${bookingId})`,
+    body: `
+Dear ${studentName},
+
+Thank you for signing your tenancy agreement for Al-Ibaanah Student Residency.
+
+You can now download a PDF copy of your signed agreement from your dashboard.
+
+Next Steps:
+- Our team will verify your agreement details.
+- You will receive payment instructions for the security deposit on WhatsApp within 24 hours.
+
+Best regards,
+Al-Ibaanah Student Residency Team
+    `.trim()
+  };
+};

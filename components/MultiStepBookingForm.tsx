@@ -12,9 +12,12 @@ import {
   IconVideo, 
   IconCheckCircle 
 } from './Icon';
-import { DocusealForm } from '@docuseal/react';
+import SignaturePad from 'react-signature-canvas';
+import { useReactToPrint } from 'react-to-print';
+import TenancyAgreementDocument from './TenancyAgreementDocument';
 
-import { TENANCY_AGREEMENT_TEMPLATE } from '../constants/tenancyAgreement';
+import { uploadFile, generateFileName } from '../lib/storage';
+import { sendEmail, getAgreementSignedTemplate } from '../lib/email';
 
 const MultiStepBookingForm: React.FC = () => {
   const t = useTranslation();
@@ -74,7 +77,14 @@ const MultiStepBookingForm: React.FC = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [bookingResult, setBookingResult] = useState<Booking | null>(null);
-  const [isSigned, setIsSigned] = useState(false);
+  const [signature, setSignature] = useState<string | null>(null);
+  const sigPadRef = React.useRef<SignaturePad>(null);
+  const agreementRef = React.useRef<HTMLDivElement>(null);
+
+  const handlePrint = useReactToPrint({
+    contentRef: agreementRef,
+    documentTitle: `Tenancy_Agreement_${formData.fullName.replace(/\s+/g, '_')}`,
+  });
 
   // Filter logic
   const filteredApartments = useMemo(() => {
@@ -146,6 +156,18 @@ const MultiStepBookingForm: React.FC = () => {
   const nextStep = () => setStep(prev => prev + 1);
   const prevStep = () => setStep(prev => prev - 1);
 
+  const startDate = formData.arrivalDate;
+  const endDate = useMemo(() => {
+    if (!startDate || !formData.duration) return '';
+    try {
+      const date = new Date(startDate);
+      date.setMonth(date.getMonth() + parseInt(formData.duration));
+      return date.toISOString().split('T')[0];
+    } catch (e) {
+      return '';
+    }
+  }, [startDate, formData.duration]);
+
   const handleSubmit = async () => {
     if (!user) {
       setPage('auth');
@@ -157,35 +179,37 @@ const MultiStepBookingForm: React.FC = () => {
       return;
     }
 
+    if (!signature) {
+      setError("Please provide your signature before submitting.");
+      return;
+    }
+
     setIsSubmitting(true);
     setError(null);
 
     try {
-      const startDate = new Date(formData.arrivalDate);
-      const months = parseInt(formData.duration) || 1;
-      const endDate = new Date(startDate);
-      endDate.setMonth(startDate.getMonth() + months);
-
       const newBooking: Partial<Booking> = {
         student_id: user.id,
         room_id: selectedRoomData.id,
         start_date: formData.arrivalDate,
-        end_date: endDate.toISOString().split('T')[0],
-        status: BookingStatus.PENDING_CONTRACT,
+        end_date: endDate,
+        status: BookingStatus.PENDING_VERIFICATION,
         booked_at: new Date().toISOString(),
         full_name: formData.fullName,
         nationality: formData.nationality,
         passport_number: formData.passportNumber,
-        passport_copy_url: 'pending_digital_sign', // Placeholder
+        passport_copy_url: 'pending_digital_sign', 
         email: formData.email,
         phone_number: formData.whatsappNumber,
         expected_arrival_date: formData.arrivalDate,
         duration_of_stay: `${formData.duration} months`,
         preferred_accommodation: formData.roomType as AccommodationType,
-        emergency_contact_details: 'Provided via DocuSeal',
+        emergency_contact_details: 'Digital Signatory',
         address_in_egypt: formData.homeAddress,
         total_price: totalPrice,
         parent_booking_id: extendingBooking?.id,
+        signature_data: signature,
+        contract_signed_at: new Date().toISOString(),
         rooms: { 
           room_number: selectedRoomData.room_number, 
           type: selectedRoomData.type,
@@ -197,15 +221,32 @@ const MultiStepBookingForm: React.FC = () => {
       const result = await addBooking(newBooking as Booking);
       if (!result.success) throw new Error(result.error);
       
-      setBookingResult(result.data!);
+      const createdBooking = result.data!;
+      setBookingResult(createdBooking);
+
+      // Send email notification to student
+      const emailTemplate = getAgreementSignedTemplate(formData.fullName, createdBooking.id);
+      sendEmail({
+        to: formData.email,
+        subject: emailTemplate.subject,
+        body: emailTemplate.body
+      }).catch(err => console.error("Failed to send signature email:", err));
+
+      // Send email notification to admin
+      sendEmail({
+        to: 'admin@alibaanah.com',
+        subject: `New Tenancy Agreement Signed - (BK${createdBooking.id})`,
+        body: `A new tenancy agreement has been signed by ${formData.fullName} for BK${createdBooking.id}.\n\nPlease review it in the admin dashboard.`
+      }).catch(err => console.error("Failed to send admin email:", err));
+      
       await addActivity({
         user_id: user.id,
         type: 'booking',
-        description: `Started booking for ${selectedRoomData.apartment_name} - ${selectedRoomData.room_number}`,
+        description: `Completed booking for ${selectedRoomData.apartment_name} - ${selectedRoomData.room_number}`,
         timestamp: new Date().toISOString()
       });
       
-      nextStep(); // Move to Step 9: Digital Signing
+      nextStep(); // Move to Step 9: Confirmation
     } catch (err: any) {
       setError(err.message || "Failed to submit booking");
     } finally {
@@ -509,7 +550,7 @@ const MultiStepBookingForm: React.FC = () => {
           </div>
         );
 
-      case 7: // Step 8: Review & Submit
+      case 7: // Step 7: Booking Summary
         return (
           <div className="space-y-6 animate-fade-in">
             <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Review Your Booking</h2>
@@ -540,67 +581,104 @@ const MultiStepBookingForm: React.FC = () => {
             <div className="flex justify-between mt-8">
               <button onClick={prevStep} className="flex items-center gap-2 text-gray-600 font-bold"><IconChevronLeft className="w-5 h-5" /> Back</button>
               <button 
-                disabled={isSubmitting}
-                onClick={handleSubmit}
-                className="flex items-center gap-2 bg-brand-600 text-white px-8 py-4 rounded-xl font-bold shadow-lg hover:scale-105 transition-all disabled:opacity-50"
+                onClick={nextStep}
+                className="flex items-center gap-2 bg-brand-600 text-white px-8 py-4 rounded-xl font-bold shadow-lg hover:scale-105 transition-all"
               >
-                {isSubmitting ? 'Processing...' : 'Confirm & Proceed to Signing'}
+                Confirm & Proceed to Signing <IconChevronRight className="w-5 h-5" />
               </button>
             </div>
           </div>
         );
 
-      case 8: // Step 9: Digital Signing
+      case 8: // Step 8: Review & Digital Signature
         return (
-          <div className="space-y-6 animate-fade-in text-center">
-            <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-brand-100 text-brand-600 mb-4">
-              <IconSignature className="w-10 h-10" />
+          <div className="space-y-8 animate-fade-in">
+            <div className="text-center">
+              <h2 className="text-3xl font-black text-gray-900 dark:text-white uppercase tracking-tight">Review & Sign Agreement</h2>
+              <p className="text-gray-600 dark:text-gray-400 mt-2">Please review your tenancy agreement and provide your signature below.</p>
             </div>
-            <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Digital Tenancy Agreement</h2>
-            <p className="text-gray-600 dark:text-gray-400 max-w-md mx-auto">
-              Please review and sign your tenancy agreement below using DocuSeal. This is required to activate your distance enrolment eligibility.
-            </p>
-            
-            <div className="bg-white dark:bg-gray-800 rounded-2xl border-4 border-brand-100 dark:border-brand-900 overflow-hidden shadow-2xl min-h-[600px] relative">
-              {/* DocuSeal Embedded Form */}
-              <DocusealForm
-                src="https://www.docuseal.com/s/demo-template" // Replace with your real DocuSeal template URL
-                email={formData.email}
-                onComplete={(e: any) => {
-                  console.log('DocuSeal Complete:', e);
-                  setIsSigned(true);
-                  // In a real app, you'd save the e.doc_url to Supabase
-                  nextStep();
-                }}
-                values={{
-                  'fullName': formData.fullName,
-                  'nationality': formData.nationality,
-                  'passportNumber': formData.passportNumber,
-                  'homeAddress': formData.homeAddress,
-                  'email': formData.email,
-                  'whatsappNumber': formData.whatsappNumber,
-                  'apartment': formData.apartment,
-                  'roomType': formData.roomType,
-                  'category': formData.category,
-                  'duration': `${formData.duration} Months`,
-                  'startDate': formData.arrivalDate,
-                  'endDate': formData.arrivalDate && formData.duration ? new Date(new Date(formData.arrivalDate).setMonth(new Date(formData.arrivalDate).getMonth() + parseInt(formData.duration))).toLocaleDateString() : '',
-                  'monthlyRent': monthlyRate.toString(),
-                  'depositAmount': monthlyRate.toString(),
-                  'totalPrice': `$${totalPrice}`,
-                  'date': new Date().toLocaleDateString()
-                }}
-              />
+
+            <div className="bg-gray-100 dark:bg-gray-900 p-4 rounded-3xl border-4 border-gray-200 dark:border-gray-800">
+              <div className="max-h-[600px] overflow-y-auto rounded-2xl shadow-inner bg-white border border-gray-200 dark:border-gray-700">
+                 <TenancyAgreementDocument 
+                    ref={agreementRef}
+                    formData={formData}
+                    monthlyRate={monthlyRate}
+                    startDate={startDate}
+                    endDate={endDate}
+                    signature={signature || undefined}
+                 />
+              </div>
             </div>
-            
-            <div className="flex justify-center mt-4">
-               <button 
-                onClick={nextStep}
-                className="text-brand-600 font-bold hover:underline"
-               >
-                 Skip signing (Demo only)
-               </button>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-start">
+               <div className="space-y-4">
+                  <h3 className="text-lg font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                    <IconSignature className="w-5 h-5 text-brand-600" /> Draw Your Signature
+                  </h3>
+                  <div className="bg-white dark:bg-gray-800 p-4 rounded-2xl border-2 border-dashed border-gray-300 dark:border-gray-700">
+                    <div className="aspect-[3/1] bg-gray-50 dark:bg-gray-900 rounded-xl overflow-hidden touch-none border border-gray-200 dark:border-gray-700">
+                       <SignaturePad 
+                         ref={sigPadRef}
+                         canvasProps={{className: "w-full h-full cursor-crosshair"}}
+                         onEnd={() => {
+                            const data = sigPadRef.current?.getTrimmedCanvas().toDataURL('image/png');
+                            setSignature(data || null);
+                         }}
+                       />
+                    </div>
+                    <div className="flex justify-between mt-4">
+                       <button 
+                         onClick={() => {
+                           sigPadRef.current?.clear();
+                           setSignature(null);
+                         }}
+                         className="text-xs font-bold text-red-600 uppercase tracking-widest hover:underline"
+                       >
+                         Clear Signature
+                       </button>
+                       <p className="text-[10px] text-gray-400 font-bold uppercase">Sign inside the box</p>
+                    </div>
+                  </div>
+               </div>
+
+               <div className="space-y-6">
+                  <div className="bg-brand-50 dark:bg-brand-900/20 p-6 rounded-2xl border border-brand-100 dark:border-brand-800">
+                    <h4 className="font-bold text-brand-800 dark:text-brand-200 text-sm mb-2">Final Confirmation</h4>
+                    <p className="text-xs text-brand-700 dark:text-brand-300 leading-relaxed mb-4">
+                      By clicking "Submit My Booking", you acknowledge that you have read the tenancy agreement in full and agree to abide by all house rules and the Islamic environment of Al-Ibaanah Student Residency.
+                    </p>
+                    <div className="flex items-center gap-3">
+                       <div className={`w-6 h-6 rounded-full flex items-center justify-center transition-colors ${signature ? 'bg-green-500 text-white' : 'bg-gray-200 dark:bg-gray-700'}`}>
+                          <IconCheck className="w-4 h-4" />
+                       </div>
+                       <span className="text-sm font-bold text-gray-700 dark:text-gray-300">Agreement Signed digitally</span>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-col gap-3">
+                    <button 
+                      onClick={handlePrint}
+                      className="flex items-center justify-center gap-2 w-full py-4 rounded-xl border-2 border-gray-300 dark:border-gray-700 font-bold hover:bg-gray-50 dark:hover:bg-gray-800 transition-all"
+                    >
+                      Preview / Print PDF
+                    </button>
+                    <button 
+                      disabled={isSubmitting || !signature}
+                      onClick={handleSubmit}
+                      className="flex items-center justify-center gap-3 w-full bg-brand-600 text-white py-5 rounded-2xl font-black text-lg shadow-xl hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-50 disabled:scale-100"
+                    >
+                      {isSubmitting ? "Processing..." : "Submit My Booking"}
+                      {!isSubmitting && <IconChevronRight className="w-6 h-6" />}
+                    </button>
+                    {error && <p className="text-red-500 text-xs font-bold text-center">{error}</p>}
+                  </div>
+               </div>
             </div>
+
+            <button onClick={prevStep} className="flex items-center gap-2 text-gray-500 font-bold">
+              <IconChevronLeft className="w-5 h-5" /> Back to Summary
+            </button>
           </div>
         );
 

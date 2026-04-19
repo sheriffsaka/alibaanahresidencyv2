@@ -5,7 +5,7 @@ import { IconChevronDown } from './Icon';
 import { CmsContent } from '../types';
 
 interface FAQProps {
-    faqs: CmsContent['faqs'];
+    faqs: { id: number; q: string; a: string; }[];
 }
 
 const FAQ: React.FC<FAQProps> = ({ faqs }) => {

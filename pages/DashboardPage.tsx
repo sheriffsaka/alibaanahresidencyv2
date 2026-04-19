@@ -6,14 +6,16 @@ import { Booking, BookingStatus } from '../types';
 import { useApp } from '../hooks/useApp';
 import InvoiceView from '../components/InvoiceView';
 import { IconBuilding } from '../components/Icon';
-import ContractSigningModal from '../components/ContractSigningModal';
 import PaymentProofModal from '../components/PaymentProofModal';
 import { supabase } from '../lib/supabaseClient';
+import AgreementModal from '../components/AgreementModal';
+import { sendEmail, getAgreementSignedTemplate } from '../lib/email';
 
 const DashboardPage: React.FC = () => {
   const t = useTranslation();
   const { user, bookings, activities, setPage, cmsContent, addActivity, updateBooking, language, rooms } = useApp();
   const [selectedInvoice, setSelectedInvoice] = useState<Booking | null>(null);
+  const [viewingAgreement, setViewingAgreement] = useState<Booking | null>(null);
   const [signingBooking, setSigningBooking] = useState<Booking | null>(null);
   const [uploadingProofBooking, setUploadingProofBooking] = useState<Booking | null>(null);
   
@@ -54,6 +56,21 @@ const DashboardPage: React.FC = () => {
         description: `Signed residency agreement for BK${signingBooking.id}`,
         timestamp: signedAt
       });
+
+      // Send email notification to student
+      const emailTemplate = getAgreementSignedTemplate(signingBooking.full_name, signingBooking.id);
+      sendEmail({
+        to: signingBooking.email,
+        subject: emailTemplate.subject,
+        body: emailTemplate.body
+      }).catch(err => console.error("Failed to send signature email:", err));
+
+      // Send email notification to admin
+      sendEmail({
+        to: 'admin@alibaanah.com',
+        subject: `Tenancy Agreement Signed - (BK${signingBooking.id})`,
+        body: `A tenancy agreement has been signed by ${signingBooking.full_name} for BK${signingBooking.id}.\n\nPlease review it in the admin dashboard.`
+      }).catch(err => console.error("Failed to send admin email:", err));
 
       alert("Contract signed successfully!");
       setSigningBooking(null);
@@ -186,7 +203,7 @@ const DashboardPage: React.FC = () => {
                                   </button>
                                 )}
 
-                                {(booking.status === BookingStatus.CONFIRMED || booking.status === BookingStatus.OCCUPIED) && (
+                                {(booking.status === BookingStatus.CONFIRMED || booking.status === BookingStatus.OCCUPIED || booking.status === BookingStatus.PENDING_PAYMENT || booking.status === BookingStatus.PENDING_VERIFICATION) && (
                                   <>
                                     <button 
                                       onClick={() => {
@@ -198,7 +215,7 @@ const DashboardPage: React.FC = () => {
                                       Extend Booking
                                     </button>
                                     <button 
-                                      onClick={() => window.open(booking.signature_data || '#', '_blank')}
+                                      onClick={() => setViewingAgreement(booking)}
                                       className="text-green-600 hover:text-green-800 dark:text-green-400 text-xs font-bold underline decoration-dotted text-left"
                                     >
                                       View Agreement
@@ -262,10 +279,18 @@ const DashboardPage: React.FC = () => {
           isReceipt={selectedInvoice.status === BookingStatus.CONFIRMED || selectedInvoice.status === BookingStatus.OCCUPIED} 
         />
       )}
+      {/* Agreement Modal */}
+      {viewingAgreement && (
+        <AgreementModal 
+          booking={viewingAgreement}
+          onClose={() => setViewingAgreement(null)}
+          isReadOnly={true}
+        />
+      )}
       {/* Contract Signing Modal */}
       {signingBooking && (
-        <ContractSigningModal 
-          contractText={cmsContent.contractTemplates[signingBooking.rooms.type]?.[signingBooking.contract_language || 'en'] || 'Contract template not found for this room type and language.'}
+        <AgreementModal 
+          booking={signingBooking}
           onSign={handleSignContract}
           onClose={() => setSigningBooking(null)}
         />
