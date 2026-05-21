@@ -1,5 +1,5 @@
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Booking, BookingStatus } from '../types';
 import { IconClose } from './Icon';
 import { useApp } from '../hooks/useApp';
@@ -14,6 +14,7 @@ interface InvoiceViewProps {
 const InvoiceView: React.FC<InvoiceViewProps> = ({ booking, onClose, isReceipt }) => {
   const t = useTranslation();
   const { cmsContent } = useApp();
+  const [paymentTab, setPaymentTab] = useState<'remitly' | 'payoneer'>('payoneer');
 
   useEffect(() => {
     // Automatically trigger print dialog when component mounts
@@ -159,23 +160,73 @@ const InvoiceView: React.FC<InvoiceViewProps> = ({ booking, onClose, isReceipt }
 
             {/* Bank Details for Pending Payment */}
             {booking.status === BookingStatus.PENDING_PAYMENT && (
-              <div className="mt-10 p-6 bg-brand-50 dark:bg-brand-900/20 rounded-2xl border border-brand-100 dark:border-brand-800">
-                <h3 className="text-sm font-bold text-brand-800 dark:text-brand-300 uppercase tracking-widest mb-4">Payment Instructions</h3>
-                <p className="text-sm text-brand-700 dark:text-brand-400 mb-4">
-                  {t.contactSchoolForPayment}
-                </p>
-                <div className="flex flex-col gap-2 text-sm font-medium text-brand-800 dark:text-brand-200">
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs font-bold text-brand-600 uppercase">Email:</span>
-                    <span>support@alibaanah.com</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs font-bold text-brand-600 uppercase">WhatsApp:</span>
-                    <span>+20 123 456 7890</span>
+              <div className="mt-10 p-6 bg-gray-50 dark:bg-gray-800/50 rounded-2xl border border-gray-200 dark:border-gray-700">
+                <div className="flex justify-between items-center mb-4 no-print border-b pb-3 dark:border-gray-700">
+                  <h3 className="text-sm font-bold text-gray-800 dark:text-gray-200 uppercase tracking-widest">Select Payment Method</h3>
+                  <div className="flex gap-2">
+                    <button 
+                      onClick={() => setPaymentTab('payoneer')}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${paymentTab === 'payoneer' ? 'bg-orange-600 text-white' : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300'}`}
+                    >
+                      Payoneer
+                    </button>
+                    <button 
+                      onClick={() => setPaymentTab('remitly')}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${paymentTab === 'remitly' ? 'bg-brand-600 text-white' : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300'}`}
+                    >
+                      Remitly / WhatsApp
+                    </button>
                   </div>
                 </div>
-                <div className="mt-6 text-[10px] text-brand-600 font-bold border-t border-brand-100 dark:border-brand-800 pt-4">
-                  * After making the payment, please upload your receipt on the dashboard for verification.
+
+                {paymentTab === 'payoneer' ? (
+                  <div className="space-y-4">
+                    <div className="flex items-center gap-2">
+                      <span className="px-2 py-0.5 text-[10px] font-bold bg-orange-100 dark:bg-orange-950 text-orange-600 dark:text-orange-400 rounded">Official Gateway Option</span>
+                      <span className="text-xs font-bold text-gray-400">Payoneer Instant Escrow</span>
+                    </div>
+                    <p className="text-sm text-gray-700 dark:text-gray-300">
+                      To make a payment of <span className="font-bold text-orange-600">${booking.total_price?.toFixed(2)}</span> via Payoneer, transfer directly to our corporate Payoneer receiving account:
+                    </p>
+                    <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 p-4 rounded-xl space-y-2">
+                      <div className="flex justify-between items-center text-sm">
+                        <span className="text-gray-400 text-xs uppercase font-bold">Payoneer Email:</span>
+                        <span className="font-mono font-bold text-orange-600 select-all">sheriffdeenalade@gmail.com</span>
+                      </div>
+                      <div className="flex justify-between items-center text-sm">
+                        <span className="text-gray-400 text-xs uppercase font-bold">Recipient Name:</span>
+                        <span className="font-bold">Al-Ibaanah Student Residency</span>
+                      </div>
+                      <div className="flex justify-between items-center text-sm">
+                        <span className="text-gray-400 text-xs uppercase font-bold">Reference:</span>
+                        <span className="font-bold text-gray-600 dark:text-gray-300 space-x-1">BK{booking.id} - {booking.full_name}</span>
+                      </div>
+                    </div>
+                    <p className="text-xs text-gray-500 leading-relaxed italic">
+                      How to pay: 1. Log in to your Payoneer Account. 2. Select "Pay" &rarr; "Make a Payment". 3. Enter our recipient email. 4. Transfer the deposit. 5. Upload your transaction confirmation screenshot on your dashboard.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    <h4 className="text-sm font-bold text-brand-800 dark:text-brand-300">Remitly / Cash Payment Instructions</h4>
+                    <p className="text-sm text-gray-700 dark:text-gray-400">
+                      {t.contactSchoolForPayment}
+                    </p>
+                    <div className="flex flex-col gap-2 text-sm font-medium text-brand-800 dark:text-brand-200">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-bold text-brand-600 uppercase">Email:</span>
+                        <span>support@alibaanah.com</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-bold text-brand-600 uppercase">WhatsApp:</span>
+                        <span>+20 123 456 7890</span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                <div className="mt-6 text-[10px] text-brand-600 dark:text-brand-400 font-bold border-t border-gray-200 dark:border-gray-700 pt-4">
+                  * After completing the payment, please upload your proof of payment on the dashboard for quick verification and key activation.
                 </div>
               </div>
             )}

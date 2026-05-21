@@ -776,6 +776,7 @@ const AdminDashboardPage: React.FC = () => {
                         <thead className="bg-gray-50 dark:bg-gray-900">
                             <tr>
                                 <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase">Name</th>
+                                <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase">Email</th>
                                 <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase">Role</th>
                                 <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase">Gender</th>
                                 <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase">Actions</th>
@@ -784,7 +785,12 @@ const AdminDashboardPage: React.FC = () => {
                         <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
                             {users.map(u => (
                                 <tr key={u.id}>
-                                    <td className="px-6 py-4 font-bold">{u.full_name} {u.id === user?.id && <span className="ml-2 text-[10px] bg-brand-100 text-brand-600 px-1 rounded">You</span>}</td>
+                                    <td className="px-6 py-4">
+                                        <div className="font-bold text-gray-900 dark:text-white">{u.full_name} {u.id === user?.id && <span className="ml-2 text-[10px] bg-brand-100 text-brand-600 px-1 rounded">You</span>}</div>
+                                    </td>
+                                    <td className="px-6 py-4 text-xs text-gray-500 dark:text-gray-400 font-medium">
+                                        {u.email}
+                                    </td>
                                     <td className="px-6 py-4">
                                         <span className={`px-2 py-1 rounded text-[10px] font-bold uppercase ${u.role === 'proprietor' ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'}`}>
                                             {u.role}

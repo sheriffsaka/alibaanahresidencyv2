@@ -84,17 +84,9 @@ const TenancyAgreementDocument: React.ForwardRefRenderFunction<HTMLDivElement, T
         {/* Section A */}
         <section className="print:break-inside-avoid">
           <h3 className="text-brand-800 font-black uppercase text-[10px] border-b border-gray-200 pb-0.5 mb-1.5">SECTION A: PROPERTY & ACCOMMODATION</h3>
-          <div className="grid grid-cols-2 gap-4 text-[10px]">
-            <div className="space-y-1">
-              <p><span className="font-bold uppercase tracking-wider text-[8px] text-gray-500 mr-2">Category:</span> <span className="border-b border-gray-400 px-2 font-bold">{formData.category || '___________________'}</span></p>
-              <p><span className="font-bold uppercase tracking-wider text-[8px] text-gray-500 mr-2">Room Type:</span> <span className="border-b border-gray-400 px-2 font-bold">{formattedRoomType || '_________________'}</span></p>
-            </div>
-            <div className="bg-gray-50/50 p-2 border border-gray-100 rounded">
-              <p className="font-bold mb-0.5 text-[8px] uppercase text-gray-500">Apartment & Address:</p>
-              <div className="italic text-gray-700 font-serif text-[10px] leading-tight">
-                {formData.apartment ? `${formData.apartment}: ${apartmentAddress || 'Address on file'}` : '______________________________________'}
-              </div>
-            </div>
+          <div className="text-[10px] space-y-1">
+            <p><span className="font-bold uppercase tracking-wider text-[8px] text-gray-500 mr-2">Category:</span> <span className="border-b border-gray-400 px-2 font-bold">{formData.category || '___________________'}</span></p>
+            <p><span className="font-bold uppercase tracking-wider text-[8px] text-gray-500 mr-2">Room Type:</span> <span className="border-b border-gray-400 px-2 font-bold">{formattedRoomType || '_________________'}</span></p>
           </div>
         </section>
 

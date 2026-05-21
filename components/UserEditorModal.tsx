@@ -6,12 +6,14 @@ import { IconClose } from './Icon';
 interface UserEditorModalProps {
   user: User | null;
   onClose: () => void;
-  onSave: (userData: Partial<User>) => void;
+  onSave: (userData: Partial<User> & { password?: string }) => void;
 }
 
 const UserEditorModal: React.FC<UserEditorModalProps> = ({ user, onClose, onSave }) => {
-  const [formData, setFormData] = useState<Partial<User>>({
+  const [formData, setFormData] = useState<Partial<User> & { password?: string }>({
     full_name: '',
+    email: '',
+    password: '',
     role: 'staff',
     gender: 'Male'
   });
@@ -20,6 +22,7 @@ const UserEditorModal: React.FC<UserEditorModalProps> = ({ user, onClose, onSave
     if (user) {
       setFormData({
         full_name: user.full_name || '',
+        email: user.email || '',
         role: user.role,
         gender: user.gender || 'Male'
       });
@@ -33,8 +36,8 @@ const UserEditorModal: React.FC<UserEditorModalProps> = ({ user, onClose, onSave
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-      <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl w-full max-w-md animate-scale-in">
-        <div className="p-6 border-b dark:border-gray-800 flex justify-between items-center">
+      <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl w-full max-w-md animate-scale-in max-h-[90vh] overflow-y-auto">
+        <div className="p-6 border-b dark:border-gray-800 flex justify-between items-center sticky top-0 bg-white dark:bg-gray-900 z-10">
           <h3 className="text-xl font-bold">{user ? 'Edit User' : 'Add New Admin User'}</h3>
           <button onClick={onClose} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition-colors">
             <IconClose className="w-6 h-6" />
@@ -49,10 +52,39 @@ const UserEditorModal: React.FC<UserEditorModalProps> = ({ user, onClose, onSave
               required
               value={formData.full_name}
               onChange={(e) => setFormData({ ...formData, full_name: e.target.value })}
-              className="w-full p-3 bg-gray-50 dark:bg-gray-800 border-none rounded-xl focus:ring-2 focus:ring-brand-500 transition-all"
+              className="w-full p-3 bg-gray-50 dark:bg-gray-800 border-none rounded-xl focus:ring-2 focus:ring-brand-500 transition-all font-medium"
               placeholder="Enter full name"
             />
           </div>
+
+          <div>
+            <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Email Address</label>
+            <input
+              type="email"
+              required
+              disabled={!!user}
+              value={formData.email}
+              onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+              className="w-full p-3 bg-gray-50 dark:bg-gray-800 border-none rounded-xl focus:ring-2 focus:ring-brand-500 transition-all font-medium disabled:opacity-50"
+              placeholder="admin@example.com"
+            />
+          </div>
+
+          {!user && (
+            <div>
+              <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Password</label>
+              <input
+                type="password"
+                required
+                value={formData.password}
+                onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                className="w-full p-3 bg-gray-50 dark:bg-gray-800 border-none rounded-xl focus:ring-2 focus:ring-brand-500 transition-all font-medium"
+                placeholder="••••••••"
+                minLength={8}
+              />
+              <p className="mt-1 text-[10px] text-gray-500">Minimum 8 characters.</p>
+            </div>
+          )}
 
           <div>
             <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Role</label>

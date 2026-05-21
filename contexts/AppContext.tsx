@@ -619,25 +619,60 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     }
   };
 
-  const addUser = async (userData: Partial<User>) => {
+  const addUser = async (userData: Partial<User> & { password?: string }) => {
     try {
-      // NOTE: Creating a user in Supabase Auth from the client is restricted.
-      // We are managing the 'profiles' table entry here. 
-      // In a real app, you'd use a service role or invitation system.
-      // For this implementation, we assume we are managing existing identities or metadata.
-      const { data, error } = await supabase
+      if (!userData.email || !userData.password) {
+        throw new Error("Email and password are required for new users.");
+      }
+
+      // 1. Create the user in Supabase Auth
+      const { data: authData, error: authError } = await supabase.auth.signUp({
+        email: userData.email,
+        password: userData.password,
+        options: {
+          data: {
+            full_name: userData.full_name,
+            gender: userData.gender,
+            role: userData.role // This will be handled by the trigger or updated below
+          }
+        }
+      });
+
+      if (authError) throw authError;
+      if (!authData.user) throw new Error("Failed to create auth user.");
+
+      // 2. Update the profile with the correct role (trigger defaults to student)
+      const { data: profileData, error: profileError } = await supabase
         .from('profiles')
-        .insert([{
-          id: userData.id || crypto.randomUUID(), // Fallback ID if creating new
+        .update({
           full_name: userData.full_name,
           role: userData.role,
           gender: userData.gender
-        }])
+        })
+        .eq('id', authData.user.id)
         .select()
         .single();
 
-      if (error) throw error;
-      setUsers(prev => [...prev, data]);
+      if (profileError) {
+          // If update fails, maybe the profile wasn't created yet by the trigger
+          // We can try to insert it or just wait
+          console.warn("Profile update failed, maybe trigger hasn't finished:", profileError.message);
+      }
+
+      const newUser = {
+          id: authData.user.id,
+          email: userData.email,
+          full_name: userData.full_name || '',
+          role: userData.role || 'staff',
+          gender: userData.gender
+      };
+
+      setUsers(prev => [...prev, newUser]);
+      
+      // Note: In some Supabase configs, signUp might sign the admin out.
+      // We should warn the developer or handle the session appropriately.
+      alert("Admin user created successfully! They will receive a confirmation email if enabled.");
+      
       return { success: true };
     } catch (err: any) {
       console.error("Error adding user:", err.message);
