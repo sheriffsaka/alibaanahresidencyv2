@@ -66,6 +66,7 @@ const MultiStepBookingForm: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [bookingResult, setBookingResult] = useState<Booking | null>(null);
   const [signature, setSignature] = useState<string | null>(null);
+  const [confirmPaymentTab, setConfirmPaymentTab] = useState<'bank' | 'remitly'>('bank');
   
   const sigPadRef = React.useRef<SignaturePad>(null);
   const agreementRef = React.useRef<HTMLDivElement>(null);
@@ -258,7 +259,7 @@ const MultiStepBookingForm: React.FC = () => {
       sendEmail({
         to: formData.email,
         subject: `Booking Agreement BK${createdBooking.id} & Landlord Payment Instructions`,
-        body: `Dear ${formData.fullName},\n\nWe have received your signed tenancy agreement for your stay at Al-Ibaanah Student Residency!\n\nHere are the details for making your deposit payment:\n\n-- LANDLORD BANK DETAILS --\nRecipient Name: Al-Ibaanah Student Residency / Jimoh Bolakale Ajao\nCorporate Payoneer Email: sheriffdeenalade@gmail.com\nReference Code: BK${createdBooking.id} - ${formData.fullName}\n\nRent Details: $${pricing.monthlyRate}/mo x ${formData.duration} months. Total calculated amounts: $${pricing.totalPrice} USD.\n\nPlease log into your student dashboard page to upload your deposit transfer confirmation screenshot when completed so we can quickly activate your key eligibility.\n\nWarm regards,\nAl-Ibaanah Administration`
+        body: `Dear ${formData.fullName},\n\nWe have received your signed tenancy agreement for your stay at Al-Ibaanah Student Residency!\n\nHere are the details for making your payment inside either of these two ways:\n\n1. BANK TRANSFER DETAILS\n━━━━━━━━━━━━━━━━\n👤 Recipient Name\nJimoh Bolakale Ajao\n\n🏛️ Bank Name\nCommercial International Bank (CIB)\n\n💳 IBAN\nEG98 0010 0109 0000 0100 0633 2816 7\n\n🔐 SWIFT / BIC Code\nCIBEEGCXXXX\n\n📞 Recipient's Phone\n+20 1030062440\n\n📍 BANK ADDRESS\n🏠 Street: 71 Abou Dawood El Zahry Street, Off Makram Ebeid Street\n🏙️ City: Nasr City, Cairo\n🌍 Country: Egypt\n📮 P.O. Box: 11341\n\n2. HOW TO PAY YOUR FEES VIA REMITLY\nTo make your payment smoothly, please follow the steps below:\n1. Download Remitly from the App Store or Google Play, or visit: https://www.remitly.com and log in or create an account.\n2. Select the country you are sending money from.\n3. Select Egypt as the country you are sending to.\n4. Enter the amount you want to pay: e.g. $200 USD and you will be shown the equivalent amount in Egyptian pounds (This account will not accept dollars so make sure you send the equivalent in EGP).\n5. Choose the delivery method: Bank Deposit.\n6. Enter the recipient’s bank details exactly as written below:\n   * Account Name: Jimoh Bolakale Ajao\n   * Bank Name: CIB\n   * Bank Location: Cairo\n   * IBAN: EG320010010900000100063328094\n7. Choose your payment method (debit card, credit card, or bank transfer).\n8. Carefully review all details and confirm/send payment.\n\n✅ Reference memo is required: BK${createdBooking.id} - ${formData.fullName}\n\nRent Details: $${pricing.monthlyRate}/mo x ${formData.duration} months. Total calculated amount: $${pricing.totalPrice} USD.\n\nPlease log into your student dashboard page to upload your deposit transfer confirmation screenshot when completed so we can quickly activate your key eligibility.\n\nWarm regards,\nAl-Ibaanah Administration`
       }).catch(err => console.error("Failed to send signature email:", err));
 
       // Admin alert
@@ -705,36 +706,113 @@ const MultiStepBookingForm: React.FC = () => {
             </p>
 
             {/* Landlord payment details */}
-            <div className="bg-amber-50/30 dark:bg-gray-900/30 border border-amber-200/50 dark:border-gray-800 p-6 rounded-2xl text-left space-y-4">
-              <h3 className="font-black text-amber-900 dark:text-amber-400 text-xs uppercase tracking-wider flex items-center gap-2">
-                📢 ACTION REQUIREMENT: Send Rent & Deposit
-              </h3>
-              <p className="text-xs text-gray-700 dark:text-gray-300 leading-normal">
-                To activate your residency and ensure prompt secure key distribution prior to arrival, please transfer the Calculated Rent using the following details:
-              </p>
-
-              <div className="bg-white dark:bg-gray-800 p-4 rounded-xl border border-gray-200 dark:border-gray-700 text-xs space-y-3 font-medium">
-                <div className="flex justify-between border-b pb-2">
-                  <span className="text-gray-400">Total Deposit & Rent:</span>
-                  <span className="font-bold text-brand-700 text-sm">${pricing.totalPrice} USD</span>
+            <div className="bg-amber-50/20 dark:bg-gray-900/30 border border-amber-200/40 dark:border-gray-800 p-6 rounded-2xl text-left space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between border-b border-gray-200 dark:border-gray-800 pb-4 gap-4">
+                <div>
+                  <h3 className="font-black text-amber-900 dark:text-amber-400 text-xs uppercase tracking-wider flex items-center gap-2">
+                    📢 ACTION REQUIRED: Secure Your Bed
+                  </h3>
+                  <p className="text-xs text-gray-500 mt-1">Please select your preferred payment method:</p>
                 </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-gray-400">Merchant Payoneer Email:</span>
-                  <span className="font-mono font-bold select-all text-orange-600">sheriffdeenalade@gmail.com</span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-gray-400">Recipient Name:</span>
-                  <span className="font-bold">Jimoh Bolakale Ajao (Al-Ibaanah)</span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-gray-400">Reference memo is required:</span>
-                  <span className="font-bold font-mono text-gray-900 dark:text-white bg-gray-100 dark:bg-gray-900 px-2 py-0.5 rounded">BK{bookingResult?.id || '2004'} - {formData.fullName}</span>
+                <div className="flex bg-gray-150 dark:bg-gray-800 p-1 rounded-xl">
+                  <button
+                    type="button"
+                    onClick={() => setConfirmPaymentTab('bank')}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-black uppercase tracking-wider transition-all ${
+                      confirmPaymentTab === 'bank'
+                        ? 'bg-amber-600 text-white shadow-sm'
+                        : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
+                    }`}
+                  >
+                    Bank Transfer
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setConfirmPaymentTab('remitly')}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-black uppercase tracking-wider transition-all ${
+                      confirmPaymentTab === 'remitly'
+                        ? 'bg-amber-600 text-white shadow-sm'
+                        : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
+                    }`}
+                  >
+                    Remitly Transfer
+                  </button>
                 </div>
               </div>
 
-              <div className="p-3.5 bg-brand-50/20 dark:bg-gray-900/10 border border-brand-100/50 rounded-xl">
-                <p className="text-[11px] text-brand-800 dark:text-brand-300 leading-relaxed">
-                  <strong>👉 NEXT STEP:</strong> Once the transfer is completed, taking a screenshot of your confirmation screen, then go directly to your **Student Dashboard** to upload the proof of payment file for instant activation.
+              {confirmPaymentTab === 'bank' ? (
+                <div className="space-y-4">
+                  <div className="bg-white dark:bg-gray-800 p-5 rounded-2xl border border-gray-200 dark:border-gray-700 text-xs space-y-3 font-medium">
+                    <div className="flex justify-between border-b pb-2 text-sm">
+                      <span className="text-gray-400">Total Charged:</span>
+                      <span className="font-black text-brand-700">${pricing.totalPrice} USD</span>
+                    </div>
+                    <div className="grid grid-cols-2 gap-y-2.5 pt-2">
+                      <div className="text-gray-400 font-bold uppercase tracking-wider text-[10px]">Recipient Name</div>
+                      <div className="font-bold text-gray-900 dark:text-white select-all text-right">Jimoh Bolakale Ajao</div>
+
+                      <div className="text-gray-400 font-bold uppercase tracking-wider text-[10px]">Bank Name</div>
+                      <div className="font-bold text-gray-900 dark:text-white text-right">Commercial International Bank (CIB)</div>
+
+                      <div className="text-gray-400 font-bold uppercase tracking-wider text-[10px]">IBAN</div>
+                      <div className="font-mono font-bold text-amber-600 dark:text-amber-400 select-all text-right">EG98 0010 0109 0000 0100 0633 2816 7</div>
+
+                      <div className="text-gray-400 font-bold uppercase tracking-wider text-[10px]">SWIFT / BIC Code</div>
+                      <div className="font-mono font-bold select-all text-right">CIBEEGCXXXX</div>
+
+                      <div className="text-gray-400 font-bold uppercase tracking-wider text-[10px]">Phone Number</div>
+                      <div className="font-bold select-all text-right">+20 1030062440</div>
+                    </div>
+                    
+                    <div className="border-t border-gray-100 dark:border-gray-700 pt-3 text-[11px] text-gray-500 leading-normal">
+                      <strong className="text-gray-700 dark:text-gray-300 block mb-1">🏦 Bank Address:</strong>
+                      71 Abou Dawood El Zahry Street, Off Makram Ebeid Street, Nasr City, Cairo, Egypt (P.O. Box 11341)
+                    </div>
+
+                    <div className="border-t border-gray-100 dark:border-gray-700 pt-3 flex justify-between items-center">
+                      <span className="text-gray-400 font-bold uppercase tracking-wider text-[10px]">Reference / Memo:</span>
+                      <span className="font-black font-mono text-gray-900 dark:text-white bg-gray-100 dark:bg-gray-900 px-2 py-1 rounded border border-gray-200 dark:border-gray-800">
+                        BK{bookingResult?.id || '2004'} - {formData.fullName}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  <div className="bg-white dark:bg-gray-800 p-5 rounded-2xl border border-gray-200 dark:border-gray-700 text-xs space-y-3.5">
+                    <h4 className="font-black text-amber-900 dark:text-amber-400 text-xs uppercase tracking-wider">How to Pay Your Fees via Remitly</h4>
+                    <ol className="list-decimal pl-4 space-y-2 text-gray-600 dark:text-gray-300 text-[11px] leading-relaxed">
+                      <li>Download Remitly from the App Store or Google Play, or visit <a href="https://www.remitly.com" target="_blank" rel="noopener noreferrer" className="text-brand-600 underline font-bold">www.remitly.com</a>. Log in or create an account.</li>
+                      <li>Select the country you are sending money from.</li>
+                      <li>Select <strong>Egypt</strong> as the country you are sending to.</li>
+                      <li>
+                        Enter the amount you want to pay: e.g., <strong>${pricing.totalPrice} USD</strong> (or equivalent).
+                        <p className="text-red-500 font-bold mt-0.5">⚠️ This account will not accept dollars directly—make sure you send the equivalent in Egyptian Pounds (EGP).</p>
+                      </li>
+                      <li>Choose the delivery method: <strong>Bank Deposit</strong>.</li>
+                      <li>
+                        Enter the recipient’s bank details exactly as written below:
+                        <div className="bg-gray-50 dark:bg-gray-900/50 p-2.5 rounded-lg border border-gray-150 dark:border-gray-800 font-medium pl-3 mt-1.5 grid grid-cols-2 gap-1 text-[11px]">
+                          <span className="text-gray-400">Account Name:</span>
+                          <span className="font-bold text-right col-span-1">Jimoh Bolakale Ajao</span>
+                          <span className="text-gray-400">Bank Name:</span>
+                          <span className="font-bold text-right col-span-1">CIB</span>
+                          <span className="text-gray-400">Bank Location:</span>
+                          <span className="font-bold text-right col-span-1">Cairo</span>
+                          <span className="text-gray-400 text-left">IBAN:</span>
+                          <span className="font-mono font-bold text-right col-span-1 text-brand-600 dark:text-brand-400 select-all">EG320010010900000100063328094</span>
+                        </div>
+                      </li>
+                      <li>Choose your payment method (debit card, credit card, or bank transfer).</li>
+                      <li>Carefully review all details, ensure reference is marked as <strong className="font-mono bg-gray-100 dark:bg-gray-900 px-1 py-0.5 rounded">BK{bookingResult?.id || '2004'}</strong>, and confirm.</li>
+                    </ol>
+                  </div>
+                </div>
+              )}
+
+              <div className="p-4 bg-brand-500/10 dark:bg-brand-900/20 border border-brand-200 dark:border-brand-800 rounded-xl">
+                <p className="text-[11px] text-brand-800 dark:text-brand-300 leading-relaxed font-medium">
+                  <strong>👉 NEXT STEP:</strong> Once you complete the payment, take a screenshot or download the receipt. Log into your <strong>Student Dashboard</strong> to upload this screenshot to verify your payment and activate your keys/check-in access.
                 </p>
               </div>
             </div>

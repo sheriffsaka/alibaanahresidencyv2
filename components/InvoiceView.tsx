@@ -14,7 +14,7 @@ interface InvoiceViewProps {
 const InvoiceView: React.FC<InvoiceViewProps> = ({ booking, onClose, isReceipt }) => {
   const t = useTranslation();
   const { cmsContent } = useApp();
-  const [paymentTab, setPaymentTab] = useState<'remitly' | 'payoneer'>('payoneer');
+  const [paymentTab, setPaymentTab] = useState<'bank' | 'remitly'>('bank');
 
   useEffect(() => {
     // Automatically trigger print dialog when component mounts
@@ -165,62 +165,85 @@ const InvoiceView: React.FC<InvoiceViewProps> = ({ booking, onClose, isReceipt }
                   <h3 className="text-sm font-bold text-gray-800 dark:text-gray-200 uppercase tracking-widest">Select Payment Method</h3>
                   <div className="flex gap-2">
                     <button 
-                      onClick={() => setPaymentTab('payoneer')}
-                      className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${paymentTab === 'payoneer' ? 'bg-orange-600 text-white' : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300'}`}
+                      onClick={() => setPaymentTab('bank')}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${paymentTab === 'bank' ? 'bg-amber-600 text-white shadow' : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300'}`}
                     >
-                      Payoneer
+                      Bank Transfer
                     </button>
                     <button 
                       onClick={() => setPaymentTab('remitly')}
-                      className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${paymentTab === 'remitly' ? 'bg-brand-600 text-white' : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300'}`}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${paymentTab === 'remitly' ? 'bg-brand-600 text-white shadow' : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300'}`}
                     >
-                      Remitly / WhatsApp
+                      Remitly Transfer
                     </button>
                   </div>
                 </div>
 
-                {paymentTab === 'payoneer' ? (
-                  <div className="space-y-4">
+                {paymentTab === 'bank' ? (
+                  <div className="space-y-4 text-xs font-medium text-gray-700 dark:text-gray-300">
                     <div className="flex items-center gap-2">
-                      <span className="px-2 py-0.5 text-[10px] font-bold bg-orange-100 dark:bg-orange-950 text-orange-600 dark:text-orange-400 rounded">Official Gateway Option</span>
-                      <span className="text-xs font-bold text-gray-400">Payoneer Instant Escrow</span>
+                      <span className="px-2 py-0.5 text-[10px] font-bold bg-amber-100 dark:bg-amber-950 text-amber-600 dark:text-amber-400 rounded">Direct Bank Deposit</span>
                     </div>
-                    <p className="text-sm text-gray-700 dark:text-gray-300">
-                      To make a payment of <span className="font-bold text-orange-600">${booking.total_price?.toFixed(2)}</span> via Payoneer, transfer directly to our corporate Payoneer receiving account:
+                    <p className="text-sm">
+                      Please transfer the billing amount of <span className="font-extrabold text-brand-600">${booking.total_price?.toFixed(2)} USD</span> using the official details:
                     </p>
-                    <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 p-4 rounded-xl space-y-2">
-                      <div className="flex justify-between items-center text-sm">
-                        <span className="text-gray-400 text-xs uppercase font-bold">Payoneer Email:</span>
-                        <span className="font-mono font-bold text-orange-600 select-all">sheriffdeenalade@gmail.com</span>
+                    <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 p-4 rounded-xl space-y-2 text-[11px]">
+                      <div className="flex justify-between items-center">
+                        <span className="text-gray-400 uppercase font-bold text-[9px]">👤 Recipient Name:</span>
+                        <span className="font-bold select-all text-gray-900 dark:text-white">Jimoh Bolakale Ajao</span>
                       </div>
-                      <div className="flex justify-between items-center text-sm">
-                        <span className="text-gray-400 text-xs uppercase font-bold">Recipient Name:</span>
-                        <span className="font-bold">Al-Ibaanah Student Residency</span>
+                      <div className="flex justify-between items-center">
+                        <span className="text-gray-400 uppercase font-bold text-[9px]">🏛️ Bank Name:</span>
+                        <span className="font-bold text-gray-900 dark:text-white">Commercial International Bank (CIB)</span>
                       </div>
-                      <div className="flex justify-between items-center text-sm">
-                        <span className="text-gray-400 text-xs uppercase font-bold">Reference:</span>
-                        <span className="font-bold text-gray-600 dark:text-gray-300 space-x-1">BK{booking.id} - {booking.full_name}</span>
+                      <div className="flex justify-between items-center">
+                        <span className="text-gray-400 uppercase font-bold text-[9px]">💳 IBAN:</span>
+                        <span className="font-mono font-bold text-amber-600 select-all">EG98 0010 0109 0000 0100 0633 2816 7</span>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-gray-400 uppercase font-bold text-[9px]">🔐 SWIFT / BIC:</span>
+                        <span className="font-mono font-bold select-all">CIBEEGCXXXX</span>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-gray-400 uppercase font-bold text-[9px]">📞 Phone Number:</span>
+                        <span className="font-bold select-all">+20 1030062440</span>
+                      </div>
+                      <div className="pt-2 border-t border-gray-150 dark:border-gray-800 text-[10px] text-gray-500 leading-normal">
+                        <span className="font-bold block text-gray-600 dark:text-gray-400">📍 Bank Address:</span>
+                        71 Abou Dawood El Zahry Street, Off Makram Ebeid Street, Nasr City, Cairo, Egypt (P.O. Box 11341)
+                      </div>
+                      <div className="flex justify-between items-center border-t border-gray-150 dark:border-gray-800 pt-2">
+                        <span className="text-gray-400 uppercase font-bold text-[9px]">Memo/Reference:</span>
+                        <span className="font-bold font-mono text-gray-900 dark:text-white bg-gray-100 dark:bg-gray-950 px-2 py-0.5 rounded">BK{booking.id} - {booking.full_name}</span>
                       </div>
                     </div>
-                    <p className="text-xs text-gray-500 leading-relaxed italic">
-                      How to pay: 1. Log in to your Payoneer Account. 2. Select "Pay" &rarr; "Make a Payment". 3. Enter our recipient email. 4. Transfer the deposit. 5. Upload your transaction confirmation screenshot on your dashboard.
-                    </p>
                   </div>
                 ) : (
                   <div className="space-y-4">
-                    <h4 className="text-sm font-bold text-brand-800 dark:text-brand-300">Remitly / Cash Payment Instructions</h4>
-                    <p className="text-sm text-gray-700 dark:text-gray-400">
-                      {t.contactSchoolForPayment}
-                    </p>
-                    <div className="flex flex-col gap-2 text-sm font-medium text-brand-800 dark:text-brand-200">
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs font-bold text-brand-600 uppercase">Email:</span>
-                        <span>support@alibaanah.com</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs font-bold text-brand-600 uppercase">WhatsApp:</span>
-                        <span>+20 123 456 7890</span>
-                      </div>
+                    <div className="flex items-center gap-2">
+                      <span className="px-2 py-0.5 text-[10px] font-bold bg-brand-100 dark:bg-brand-950 text-brand-600 dark:text-brand-400 rounded">Remitly Bank Deposit</span>
+                    </div>
+                    <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 p-4 rounded-xl text-xs space-y-2 text-gray-700 dark:text-gray-300">
+                      <h4 className="font-bold text-brand-800 dark:text-brand-300 text-xs">Steps to pay via Remitly:</h4>
+                      <ol className="list-decimal pl-4 space-y-1.5 text-[11px] leading-relaxed">
+                        <li>Go to <a href="https://www.remitly.com" target="_blank" rel="noopener noreferrer" className="text-brand-600 font-bold underline select-all">www.remitly.com</a> or open the mobile app.</li>
+                        <li>Select sending country and select <strong>Egypt</strong> as destination.</li>
+                        <li>Enter the amount to send in equivalent of <span className="font-bold text-brand-600">${booking.total_price?.toFixed(2)} USD</span>. <span className="text-red-500 font-bold">⚠️ Send the equivalent in EGP (the account only accepts Egyptian Pounds).</span></li>
+                        <li>Select delivery method: <strong>Bank Deposit</strong>.</li>
+                        <li>Enter recipient bank details exactly:
+                          <div className="bg-gray-50 dark:bg-gray-950 p-2.5 rounded border border-gray-200 dark:border-gray-850 grid grid-cols-2 gap-1 mt-1 font-medium text-[11px]">
+                            <span className="text-gray-400">Account Name:</span>
+                            <span className="font-bold text-right col-span-1">Jimoh Bolakale Ajao</span>
+                            <span className="text-gray-400">Bank Name:</span>
+                            <span className="font-bold text-right col-span-1">CIB</span>
+                            <span className="text-gray-400">Bank Location:</span>
+                            <span className="font-bold text-right col-span-1">Cairo</span>
+                            <span className="text-gray-400">IBAN:</span>
+                            <span className="font-mono font-bold text-right col-span-1 text-brand-600 dark:text-brand-400">EG320010010900000100063328094</span>
+                          </div>
+                        </li>
+                        <li>Select pay method, review details, matching reference <strong>BK{booking.id}</strong>, and send.</li>
+                      </ol>
                     </div>
                   </div>
                 )}
