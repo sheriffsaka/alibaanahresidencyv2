@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { IconCheckCircle } from './Icon';
 
@@ -14,161 +13,390 @@ const TenancyAgreementDocument: React.ForwardRefRenderFunction<HTMLDivElement, T
   { formData, monthlyRate, startDate, endDate, signature },
   ref
 ) => {
-  const today = new Date().toLocaleDateString();
-
-  const getApartmentAddress = (aptName: string) => {
-    if (!aptName) return '';
-    const name = aptName.toLowerCase();
-    
-    // Exact addresses provided by user
-    if (name.includes('1')) return '11, Samir Moursey Street, Nasr City, Cairo, Egypt';
-    if (name.includes('2')) return '24 Saqaliyyah Street, off Makram Ebeid, Nasr City, Cairo, Egypt';
-    if (name.includes('3')) return '2 Ezzat Salaam St, off Kaabool St, Makram Ebeid, Nasr City, Cairo, Egypt';
-    
-    // Generic fallback based on category
-    if (name.includes('premium')) return '11, Samir Moursey Street, Nasr City, Cairo, Egypt';
-    if (name.includes('standard')) return '24 Saqaliyyah Street, off Makram Ebeid, Nasr City, Cairo, Egypt';
-    
-    return '';
-  };
-
-  const apartmentAddress = getApartmentAddress(formData.apartment);
-  const formattedRoomType = formData.roomType ? 
-    (formData.roomType.toLowerCase().includes('private') ? 'Private Room' : 'Shared Room') 
-    : '';
+  const today = new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
 
   return (
-    <div ref={ref} className="bg-white text-gray-900 p-4 sm:p-6 shadow-2xl max-w-4xl mx-auto font-serif leading-tight print:shadow-none print:p-8 print:max-w-none">
-      {/* Header */}
-      <div className="flex justify-between items-start border-b-2 border-brand-800 pb-1 mb-2">
+    <div ref={ref} className="bg-white text-gray-900 p-8 sm:p-12 shadow-2xl max-w-4xl mx-auto font-sans leading-relaxed print:shadow-none print:p-8 print:max-w-none text-xs">
+      
+      {/* PAGE 1 */}
+      <div className="space-y-6 min-h-[950px] flex flex-col justify-between">
         <div>
-          <h1 className="text-lg font-bold text-brand-800 uppercase tracking-tighter">Al-Ibaanah Arabic Center</h1>
-          <p className="text-[9px] font-medium text-brand-600 tracking-widest mt-0.5">— STUDENT HOUSING —</p>
-        </div>
-        <div className="text-right text-[7px] text-gray-400 font-sans">
-          <p>Tenancy Agreement | Cairo, Egypt</p>
-        </div>
-      </div>
-
-      <div className="text-center mb-2">
-        <h2 className="text-xl font-extrabold text-brand-800 mb-0.1 uppercase tracking-tight">TENANCY AGREEMENT</h2>
-        <p className="text-xs font-bold text-yellow-600 italic">Official Student Housing Terms & Conditions</p>
-      </div>
-
-      <p className="mb-2 text-[10px]">This Rental Agreement is made between the following parties:</p>
-
-      {/* Parties */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3 print:gap-2">
-        {/* Landlord */}
-        <div className="bg-brand-50/50 p-2.5 border border-brand-100 rounded-lg">
-          <h3 className="text-brand-800 font-bold uppercase text-[8px] mb-1 border-b border-brand-200 pb-0.5">LANDLORD (LESSOR)</h3>
-          <div className="space-y-0.5 text-[10px]">
-            <p><span className="font-bold">Name:</span> Jimoh Bolakale Ajao (Al-Ibaanah Center)</p>
-            <p className="leading-tight"><span className="font-bold">Address:</span> 9, Mahmood Tawfeeq Street, Nasr City, Cairo</p>
-            <p><span className="font-bold">WhatsApp:</span> +201030072440</p>
+          {/* Header */}
+          <div className="flex justify-between items-center border-b pb-2 mb-6 text-gray-400 text-[10px]">
+            <span className="font-bold tracking-wider text-brand-800 uppercase">TENANCY AGREEMENT <span className="font-normal text-gray-400">| Al-Ibaanah Arabic Center</span></span>
+            <span>Page 1 of 4</span>
           </div>
-        </div>
 
-        {/* Tenant */}
-        <div className="bg-yellow-50/50 p-2.5 border border-yellow-100 rounded-lg text-[10px]">
-          <h3 className="text-yellow-800 font-bold uppercase text-[8px] mb-1 border-b border-yellow-200 pb-0.5">TENANT (LESSEE)</h3>
-          <div className="space-y-0.5">
-            <p><span className="font-bold">Full Name:</span> <span className="border-b border-gray-400 font-medium">{formData.fullName || '____________________'}</span></p>
-            <p><span className="font-bold">Passport:</span> <span className="border-b border-gray-400">{formData.passportNumber || '__________'}</span> | <span className="font-bold">Nationality:</span> <span className="border-b border-gray-400">{formData.nationality || '_______'}</span></p>
-            <p className="leading-tight"><span className="font-bold">WhatsApp:</span> <span className="border-b border-gray-400">{formData.whatsappNumber || '_______'}</span> | <span className="font-bold">Email:</span> <span className="border-b border-gray-400">{formData.email || '_______'}</span></p>
+          <div className="text-center my-8">
+            <h1 className="text-3xl font-black text-gray-900 tracking-tight uppercase">TENANCY AGREEMENT</h1>
+            <p className="text-xs text-gray-500 mt-2 font-medium italic">This agreement is made on the {today}</p>
           </div>
-        </div>
-      </div>
 
-      <div className="space-y-2.5 font-sans">
-        {/* Section A */}
-        <section className="print:break-inside-avoid">
-          <h3 className="text-brand-800 font-black uppercase text-[10px] border-b border-gray-200 pb-0.5 mb-1.5">SECTION A: PROPERTY & ACCOMMODATION</h3>
-          <div className="text-[10px] space-y-1">
-            <p><span className="font-bold uppercase tracking-wider text-[8px] text-gray-500 mr-2">Category:</span> <span className="border-b border-gray-400 px-2 font-bold">{formData.category || '___________________'}</span></p>
-            <p><span className="font-bold uppercase tracking-wider text-[8px] text-gray-500 mr-2">Room Type:</span> <span className="border-b border-gray-400 px-2 font-bold">{formattedRoomType || '_________________'}</span></p>
-          </div>
-        </section>
-
-        {/* Section B */}
-        <section className="print:break-inside-avoid">
-          <h3 className="text-brand-800 font-black uppercase text-[10px] border-b border-gray-200 pb-0.5 mb-1.5">SECTION B: LEASE TERMS & FINANCIALS</h3>
-          <div className="grid grid-cols-2 gap-4">
-            <table className="w-full border-collapse border border-gray-200 text-[10px]">
-              <tbody>
-                <tr><td className="border border-gray-200 p-1 bg-gray-50 font-bold">Start Date</td><td className="border border-gray-200 p-1">{startDate || '__________'}</td></tr>
-                <tr><td className="border border-gray-200 p-1 bg-gray-50 font-bold">End Date</td><td className="border border-gray-200 p-1">{endDate || '__________'}</td></tr>
-                <tr><td className="border border-gray-200 p-1 bg-gray-50 font-bold">Duration</td><td className="border border-gray-200 p-1">{formData.duration ? `${formData.duration} mos` : '______'}</td></tr>
-              </tbody>
-            </table>
-            <table className="w-full border-collapse border border-gray-200 text-[10px]">
-              <tbody>
-                <tr><td className="border border-gray-200 p-1 bg-gray-50 font-bold">Monthly Rent</td><td className="border border-gray-200 p-1 text-brand-700 font-black uppercase">$ {monthlyRate || '___'} USD</td></tr>
-                <tr><td className="border border-gray-200 p-1 bg-gray-50 font-bold">Security Deposit</td><td className="border border-gray-200 p-1 text-brand-700 font-black uppercase">$ {monthlyRate || '___'} USD</td></tr>
-                <tr><td className="border border-gray-200 p-1 bg-gray-50 font-bold">Payment Status</td><td className="border border-gray-200 p-1 font-bold uppercase italic text-brand-600">Arrival Cash</td></tr>
-              </tbody>
-            </table>
-          </div>
-          <div className="mt-1 text-[9px] text-gray-700 bg-brand-50/40 p-1 border border-brand-100 italic leading-none rounded">
-            * Signing this agreement and paying the deposit entitles the student to distance enrolment at Al-Ibaanah Arabic Center.
-          </div>
-        </section>
-
-        {/* House Rules & Maintenance */}
-        <div className="grid grid-cols-2 gap-4 print:gap-2">
-          <div className="space-y-2.5">
-            <section className="print:break-inside-avoid">
-              <h3 className="text-brand-800 font-black uppercase text-[9px] border-b border-gray-200 pb-0.5 mb-1 uppercase tracking-tighter">SECTION 1: OCCUPANCY & MAINTENANCE</h3>
-              <ul className="list-disc list-inside text-[9px] space-y-0.1 text-gray-700 font-serif leading-tight">
-                <li>Exclusive student hostel. No subletting.</li>
-                <li>Cleaning provided 3x weekly for shared areas.</li>
-                <li>Pre-existing damages must be reported in week 1.</li>
-                <li>Modifications to flat or furniture are forbidden.</li>
-                <li>Repairs must be coordinated via official group.</li>
-              </ul>
-            </section>
-            <section className="print:break-inside-avoid">
-              <h3 className="text-brand-800 font-black uppercase text-[9px] border-b border-gray-200 pb-0.5 mb-1 uppercase tracking-tighter">SECTION 2: HOUSE RULES</h3>
-              <ul className="list-disc list-inside text-[9px] space-y-0.1 text-gray-700 font-serif leading-tight">
-                <li>Visitors: 10AM – 8PM; No overnight stays.</li>
-                <li>Women are strictly forbidden from entering.</li>
-                <li>Modesty in behavior, speech, dress required.</li>
-                <li>No smoking, pets, or loud music at any time.</li>
-                <li>Masjid attendance for 5 prayers expected.</li>
-              </ul>
-            </section>
-          </div>
-          <div className="bg-gray-50/50 p-2.5 border border-gray-200 rounded-xl flex flex-col justify-between">
-            <section className="print:break-inside-avoid">
-              <h3 className="text-brand-800 font-black uppercase text-[9px] border-b border-gray-200 pb-0.5 mb-1.5 uppercase tracking-tighter">SECTION 3: LEGAL UNDERTAKING</h3>
-              <div className="text-[9px] italic text-gray-800 font-serif leading-tight bg-white p-2 border border-gray-100 rounded shadow-sm">
-                I, <span className="font-bold border-b border-gray-400 px-1">{formData.fullName || '________________'}</span>, declare I have no affiliation with extremist groups (Takfir, Khawarij, Daesh, etc.). I agree to the conservative Islamic values of Al-Ibaanah Center. Deposit is non-refundable upon early termination.
+          <div className="space-y-6">
+            <h2 className="text-sm font-bold border-b border-brand-800 text-brand-800 pb-1 uppercase tracking-wider">1. PARTIES TO THE AGREEMENT</h2>
+            
+            <div className="space-y-4">
+              {/* Landlord Card */}
+              <div className="border border-gray-200 rounded-xl overflow-hidden">
+                <div className="bg-brand-800 text-white px-4 py-2 text-xs font-bold uppercase tracking-widest text-center">
+                  LANDLORD
+                </div>
+                <div className="grid grid-cols-3 divide-x divide-gray-100 divide-y divide-gray-100 text-xs">
+                  <div className="p-3 font-bold bg-gray-50 text-gray-600">Name</div>
+                  <div className="p-3 col-span-2 font-medium text-gray-900">Jimoh Bolakale Ajao (Al-Ibaanah Arabic Center)</div>
+                  
+                  <div className="p-3 font-bold bg-gray-50 text-gray-600">Address</div>
+                  <div className="p-3 col-span-2 text-gray-700 leading-normal">9, Mahmood Tawfeeq Street, off Kaabool Street, Makram Ebeid, Nasr City, Egypt</div>
+                  
+                  <div className="p-3 font-bold bg-gray-50 text-gray-600">Phone</div>
+                  <div className="p-3 col-span-2 text-gray-700 font-mono">+20 103 007 2440</div>
+                </div>
               </div>
-            </section>
 
-            <div className="mt-2 pt-2 border-t border-gray-200">
-               <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-1">
-                    <p className="text-[7px] font-bold text-gray-400 uppercase tracking-widest leading-none">TENANT SIGNATURE</p>
-                    <div className="border-b border-gray-300 h-8 flex items-center justify-center overflow-hidden bg-white/50 border-dashed">
-                      {signature && <img src={signature} alt="Signature" className="max-h-full max-w-full" />}
-                    </div>
-                    <p className="text-[7px] font-bold text-gray-500 uppercase leading-none">{today}</p>
-                  </div>
-                  <div className="flex flex-col justify-end text-center opacity-30 grayscale items-center">
-                    <IconCheckCircle className="w-5 h-5 mb-0.5 text-brand-600" />
-                    <p className="text-[7px] font-bold uppercase tracking-widest leading-none">ADMIN VERIFIED</p>
-                  </div>
-               </div>
+              {/* Tenant Card */}
+              <div className="border border-gray-200 rounded-xl overflow-hidden mt-4">
+                <div className="bg-brand-800 text-white px-4 py-2 text-xs font-bold uppercase tracking-widest text-center">
+                  TENANT
+                </div>
+                <div className="grid grid-cols-3 divide-x divide-gray-100 divide-y divide-gray-100 text-xs">
+                  <div className="p-3 font-bold bg-gray-50 text-gray-600">Name</div>
+                  <div className="p-3 col-span-2 font-medium text-gray-900">{formData.fullName || '_____________________________________'}</div>
+                  
+                  <div className="p-3 font-bold bg-gray-50 text-gray-600">Nationality</div>
+                  <div className="p-3 col-span-2 text-gray-700">{formData.nationality || '_____________________________________'}</div>
+                  
+                  <div className="p-3 font-bold bg-gray-50 text-gray-600">Passport No.</div>
+                  <div className="p-3 col-span-2 text-gray-700 font-mono">{formData.passportNumber || '_____________________________________'}</div>
+
+                  <div className="p-3 font-bold bg-gray-50 text-gray-600">Address</div>
+                  <div className="p-3 col-span-2 text-gray-700 leading-normal">{formData.homeAddress || '__________________________________________________________________________'}</div>
+
+                  <div className="p-3 font-bold bg-gray-50 text-gray-600">Phone</div>
+                  <div className="p-3 col-span-2 text-gray-700 font-mono">{formData.whatsappNumber || '_____________________________________'}</div>
+
+                  <div className="p-3 font-bold bg-gray-50 text-gray-600">Email</div>
+                  <div className="p-3 col-span-2 text-gray-700">{formData.email || '_____________________________________'}</div>
+                </div>
+              </div>
+            </div>
+
+            <h2 className="text-sm font-bold border-b border-brand-800 text-brand-800 pb-1 uppercase tracking-wider mt-8">2. RENTAL PROPERTY</h2>
+            <p className="text-xs text-gray-700">
+              The property subject to this Agreement is located at:<br />
+              <strong className="text-sm text-gray-900 block mt-2 px-4 py-2 border border-brand-100 bg-brand-50/20 rounded-lg text-center font-bold">11, Samir Moursey Street, Nasr City, Cairo, Egypt</strong>
+            </p>
+
+            <h2 className="text-sm font-bold border-b border-brand-800 text-brand-800 pb-1 uppercase tracking-wider mt-8">3. TERM OF LEASE</h2>
+            <div className="grid grid-cols-2 gap-4 text-xs">
+              <div className="space-y-2">
+                <p><span className="font-bold text-gray-600">Commencement:</span> <span className="font-medium">{startDate || '1st July 2026'}</span></p>
+                <p><span className="font-bold text-gray-600">Expiry:</span> <span className="font-medium">{endDate || '31st August 2026'} ({formData.duration || '2'} Months)</span></p>
+              </div>
+              <div className="space-y-2 col-span-1">
+                <p><span className="font-bold text-gray-600">Renewal:</span> <span className="text-gray-700 font-medium">Upon mutual agreement between both parties</span></p>
+                <p><span className="font-bold text-gray-600">Overstay:</span> <span className="text-gray-700 font-medium">USD 15 per night beyond the agreed period, subject to landlord approval</span></p>
+              </div>
+            </div>
+
+            <h2 className="text-sm font-bold border-b border-brand-800 text-brand-800 pb-1 uppercase tracking-wider mt-8">4. RENT</h2>
+            <div className="grid grid-cols-2 gap-4 text-xs">
+              <p><span className="font-bold text-gray-600">Monthly Rent:</span> <span className="font-bold text-brand-800">USD {monthlyRate || '200'} per month ({formData.roomType?.toLowerCase().includes('private') ? 'private room' : 'shared room in shared apartment'})</span></p>
+              <p><span className="font-bold text-gray-600">Payment:</span> <span className="text-gray-700 font-medium">Two months' rent paid in advance upon arrival</span></p>
+              <p className="col-span-2"><span className="font-bold text-gray-600">Method:</span> <span className="text-gray-700 font-medium">Cash — payable at Al-Ibaanah Arabic Center</span></p>
+            </div>
+
+            <h2 className="text-sm font-bold border-b border-brand-800 text-brand-800 pb-1 uppercase tracking-wider mt-10">5. SECURITY DEPOSIT</h2>
+            <div className="grid grid-cols-2 gap-4 text-xs">
+              <p><span className="font-bold text-gray-600">Amount:</span> <span className="font-bold">USD {monthlyRate || '200'} (one month's rent)</span></p>
+              <p><span className="font-bold text-gray-600">Payment:</span> <span className="text-gray-700 font-medium">Due upon signing of this Agreement</span></p>
             </div>
           </div>
         </div>
+
+        <div className="border-t pt-3 text-center text-[9px] text-gray-400 font-mono uppercase tracking-wider">
+          Al-Ibaanah Arabic Center - Official Student Residency Agreement
+        </div>
       </div>
 
-      <div className="mt-3 border-t pt-1 flex justify-between items-center text-[7px] text-gray-400 font-sans tracking-tight opacity-50">
-        <p>Al-Ibaanah Arabic Center | Nasr City, Cairo | +201030072440</p>
-        <p className="font-bold uppercase tracking-widest">BK{formData.bookingId || '______'} - OFFICIAL DOCUMENT</p>
+      <div className="page-break my-12 border-t border-dashed border-gray-300 print:hidden"></div>
+
+      {/* PAGE 2 */}
+      <div className="space-y-6 min-h-[950px] flex flex-col justify-between print:break-before-page">
+        <div>
+          <div className="flex justify-between items-center border-b pb-2 mb-6 text-gray-400 text-[10px]">
+            <span className="font-bold tracking-wider text-brand-800 uppercase">TENANCY AGREEMENT <span className="font-normal text-gray-400">| Al-Ibaanah Arabic Center</span></span>
+            <span>Page 2 of 4</span>
+          </div>
+
+          <div className="space-y-6">
+            <div className="grid grid-cols-2 gap-4 text-xs">
+              <p><span className="font-bold text-gray-600 col-span-1">Refund:</span> <span className="text-gray-700">Refundable at end of lease, provided no damages and full compliance with all terms</span></p>
+              <p><span className="font-bold text-gray-600 col-span-1">Early Termination:</span> <span className="text-gray-700">The landlord reserves the right to withhold the deposit if the tenant vacates before the agreed end date</span></p>
+              <p className="col-span-2"><span className="font-bold text-gray-600">No-Show:</span> <span className="text-gray-700">The deposit is non-refundable if the tenant fails to arrive after signing this Agreement</span></p>
+            </div>
+
+            <h2 className="text-sm font-bold border-b border-brand-800 text-brand-800 pb-1 uppercase tracking-wider">6. UTILITIES</h2>
+            <p className="text-xs text-gray-700 leading-relaxed">
+              All utility expenses — including electricity, gas, water, and internet — are covered by the landlord and included in the monthly rent. Tenants are expected to use all utilities responsibly and in moderation. Excessive or unreasonable consumption may result in the landlord revising the rental terms or imposing usage limits.
+            </p>
+
+            <h2 className="text-sm font-bold border-b border-brand-800 text-brand-800 pb-1 uppercase tracking-wider mt-8">SECTION 1 — USE AND OCCUPANCY</h2>
+            
+            <div className="space-y-4 text-xs">
+              <div>
+                <h3 className="font-bold text-gray-900">1.1 Use of Property</h3>
+                <p className="text-gray-700 mt-1">Reflects hostel accommodation: The property shall be used exclusively as shared hostel/dormitory accommodation. All residents must adhere to the terms of this Agreement and House Rules provided by the landlord. The landlord retains the right to oversee the property and ensure it is kept in clean, safe and lawful conditions at all times.</p>
+              </div>
+
+              <div>
+                <h3 className="font-bold text-gray-900">1.2 Occupancy</h3>
+                <p className="text-gray-700 mt-1">The apartment may accommodate up to 3-4 residents: two residents per shared room and one per private room.</p>
+                <ul className="list-disc list-inside mt-2 space-y-1 text-gray-600 pl-2">
+                  <li>Each resident must provide a valid passport copy and sign an internal occupancy form.</li>
+                  <li>Subletting or reassignment of any kind is strictly prohibited under any circumstances.</li>
+                </ul>
+              </div>
+            </div>
+
+            <h2 className="text-sm font-bold border-b border-brand-800 text-brand-800 pb-1 uppercase tracking-wider mt-8">SECTION 2 — CLEANING, MAINTENANCE, SAFETY & SECURITY</h2>
+            
+            <div className="space-y-4 text-xs">
+              <div>
+                <h3 className="font-bold text-gray-900">2.1 Cleaning and Maintenance</h3>
+                <ul className="list-disc list-inside mt-2 space-y-1 text-gray-700 pl-2">
+                  <li>The landlord shall ensure cleaning of all shared areas (kitchen, living room, hallways, bathrooms) three times per week.</li>
+                  <li>Each resident is responsible for maintaining hygienic conditions in their private room and keeping a cleaning log.</li>
+                  <li>A designated person will collect trash daily; residents must deposit their waste in the appropriate bins.</li>
+                  <li>No trash or waste may be left in corridors, stairways, or on balconies at any time.</li>
+                  <li>Any shared area, appliance, or item used must be left clean and in the condition it was found.</li>
+                </ul>
+              </div>
+
+              <div>
+                <h3 className="font-bold text-gray-900">2.2 Maintenance and Repairs</h3>
+                <p className="text-gray-700 mt-1">General maintenance of the property is the responsibility of the landlord. However, any damage resulting from misuse or negligence by a resident shall be the financial responsibility of that resident and may result in a fine. Residents must report any maintenance issues promptly and treat all property and facilities with care.</p>
+              </div>
+
+              <div>
+                <h3 className="font-bold text-gray-900">2.3 Safety and Emergency Procedures</h3>
+                <ul className="list-disc list-inside mt-2 space-y-1 text-gray-700 pl-2">
+                  <li>Open flames, candles, and tampering with fire safety equipment are strictly prohibited.</li>
+                  <li>Two fire extinguishers are installed and accessible within the apartment at all times.</li>
+                  <li>A first aid kit and emergency contact list are available on-site.</li>
+                  <li>All residents must familiarise themselves with emergency exits and evacuation procedures.</li>
+                  <li>Any emergency must be reported to the landlord immediately.</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="border-t pt-3 text-center text-[9px] text-gray-400 font-mono uppercase tracking-wider">
+          Al-Ibaanah Arabic Center - Official Student Residency Agreement
+        </div>
       </div>
+
+      <div className="page-break my-12 border-t border-dashed border-gray-300 print:hidden"></div>
+
+      {/* PAGE 3 */}
+      <div className="space-y-6 min-h-[950px] flex flex-col justify-between print:break-before-page">
+        <div>
+          <div className="flex justify-between items-center border-b pb-2 mb-6 text-gray-400 text-[10px]">
+            <span className="font-bold tracking-wider text-brand-800 uppercase">TENANCY AGREEMENT <span className="font-normal text-gray-400">| Al-Ibaanah Arabic Center</span></span>
+            <span>Page 3 of 4</span>
+          </div>
+
+          <div className="space-y-6">
+            <div className="space-y-4 text-xs">
+              <div>
+                <h3 className="font-bold text-gray-900">2.4 Security</h3>
+                <ul className="list-disc list-inside mt-2 space-y-1 text-gray-700 pl-2">
+                  <li>All doors, windows, and the balcony must remain closed and secured at all times, and opened only when in use.</li>
+                  <li>Any resident who fails to properly secure a door or window shall be held fully responsible for any resulting theft or damage.</li>
+                  <li>All residents are expected to remain vigilant and actively contribute to the safety and security of the property.</li>
+                </ul>
+              </div>
+            </div>
+
+            <h2 className="text-sm font-bold border-b border-brand-800 text-brand-800 pb-1 uppercase tracking-wider mt-8">SECTION 3 — VISITORS, HOUSE RULES & ENTRY</h2>
+            
+            <div className="space-y-4 text-xs">
+              <div>
+                <h3 className="font-bold text-gray-900">3.1 Visitor Policy</h3>
+                <ul className="list-disc list-inside mt-2 space-y-1 text-gray-700 pl-2 col-span-1">
+                  <li>Visitors are permitted between 10:00 AM and 8:00 PM only.</li>
+                  <li>No overnight stays are allowed under any circumstances.</li>
+                  <li>Family visits must comply with visiting hours and all house rules.</li>
+                  <li>Non-family visitors are not permitted in any private rooms.</li>
+                  <li>Family members may only enter the room of the specific tenant they are visiting.</li>
+                  <li><strong className="text-brand-800">Women are not permitted in the apartment under any circumstances, including family members of the tenant.</strong></li>
+                  <li>The resident receiving visitors is fully accountable for the behaviour of their guests.</li>
+                </ul>
+              </div>
+
+              <div>
+                <h3 className="font-bold text-gray-900">3.2 House Rules</h3>
+                <ul className="list-disc list-inside mt-2 space-y-1 text-gray-700 pl-2">
+                  <li>Smoking inside the apartment is strictly prohibited.</li>
+                  <li>No pets are allowed.</li>
+                  <li>Music is not permitted inside the apartment.</li>
+                  <li>Trash must be disposed of daily in the compound bin. No waste may be left in stairways, corridors, or balconies.</li>
+                  <li>No modifications of any kind may be made to the apartment without prior written approval from the landlord.</li>
+                  <li>Tenants must maintain cleanliness throughout their stay.</li>
+                  <li>Residents must respect neighbours and observe building regulations.</li>
+                  <li>Any damage caused by a resident is their sole financial responsibility.</li>
+                  <li>Food and eating are strictly limited to the kitchen or dining area. No food is permitted in the rooms.</li>
+                </ul>
+              </div>
+
+              <div>
+                <h3 className="font-bold text-gray-900">3.3 Inspection and Entry</h3>
+                <ul className="list-disc list-inside mt-2 space-y-1 text-gray-750 pl-2">
+                  <li>The landlord or a representative may inspect shared areas bi-weekly with 48 hours' prior notice.</li>
+                  <li>The landlord may not enter private rooms without the tenant's consent, except in cases of emergency or with prior notice for scheduled inspection or repair.</li>
+                </ul>
+              </div>
+            </div>
+
+            <h2 className="text-sm font-bold border-b border-brand-800 text-brand-800 pb-1 uppercase tracking-wider mt-8">SECTION 4 — COMMUNICATION, CONDUCT & ISLAMIC VALUES</h2>
+            
+            <div className="space-y-4 text-xs">
+              <div>
+                <h3 className="font-bold text-gray-900">4.1 Communication</h3>
+                <p className="text-gray-700 mt-1">A WhatsApp group shall be created for the apartment. Every tenant is required to join and remain active in the group to receive important updates, notices, and communications from the landlord or their representative.</p>
+              </div>
+
+              <div>
+                <h3 className="font-bold text-gray-900">4.2 Conflict Resolution and Conduct</h3>
+                <ul className="list-disc list-inside mt-2 space-y-1 text-gray-750 pl-2">
+                  <li>Any disagreement or dispute among residents must be escalated to the landlord for resolution.</li>
+                  <li>Fighting, keeping malice, gossiping, or backbiting is strictly prohibited.</li>
+                  <li>All tenants are expected to uphold a respectful and cooperative environment at all times.</li>
+                </ul>
+              </div>
+
+              <div>
+                <h3 className="font-bold text-gray-900">4.3 Islamic Environment and Ethics</h3>
+                <ul className="list-disc list-inside mt-2 space-y-1 text-gray-700 pl-2">
+                  <li>The apartment shall be maintained as an Islamic environment. All residents are expected to observe etiquette and conduct in accordance with the Qur'an and the Sunnah.</li>
+                  <li>Behaviour, speech, dress, and interactions among residents must reflect the values of modesty, respect, and cooperation as taught in Islam.</li>
+                  <li><strong className="text-brand-800">All residents are expected to attend the masjid for the five daily prayers (salawat).</strong></li>
+                  <li>No resident may absent themselves from congregational prayer without a valid legislated excuse as defined by the Shari'ah.</li>
+                  <li>Any conduct contradicting these Islamic principles may result in corrective measures or termination of this Agreement by the landlord.</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="border-t pt-3 text-center text-[9px] text-gray-400 font-mono uppercase tracking-wider">
+          Al-Ibaanah Arabic Center - Official Student Residency Agreement
+        </div>
+      </div>
+
+      <div className="page-break my-12 border-t border-dashed border-gray-300 print:hidden"></div>
+
+      {/* PAGE 4 */}
+      <div className="space-y-6 min-h-[950px] flex flex-col justify-between print:break-before-page">
+        <div>
+          <div className="flex justify-between items-center border-b pb-2 mb-6 text-gray-400 text-[10px]">
+            <span className="font-bold tracking-wider text-brand-800 uppercase">TENANCY AGREEMENT <span className="font-normal text-gray-400">| Al-Ibaanah Arabic Center</span></span>
+            <span>Page 4 of 4</span>
+          </div>
+
+          <div className="space-y-6">
+            <h2 className="text-sm font-bold border-b border-brand-800 text-brand-800 pb-1 uppercase tracking-wider">SECTION 5 — TERMINATION AND TENANT UNDERTAKING</h2>
+            
+            <div className="space-y-4 text-xs">
+              <div>
+                <h3 className="font-bold text-gray-900">5.1 Termination</h3>
+                <ul className="list-disc list-inside mt-2 space-y-1 text-gray-700 pl-2">
+                  <li>All parties agree to strictly abide by the terms and conditions of this Agreement for its full duration.</li>
+                  <li>The tenant shall forfeit the entire security deposit if they vacate before the stipulated end date, unless otherwise approved in writing by the landlord under exceptional circumstances.</li>
+                  <li>In the event of serious misconduct or repeated violation of house rules, the landlord reserves the right to terminate this Agreement or request the removal of the resident(s) involved, without refund of rent or deposit for the period in question.</li>
+                </ul>
+              </div>
+
+              <div>
+                <h3 className="font-bold text-gray-900">5.2 Tenant Undertaking</h3>
+                <p className="text-gray-700 mt-1 italic">
+                  I, <strong className="border-b border-gray-400 px-1 text-gray-950">{formData.fullName || '_________________________________'}</strong>, the tenant, commit to respecting the property, maintaining its condition, and preserving the landlord's trust and privacy.
+                </p>
+                <p className="text-gray-750 mt-2">I acknowledge and undertake the following:</p>
+                <ul className="list-disc list-inside mt-2 space-y-1 text-gray-700 pl-2">
+                  <li>I will report any pre-existing or new damage within one (1) week of receiving the keys.</li>
+                  <li>I will return the apartment in the same condition as it was handed over to me.</li>
+                  <li>I will notify the landlord of any incidents occurring on the property.</li>
+                  <li><strong className="text-gray-950 font-bold">I am not affiliated with any extremist group or movement, including Takfir, Khawarij, Daesh, Tabligh, Ikhwan, or any similar organisation.</strong></li>
+                </ul>
+              </div>
+            </div>
+
+            <h2 className="text-sm font-bold border-b border-brand-800 text-brand-800 pb-1 uppercase tracking-wider mt-8">SIGNATURES</h2>
+            <p className="text-xs text-gray-600">By signing below, both parties confirm that they have read, understood, and agreed to all the terms and conditions set forth in this Tenancy Agreement.</p>
+
+            <div className="grid grid-cols-2 gap-8 text-xs mt-4">
+              <div className="space-y-4 border border-gray-100 p-4 rounded-xl">
+                <span className="font-bold text-gray-500 block uppercase tracking-widest text-[9px]">LANDLORD</span>
+                <div className="pt-8 border-b border-gray-300 font-medium text-gray-900 text-center text-sm font-serif">
+                  Jimoh Bolakale Ajao
+                </div>
+                <div>
+                  <span className="font-bold text-gray-400 block text-[9px] uppercase">Date</span>
+                  <span className="font-medium">{today}</span>
+                </div>
+              </div>
+
+              <div className="space-y-4 border-2 border-brand-100 bg-brand-50/10 p-4 rounded-xl">
+                <span className="font-bold text-brand-800 block uppercase tracking-widest text-[9px]">TENANT</span>
+                <div className="h-14 border-b border-gray-300 flex items-center justify-center overflow-hidden bg-white/70 rounded">
+                  {signature ? (
+                    <img src={signature} alt="Client Signature" className="max-h-full object-contain" />
+                  ) : (
+                    <span className="text-gray-300 text-[10px] italic">Awaiting Student Digital Signature</span>
+                  )}
+                </div>
+                <div>
+                  <span className="font-bold text-gray-400 block text-[9px] uppercase">Date</span>
+                  <span className="font-medium">{today}</span>
+                </div>
+              </div>
+            </div>
+
+            <h2 className="text-sm font-bold border-b border-brand-800 text-brand-800 pb-1 uppercase tracking-wider mt-8">WITNESSES</h2>
+            <div className="grid grid-cols-2 gap-8 text-xs">
+              <div className="space-y-4 border border-dashed border-gray-200 p-4 rounded-xl">
+                <span className="font-bold text-gray-500 block uppercase tracking-widest text-[9px]">Witness 1</span>
+                <div>
+                  <span className="font-bold text-gray-400 block text-[9px] uppercase">Name</span>
+                  <div className="border-b border-gray-200 h-6"></div>
+                </div>
+                <div>
+                  <span className="font-bold text-gray-400 block text-[9px] uppercase">Date</span>
+                  <div className="border-b border-gray-200 h-6"></div>
+                </div>
+              </div>
+
+              <div className="space-y-4 border border-dashed border-gray-200 p-4 rounded-xl">
+                <span className="font-bold text-gray-500 block uppercase tracking-widest text-[9px]">Witness 2</span>
+                <div>
+                  <span className="font-bold text-gray-400 block text-[9px] uppercase">Name</span>
+                  <div className="border-b border-gray-200 h-6"></div>
+                </div>
+                <div>
+                  <span className="font-bold text-gray-400 block text-[9px] uppercase">Date</span>
+                  <div className="border-b border-gray-200 h-6"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="border-t pt-3 text-center text-[9px] text-gray-400 font-mono uppercase tracking-wider">
+          Al-Ibaanah Arabic Center - Official Student Residency Agreement
+        </div>
+      </div>
+
     </div>
   );
 };

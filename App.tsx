@@ -71,7 +71,7 @@ const AppContent: React.FC = () => {
   return (
     <div className="bg-gray-50 dark:bg-gray-900 text-gray-800 dark:text-gray-200 min-h-screen flex flex-col">
       <Header />
-      <main className="flex-grow container mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <main className={`flex-grow ${page === 'home' ? '' : 'container mx-auto px-4 sm:px-6 lg:px-8 py-8'}`}>
         {renderPage()}
       </main>
       <Footer />

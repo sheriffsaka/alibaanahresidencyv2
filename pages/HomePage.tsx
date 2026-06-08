@@ -1,17 +1,14 @@
-
 import React, { useMemo } from 'react';
 import { useTranslation } from '../hooks/useTranslation';
-import RoomCard from '../components/RoomCard';
 import FAQ from '../components/FAQ';
 import { IconMapPin, IconShieldCheck, IconSofa } from '../components/Icon';
 import RoomGallery from '../components/RoomGallery';
 import { useApp } from '../hooks/useApp';
 import { INITIAL_CMS } from '../contexts/AppContext';
-import { BookingStatus, AccommodationType } from '../types';
 
 const HomePage: React.FC = () => {
   const t = useTranslation();
-  const { cmsContent, rooms, user, bookings, language, loading, setPage } = useApp();
+  const { cmsContent, rooms, user, language, loading, setPage } = useApp();
 
   const currentHero = (cmsContent.hero || {})[language] || (cmsContent.hero || {})['en'] || { title: '', subtitle: '' };
   const currentFeatures = (cmsContent.features?.[language] && cmsContent.features[language]!.length > 0) 
@@ -26,24 +23,7 @@ const HomePage: React.FC = () => {
         ? cmsContent.faqs['en']! 
         : INITIAL_CMS.faqs.en;
 
-  const handleScrollToRooms = () => {
-    const roomsSection = document.getElementById('rooms-section');
-    if (roomsSection) {
-      roomsSection.scrollIntoView({ behavior: 'smooth' });
-    }
-  };
-
-  const occupiedRoomIds = useMemo(() => {
-    const occupiedStatuses = [BookingStatus.CONFIRMED, BookingStatus.OCCUPIED];
-    return new Set(
-        bookings
-            .filter(b => occupiedStatuses.includes(b.status))
-            .map(b => b.room_id)
-    );
-  }, [bookings]);
-
   const visibleRooms = useMemo(() => {
-    console.log("Processing visible rooms. Total rooms:", rooms.length, "User:", user?.email, "Gender:", user?.gender);
     if (user?.role === 'student' && user.gender) {
       const userGender = user.gender.toLowerCase();
       return rooms.filter(room => {
@@ -53,20 +33,6 @@ const HomePage: React.FC = () => {
     }
     return rooms;
   }, [rooms, user]);
-  
-  const availabilitySummary = useMemo(() => {
-    const summary: { [key in AccommodationType]?: { total: number, available: number } } = {};
-
-    visibleRooms.forEach(room => {
-        if (!summary[room.type]) {
-            summary[room.type] = { total: 0, available: 0 };
-        }
-        summary[room.type]!.total += room.capacity || 1;
-        summary[room.type]!.available += (room.capacity || 1) - (room.occupied_slots || 0);
-    });
-
-    return Object.entries(summary).map(([type, counts]) => ({ type: type as AccommodationType, ...counts! }));
-  }, [visibleRooms]);
 
   if (loading) {
     return (
@@ -78,24 +44,24 @@ const HomePage: React.FC = () => {
   }
 
   return (
-    <div className="space-y-20">
-      {/* Dynamic Hero Section */}
-      <div className="relative -mt-8 -mx-4 sm:-mx-6 lg:-mx-8">
+    <div className="space-y-16 pb-20">
+      {/* 100% Expanded Hero Section */}
+      <div className="relative min-h-[500px] sm:min-h-[600px] flex items-center justify-center">
         <div className="absolute inset-0">
           <img className="h-full w-full object-cover" src={cmsContent.heroImageUrl} alt="Student residence" />
-          <div className="absolute inset-0 bg-gray-900 bg-opacity-40"></div>
+          <div className="absolute inset-0 bg-gray-900/40"></div>
         </div>
-        <div className="relative container mx-auto px-4 sm:px-6 lg:px-8 py-32 sm:py-48 lg:py-64 text-center">
-          <h1 className="text-4xl font-bold tracking-tight text-white sm:text-5xl lg:text-6xl">
+        <div className="relative w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-24 sm:py-32 lg:py-40 text-center">
+          <h1 className="text-3xl font-black tracking-tight text-white sm:text-5xl lg:text-6xl uppercase">
             {currentHero.title}
           </h1>
-          <p className="mt-6 max-w-2xl mx-auto text-lg leading-8 text-gray-200">
+          <p className="mt-6 max-w-2xl mx-auto text-sm sm:text-base leading-relaxed text-gray-200">
             {currentHero.subtitle}
           </p>
           
           {/* Distance Enrolment Advantage Highlight */}
-          <div className="mt-8 bg-brand-600/90 backdrop-blur-sm border border-brand-400 p-4 rounded-xl max-w-xl mx-auto animate-bounce-slow">
-            <p className="text-white font-bold text-lg">
+          <div className="mt-8 bg-brand-600/90 backdrop-blur-sm border border-brand-400/30 p-4 rounded-xl max-w-xl mx-auto shadow-lg">
+            <p className="text-white font-bold text-sm">
               ✨ Distance Enrolment Advantage: Secure your residency and activate your enrolment eligibility instantly!
             </p>
           </div>
@@ -103,126 +69,68 @@ const HomePage: React.FC = () => {
           <div className="mt-10 flex flex-col sm:flex-row items-center justify-center gap-4">
             <button
               onClick={() => setPage('booking')}
-              className="w-full sm:w-auto rounded-md bg-brand-600 px-8 py-4 text-lg font-bold text-white shadow-xl hover:bg-brand-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600 transition-all hover:scale-105"
+              className="w-full sm:w-auto rounded-xl bg-brand-600 px-8 py-3.5 text-sm font-bold text-white shadow-xl hover:bg-brand-505 transition-all hover:scale-105 active:scale-95"
             >
               Book Your Room
-            </button>
-            <button
-              onClick={handleScrollToRooms}
-              className="w-full sm:w-auto rounded-md bg-white/10 backdrop-blur-md px-8 py-4 text-lg font-bold text-white border border-white/30 hover:bg-white/20 transition-all"
-            >
-              View Apartments
             </button>
           </div>
         </div>
       </div>
 
-      {/* Ratings & Key Benefits Section */}
-      <section className="bg-white dark:bg-gray-900 py-12 rounded-3xl shadow-sm border border-gray-100 dark:border-gray-800">
-        <div className="max-w-6xl mx-auto px-4 grid grid-cols-2 md:grid-cols-4 gap-8 text-center">
-          <div>
-            <p className="text-4xl font-bold text-brand-600">4.9/5</p>
-            <p className="text-sm font-medium text-gray-500 uppercase tracking-wider mt-1">Cleanliness Rating</p>
-          </div>
-          <div>
-            <p className="text-4xl font-bold text-brand-600">5.0/5</p>
-            <p className="text-sm font-medium text-gray-500 uppercase tracking-wider mt-1">Safety Rating</p>
-          </div>
-          <div>
-            <p className="text-4xl font-bold text-brand-600">5 mins</p>
-            <p className="text-sm font-medium text-gray-500 uppercase tracking-wider mt-1">From Centre</p>
-          </div>
-          <div>
-            <p className="text-4xl font-bold text-brand-600">100%</p>
-            <p className="text-sm font-medium text-gray-500 uppercase tracking-wider mt-1">Enrolment Success</p>
-          </div>
-        </div>
-      </section>
-
-      {/* Room Gallery Section */}
-      <section>
-        <RoomGallery rooms={visibleRooms} />
-      </section>
-
-      {/* Availability Overview Section */}
-      <section>
-        <div className="text-center mb-12">
-            <h2 className="text-3xl font-bold tracking-tight text-gray-900 dark:text-white sm:text-4xl">{t.availabilityOverview}</h2>
-        </div>
-        {availabilitySummary.length === 0 ? (
-            <div className="text-center py-12 bg-white dark:bg-gray-800 rounded-xl border-2 border-dashed border-gray-200 dark:border-gray-700 max-w-4xl mx-auto">
-                <p className="text-gray-500 dark:text-gray-400">No availability data found. Please ensure rooms are configured in the database.</p>
+      {/* Structured rest of the landing page in container */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-20">
+        {/* Ratings & Key Benefits Section */}
+        <section className="bg-white dark:bg-gray-800 py-10 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-6 text-center">
+            <div>
+              <p className="text-3xl font-black text-brand-600">4.9/5</p>
+              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mt-1">Cleanliness Rating</p>
             </div>
-        ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-5xl mx-auto">
-                {availabilitySummary.map(({ type, total, available }) => (
-                    <div key={type} className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-lg border border-gray-100 dark:border-gray-700">
-                        <h3 className="text-xl font-bold text-gray-800 dark:text-white">{type} Rooms</h3>
-                        <p className="font-semibold text-brand-600 dark:text-brand-400 my-2 text-2xl">
-                            {t.roomsAvailable.replace('{available}', (available || 0).toString()).replace('{total}', (total || 0).toString())}
-                        </p>
-                        <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2.5">
-                            <div 
-                                className="bg-brand-600 h-2.5 rounded-full transition-all duration-500" 
-                                style={{ width: `${total > 0 ? (available / total) * 100 : 0}%` }}
-                            ></div>
-                        </div>
+            <div>
+              <p className="text-3xl font-black text-brand-600">5.0/5</p>
+              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mt-1">Safety Rating</p>
+            </div>
+            <div>
+              <p className="text-3xl font-black text-brand-600">5 mins</p>
+              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mt-1">From Centre</p>
+            </div>
+            <div>
+              <p className="text-3xl font-black text-brand-600">100%</p>
+              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mt-1">Enrolment Success</p>
+            </div>
+          </div>
+        </section>
+
+        {/* Room Gallery Section */}
+        <section className="rounded-2xl overflow-hidden shadow-sm">
+          <RoomGallery rooms={visibleRooms} />
+        </section>
+        
+        {/* Why Choose Us Features Section */}
+        <section className="space-y-12">
+          <div className="text-center">
+              <h2 className="text-2xl font-black uppercase tracking-tight text-gray-900 dark:text-white sm:text-3xl">Why Students Choose Al-Ibaanah</h2>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 text-center">
+              {currentFeatures.map((feat, idx) => (
+                <div key={feat.id} className="flex flex-col items-center p-4 bg-white dark:bg-gray-800 rounded-xl border border-gray-50 dark:border-gray-750 shadow-sm">
+                    <div className="flex items-center justify-center h-14 w-14 rounded-full bg-brand-50 dark:bg-brand-900 text-brand-600 dark:text-brand-300 mb-4">
+                        {idx === 0 && <IconMapPin className="h-6 w-6" />}
+                        {idx === 1 && <IconSofa className="h-6 w-6" />}
+                        {idx === 2 && <IconShieldCheck className="h-6 w-6" />}
                     </div>
-                ))}
-            </div>
-        )}
-      </section>
-
-      {/* Rooms Section */}
-      <section id="rooms-section">
-        <div className="text-center mb-12">
-          <h2 className="text-3xl font-bold tracking-tight text-gray-900 dark:text-white sm:text-4xl">
-            {t.ourRoomsTitle}
-          </h2>
-          <p className="mt-4 text-lg text-gray-600 dark:text-gray-300">
-            {t.ourRoomsSubtitle}
-          </p>
-        </div>
-        {visibleRooms.length === 0 ? (
-            <div className="text-center py-20 bg-white dark:bg-gray-800 rounded-2xl border-2 border-dashed border-gray-200 dark:border-gray-700">
-                <p className="text-gray-500 dark:text-gray-400 text-lg">No rooms found matching your criteria or the database is empty.</p>
-            </div>
-        ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-10 max-w-6xl mx-auto">
-              {visibleRooms.map((room) => (
-                  <RoomCard 
-                    key={room.id} 
-                    room={room} 
-                    isOccupied={!room.is_available || (room.occupied_slots || 0) >= (room.capacity || 1)}
-                  />
+                    <h3 className="text-base font-bold text-gray-900 dark:text-white">{feat.title}</h3>
+                    <p className="mt-2 text-xs text-gray-500 dark:text-gray-400 leading-relaxed">{feat.desc}</p>
+                </div>
               ))}
-            </div>
-        )}
-      </section>
-      
-      {/* Features Section */}
-      <section>
-        <div className="text-center mb-12">
-            <h2 className="text-3xl font-bold tracking-tight text-gray-900 dark:text-white sm:text-4xl">{t.whyChooseUsTitle}</h2>
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8 text-center">
-            {currentFeatures.map((feat, idx) => (
-              <div key={feat.id} className="flex flex-col items-center">
-                  <div className="flex items-center justify-center h-16 w-16 rounded-full bg-brand-100 dark:bg-brand-900 text-brand-600 dark:text-brand-300 mb-4 shadow-sm">
-                      {idx === 0 && <IconMapPin className="h-8 w-8" />}
-                      {idx === 1 && <IconSofa className="h-8 w-8" />}
-                      {idx === 2 && <IconShieldCheck className="h-8 w-8" />}
-                  </div>
-                  <h3 className="text-xl font-bold text-gray-900 dark:text-white">{feat.title}</h3>
-                  <p className="mt-2 text-gray-600 dark:text-gray-400">{feat.desc}</p>
-              </div>
-            ))}
-        </div>
-      </section>
+          </div>
+        </section>
 
-      <section>
-          <FAQ faqs={currentFaqs} />
-      </section>
+        {/* FAQs */}
+        <section className="bg-gray-50/50 dark:bg-gray-800/20 p-8 rounded-2xl border border-gray-100 dark:border-gray-800">
+            <FAQ faqs={currentFaqs} />
+        </section>
+      </div>
     </div>
   );
 };
