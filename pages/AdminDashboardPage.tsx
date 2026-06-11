@@ -541,12 +541,34 @@ const AdminDashboardPage: React.FC = () => {
                         <td className="px-6 py-4">
                             <div className="flex gap-2">
                                 <button onClick={() => setSelectedBooking(booking)} className="text-brand-600 hover:text-brand-700 text-xs font-bold underline">View</button>
-                                <button 
-                                    onClick={() => alert(`Reminder sent to ${booking.email}`)}
-                                    className="bg-brand-50 text-brand-600 px-2 py-1 rounded text-[10px] font-bold hover:bg-brand-100"
-                                >
-                                    Send Reminder
-                                </button>
+                                <div className="flex flex-col gap-1">
+                                    <button 
+                                        onClick={() => {
+                                          sendEmail({
+                                            to: booking.email,
+                                            subject: `Reminder: Your Arrival at Al-Ibaanah Student Residency is Tomorrow!`,
+                                            body: `Dear ${booking.full_name},\n\nThis is a friendly reminder that your scheduled arrival date at Al-Ibaanah Student Residency is tomorrow (${booking.expected_arrival_date || 'scheduled soon'})!\n\nPlease ensure you have uploaded your security deposit transfer confirmation on your dashboard to complete checking-in clearance.\n\nWarm regards,\nAl-Ibaanah Student Residency Team`
+                                          });
+                                          alert(`Arrival reminder email sent to ${booking.email}`);
+                                        }}
+                                        className="bg-brand-50 text-brand-600 px-2 py-1 rounded text-[9px] font-black uppercase tracking-wider hover:bg-brand-100 text-center"
+                                    >
+                                        ⏰ Arrival Remind
+                                    </button>
+                                    <button 
+                                        onClick={() => {
+                                          sendEmail({
+                                            to: booking.email,
+                                            subject: `Urgent Reminder: Your Monthly Rent Payment is Due in 1 Week`,
+                                            body: `Dear ${booking.full_name},\n\nThis is a professional reminder that your monthly rent/subscription payment for Room ${booking.rooms?.room_number || 'your room'} is due in exactly one week on ${booking.payment_expiry_date || 'scheduled next payment'}.\n\nPlease prepare to execute the bank transfer or Remitly transfer of your subscription rate.\n\nWarm regards,\nAl-Ibaanah Student Residency Team`
+                                          });
+                                          alert(`Rent due reminder email sent to ${booking.email}`);
+                                        }}
+                                        className="bg-amber-50 text-amber-700 px-2 py-1 rounded text-[9px] font-black uppercase tracking-wider hover:bg-amber-100 text-center"
+                                    >
+                                        💰 Rent Remind
+                                    </button>
+                                </div>
                             </div>
                         </td>
                     </tr>))}</tbody>
