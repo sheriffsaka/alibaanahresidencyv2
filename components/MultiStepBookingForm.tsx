@@ -43,7 +43,7 @@ const ACCOMMODATIONS_SELECTION: Record<string, Array<{ id: string; room: string;
 
 const MultiStepBookingForm: React.FC = () => {
   const t = useTranslation();
-  const { user, setPage, addBooking, addActivity, rooms, bookings, extendingBooking } = useApp();
+  const { user, setPage, addBooking, addActivity, rooms, bookings, extendingBooking, landlordDetails } = useApp();
   
   const [step, setStep] = useState(1);
   const [formData, setFormData] = useState({
@@ -259,14 +259,67 @@ const MultiStepBookingForm: React.FC = () => {
       sendEmail({
         to: formData.email,
         subject: `Booking Agreement BK${createdBooking.id} & Landlord Payment Instructions`,
-        body: `Dear ${formData.fullName},\n\nWe have received your signed tenancy agreement for your stay at Al-Ibaanah Student Residency!\n\nHere are the details for making your payment inside either of these two ways:\n\n1. BANK TRANSFER DETAILS\n━━━━━━━━━━━━━━━━\n👤 Recipient Name\nJimoh Bolakale Ajao\n\n🏛️ Bank Name\nCommercial International Bank (CIB)\n\n💳 IBAN\nEG98 0010 0109 0000 0100 0633 2816 7\n\n🔐 SWIFT / BIC Code\nCIBEEGCXXXX\n\n📞 Recipient's Phone\n+20 1030062440\n\n📍 BANK ADDRESS\n🏠 Street: 71 Abou Dawood El Zahry Street, Off Makram Ebeid Street\n🏙️ City: Nasr City, Cairo\n🌍 Country: Egypt\n📮 P.O. Box: 11341\n\n2. HOW TO PAY YOUR FEES VIA REMITLY\nTo make your payment smoothly, please follow the steps below:\n1. Download Remitly from the App Store or Google Play, or visit: https://www.remitly.com and log in or create an account.\n2. Select the country you are sending money from.\n3. Select Egypt as the country you are sending to.\n4. Enter the amount you want to pay: e.g. $200 USD and you will be shown the equivalent amount in Egyptian pounds (This account will not accept dollars so make sure you send the equivalent in EGP).\n5. Choose the delivery method: Bank Deposit.\n6. Enter the recipient’s bank details exactly as written below:\n   * Account Name: Jimoh Bolakale Ajao\n   * Bank Name: CIB\n   * Bank Location: Cairo\n   * IBAN: EG320010010900000100063328094\n7. Choose your payment method (debit card, credit card, or bank transfer).\n8. Carefully review all details and confirm/send payment.\n\n✅ Reference memo is required: BK${createdBooking.id} - ${formData.fullName}\n\nRent Details: $${pricing.monthlyRate}/mo x ${formData.duration} months. Total calculated amount: $${pricing.totalPrice} USD.\n\nPlease log into your student dashboard page to upload your deposit transfer confirmation screenshot when completed so we can quickly activate your key eligibility.\n\nWarm regards,\nAl-Ibaanah Administration`
+        body: `Dear ${formData.fullName},
+
+We have received your officially signed tenancy agreement for your stay at Al-Ibaanah Student Residency!
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+⚠️ IMMEDIATE ACTION REQUIRED: One Month Security Deposit Due Now
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+To make your reservation official and secure your bed space, you MUST pay the **Deposit of one month (Due Now)** which is: $${pricing.monthlyRate} USD (or equivalent in EGP). 
+
+Only paying this deposit guarantees your bed assignment.
+
+Here is how to complete your deposit pay transfer:
+
+1. BANK TRANSFER DETAILS
+━━━━━━━━━━━━━━━━
+👤 Recipient Name: ${landlordDetails?.recipientName || 'Jimoh Bolakale Ajao'}
+🏛️ Bank Name: ${landlordDetails?.bankName || 'Commercial International Bank (CIB)'}
+💳 IBAN: ${landlordDetails?.iban || 'EG98 0010 0109 0000 0100 0633 2816 7'}
+🔐 SWIFT / BIC Code: ${landlordDetails?.swiftCode || 'CIBEEGCXXXX'}
+📞 Recipient's Phone: ${landlordDetails?.phone || '+20 1030062440'}
+
+📍 BANK ADDRESS
+🏠 Street: ${landlordDetails?.street || '71 Abou Dawood El Zahry Street, Off Makram Ebeid Street'}
+🏙️ City: ${landlordDetails?.city || 'Nasr City, Cairo'}
+🌍 Country: ${landlordDetails?.country || 'Egypt'}
+📮 P.O. Box: ${landlordDetails?.poBox || '11341'}
+
+2. HOW TO PAY YOUR FEES VIA REMITLY
+━━━━━━━━━━━━━━━━
+To make your payment smoothly via Remitly, please follow these steps:
+Step 1. Download Remitly from the App Store or Google Play, or visit: https://www.remitly.com and log in/create an account.
+Step 2. Select the country you are sending money from.
+Step 3. Select Egypt as the country you are sending to.
+Step 4. Enter the amount to pay: e.g. the 1-month deposit equivalent in EGP (The account will not accept USD directly—you must send the EGP equivalent of $${pricing.monthlyRate} USD!).
+Step 5. Choose the delivery method: Bank Deposit.
+Step 6. Enter the recipient’s bank details exactly as written below:
+   * Account Name: ${landlordDetails?.recipientName || 'Jimoh Bolakale Ajao'}
+   * Bank Name: ${landlordDetails?.remitlyBankName || 'CIB'}
+   * Bank Location: ${landlordDetails?.remitlyLocation || 'Cairo'}
+   * IBAN: ${landlordDetails?.remitlyIban || 'EG320010010900000100063328094'}
+Step 7. Choose your payment method (debit card, credit card, or bank transfer).
+Step 8. Review all transfer details and transmit.
+
+✅ MANDATORY Reference memo: BK${createdBooking.id} - ${formData.fullName}
+
+Rent Breakdown: $${pricing.monthlyRate}/mo for ${formData.duration} months stay.
+Total Remaining balance upon physical arrival: $${pricing.totalPrice - pricing.monthlyRate} USD.
+
+Please log into your student dashboard page to upload your deposit transfer confirmation screenshot when completed so that our admin team can verify the reservation and activate check-in clearance.
+
+Warm regards,
+Al-Ibaanah Student Residency Administration`
       }).catch(err => console.error("Failed to send signature email:", err));
 
       // Admin alert
       sendEmail({
-        to: 'admin@alibaanah.com',
+        to: landlordDetails?.adminEmail || 'sheriffdeenalade@gmail.com',
         subject: `New Tenancy Agreement Signed - (BK${createdBooking.id})`,
-        body: `A new tenancy agreement has been signed by ${formData.fullName} for BK${createdBooking.id}.\n\nPlease review it in the admin dashboard.`
+        body: `A new tenancy agreement has been signed by ${formData.fullName} for BK${createdBooking.id}.
+
+Please verify the agreement details in the Admin Dashboard at your earliest convenience.`
       }).catch(err => console.error("Failed to send admin email:", err));
       
       await addActivity({
@@ -284,8 +337,22 @@ const MultiStepBookingForm: React.FC = () => {
     }
   };
 
+  // Category capacity and current active reservations calculation
+  const activeCategoryBedsCount = formData.category === 'Standard' ? 7 : 4;
+  const activeBookingsCount = bookings.filter(b => {
+    if (b.status === BookingStatus.CANCELLED || b.status === BookingStatus.COMPLETED) return false;
+    const isPremiumCat = formData.category.startsWith('Premium');
+    const bCategory = b.rooms?.category || b.preferred_accommodation || '';
+    const bIsPremium = bCategory.startsWith('Premium') || (b.rooms?.room_number?.startsWith('Premium') ?? false);
+    return isPremiumCat ? bIsPremium : (!bIsPremium && bCategory !== '');
+  }).length;
+
+  const currentOccupied = Math.min(activeBookingsCount, activeCategoryBedsCount);
+  const occupancyPercentage = Math.round((currentOccupied / activeCategoryBedsCount) * 100);
+
   // Expectations array
   const expectations = [
+    `Occupancy status: The Selected ${formData.category} Apartment will accommodate up to ${activeCategoryBedsCount} residents. (${currentOccupied} spaces booked, rendering a ${occupancyPercentage}% category occupancy rate).`,
     "Fully furnished apartments",
     "Private and shared room options (2 students per shared room)",
     "Personal workstation for each student",
@@ -429,30 +496,12 @@ const MultiStepBookingForm: React.FC = () => {
 
               {/* Right Column: Preferences Selection */}
               <div className="space-y-6 bg-white dark:bg-gray-800 p-6 rounded-2xl border border-gray-200 dark:border-gray-700">
-                {/* 1. Shared or Private Selector */}
+                {/* 1. Shared or Private Option (Read-Only carried over from Step 1) */}
                 <div className="space-y-3">
                   <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">A. Choose Room Preference</label>
-                  <div className="grid grid-cols-2 gap-3">
-                    <button
-                      onClick={() => setFormData(prev => ({ ...prev, roomType: 'Shared' }))}
-                      className={`p-4 rounded-xl border text-center transition-all ${
-                        formData.roomType === 'Shared'
-                          ? 'border-brand-500 bg-brand-50/20 text-brand-800 dark:text-brand-300 font-bold'
-                          : 'border-gray-200 dark:border-gray-700 bg-transparent text-gray-600 dark:text-gray-400'
-                      }`}
-                    >
-                      Shared Room Option
-                    </button>
-                    <button
-                      onClick={() => setFormData(prev => ({ ...prev, roomType: 'Private' }))}
-                      className={`p-4 rounded-xl border text-center transition-all ${
-                        formData.roomType === 'Private'
-                          ? 'border-brand-500 bg-brand-50/20 text-brand-800 dark:text-brand-300 font-bold'
-                          : 'border-gray-200 dark:border-gray-700 bg-transparent text-gray-600 dark:text-gray-400'
-                      }`}
-                    >
-                      Private Room Option
-                    </button>
+                  <div className="p-4 rounded-xl bg-gray-50 dark:bg-gray-900 border border-gray-150 dark:border-gray-800 text-sm font-semibold text-gray-850 dark:text-gray-250 flex justify-between items-center animate-pulse">
+                    <span>{formData.roomType === 'Shared' ? 'Shared Room Option' : 'Private Single Room Option'}</span>
+                    <span className="text-[10px] bg-brand-100 dark:bg-brand-900/40 text-brand-600 dark:text-brand-300 font-bold px-2.1 py-0.5 rounded border border-brand-200 dark:border-brand-800 uppercase tracking-wider leading-none">Selected Bed Choice</span>
                   </div>
                 </div>
 
@@ -740,33 +789,52 @@ const MultiStepBookingForm: React.FC = () => {
                 </div>
               </div>
 
+              {/* Action notice for Deposit Pay */}
+              <div className="p-5 bg-amber-500/10 dark:bg-amber-950/20 border border-amber-300 dark:border-amber-900 rounded-2xl text-left space-y-2.5">
+                <h4 className="font-black text-amber-900 dark:text-amber-400 text-sm uppercase tracking-wide flex items-center gap-1.5">
+                  ⚠️ Deposit of One Month (Due Now) Required: $${pricing.monthlyRate} USD
+                </h4>
+                <p className="text-xs text-gray-700 dark:text-gray-300 leading-relaxed font-semibold">
+                  To complete your booking and secure your bed space booking, a **Security Deposit of one month (Due Now) in the amount of $${pricing.monthlyRate} USD** is required immediately. 
+                  This deposit of one month (Due Now) is what makes your residency reservation possible.
+                </p>
+                <div className="flex justify-between text-xs pt-2.5 border-t border-amber-200 dark:border-amber-900 font-bold">
+                  <span className="text-gray-400 uppercase tracking-wider text-[10px]">Due Now (Security Deposit):</span>
+                  <span className="text-amber-700 font-black font-mono select-all">${pricing.monthlyRate} USD</span>
+                </div>
+                <div className="flex justify-between text-xs font-bold">
+                  <span className="text-gray-400 uppercase tracking-wider text-[10px]">Remaining Stay Rent Balance:</span>
+                  <span className="text-gray-700 dark:text-gray-300 font-mono">${pricing.totalPrice - pricing.monthlyRate} USD</span>
+                </div>
+              </div>
+
               {confirmPaymentTab === 'bank' ? (
                 <div className="space-y-4">
                   <div className="bg-white dark:bg-gray-800 p-5 rounded-2xl border border-gray-200 dark:border-gray-700 text-xs space-y-3 font-medium">
                     <div className="flex justify-between border-b pb-2 text-sm">
-                      <span className="text-gray-400">Total Charged:</span>
-                      <span className="font-black text-brand-700">${pricing.totalPrice} USD</span>
+                      <span className="text-gray-400">Security Deposit Charged:</span>
+                      <span className="font-black text-brand-700">${pricing.monthlyRate} USD</span>
                     </div>
                     <div className="grid grid-cols-2 gap-y-2.5 pt-2">
                       <div className="text-gray-400 font-bold uppercase tracking-wider text-[10px]">Recipient Name</div>
-                      <div className="font-bold text-gray-900 dark:text-white select-all text-right">Jimoh Bolakale Ajao</div>
+                      <div className="font-bold text-gray-900 dark:text-white select-all text-right">{landlordDetails?.recipientName || 'Jimoh Bolakale Ajao'}</div>
 
                       <div className="text-gray-400 font-bold uppercase tracking-wider text-[10px]">Bank Name</div>
-                      <div className="font-bold text-gray-900 dark:text-white text-right">Commercial International Bank (CIB)</div>
+                      <div className="font-bold text-gray-900 dark:text-white text-right">{landlordDetails?.bankName || 'Commercial International Bank (CIB)'}</div>
 
                       <div className="text-gray-400 font-bold uppercase tracking-wider text-[10px]">IBAN</div>
-                      <div className="font-mono font-bold text-amber-600 dark:text-amber-400 select-all text-right">EG98 0010 0109 0000 0100 0633 2816 7</div>
+                      <div className="font-mono font-bold text-amber-600 dark:text-amber-400 select-all text-right">{landlordDetails?.iban || 'EG98 0010 0109 0000 0100 0633 2816 7'}</div>
 
                       <div className="text-gray-400 font-bold uppercase tracking-wider text-[10px]">SWIFT / BIC Code</div>
-                      <div className="font-mono font-bold select-all text-right">CIBEEGCXXXX</div>
+                      <div className="font-mono font-bold select-all text-right">{landlordDetails?.swiftCode || 'CIBEEGCXXXX'}</div>
 
                       <div className="text-gray-400 font-bold uppercase tracking-wider text-[10px]">Phone Number</div>
-                      <div className="font-bold select-all text-right">+20 1030062440</div>
+                      <div className="font-bold select-all text-right">{landlordDetails?.phone || '+20 1030062440'}</div>
                     </div>
                     
                     <div className="border-t border-gray-100 dark:border-gray-700 pt-3 text-[11px] text-gray-500 leading-normal">
                       <strong className="text-gray-700 dark:text-gray-300 block mb-1">🏦 Bank Address:</strong>
-                      71 Abou Dawood El Zahry Street, Off Makram Ebeid Street, Nasr City, Cairo, Egypt (P.O. Box 11341)
+                      {landlordDetails?.street || '71 Abou Dawood El Zahry Street, Off Makram Ebeid Street'}, {landlordDetails?.city || 'Nasr City, Cairo'}, {landlordDetails?.country || 'Egypt'} (P.O. Box {landlordDetails?.poBox || '11341'})
                     </div>
 
                     <div className="border-t border-gray-100 dark:border-gray-700 pt-3 flex justify-between items-center">
@@ -786,7 +854,7 @@ const MultiStepBookingForm: React.FC = () => {
                       <li>Select the country you are sending money from.</li>
                       <li>Select <strong>Egypt</strong> as the country you are sending to.</li>
                       <li>
-                        Enter the amount you want to pay: e.g., <strong>${pricing.totalPrice} USD</strong> (or equivalent).
+                        Enter the amount you want to pay: e.g., <strong>${pricing.monthlyRate} USD (One Month Security Deposit)</strong> (or equivalent).
                         <p className="text-red-500 font-bold mt-0.5">⚠️ This account will not accept dollars directly—make sure you send the equivalent in Egyptian Pounds (EGP).</p>
                       </li>
                       <li>Choose the delivery method: <strong>Bank Deposit</strong>.</li>
@@ -794,13 +862,13 @@ const MultiStepBookingForm: React.FC = () => {
                         Enter the recipient’s bank details exactly as written below:
                         <div className="bg-gray-50 dark:bg-gray-900/50 p-2.5 rounded-lg border border-gray-150 dark:border-gray-800 font-medium pl-3 mt-1.5 grid grid-cols-2 gap-1 text-[11px]">
                           <span className="text-gray-400">Account Name:</span>
-                          <span className="font-bold text-right col-span-1">Jimoh Bolakale Ajao</span>
+                          <span className="font-bold text-right col-span-1">{landlordDetails?.recipientName || 'Jimoh Bolakale Ajao'}</span>
                           <span className="text-gray-400">Bank Name:</span>
-                          <span className="font-bold text-right col-span-1">CIB</span>
+                          <span className="font-bold text-right col-span-1">{landlordDetails?.remitlyBankName || 'CIB'}</span>
                           <span className="text-gray-400">Bank Location:</span>
-                          <span className="font-bold text-right col-span-1">Cairo</span>
+                          <span className="font-bold text-right col-span-1">{landlordDetails?.remitlyLocation || 'Cairo'}</span>
                           <span className="text-gray-400 text-left">IBAN:</span>
-                          <span className="font-mono font-bold text-right col-span-1 text-brand-600 dark:text-brand-400 select-all">EG320010010900000100063328094</span>
+                          <span className="font-mono font-bold text-right col-span-1 text-brand-600 dark:text-brand-400 select-all">{landlordDetails?.remitlyIban || 'EG320010010900000100063328094'}</span>
                         </div>
                       </li>
                       <li>Choose your payment method (debit card, credit card, or bank transfer).</li>

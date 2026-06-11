@@ -150,7 +150,7 @@ const TenancyAgreementDocument: React.ForwardRefRenderFunction<HTMLDivElement, T
 
               <div>
                 <h3 className="font-bold text-gray-900">1.2 Occupancy</h3>
-                <p className="text-gray-700 mt-1">The apartment may accommodate up to 3-4 residents: two residents per shared room and one per private room.</p>
+                <p className="text-gray-700 mt-1">The apartment will accommodate up to {formData?.category === 'Standard' ? 7 : 4} residents.</p>
                 <ul className="list-disc list-inside mt-2 space-y-1 text-gray-600 pl-2">
                   <li>Each resident must provide a valid passport copy and sign an internal occupancy form.</li>
                   <li>Subletting or reassignment of any kind is strictly prohibited under any circumstances.</li>
@@ -363,32 +363,6 @@ const TenancyAgreementDocument: React.ForwardRefRenderFunction<HTMLDivElement, T
               </div>
             </div>
 
-            <h2 className="text-sm font-bold border-b border-brand-800 text-brand-800 pb-1 uppercase tracking-wider mt-8">WITNESSES</h2>
-            <div className="grid grid-cols-2 gap-8 text-xs">
-              <div className="space-y-4 border border-dashed border-gray-200 p-4 rounded-xl">
-                <span className="font-bold text-gray-500 block uppercase tracking-widest text-[9px]">Witness 1</span>
-                <div>
-                  <span className="font-bold text-gray-400 block text-[9px] uppercase">Name</span>
-                  <div className="border-b border-gray-200 h-6"></div>
-                </div>
-                <div>
-                  <span className="font-bold text-gray-400 block text-[9px] uppercase">Date</span>
-                  <div className="border-b border-gray-200 h-6"></div>
-                </div>
-              </div>
-
-              <div className="space-y-4 border border-dashed border-gray-200 p-4 rounded-xl">
-                <span className="font-bold text-gray-500 block uppercase tracking-widest text-[9px]">Witness 2</span>
-                <div>
-                  <span className="font-bold text-gray-400 block text-[9px] uppercase">Name</span>
-                  <div className="border-b border-gray-200 h-6"></div>
-                </div>
-                <div>
-                  <span className="font-bold text-gray-400 block text-[9px] uppercase">Date</span>
-                  <div className="border-b border-gray-200 h-6"></div>
-                </div>
-              </div>
-            </div>
           </div>
         </div>
 

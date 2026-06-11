@@ -34,7 +34,7 @@ const ALL_ROOM_SPACES = [
 
 const DashboardPage: React.FC = () => {
   const t = useTranslation();
-  const { user, bookings, activities, setPage, cmsContent, addActivity, updateBooking, language, rooms } = useApp();
+  const { user, bookings, activities, setPage, cmsContent, addActivity, updateBooking, language, rooms, landlordDetails } = useApp();
   
   const [selectedInvoice, setSelectedInvoice] = useState<Booking | null>(null);
   const [viewingAgreement, setViewingAgreement] = useState<Booking | null>(null);
@@ -145,6 +145,20 @@ const DashboardPage: React.FC = () => {
         payment_proof_url: url,
         status: BookingStatus.PENDING_VERIFICATION
       });
+
+      sendEmail({
+        to: landlordDetails?.adminEmail || 'sheriffdeenalade@gmail.com',
+        subject: `[Admin Alert] Receipt Uploaded for BK${uploadingProofBooking.id}`,
+        body: `Dear Admin,
+
+Student ${user?.full_name || 'Student'} has uploaded a payment proof for booking BK${uploadingProofBooking.id} (Category: ${uploadingProofBooking.preferred_accommodation || uploadingProofBooking.rooms?.category || 'Accommodation'}).
+
+Please review the upload and confirm the booking in the Admin panel.
+Receipt URL: ${url}
+
+Warm regards,
+Al-Ibaanah Student Residency Notification System`
+      }).catch(err => console.error("Failed to notify admin of payment proof:", err));
 
       addActivity({
         user_id: user!.id,

@@ -606,6 +606,159 @@ const AdminDashboardPage: React.FC = () => {
                   </div>
               </div>
 
+              <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 border border-gray-100 dark:border-gray-700 animate-fade-in">
+                  <div className="flex items-center mb-6">
+                    <IconBuilding className="w-6 h-6 text-brand-600 mr-2" />
+                    <h2 className="text-xl font-bold">Landlord Payment & Notification Settings</h2>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    <div>
+                      <label className="block text-xs font-bold uppercase text-gray-500 mb-1">Recipient Name</label>
+                      <input 
+                        type="text" 
+                        value={cmsContent.landlordDetails?.recipientName || ''} 
+                        onChange={(e) => updateCmsContent({ 
+                          landlordDetails: { ...cmsContent.landlordDetails!, recipientName: e.target.value } 
+                        })} 
+                        className="w-full p-2.5 border rounded-lg dark:bg-gray-700 dark:border-gray-600 font-medium text-sm" 
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold uppercase text-gray-500 mb-1">Bank Name</label>
+                      <input 
+                        type="text" 
+                        value={cmsContent.landlordDetails?.bankName || ''} 
+                        onChange={(e) => updateCmsContent({ 
+                          landlordDetails: { ...cmsContent.landlordDetails!, bankName: e.target.value } 
+                        })} 
+                        className="w-full p-2.5 border rounded-lg dark:bg-gray-700 dark:border-gray-600 font-medium text-sm" 
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold uppercase text-gray-500 mb-1">Bank IBAN</label>
+                      <input 
+                        type="text" 
+                        value={cmsContent.landlordDetails?.iban || ''} 
+                        onChange={(e) => updateCmsContent({ 
+                          landlordDetails: { ...cmsContent.landlordDetails!, iban: e.target.value } 
+                        })} 
+                        className="w-full p-2.5 border rounded-lg dark:bg-gray-700 dark:border-gray-600 font-mono text-sm" 
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold uppercase text-gray-500 mb-1">SWIFT / BIC Code</label>
+                      <input 
+                        type="text" 
+                        value={cmsContent.landlordDetails?.swiftCode || ''} 
+                        onChange={(e) => updateCmsContent({ 
+                          landlordDetails: { ...cmsContent.landlordDetails!, swiftCode: e.target.value } 
+                        })} 
+                        className="w-full p-2.5 border rounded-lg dark:bg-gray-700 dark:border-gray-600 font-mono text-sm" 
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold uppercase text-gray-500 mb-1">Phone Number</label>
+                      <input 
+                        type="text" 
+                        value={cmsContent.landlordDetails?.phone || ''} 
+                        onChange={(e) => updateCmsContent({ 
+                          landlordDetails: { ...cmsContent.landlordDetails!, phone: e.target.value } 
+                        })} 
+                        className="w-full p-2.5 border rounded-lg dark:bg-gray-700 dark:border-gray-600 font-medium text-sm" 
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold uppercase text-gray-500 mb-1">Street Address</label>
+                      <input 
+                        type="text" 
+                        value={cmsContent.landlordDetails?.street || ''} 
+                        onChange={(e) => updateCmsContent({ 
+                          landlordDetails: { ...cmsContent.landlordDetails!, street: e.target.value } 
+                        })} 
+                        className="w-full p-2.5 border rounded-lg dark:bg-gray-700 dark:border-gray-600 font-medium text-sm" 
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold uppercase text-gray-500 mb-1">City</label>
+                      <input 
+                        type="text" 
+                        value={cmsContent.landlordDetails?.city || ''} 
+                        onChange={(e) => updateCmsContent({ 
+                          landlordDetails: { ...cmsContent.landlordDetails!, city: e.target.value } 
+                        })} 
+                        className="w-full p-2.5 border rounded-lg dark:bg-gray-700 dark:border-gray-600 font-medium text-sm" 
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold uppercase text-gray-500 mb-1">Country</label>
+                      <input 
+                        type="text" 
+                        value={cmsContent.landlordDetails?.country || ''} 
+                        onChange={(e) => updateCmsContent({ 
+                          landlordDetails: { ...cmsContent.landlordDetails!, country: e.target.value } 
+                        })} 
+                        className="w-full p-2.5 border rounded-lg dark:bg-gray-700 dark:border-gray-600 font-medium text-sm" 
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold uppercase text-gray-500 mb-1">P.O. Box</label>
+                      <input 
+                        type="text" 
+                        value={cmsContent.landlordDetails?.poBox || ''} 
+                        onChange={(e) => updateCmsContent({ 
+                          landlordDetails: { ...cmsContent.landlordDetails!, poBox: e.target.value } 
+                        })} 
+                        className="w-full p-2.5 border rounded-lg dark:bg-gray-700 dark:border-gray-600 font-medium text-sm" 
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold uppercase text-gray-500 mb-1">Remitly IBAN Account</label>
+                      <input 
+                        type="text" 
+                        value={cmsContent.landlordDetails?.remitlyIban || ''} 
+                        onChange={(e) => updateCmsContent({ 
+                          landlordDetails: { ...cmsContent.landlordDetails!, remitlyIban: e.target.value } 
+                        })} 
+                        className="w-full p-2.5 border rounded-lg dark:bg-gray-700 dark:border-gray-600 font-mono text-sm" 
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold uppercase text-gray-500 mb-1">Remitly Bank Name</label>
+                      <input 
+                        type="text" 
+                        value={cmsContent.landlordDetails?.remitlyBankName || ''} 
+                        onChange={(e) => updateCmsContent({ 
+                          landlordDetails: { ...cmsContent.landlordDetails!, remitlyBankName: e.target.value } 
+                        })} 
+                        className="w-full p-2.5 border rounded-lg dark:bg-gray-700 dark:border-gray-600 font-medium text-sm" 
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold uppercase text-gray-500 mb-1">Remitly Location</label>
+                      <input 
+                        type="text" 
+                        value={cmsContent.landlordDetails?.remitlyLocation || ''} 
+                        onChange={(e) => updateCmsContent({ 
+                          landlordDetails: { ...cmsContent.landlordDetails!, remitlyLocation: e.target.value } 
+                        })} 
+                        className="w-full p-2.5 border rounded-lg dark:bg-gray-700 dark:border-gray-600 font-medium text-sm" 
+                      />
+                    </div>
+                    <div className="md:col-span-2 lg:col-span-3 border-t pt-4">
+                      <label className="block text-xs font-bold uppercase text-gray-500 mb-1 text-brand-600">Admin Email for Notifications</label>
+                      <input 
+                        type="email" 
+                        value={cmsContent.landlordDetails?.adminEmail || ''} 
+                        onChange={(e) => updateCmsContent({ 
+                          landlordDetails: { ...cmsContent.landlordDetails!, adminEmail: e.target.value } 
+                        })} 
+                        className="w-full max-w-md p-2.5 border rounded-lg dark:bg-gray-700 dark:border-gray-600 font-medium text-sm" 
+                      />
+                      <p className="text-[10px] text-gray-400 mt-1">This email address will receive real-time alerts when agreements are signed or payments are uploaded.</p>
+                    </div>
+                  </div>
+              </div>
+
               <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 border border-gray-100 dark:border-gray-700">
                   <div className="flex items-center justify-between mb-6">
                     <div className="flex items-center">

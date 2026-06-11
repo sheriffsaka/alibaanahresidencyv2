@@ -6,8 +6,25 @@ import { Session } from '@supabase/supabase-js';
 
 export const AppContext = createContext<AppContextType | undefined>(undefined);
 
+export const DEFAULT_LANDLORD_DETAILS = {
+  recipientName: 'Jimoh Bolakale Ajao',
+  bankName: 'Commercial International Bank (CIB)',
+  iban: 'EG98 0010 0109 0000 0100 0633 2816 7',
+  swiftCode: 'CIBEEGCXXXX',
+  phone: '+20 1030062440',
+  street: '71 Abou Dawood El Zahry Street, Off Makram Ebeid Street',
+  city: 'Nasr City, Cairo',
+  country: 'Egypt',
+  poBox: '11341',
+  remitlyIban: 'EG320010010900000100063328094',
+  remitlyBankName: 'CIB',
+  remitlyLocation: 'Cairo',
+  adminEmail: 'sheriffdeenalade@gmail.com'
+};
+
 export const INITIAL_CMS: CmsContent = {
   logoUrl: 'https://res.cloudinary.com/di7okmjsx/image/upload/v1771428370/alibaanahlogo1_iprhyj.png',
+  landlordDetails: DEFAULT_LANDLORD_DETAILS,
   hero: {
     en: { title: 'Your Home for Knowledge and Comfort', subtitle: 'Secure, comfortable, and studious living, just moments away from the Al-Ibaanah Arabic Center.' },
     ar: { title: 'بيتك للمعرفة والراحة', subtitle: 'سكن آمن، مريح، ومناسب للدراسة، على بعد لحظات من مركز الإبانة للغة العربية.' }
@@ -350,7 +367,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                 howToVideos: hasData(dbCms.how_to_videos || dbCms.howToVideos)
                     ? (dbCms.how_to_videos || dbCms.howToVideos)
                     : INITIAL_CMS.howToVideos,
-                announcements: normalizeCmsData(dbCms.announcements, INITIAL_CMS.announcements)
+                announcements: normalizeCmsData(dbCms.announcements, INITIAL_CMS.announcements),
+                landlordDetails: (dbCms.how_to_videos || dbCms.howToVideos)?.landlordDetails || DEFAULT_LANDLORD_DETAILS
               });
             }
         } catch (err) {
@@ -515,7 +533,10 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             features: updatedCms.features,
             faqs: updatedCms.faqs,
             contract_templates: updatedCms.contractTemplates,
-            how_to_videos: updatedCms.howToVideos,
+            how_to_videos: {
+                ...updatedCms.howToVideos,
+                landlordDetails: updatedCms.landlordDetails
+            },
             announcements: updatedCms.announcements,
             updated_at: new Date().toISOString()
         };
@@ -745,6 +766,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     academicTerms,
     bookingPackages,
     loading,
+    landlordDetails: cmsContent.landlordDetails || DEFAULT_LANDLORD_DETAILS
   };
 
   return (

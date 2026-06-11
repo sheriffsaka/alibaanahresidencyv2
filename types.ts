@@ -108,6 +108,22 @@ export interface User {
   gender?: 'Male' | 'Female';
 }
 
+export interface LandlordDetails {
+  recipientName: string;
+  bankName: string;
+  iban: string;
+  swiftCode: string;
+  phone: string;
+  street: string;
+  city: string;
+  country: string;
+  poBox: string;
+  remitlyIban: string;
+  remitlyBankName: string;
+  remitlyLocation: string;
+  adminEmail: string;
+}
+
 export interface CmsContent {
   logoUrl: string;
   hero: {
@@ -147,6 +163,7 @@ export interface CmsContent {
       date: string;
     }[];
   };
+  landlordDetails?: LandlordDetails;
 }
 
 export interface AppContextType {
@@ -178,6 +195,7 @@ export interface AppContextType {
   deleteUser: (id: string) => Promise<{ success: boolean; error?: string }>;
   academicTerms: AcademicTerm[];
   bookingPackages: BookingPackage[];
+  landlordDetails: LandlordDetails;
 }
 
 export interface ChatMessage {
