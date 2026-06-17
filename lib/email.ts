@@ -11,15 +11,47 @@ export interface EmailOptions {
 }
 
 export const sendEmail = async (options: EmailOptions): Promise<{ success: boolean; error?: string }> => {
-  console.log("--- SENDING EMAIL ---");
+  console.log("--- EMAIL DISPATCH ---");
   console.log(`To: ${options.to}`);
   console.log(`Subject: ${options.subject}`);
   console.log(`Body: \n${options.body}`);
   console.log("----------------------");
   
-  // Simulate network delay
+  // Detection for production endpoints (e.g. Supabase Edge Function or a backend proxy)
+  const SUPABASE_URL = (import.meta as any).env?.VITE_SUPABASE_URL || 'https://lzibaammjwrmjqkqwdml.supabase.co';
+  const SUPABASE_ANON_KEY = (import.meta as any).env?.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx6aWJhYW1tandybWpxa3F3ZG1sIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA0MDc3NjAsImV4cCI6MjA4NTk4Mzc2MH0.r9rtTQeGmJH5qZlq8DtAf0zhgnNwPelTnXMMtqY1hyI';
+  const useRealEmailService = (import.meta as any).env?.VITE_USE_REAL_EMAIL_SERVICE === 'true';
+
+  if (useRealEmailService && SUPABASE_URL && SUPABASE_ANON_KEY) {
+    try {
+      const response = await fetch(`${SUPABASE_URL}/functions/v1/send-resend-email`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
+        },
+        body: JSON.stringify({
+          to: options.to,
+          subject: options.subject,
+          text: options.body
+        })
+      });
+
+      if (!response.ok) {
+        const errText = await response.text();
+        throw new Error(errText || `Failed with status ${response.status}`);
+      }
+
+      const resData = await response.json();
+      return { success: true, ...resData };
+    } catch (err: any) {
+      console.error("[Email Error] Failed to transmit real Resend email:", err);
+      return { success: false, error: err.message };
+    }
+  }
+
+  // Simulate network latency for simulation
   await new Promise(resolve => setTimeout(resolve, 1000));
-  
   return { success: true };
 };
 

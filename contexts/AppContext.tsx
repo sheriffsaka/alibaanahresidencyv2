@@ -11,7 +11,7 @@ export const DEFAULT_LANDLORD_DETAILS = {
   bankName: 'Commercial International Bank (CIB)',
   iban: 'EG98 0010 0109 0000 0100 0633 2816 7',
   swiftCode: 'CIBEEGCXXXX',
-  phone: '+20 1030062440',
+  phone: '+20 1030072440',
   street: '71 Abou Dawood El Zahry Street, Off Makram Ebeid Street',
   city: 'Nasr City, Cairo',
   country: 'Egypt',
