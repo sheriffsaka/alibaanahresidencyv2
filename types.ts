@@ -26,6 +26,7 @@ export interface Room {
   is_available: boolean;
   created_at: string;
   gender_restriction: 'Male' | 'Female' | 'Any';
+  next_available_date?: string;
 }
 
 export enum BookingStatus {

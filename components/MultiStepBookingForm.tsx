@@ -41,6 +41,39 @@ const ACCOMMODATIONS_SELECTION: Record<string, Array<{ id: string; room: string;
   ],
 };
 
+// Swappable media assets (images, tour videos, and features) for each student accommodation category.
+// Swapping YouTube/Vimeo tour links and Cloudinary photos here instantly updates the student booking interface.
+export const CATEGORY_MEDIA: Record<'Standard' | 'Premium 1' | 'Premium 2', {
+  videoUrl: string;
+  images: string[];
+  features: string[];
+}> = {
+  'Premium 1': {
+    videoUrl: 'https://www.youtube.com/embed/dQw4w9WgXcQ', // Embed YouTube or Vimeo video ID
+    images: [
+      'https://res.cloudinary.com/di7okmjsx/image/upload/v1770388212/Suite2_q62y4w.jpg',
+      'https://res.cloudinary.com/di7okmjsx/image/upload/v1770388212/Suite1_t4dczv.jpg'
+    ],
+    features: ['High-speed student Wi-Fi', 'In-room Air Conditioning', 'En-suite Luxury Bathroom option', 'Private Room option', 'Cozy premium furniture layout', 'Access to Elite Study common areas']
+  },
+  'Premium 2': {
+    videoUrl: 'https://www.youtube.com/embed/dQw4w9WgXcQ', // Embed YouTube or Vimeo video ID
+    images: [
+      'https://res.cloudinary.com/di7okmjsx/image/upload/v1770388212/Suite2_q62y4w.jpg',
+      'https://res.cloudinary.com/di7okmjsx/image/upload/v1770388212/Suite1_t4dczv.jpg'
+    ],
+    features: ['Premium Suite features', 'Modern kitchen accessibility', 'Spacious study areas', 'In-room high capacity AC', 'Dedicated Resident Lounge Area', 'Weekly student helper laundry cleaning']
+  },
+  'Standard': {
+    videoUrl: 'https://www.youtube.com/embed/dQw4w9WgXcQ', // Embed YouTube or Vimeo video ID
+    images: [
+      'https://res.cloudinary.com/di7okmjsx/image/upload/v1770388212/shared_bathroom1_hlxjdg.jpg',
+      'https://res.cloudinary.com/di7okmjsx/image/upload/v1770388212/single_room2_zhd9uo.jpg'
+    ],
+    features: ['Shared bathroom area', 'High-speed student Wi-Fi', 'Air conditioning unit', 'Fully furnished student kitchen', 'Automatic washing machine access', 'Tranquil student community focus']
+  }
+};
+
 const MultiStepBookingForm: React.FC = () => {
   const t = useTranslation();
   const { user, setPage, addBooking, addActivity, rooms, bookings, extendingBooking, landlordDetails } = useApp();
@@ -399,27 +432,86 @@ Please verify the agreement details in the Admin Dashboard at your earliest conv
               </h3>
               
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {ACCOMMODATIONS_SELECTION[formData.category]?.map(item => (
-                  <button
-                    key={item.id}
-                    onClick={() => handleRoomSelect(item.id)}
-                    className={`p-4 rounded-xl border text-left flex justify-between items-center transition-all ${
-                      formData.selectedRoomId === item.id
-                        ? 'border-brand-500 bg-brand-50/20 text-brand-700 dark:text-brand-400 font-bold'
-                        : 'border-gray-100 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-900 text-gray-700 dark:text-gray-300'
-                    }`}
-                  >
-                    <div>
-                      <span className="block font-bold text-sm">{item.room}</span>
-                      <span className="text-xs text-gray-400 block mt-0.5 font-medium">{item.type} room ({item.space})</span>
-                    </div>
-                    {formData.selectedRoomId === item.id && (
-                      <div className="w-5 h-5 rounded-full bg-brand-600 text-white flex items-center justify-center">
-                        <IconCheck className="w-3.5 h-3.5" />
+                {ACCOMMODATIONS_SELECTION[formData.category]?.map(item => {
+                  const targetLabel = `${formData.category} - ${item.room} (${item.space})`;
+                  
+                  // Calculate Dynamic Next Available Date based on current active student resident bookings
+                  const activeBedsBookings = (bookings || []).filter(b => {
+                    if (b.status === BookingStatus.CANCELLED || b.status === BookingStatus.COMPLETED) return false;
+                    const bookingLabel = (b as any).room_number || b.rooms?.room_number || '';
+                    return bookingLabel === targetLabel;
+                  });
+
+                  // Sort active bookings to find the latest residency lease end_date
+                  const sortedBookings = [...activeBedsBookings].sort((a, b) => {
+                    const dateA = a.end_date ? new Date(a.end_date).getTime() : 0;
+                    const dateB = b.end_date ? new Date(b.end_date).getTime() : 0;
+                    return dateB - dateA;
+                  });
+
+                  const latestBooking = sortedBookings[0];
+                  let calculatedAvailDate = 'Available Now';
+                  if (latestBooking && latestBooking.end_date) {
+                    try {
+                      const endD = new Date(latestBooking.end_date);
+                      calculatedAvailDate = endD.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
+                    } catch (e) {
+                      calculatedAvailDate = latestBooking.end_date;
+                    }
+                  }
+
+                  // Retrieve matching DB Room object to check for any manual override date
+                  const matchingSupabaseRoom = rooms.find(r => {
+                    const rCategory = r.category || '';
+                    const rType = r.type || '';
+                    const isPrivate = item.type === 'Private';
+                    const catSimple = formData.category.startsWith('Premium') ? 'Premium' : 'Standard';
+                    const reqType = isPrivate ? `${catSimple} Private` : `${catSimple} Shared`;
+                    return rCategory.toLowerCase() === catSimple.toLowerCase() && rType === reqType;
+                  });
+
+                  const manualOverride = (matchingSupabaseRoom as any)?.next_available_date;
+                  let finalAvailDate = calculatedAvailDate;
+                  if (manualOverride) {
+                    try {
+                      finalAvailDate = new Date(manualOverride).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
+                    } catch (e) {
+                      finalAvailDate = manualOverride;
+                    }
+                  }
+
+                  return (
+                    <button
+                      key={item.id}
+                      onClick={() => handleRoomSelect(item.id)}
+                      className={`p-4 rounded-xl border text-left flex justify-between items-center transition-all ${
+                        formData.selectedRoomId === item.id
+                          ? 'border-brand-500 bg-brand-50/20 text-brand-700 dark:text-brand-400 font-bold'
+                          : 'border-gray-100 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-900 text-gray-700 dark:text-gray-300'
+                      }`}
+                    >
+                      <div>
+                        <span className="block font-bold text-sm text-gray-900 dark:text-white">{item.room}</span>
+                        <span className="text-xs text-gray-400 block mt-0.5 font-medium">{item.type} room ({item.space})</span>
+                        <div className="mt-2 flex items-center gap-1.5">
+                          <span className="text-[9px] uppercase font-bold text-gray-400">Available:</span>
+                          <span className={`text-[9px] font-black uppercase px-1.5 py-0.5 rounded ${
+                            finalAvailDate === 'Available Now'
+                              ? 'bg-green-50 text-green-700 dark:bg-green-950/20 dark:text-green-400'
+                              : 'bg-amber-50 text-amber-700 dark:bg-amber-950/20 dark:text-amber-400'
+                          }`}>
+                            {finalAvailDate}
+                          </span>
+                        </div>
                       </div>
-                    )}
-                  </button>
-                ))}
+                      {formData.selectedRoomId === item.id && (
+                        <div className="w-5 h-5 rounded-full bg-brand-600 text-white flex items-center justify-center flex-shrink-0">
+                          <IconCheck className="w-3.5 h-3.5" />
+                        </div>
+                      )}
+                    </button>
+                  );
+                })}
               </div>
             </div>
 
@@ -448,7 +540,7 @@ Please verify the agreement details in the Admin Dashboard at your earliest conv
         );
 
       case 2: // Apartment features, pricing, Shared vs Private selection
-        const isPremium = formData.category.startsWith('Premium');
+        const media = CATEGORY_MEDIA[formData.category];
         return (
           <div className="space-y-8 animate-fade-in">
             <div className="text-center">
@@ -462,8 +554,8 @@ Please verify the agreement details in the Admin Dashboard at your earliest conv
                 <div className="aspect-video rounded-2xl overflow-hidden shadow-lg border border-gray-200 dark:border-gray-700 bg-black relative">
                   <iframe
                     className="w-full h-full"
-                    src="https://www.youtube.com/embed/dQw4w9WgXcQ"
-                    title="Room Tour Video"
+                    src={media.videoUrl}
+                    title={`${formData.category} Room Tour Video`}
                     frameBorder="0"
                     allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                     allowFullScreen
@@ -471,23 +563,17 @@ Please verify the agreement details in the Admin Dashboard at your earliest conv
                 </div>
 
                 <div className="grid grid-cols-2 gap-3">
-                  <div className="aspect-square rounded-xl overflow-hidden shadow-sm border dark:border-gray-700">
+                  <div className="aspect-square rounded-xl overflow-hidden shadow-sm border dark:border-gray-700 bg-gray-50">
                     <img 
-                      src={isPremium 
-                        ? 'https://res.cloudinary.com/di7okmjsx/image/upload/v1770388212/Suite2_q62y4w.jpg' 
-                        : 'https://res.cloudinary.com/di7okmjsx/image/upload/v1770388212/shared_bathroom1_hlxjdg.jpg'
-                      } 
-                      alt="Apartment feature" 
+                      src={media.images[0]} 
+                      alt={`${formData.category} Apartment feature 1`} 
                       className="w-full h-full object-cover" 
                     />
                   </div>
-                  <div className="aspect-square rounded-xl overflow-hidden shadow-sm border dark:border-gray-700">
+                  <div className="aspect-square rounded-xl overflow-hidden shadow-sm border dark:border-gray-700 bg-gray-50">
                     <img 
-                      src={isPremium 
-                        ? 'https://res.cloudinary.com/di7okmjsx/image/upload/v1770388212/Suite1_t4dczv.jpg' 
-                        : 'https://res.cloudinary.com/di7okmjsx/image/upload/v1770388212/single_room2_zhd9uo.jpg'
-                      } 
-                      alt="Room space" 
+                      src={media.images[1]} 
+                      alt={`${formData.category} Apartment feature 2`} 
                       className="w-full h-full object-cover" 
                     />
                   </div>

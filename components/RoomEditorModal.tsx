@@ -19,6 +19,7 @@ const RoomEditorModal: React.FC<RoomEditorModalProps> = ({ room, onClose, onSave
     price_per_month: room?.price_per_month || 0,
     gender_restriction: room?.gender_restriction || 'Any',
     capacity: room?.capacity || 1,
+    next_available_date: (room as any)?.next_available_date || '',
   });
   const [amenitiesStr, setAmenitiesStr] = useState(room?.amenities.join(', ') || '');
   const [imageUrls, setImageUrls] = useState<string[]>(room?.image_urls || []);
@@ -197,6 +198,23 @@ const RoomEditorModal: React.FC<RoomEditorModalProps> = ({ room, onClose, onSave
                   <option value="Female">Female</option>
                 </select>
               </div>
+            </div>
+
+            <div>
+              <label htmlFor="next_available_date" className="block text-sm font-bold text-gray-700 dark:text-gray-300">
+                Next Available Date (Manual Override)
+              </label>
+              <input 
+                type="date" 
+                name="next_available_date" 
+                id="next_available_date" 
+                value={formData.next_available_date} 
+                onChange={handleInputChange} 
+                className="mt-1 block w-full p-3 border rounded-xl dark:bg-gray-700 dark:border-gray-600 text-sm" 
+              />
+              <p className="text-[10px] text-gray-500 mt-1 italic">
+                Leave blank to automatically compute availability from current active residents' length of stay.
+              </p>
             </div>
 
             <div>
