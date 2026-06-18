@@ -18,12 +18,20 @@ export const sendEmail = async (options: EmailOptions): Promise<{ success: boole
   console.log("----------------------");
   
   // Detection for production endpoints (e.g. Supabase Edge Function or a backend proxy)
-  const SUPABASE_URL = (import.meta as any).env?.VITE_SUPABASE_URL || 'https://lzibaammjwrmjqkqwdml.supabase.co';
-  const SUPABASE_ANON_KEY = (import.meta as any).env?.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx6aWJhYW1tandybWpxa3F3ZG1sIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA0MDc3NjAsImV4cCI6MjA4NTk4Mzc2MH0.r9rtTQeGmJH5qZlq8DtAf0zhgnNwPelTnXMMtqY1hyI';
-  const useRealEmailService = (import.meta as any).env?.VITE_USE_REAL_EMAIL_SERVICE === 'true';
+  const SUPABASE_URL = (import.meta as any).env?.VITE_SUPABASE_URL || 
+                       (typeof process !== 'undefined' && process.env?.VITE_SUPABASE_URL) || 
+                       'https://lzibaammjwrmjqkqwdml.supabase.co';
+  
+  const SUPABASE_ANON_KEY = (import.meta as any).env?.VITE_SUPABASE_ANON_KEY || 
+                            (typeof process !== 'undefined' && process.env?.VITE_SUPABASE_ANON_KEY) || 
+                            'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx6aWJhYW1tandybWpxa3F3ZG1sIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA0MDc3NjAsImV4cCI6MjA4NTk4Mzc2MH0.r9rtTQeGmJH5qZlq8DtAf0zhgnNwPelTnXMMtqY1hyI';
+  
+  const useRealEmailService = (import.meta as any).env?.VITE_USE_REAL_EMAIL_SERVICE === 'true' || 
+                              (typeof process !== 'undefined' && process.env?.VITE_USE_REAL_EMAIL_SERVICE === 'true');
 
   if (useRealEmailService && SUPABASE_URL && SUPABASE_ANON_KEY) {
     try {
+      console.log(`[Email Dispatch] Contacting Supabase Edge Function configured at: ${SUPABASE_URL}`);
       const response = await fetch(`${SUPABASE_URL}/functions/v1/send-resend-email`, {
         method: 'POST',
         headers: {
@@ -43,6 +51,7 @@ export const sendEmail = async (options: EmailOptions): Promise<{ success: boole
       }
 
       const resData = await response.json();
+      console.log("[Email Dispatch] Successful transmission response:", resData);
       return { success: true, ...resData };
     } catch (err: any) {
       console.error("[Email Error] Failed to transmit real Resend email:", err);
