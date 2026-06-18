@@ -125,6 +125,41 @@ export interface LandlordDetails {
   adminEmail: string;
 }
 
+export interface CategoryMediaItem {
+  videoUrl: string;
+  images: string[];
+  features: string[];
+}
+
+export type CategoryMediaConfig = Record<'Standard' | 'Premium 1' | 'Premium 2', CategoryMediaItem>;
+
+export const DEFAULT_CATEGORY_MEDIA: CategoryMediaConfig = {
+  'Premium 1': {
+    videoUrl: 'https://www.youtube.com/embed/dQw4w9WgXcQ',
+    images: [
+      'https://res.cloudinary.com/di7okmjsx/image/upload/v1770388212/Suite2_q62y4w.jpg',
+      'https://res.cloudinary.com/di7okmjsx/image/upload/v1770388212/Suite1_t4dczv.jpg'
+    ],
+    features: ['High-speed student Wi-Fi', 'In-room Air Conditioning', 'En-suite Luxury Bathroom option', 'Private Room option', 'Cozy premium furniture layout', 'Access to Elite Study common areas']
+  },
+  'Premium 2': {
+    videoUrl: 'https://www.youtube.com/embed/dQw4w9WgXcQ',
+    images: [
+      'https://res.cloudinary.com/di7okmjsx/image/upload/v1770388212/Suite2_q62y4w.jpg',
+      'https://res.cloudinary.com/di7okmjsx/image/upload/v1770388212/Suite1_t4dczv.jpg'
+    ],
+    features: ['Premium Suite features', 'Modern kitchen accessibility', 'Spacious study areas', 'In-room high capacity AC', 'Dedicated Resident Lounge Area', 'Weekly student helper laundry cleaning']
+  },
+  'Standard': {
+    videoUrl: 'https://www.youtube.com/embed/dQw4w9WgXcQ',
+    images: [
+      'https://res.cloudinary.com/di7okmjsx/image/upload/v1770388212/shared_bathroom1_hlxjdg.jpg',
+      'https://res.cloudinary.com/di7okmjsx/image/upload/v1770388212/single_room2_zhd9uo.jpg'
+    ],
+    features: ['Shared bathroom area', 'High-speed student Wi-Fi', 'Air conditioning unit', 'Fully furnished student kitchen', 'Automatic washing machine access', 'Tranquil student community focus']
+  }
+};
+
 export interface CmsContent {
   logoUrl: string;
   hero: {
@@ -165,6 +200,7 @@ export interface CmsContent {
     }[];
   };
   landlordDetails?: LandlordDetails;
+  categoryMedia?: CategoryMediaConfig;
 }
 
 export interface AppContextType {

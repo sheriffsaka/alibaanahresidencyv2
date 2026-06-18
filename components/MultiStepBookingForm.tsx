@@ -76,7 +76,7 @@ export const CATEGORY_MEDIA: Record<'Standard' | 'Premium 1' | 'Premium 2', {
 
 const MultiStepBookingForm: React.FC = () => {
   const t = useTranslation();
-  const { user, setPage, addBooking, addActivity, rooms, bookings, extendingBooking, landlordDetails } = useApp();
+  const { user, setPage, addBooking, addActivity, rooms, bookings, extendingBooking, landlordDetails, cmsContent } = useApp();
   
   const [step, setStep] = useState(1);
   const [formData, setFormData] = useState({
@@ -540,56 +540,112 @@ Please verify the agreement details in the Admin Dashboard at your earliest conv
         );
 
       case 2: // Apartment features, pricing, Shared vs Private selection
-        const media = CATEGORY_MEDIA[formData.category];
-        return (
-          <div className="space-y-8 animate-fade-in">
-            <div className="text-center">
-              <h2 className="text-2xl font-black text-gray-900 dark:text-white uppercase tracking-tight">Apartment Features & Details</h2>
-              <p className="text-gray-500 dark:text-gray-400 text-sm mt-1">Review your apartment visual assets, exact features, configurations and choose stay options.</p>
-            </div>
+        {
+          const media = cmsContent?.categoryMedia?.[formData.category] || CATEGORY_MEDIA[formData.category];
+          
+          let videoUrl = media.videoUrl;
+          if (selectedSupabaseRoom?.video_urls && selectedSupabaseRoom.video_urls.length > 0) {
+            const rawVideoUrl = selectedSupabaseRoom.video_urls[0];
+            if (rawVideoUrl && rawVideoUrl.trim() !== '') {
+              videoUrl = rawVideoUrl;
+            }
+          }
+          
+          // Ensure YouTube URLs are correctly formatted to embed URLs
+          const getEmbedUrl = (url: string) => {
+            if (!url) return '';
+            if (url.includes('youtube.com/embed/')) return url;
+            if (url.includes('youtube.com/watch?v=')) {
+              const id = url.split('v=')[1]?.split('&')[0];
+              return `https://www.youtube.com/embed/${id}`;
+            }
+            if (url.includes('youtu.be/')) {
+              const id = url.split('youtu.be/')[1]?.split('?')[0];
+              return `https://www.youtube.com/embed/${id}`;
+            }
+            return url;
+          };
 
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-              {/* Left Column: Visuals & Embed */}
-              <div className="space-y-6">
-                <div className="aspect-video rounded-2xl overflow-hidden shadow-lg border border-gray-200 dark:border-gray-700 bg-black relative">
-                  <iframe
-                    className="w-full h-full"
-                    src={media.videoUrl}
-                    title={`${formData.category} Room Tour Video`}
-                    frameBorder="0"
-                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                    allowFullScreen
-                  ></iframe>
-                </div>
+          const finalVideoUrl = getEmbedUrl(videoUrl);
 
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="aspect-square rounded-xl overflow-hidden shadow-sm border dark:border-gray-700 bg-gray-50">
-                    <img 
-                      src={media.images[0]} 
-                      alt={`${formData.category} Apartment feature 1`} 
-                      className="w-full h-full object-cover" 
-                    />
-                  </div>
-                  <div className="aspect-square rounded-xl overflow-hidden shadow-sm border dark:border-gray-700 bg-gray-50">
-                    <img 
-                      src={media.images[1]} 
-                      alt={`${formData.category} Apartment feature 2`} 
-                      className="w-full h-full object-cover" 
-                    />
-                  </div>
-                </div>
+          let imagesToUse = media.images || [];
+          if (selectedSupabaseRoom?.image_urls && selectedSupabaseRoom.image_urls.length > 0) {
+            const validImages = selectedSupabaseRoom.image_urls.filter(img => img && img.trim() !== '');
+            if (validImages.length > 0) {
+              imagesToUse = validImages;
+            }
+          }
+
+          return (
+            <div className="space-y-8 animate-fade-in">
+              <div className="text-center">
+                <h2 className="text-2xl font-black text-gray-900 dark:text-white uppercase tracking-tight">Apartment Features & Details</h2>
+                <p className="text-gray-500 dark:text-gray-400 text-sm mt-1">Review your apartment visual assets, exact features, configurations and choose stay options.</p>
               </div>
 
-              {/* Right Column: Preferences Selection */}
-              <div className="space-y-6 bg-white dark:bg-gray-800 p-6 rounded-2xl border border-gray-200 dark:border-gray-700">
-                {/* 1. Shared or Private Option (Read-Only carried over from Step 1) */}
-                <div className="space-y-3">
-                  <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">A. Choose Room Preference</label>
-                  <div className="p-4 rounded-xl bg-gray-50 dark:bg-gray-900 border border-gray-150 dark:border-gray-800 text-sm font-semibold text-gray-850 dark:text-gray-250 flex justify-between items-center animate-pulse">
-                    <span>{formData.roomType === 'Shared' ? 'Shared Room Option' : 'Private Single Room Option'}</span>
-                    <span className="text-[10px] bg-brand-100 dark:bg-brand-900/40 text-brand-600 dark:text-brand-300 font-bold px-2.1 py-0.5 rounded border border-brand-200 dark:border-brand-800 uppercase tracking-wider leading-none">Selected Bed Choice</span>
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                {/* Left Column: Visuals & Embed */}
+                <div className="space-y-6">
+                  {finalVideoUrl && (
+                    <div className="aspect-video rounded-2xl overflow-hidden shadow-lg border border-gray-200 dark:border-gray-700 bg-black relative">
+                      <iframe
+                        className="w-full h-full"
+                        src={finalVideoUrl}
+                        title={`${formData.category} Room Tour Video`}
+                        frameBorder="0"
+                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                        allowFullScreen
+                      ></iframe>
+                    </div>
+                  )}
+
+                  <div className="grid grid-cols-2 gap-3">
+                    {imagesToUse[0] && (
+                      <div className="aspect-square rounded-xl overflow-hidden shadow-sm border dark:border-gray-700 bg-gray-50">
+                        <img 
+                          src={imagesToUse[0]} 
+                          alt={`${formData.category} Apartment feature 1`} 
+                          className="w-full h-full object-cover" 
+                        />
+                      </div>
+                    )}
+                    {imagesToUse[1] && (
+                      <div className="aspect-square rounded-xl overflow-hidden shadow-sm border dark:border-gray-700 bg-gray-50">
+                        <img 
+                          src={imagesToUse[1]} 
+                          alt={`${formData.category} Apartment feature 2`} 
+                          className="w-full h-full object-cover" 
+                        />
+                      </div>
+                    )}
                   </div>
                 </div>
+
+                {/* Right Column: Preferences Selection */}
+                <div className="space-y-6 bg-white dark:bg-gray-800 p-6 rounded-2xl border border-gray-200 dark:border-gray-700">
+                  {/* 1. Shared or Private Option (Read-Only carried over from Step 1) */}
+                  <div className="space-y-3">
+                    <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">A. Choose Room Preference</label>
+                    <div className="p-4 rounded-xl bg-gray-50 dark:bg-gray-900 border border-gray-150 dark:border-gray-800 text-sm font-semibold text-gray-850 dark:text-gray-250 flex justify-between items-center animate-pulse">
+                      <span>{formData.roomType === 'Shared' ? 'Shared Room Option' : 'Private Single Room Option'}</span>
+                      <span className="text-[10px] bg-brand-100 dark:bg-brand-900/40 text-brand-600 dark:text-brand-300 font-bold px-2.1 py-0.5 rounded border border-brand-200 dark:border-brand-800 uppercase tracking-wider leading-none">Selected Bed Choice</span>
+                    </div>
+                  </div>
+
+                  {/* Included Perks & Amenities */}
+                  {media.features && media.features.length > 0 && (
+                    <div className="space-y-2">
+                      <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider font-mono">Included Comfort Features</label>
+                      <div className="grid grid-cols-2 gap-1.5 p-3.5 bg-gray-50 dark:bg-gray-900 border border-gray-100 dark:border-gray-805 rounded-xl">
+                        {media.features.map((feature, idx) => (
+                          <div key={idx} className="flex items-center gap-1.5 text-[11px] text-gray-700 dark:text-gray-350">
+                            <span className="text-brand-600 dark:text-brand-400 font-extrabold">✓</span>
+                            <span>{feature}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
 
                 {/* 2. Duration of stay */}
                 <div className="space-y-3">
@@ -641,6 +697,7 @@ Please verify the agreement details in the Admin Dashboard at your earliest conv
             </div>
           </div>
         );
+      }
 
       case 3: // Student's Details Page
         return (

@@ -1,6 +1,6 @@
 
 import React, { createContext, useState, ReactNode, useCallback, useEffect, useRef } from 'react';
-import { AppContextType, Language, Page, User, Room, Booking, BookingStatus, CmsContent, Activity, AcademicTerm, BookingPackage, AccommodationType } from '../types';
+import { AppContextType, Language, Page, User, Room, Booking, BookingStatus, CmsContent, Activity, AcademicTerm, BookingPackage, AccommodationType, DEFAULT_CATEGORY_MEDIA, CategoryMediaConfig } from '../types';
 import { supabase } from '../lib/supabaseClient';
 import { Session } from '@supabase/supabase-js';
 
@@ -25,6 +25,7 @@ export const DEFAULT_LANDLORD_DETAILS = {
 export const INITIAL_CMS: CmsContent = {
   logoUrl: 'https://res.cloudinary.com/di7okmjsx/image/upload/v1771428370/alibaanahlogo1_iprhyj.png',
   landlordDetails: DEFAULT_LANDLORD_DETAILS,
+  categoryMedia: DEFAULT_CATEGORY_MEDIA,
   hero: {
     en: { title: 'Your Home for Knowledge and Comfort', subtitle: 'Secure, comfortable, and studious living, just moments away from the Al-Ibaanah Arabic Center.' },
     ar: { title: 'بيتك للمعرفة والراحة', subtitle: 'سكن آمن، مريح، ومناسب للدراسة، على بعد لحظات من مركز الإبانة للغة العربية.' }
@@ -367,6 +368,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                 howToVideos: hasData(dbCms.how_to_videos || dbCms.howToVideos)
                     ? (dbCms.how_to_videos || dbCms.howToVideos)
                     : INITIAL_CMS.howToVideos,
+                categoryMedia: (dbCms.how_to_videos || dbCms.howToVideos)?.categoryMedia || DEFAULT_CATEGORY_MEDIA,
                 announcements: normalizeCmsData(dbCms.announcements, INITIAL_CMS.announcements),
                 landlordDetails: (dbCms.how_to_videos || dbCms.howToVideos)?.landlordDetails || DEFAULT_LANDLORD_DETAILS
               });
@@ -535,6 +537,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             contract_templates: updatedCms.contractTemplates,
             how_to_videos: {
                 ...updatedCms.howToVideos,
+                categoryMedia: updatedCms.categoryMedia,
                 landlordDetails: updatedCms.landlordDetails
             },
             announcements: updatedCms.announcements,

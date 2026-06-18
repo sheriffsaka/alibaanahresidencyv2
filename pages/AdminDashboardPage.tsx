@@ -2,7 +2,7 @@
 import React, { useState, useMemo, ChangeEvent } from 'react';
 import { useTranslation } from '../hooks/useTranslation';
 import { useApp } from '../hooks/useApp';
-import { Booking, BookingStatus, Room, AccommodationType, User, Language } from '../types';
+import { Booking, BookingStatus, Room, AccommodationType, User, Language, DEFAULT_CATEGORY_MEDIA, CategoryMediaItem, CategoryMediaConfig } from '../types';
 import { IconEdit, IconClose, IconBuilding, IconCheckCircle, IconPlus, IconTrash, IconUpload, IconFile } from '../components/Icon';
 import BookingStatusBadge from '../components/BookingStatusBadge';
 import RoomEditorModal from '../components/RoomEditorModal';
@@ -96,6 +96,7 @@ const AdminDashboardPage: React.FC = () => {
 
   const [editingContract, setEditingContract] = useState<{ roomType: AccommodationType; lang: Language } | null>(null);
   const [isUploadingCms, setIsUploadingCms] = useState(false);
+  const [activeCategoryConfig, setActiveCategoryConfig] = useState<'Standard' | 'Premium 1' | 'Premium 2'>('Standard');
 
   const handleCmsFileUpload = async (e: ChangeEvent<HTMLInputElement>, field: 'logoUrl' | 'heroImageUrl') => {
     if (e.target.files && e.target.files[0]) {
@@ -626,6 +627,169 @@ const AdminDashboardPage: React.FC = () => {
                       </div>
                     ))}
                   </div>
+              </div>
+
+              {/* Dynamic Student Accommodation Categories Configuration */}
+              <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 border border-gray-100 dark:border-gray-700 animate-fade-in">
+                <div className="flex items-center mb-4">
+                  <IconEdit className="w-6 h-6 text-brand-600 mr-2" />
+                  <div>
+                    <h2 className="text-xl font-bold">Category Visuals & Features Configuration</h2>
+                    <p className="text-xs text-gray-500 mt-0.5">Customize the default tour videos, presentation photos, and perk lists for Premium 1, Premium 2 & Standard.</p>
+                  </div>
+                </div>
+
+                <div className="border border-gray-150 dark:border-gray-750 rounded-xl overflow-hidden mt-4">
+                  {/* Category Selector Tabs */}
+                  <div className="flex border-b border-gray-200 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-900/50">
+                    {(['Standard', 'Premium 1', 'Premium 2'] as const).map(cat => {
+                      const isActive = activeCategoryConfig === cat;
+                      return (
+                        <button
+                          key={cat}
+                          type="button"
+                          onClick={() => setActiveCategoryConfig(cat)}
+                          className={`flex-1 py-3 text-xs font-black uppercase tracking-wider transition-all border-b-2 ${
+                            isActive
+                              ? 'border-brand-600 bg-white dark:bg-gray-800 text-brand-600 border-b-brand-600'
+                              : 'border-transparent text-gray-500 hover:text-gray-800 dark:hover:text-gray-300'
+                          }`}
+                        >
+                          {cat} Config
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  {/* Editing Inputs inside selected tab */}
+                  <div className="p-6 space-y-6 bg-white dark:bg-gray-800">
+                    {(() => {
+                      const currentMedia = cmsContent.categoryMedia?.[activeCategoryConfig] || DEFAULT_CATEGORY_MEDIA[activeCategoryConfig];
+                      
+                      const handleMediaChange = (field: keyof CategoryMediaItem, value: any) => {
+                        const existingMedia = cmsContent.categoryMedia || { ...DEFAULT_CATEGORY_MEDIA };
+                        const updatedItem = {
+                          ...existingMedia[activeCategoryConfig],
+                          [field]: value
+                        };
+                        const updatedConfig = {
+                          ...existingMedia,
+                          [activeCategoryConfig]: updatedItem
+                        };
+                        updateCmsContent({ categoryMedia: updatedConfig });
+                      };
+
+                      return (
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                          {/* Left Column: Media Links */}
+                          <div className="space-y-4">
+                            <div>
+                              <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-1.5 font-mono">YouTube or Vimeo Video Link</label>
+                              <input
+                                type="text"
+                                value={currentMedia.videoUrl || ''}
+                                onChange={(e) => handleMediaChange('videoUrl', e.target.value)}
+                                placeholder="https://www.youtube.com/watch?v=..."
+                                className="w-full text-sm p-3 border rounded-xl dark:bg-gray-700 dark:border-gray-600 font-medium"
+                              />
+                              <p className="text-[10px] text-gray-400 mt-1 italic">Will be auto-converted to a responsive video iframe embed on the student page.</p>
+                            </div>
+
+                            <div>
+                              <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-1.5 font-mono">Accent Photo 1 URL</label>
+                              <input
+                                type="text"
+                                value={currentMedia.images?.[0] || ''}
+                                onChange={(e) => {
+                                    const nextImages = [...(currentMedia.images || [])];
+                                    nextImages[0] = e.target.value;
+                                    handleMediaChange('images', nextImages);
+                                }}
+                                placeholder="https://images.unsplash.com/..."
+                                className="w-full text-xs p-3 border rounded-xl dark:bg-gray-700 dark:border-gray-600 font-mono"
+                              />
+                            </div>
+
+                            <div>
+                              <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-1.5 font-mono">Accent Photo 2 URL</label>
+                              <input
+                                type="text"
+                                value={currentMedia.images?.[1] || ''}
+                                onChange={(e) => {
+                                    const nextImages = [...(currentMedia.images || [])];
+                                    nextImages[1] = e.target.value;
+                                    handleMediaChange('images', nextImages);
+                                }}
+                                placeholder="https://images.unsplash.com/..."
+                                className="w-full text-xs p-3 border rounded-xl dark:bg-gray-700 dark:border-gray-600 font-mono"
+                              />
+                            </div>
+                          </div>
+
+                          {/* Right Column: Dynamic Bullet Features List */}
+                          <div className="space-y-4">
+                            <div>
+                              <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-1.5 font-mono">Comfort & Tech Perks (Interactive List)</label>
+                              <div className="space-y-2 max-h-[180px] overflow-y-auto border border-gray-150 dark:border-gray-700 rounded-xl p-3 bg-gray-50/50 dark:bg-gray-950/20">
+                                {(currentMedia.features || []).map((feat, idx) => (
+                                  <div key={idx} className="flex items-center justify-between gap-2 bg-white dark:bg-gray-800 border dark:border-gray-700 px-3 py-2 rounded-lg text-xs font-medium">
+                                    <span className="truncate text-gray-700 dark:text-gray-300">✓ {feat}</span>
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        const nextFeatures = (currentMedia.features || []).filter((_, fIdx) => fIdx !== idx);
+                                        handleMediaChange('features', nextFeatures);
+                                      }}
+                                      className="text-red-500 hover:text-red-700 font-bold px-1.5"
+                                    >
+                                      ✕
+                                    </button>
+                                  </div>
+                                ))}
+                                {(currentMedia.features || []).length === 0 && (
+                                  <span className="text-[10px] text-gray-400 block py-1">No custom features added yet.</span>
+                                )}
+                              </div>
+                              <div className="flex gap-2 mt-3">
+                                <input
+                                  type="text"
+                                  id="newCategoryFeatureInput"
+                                  placeholder="e.g. In-room refrigerator option"
+                                  className="flex-1 text-xs px-3 py-2 border rounded-xl dark:bg-gray-700 dark:border-gray-600 font-medium"
+                                  onKeyDown={(e) => {
+                                    if (e.key === 'Enter') {
+                                      e.preventDefault();
+                                      const el = e.currentTarget;
+                                      if (el.value.trim() !== '') {
+                                        const nextFeatures = [...(currentMedia.features || []), el.value.trim()];
+                                        handleMediaChange('features', nextFeatures);
+                                        el.value = '';
+                                      }
+                                    }
+                                  }}
+                                />
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    const el = document.getElementById('newCategoryFeatureInput') as HTMLInputElement;
+                                    if (el && el.value.trim() !== '') {
+                                      const nextFeatures = [...(currentMedia.features || []), el.value.trim()];
+                                      handleMediaChange('features', nextFeatures);
+                                      el.value = '';
+                                    }
+                                  }}
+                                  className="bg-brand-600 hover:bg-brand-700 text-white text-xs px-4 py-2 rounded-xl font-bold"
+                                >
+                                  Add Perk
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })()}
+                  </div>
+                </div>
               </div>
 
               <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 border border-gray-100 dark:border-gray-700 animate-fade-in">
