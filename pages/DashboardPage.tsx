@@ -52,19 +52,37 @@ const DashboardPage: React.FC = () => {
     return ALL_ROOM_SPACES.map(space => {
       // Find active booking that has reserved/occupied this room spacing representation
       const targetRoomString = `${space.category} - ${space.roomName} (${space.bedSpaceName})`;
-      const activeBooking = bookings?.find(b => 
-        b.status !== BookingStatus.CANCELLED && 
-        (b.rooms?.room_number === targetRoomString || b.rooms?.room_number?.includes(targetRoomString))
-      );
+      
+      const spaceBookings = (bookings || []).filter(b => {
+        if (b.status === BookingStatus.CANCELLED || b.status === BookingStatus.COMPLETED) return false;
+        const bookingLabel = b.rooms?.room_number || '';
+        return bookingLabel === targetRoomString || bookingLabel.includes(targetRoomString);
+      });
+
+      // Find if there is a currently occupied or confirmed booking
+      const activeBooking = spaceBookings.find(b => b.status === BookingStatus.OCCUPIED || b.status === BookingStatus.CONFIRMED);
+      const currentActiveBooking = activeBooking || spaceBookings[0];
+
+      // Retrieve matching DB Room object to check for any manual override date
+      const matchingSupabaseRoom = rooms?.find(r => {
+        const rCategory = r.category || '';
+        const rType = r.type || '';
+        const isPrivate = space.type === 'Private';
+        const catSimple = space.category.startsWith('Premium') ? 'Premium' : 'Standard';
+        const reqType = isPrivate ? `${catSimple} Private` : `${catSimple} Shared`;
+        return rCategory.toLowerCase() === catSimple.toLowerCase() && rType === reqType;
+      });
 
       return {
         ...space,
-        isOccupied: !!activeBooking,
-        occupantName: activeBooking ? activeBooking.full_name : null,
-        status: activeBooking ? activeBooking.status : null
+        isOccupied: !!currentActiveBooking,
+        occupantName: currentActiveBooking ? currentActiveBooking.full_name : null,
+        status: currentActiveBooking ? currentActiveBooking.status : null,
+        booking: currentActiveBooking,
+        supabaseRoom: matchingSupabaseRoom
       };
     });
-  }, [bookings]);
+  }, [bookings, rooms]);
 
   const filteredAvailabilityData = useMemo(() => {
     if (selectedFilterCategory === 'All') return parsedAvailabilityData;
@@ -259,9 +277,30 @@ Al-Ibaanah Student Residency Notification System`
                 </span>
               </div>
               
-              <div className="space-y-1 text-[11px] text-gray-500 dark:text-gray-400">
+              <div className="space-y-1.5 text-[11px] text-gray-500 dark:text-gray-400">
                 <p><span className="font-semibold">Beds:</span> {space.bedSpaceName}</p>
                 <p><span className="font-semibold">Type:</span> {space.type} Room</p>
+                {space.isOccupied && space.booking?.end_date ? (
+                  <div className="pt-1.5 border-t border-gray-100 dark:border-gray-800 space-y-0.5">
+                    <p className="text-red-600 dark:text-red-400 font-bold">
+                      <span className="font-semibold text-gray-400">Lease Expiry:</span> {new Date(space.booking.end_date).toLocaleDateString()}
+                    </p>
+                    <p className="text-brand-600 dark:text-brand-400 font-bold">
+                      <span className="font-semibold text-gray-400">Next Available:</span> {new Date(space.booking.end_date).toLocaleDateString()}
+                    </p>
+                  </div>
+                ) : (
+                  <div className="pt-1.5 border-t border-gray-100 dark:border-gray-800 space-y-0.5">
+                    <p className="text-emerald-600 dark:text-emerald-400 font-bold">
+                      <span className="font-semibold text-gray-400">Next Available:</span> Available Now
+                    </p>
+                    {space.supabaseRoom?.next_available_date && (
+                      <p className="text-blue-600 dark:text-blue-400 font-bold">
+                        <span className="font-semibold text-gray-400">Expected Date:</span> {new Date(space.supabaseRoom.next_available_date).toLocaleDateString()}
+                      </p>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
           ))}
@@ -285,7 +324,7 @@ Al-Ibaanah Student Residency Notification System`
                       <th scope="col" className="px-6 py-4 text-left rtl:text-right text-xs font-semibold text-gray-500 dark:text-gray-300 uppercase tracking-wider">{t.bookingId}</th>
                       <th scope="col" className="px-6 py-4 text-left rtl:text-right text-xs font-semibold text-gray-500 dark:text-gray-300 uppercase tracking-wider">{t.room}</th>
                       <th scope="col" className="px-6 py-4 text-left rtl:text-right text-xs font-semibold text-gray-500 dark:text-gray-300 uppercase tracking-wider">Duration</th>
-                      <th scope="col" className="px-6 py-4 text-left rtl:text-right text-xs font-semibold text-gray-500 dark:text-gray-300 uppercase tracking-wider">Expiry</th>
+                      <th scope="col" className="px-6 py-4 text-left rtl:text-right text-xs font-semibold text-gray-500 dark:text-gray-300 uppercase tracking-wider">Expiry / Rent</th>
                       <th scope="col" className="px-6 py-4 text-left rtl:text-right text-xs font-semibold text-gray-500 dark:text-gray-300 uppercase tracking-wider">{t.status}</th>
                       <th scope="col" className="px-6 py-4 text-left rtl:text-right text-xs font-semibold text-gray-500 dark:text-gray-300 uppercase tracking-wider">Actions</th>
                     </tr>
@@ -299,7 +338,12 @@ Al-Ibaanah Student Residency Notification System`
                             <div className="text-xs text-gray-500 dark:text-gray-400">{booking.rooms?.room_number}</div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-xs text-gray-700 dark:text-gray-350">{booking.duration_of_stay}</td>
-                        <td className="px-6 py-4 whitespace-nowrap text-xs font-bold text-red-600">{booking.payment_expiry_date ? new Date(booking.payment_expiry_date).toLocaleDateString() : 'N/A'}</td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="text-xs font-bold text-gray-900 dark:text-white">Lease: {new Date(booking.end_date).toLocaleDateString()}</div>
+                            <div className="text-[10px] text-gray-500 mt-0.5">
+                              Rent: {booking.payment_expiry_date ? new Date(booking.payment_expiry_date).toLocaleDateString() : 'Upon Arrival'}
+                            </div>
+                        </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm">
                           <BookingStatusBadge status={booking.status} />
                         </td>
