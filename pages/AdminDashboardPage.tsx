@@ -55,6 +55,181 @@ const OccupancyChart = ({ data }: { data: { name: string; value: number }[] }) =
     );
 };
 
+interface CategoryMediaEditorProps {
+  category: 'Standard' | 'Premium 1' | 'Premium 2';
+  cmsContent: any;
+  updateCmsContent: (content: any) => Promise<{ success: boolean; error?: string }>;
+}
+
+const CategoryMediaEditor: React.FC<CategoryMediaEditorProps> = ({ category, cmsContent, updateCmsContent }) => {
+  const currentMedia = cmsContent?.categoryMedia?.[category] || DEFAULT_CATEGORY_MEDIA[category] || { videoUrl: '', images: [], features: [] };
+  
+  const [videoUrl, setVideoUrl] = useState(currentMedia.videoUrl || '');
+  const [image1, setImage1] = useState(currentMedia.images?.[0] || '');
+  const [image2, setImage2] = useState(currentMedia.images?.[1] || '');
+  const [features, setFeatures] = useState<string[]>(currentMedia.features || []);
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveSuccess, setSaveSuccess] = useState(false);
+  const [newFeature, setNewFeature] = useState('');
+
+  React.useEffect(() => {
+    setVideoUrl(currentMedia.videoUrl || '');
+    setImage1(currentMedia.images?.[0] || '');
+    setImage2(currentMedia.images?.[1] || '');
+    setFeatures(currentMedia.features || []);
+    setSaveSuccess(false);
+  }, [category, cmsContent]);
+
+  const handleSave = async () => {
+    setIsSaving(true);
+    setSaveSuccess(false);
+    try {
+      const existingMedia = cmsContent?.categoryMedia || { ...DEFAULT_CATEGORY_MEDIA };
+      const updatedItem = {
+        videoUrl: videoUrl.trim(),
+        images: [image1.trim(), image2.trim()].filter(Boolean),
+        features: features
+      };
+      const updatedConfig = {
+        ...existingMedia,
+        [category]: updatedItem
+      };
+      const res = await updateCmsContent({ categoryMedia: updatedConfig });
+      if (res?.success) {
+        setSaveSuccess(true);
+        setTimeout(() => setSaveSuccess(false), 3000);
+      } else {
+        alert("Failed to save category configuration: " + (res?.error || "Unknown error"));
+      }
+    } catch (err: any) {
+      alert("Failed to save: " + err.message);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleAddFeature = () => {
+    if (newFeature.trim() !== '') {
+      if (features.includes(newFeature.trim())) {
+        alert("This perk already exists.");
+        return;
+      }
+      setFeatures(prev => [...prev, newFeature.trim()]);
+      setNewFeature('');
+    }
+  };
+
+  const handleRemoveFeature = (idx: number) => {
+    setFeatures(prev => prev.filter((_, fIdx) => fIdx !== idx));
+  };
+
+  return (
+    <div className="space-y-6 animate-fade-in">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        {/* Left Column: Media Links */}
+        <div className="space-y-4">
+          <div>
+            <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1.5 font-mono">YouTube or Vimeo Video Link</label>
+            <input
+              type="text"
+              value={videoUrl}
+              onChange={(e) => setVideoUrl(e.target.value)}
+              placeholder="https://www.youtube.com/watch?v=..."
+              className="w-full text-sm p-3 border rounded-xl dark:bg-gray-700 dark:border-gray-600 font-medium"
+            />
+            <p className="text-[10px] text-gray-400 mt-1 italic font-mono">Note: Paste regular YouTube/Vimeo links here; they are converted to responsive embeds automatically.</p>
+          </div>
+
+          <div>
+            <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1.5 font-mono">Accent Photo 1 URL</label>
+            <input
+              type="text"
+              value={image1}
+              onChange={(e) => setImage1(e.target.value)}
+              placeholder="https://images.unsplash.com/..."
+              className="w-full text-xs p-3 border rounded-xl dark:bg-gray-700 dark:border-gray-600 font-mono"
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1.5 font-mono">Accent Photo 2 URL</label>
+            <input
+              type="text"
+              value={image2}
+              onChange={(e) => setImage2(e.target.value)}
+              placeholder="https://images.unsplash.com/..."
+              className="w-full text-xs p-3 border rounded-xl dark:bg-gray-700 dark:border-gray-600 font-mono"
+            />
+          </div>
+        </div>
+
+        {/* Right Column: Dynamic Bullet Features List */}
+        <div className="space-y-4">
+          <div>
+            <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1.5 font-mono">Comfort & Tech Perks (Interactive List)</label>
+            <div className="space-y-2 max-h-[180px] overflow-y-auto border border-gray-150 dark:border-gray-700 rounded-xl p-3 bg-gray-50/50 dark:bg-gray-950/20">
+              {features.map((feat, idx) => (
+                <div key={idx} className="flex items-center justify-between gap-2 bg-white dark:bg-gray-800 border dark:border-gray-700 px-3 py-2 rounded-lg text-xs font-medium">
+                  <span className="truncate text-gray-700 dark:text-gray-300">✓ {feat}</span>
+                  <button
+                    type="button"
+                    onClick={() => handleRemoveFeature(idx)}
+                    className="text-red-500 hover:text-red-700 font-bold px-1.5"
+                  >
+                    ✕
+                  </button>
+                </div>
+              ))}
+              {features.length === 0 && (
+                <span className="text-[10px] text-gray-400 block py-1">No custom features added yet.</span>
+              )}
+            </div>
+            
+            <div className="flex gap-2 mt-3">
+              <input
+                type="text"
+                value={newFeature}
+                onChange={(e) => setNewFeature(e.target.value)}
+                placeholder="e.g. In-room refrigerator option"
+                className="flex-1 text-xs px-3 py-2 border rounded-xl dark:bg-gray-700 dark:border-gray-600 font-medium"
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    handleAddFeature();
+                  }
+                }}
+              />
+              <button
+                type="button"
+                onClick={handleAddFeature}
+                className="bg-brand-600 hover:bg-brand-700 text-white text-xs px-4 py-2 rounded-xl font-bold"
+              >
+                Add Perk
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="pt-4 border-t border-gray-100 dark:border-gray-700 flex justify-end items-center gap-3">
+        {saveSuccess && (
+          <span className="text-emerald-600 dark:text-emerald-400 text-xs font-bold animate-pulse">
+            ✓ Category configuration saved successfully & published!
+          </span>
+        )}
+        <button
+          type="button"
+          onClick={handleSave}
+          disabled={isSaving}
+          className="bg-brand-600 hover:bg-brand-700 text-white text-xs font-bold px-6 py-3 rounded-xl shadow-md transition-all flex items-center gap-2"
+        >
+          {isSaving ? 'Saving Changes...' : `Save ${category} Configuration`}
+        </button>
+      </div>
+    </div>
+  );
+};
+
 interface SummaryCardProps {
     label: string;
     value: string | number;
@@ -662,132 +837,12 @@ const AdminDashboardPage: React.FC = () => {
                   </div>
 
                   {/* Editing Inputs inside selected tab */}
-                  <div className="p-6 space-y-6 bg-white dark:bg-gray-800">
-                    {(() => {
-                      const currentMedia = cmsContent.categoryMedia?.[activeCategoryConfig] || DEFAULT_CATEGORY_MEDIA[activeCategoryConfig];
-                      
-                      const handleMediaChange = (field: keyof CategoryMediaItem, value: any) => {
-                        const existingMedia = cmsContent.categoryMedia || { ...DEFAULT_CATEGORY_MEDIA };
-                        const updatedItem = {
-                          ...existingMedia[activeCategoryConfig],
-                          [field]: value
-                        };
-                        const updatedConfig = {
-                          ...existingMedia,
-                          [activeCategoryConfig]: updatedItem
-                        };
-                        updateCmsContent({ categoryMedia: updatedConfig });
-                      };
-
-                      return (
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                          {/* Left Column: Media Links */}
-                          <div className="space-y-4">
-                            <div>
-                              <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-1.5 font-mono">YouTube or Vimeo Video Link</label>
-                              <input
-                                type="text"
-                                value={currentMedia.videoUrl || ''}
-                                onChange={(e) => handleMediaChange('videoUrl', e.target.value)}
-                                placeholder="https://www.youtube.com/watch?v=..."
-                                className="w-full text-sm p-3 border rounded-xl dark:bg-gray-700 dark:border-gray-600 font-medium"
-                              />
-                              <p className="text-[10px] text-gray-400 mt-1 italic">Will be auto-converted to a responsive video iframe embed on the student page.</p>
-                            </div>
-
-                            <div>
-                              <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-1.5 font-mono">Accent Photo 1 URL</label>
-                              <input
-                                type="text"
-                                value={currentMedia.images?.[0] || ''}
-                                onChange={(e) => {
-                                    const nextImages = [...(currentMedia.images || [])];
-                                    nextImages[0] = e.target.value;
-                                    handleMediaChange('images', nextImages);
-                                }}
-                                placeholder="https://images.unsplash.com/..."
-                                className="w-full text-xs p-3 border rounded-xl dark:bg-gray-700 dark:border-gray-600 font-mono"
-                              />
-                            </div>
-
-                            <div>
-                              <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-1.5 font-mono">Accent Photo 2 URL</label>
-                              <input
-                                type="text"
-                                value={currentMedia.images?.[1] || ''}
-                                onChange={(e) => {
-                                    const nextImages = [...(currentMedia.images || [])];
-                                    nextImages[1] = e.target.value;
-                                    handleMediaChange('images', nextImages);
-                                }}
-                                placeholder="https://images.unsplash.com/..."
-                                className="w-full text-xs p-3 border rounded-xl dark:bg-gray-700 dark:border-gray-600 font-mono"
-                              />
-                            </div>
-                          </div>
-
-                          {/* Right Column: Dynamic Bullet Features List */}
-                          <div className="space-y-4">
-                            <div>
-                              <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-1.5 font-mono">Comfort & Tech Perks (Interactive List)</label>
-                              <div className="space-y-2 max-h-[180px] overflow-y-auto border border-gray-150 dark:border-gray-700 rounded-xl p-3 bg-gray-50/50 dark:bg-gray-950/20">
-                                {(currentMedia.features || []).map((feat, idx) => (
-                                  <div key={idx} className="flex items-center justify-between gap-2 bg-white dark:bg-gray-800 border dark:border-gray-700 px-3 py-2 rounded-lg text-xs font-medium">
-                                    <span className="truncate text-gray-700 dark:text-gray-300">✓ {feat}</span>
-                                    <button
-                                      type="button"
-                                      onClick={() => {
-                                        const nextFeatures = (currentMedia.features || []).filter((_, fIdx) => fIdx !== idx);
-                                        handleMediaChange('features', nextFeatures);
-                                      }}
-                                      className="text-red-500 hover:text-red-700 font-bold px-1.5"
-                                    >
-                                      ✕
-                                    </button>
-                                  </div>
-                                ))}
-                                {(currentMedia.features || []).length === 0 && (
-                                  <span className="text-[10px] text-gray-400 block py-1">No custom features added yet.</span>
-                                )}
-                              </div>
-                              <div className="flex gap-2 mt-3">
-                                <input
-                                  type="text"
-                                  id="newCategoryFeatureInput"
-                                  placeholder="e.g. In-room refrigerator option"
-                                  className="flex-1 text-xs px-3 py-2 border rounded-xl dark:bg-gray-700 dark:border-gray-600 font-medium"
-                                  onKeyDown={(e) => {
-                                    if (e.key === 'Enter') {
-                                      e.preventDefault();
-                                      const el = e.currentTarget;
-                                      if (el.value.trim() !== '') {
-                                        const nextFeatures = [...(currentMedia.features || []), el.value.trim()];
-                                        handleMediaChange('features', nextFeatures);
-                                        el.value = '';
-                                      }
-                                    }
-                                  }}
-                                />
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    const el = document.getElementById('newCategoryFeatureInput') as HTMLInputElement;
-                                    if (el && el.value.trim() !== '') {
-                                      const nextFeatures = [...(currentMedia.features || []), el.value.trim()];
-                                      handleMediaChange('features', nextFeatures);
-                                      el.value = '';
-                                    }
-                                  }}
-                                  className="bg-brand-600 hover:bg-brand-700 text-white text-xs px-4 py-2 rounded-xl font-bold"
-                                >
-                                  Add Perk
-                                </button>
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      );
-                    })()}
+                  <div className="p-6 bg-white dark:bg-gray-800">
+                    <CategoryMediaEditor 
+                      category={activeCategoryConfig} 
+                      cmsContent={cmsContent} 
+                      updateCmsContent={updateCmsContent} 
+                    />
                   </div>
                 </div>
               </div>
