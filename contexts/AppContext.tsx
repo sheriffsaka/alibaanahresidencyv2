@@ -369,7 +369,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                     ? (dbCms.how_to_videos || dbCms.howToVideos)
                     : INITIAL_CMS.howToVideos,
                 categoryMedia: (dbCms.how_to_videos || dbCms.howToVideos)?.categoryMedia || DEFAULT_CATEGORY_MEDIA,
-                announcements: normalizeCmsData(dbCms.announcements, INITIAL_CMS.announcements),
+                announcements: normalizeCmsData((dbCms.how_to_videos || dbCms.howToVideos)?.announcements || dbCms.announcements, INITIAL_CMS.announcements),
                 landlordDetails: (dbCms.how_to_videos || dbCms.howToVideos)?.landlordDetails || DEFAULT_LANDLORD_DETAILS
               });
             }
@@ -538,9 +538,9 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             how_to_videos: {
                 ...updatedCms.howToVideos,
                 categoryMedia: updatedCms.categoryMedia,
-                landlordDetails: updatedCms.landlordDetails
+                landlordDetails: updatedCms.landlordDetails,
+                announcements: updatedCms.announcements
             },
-            announcements: updatedCms.announcements,
             updated_at: new Date().toISOString()
         };
 
