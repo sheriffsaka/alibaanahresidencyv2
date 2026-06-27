@@ -59,8 +59,8 @@ export const CATEGORY_MEDIA: Record<'Standard' | 'Premium 1' | 'Premium 2', {
   'Premium 2': {
     videoUrl: 'https://www.youtube.com/embed/dQw4w9WgXcQ', // Embed YouTube or Vimeo video ID
     images: [
-      'https://res.cloudinary.com/di7okmjsx/image/upload/v1770388212/Suite2_q62y4w.jpg',
-      'https://res.cloudinary.com/di7okmjsx/image/upload/v1770388212/Suite1_t4dczv.jpg'
+      'https://res.cloudinary.com/di7okmjsx/image/upload/v1776582417/apt3_shared_room1_ygv63q.jpg',
+      'https://res.cloudinary.com/di7okmjsx/image/upload/q_auto/f_auto/v1776582417/apt3_kitchen_oukmia.jpg'
     ],
     features: ['Premium Suite features', 'Modern kitchen accessibility', 'Spacious study areas', 'In-room high capacity AC', 'Dedicated Resident Lounge Area', 'Weekly student helper laundry cleaning']
   },
