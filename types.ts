@@ -218,6 +218,7 @@ export interface AppContextType {
   addBooking: (booking: Booking) => Promise<{ success: boolean; error?: string; data?: Booking }>;
   updateBookingStatus: (id: number, status: BookingStatus) => Promise<{ success: boolean; error?: string }>;
   updateBooking: (id: number, updates: Partial<Booking>) => Promise<{ success: boolean; error?: string }>;
+  deleteBooking: (id: number) => Promise<{ success: boolean; error?: string }>;
   cmsContent: CmsContent;
   updateCmsContent: (content: Partial<CmsContent>) => Promise<{ success: boolean; error?: string }>;
   rooms: Room[];

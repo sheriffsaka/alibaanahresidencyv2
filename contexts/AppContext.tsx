@@ -516,6 +516,78 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     }
   };
 
+  const deleteBooking = async (id: number) => {
+    try {
+        const booking = bookings.find(b => b.id === id);
+        if (!booking) throw new Error("Booking not found");
+
+        console.log("Deleting student booking record with ID:", id);
+
+        // 1. Remove parent_booking_id references in child bookings
+        const { error: childError } = await supabase
+            .from('bookings')
+            .update({ parent_booking_id: null })
+            .eq('parent_booking_id', id);
+        if (childError) {
+            console.error("Error clearing parent_booking_id references:", childError.message);
+        }
+
+        // 2. Delete the booking row from the database (cascade deletes payments & invoices)
+        const { error: deleteError } = await supabase
+            .from('bookings')
+            .delete()
+            .eq('id', id);
+
+        if (deleteError) throw deleteError;
+
+        // 3. Update the room/bed occupancy slots and is_available status if it was occupied or confirmed
+        if (booking.status === BookingStatus.CONFIRMED || booking.status === BookingStatus.OCCUPIED) {
+            const room = rooms.find(r => r.id === booking.room_id);
+            if (room) {
+                const newOccupied = Math.max(0, (room.occupied_slots || 0) - 1);
+                const isNowAvailable = newOccupied < (room.capacity || 1);
+
+                const { error: roomUpdateError } = await supabase
+                    .from('rooms')
+                    .update({
+                        occupied_slots: newOccupied,
+                        is_available: isNowAvailable
+                    })
+                    .eq('id', room.id);
+
+                if (roomUpdateError) {
+                    console.error("Error updating room slots after student deletion:", roomUpdateError.message);
+                } else {
+                    setRooms(prev => prev.map(r => r.id === room.id ? { ...r, occupied_slots: newOccupied, is_available: isNowAvailable } : r));
+                }
+            }
+        }
+
+        // 4. Update local state
+        setBookings(prev => prev.filter(b => b.id !== id));
+
+        // 5. Clean up student profile if they have no other bookings
+        const remainingBookings = bookings.filter(b => b.student_id === booking.student_id && b.id !== id);
+        if (remainingBookings.length === 0) {
+            const { error: profileDeleteError } = await supabase
+                .from('profiles')
+                .delete()
+                .eq('id', booking.student_id);
+
+            if (profileDeleteError) {
+                console.warn("Could not delete student profile (might be referenced elsewhere):", profileDeleteError.message);
+            } else {
+                setStudents(prev => prev.filter(s => s.id !== booking.student_id));
+            }
+        }
+
+        return { success: true };
+    } catch (err: any) {
+        console.error("Error deleting student booking:", err.message);
+        return { success: false, error: err.message };
+    }
+  };
+
   const updateCmsContent = async (content: Partial<CmsContent>) => {
     try {
         const updatedCms = { ...cmsContent, ...content };
@@ -790,6 +862,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     addBooking,
     updateBookingStatus,
     updateBooking,
+    deleteBooking,
     cmsContent,
     updateCmsContent,
     rooms,

@@ -10,7 +10,7 @@ import { uploadFile, generateFileName } from '../lib/storage';
 import { sendEmail, getApprovalEmailTemplate } from '../lib/email';
 import AgreementModal from '../components/AgreementModal';
 import UserEditorModal from '../components/UserEditorModal';
-import { formatStoredRoomString } from '../lib/roomNaming';
+import { formatStoredRoomString, getDisplayFromRoom } from '../lib/roomNaming';
 
 // A simple, animated SVG Bar Chart component created for this page
 const OccupancyChart = ({ data }: { data: { name: string; value: number }[] }) => {
@@ -255,7 +255,7 @@ const SummaryCard: React.FC<SummaryCardProps> = ({ label, value, icon, trend, co
 
 const AdminDashboardPage: React.FC = () => {
   const t = useTranslation();
-  const { user, bookings, updateBookingStatus, cmsContent, updateCmsContent, rooms, addRoom, updateRoom, activities, addActivity, language, setPage, users, addUser, updateUser, deleteUser } = useApp();
+  const { user, bookings, updateBookingStatus, deleteBooking, cmsContent, updateCmsContent, rooms, addRoom, updateRoom, activities, addActivity, language, setPage, users, addUser, updateUser, deleteUser } = useApp();
   const [activeTab, setActiveTab] = useState<'analytics' | 'pending' | 'rooms' | 'students' | 'cms' | 'users'>('analytics');
   const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
   const [selectedProof, setSelectedProof] = useState<string | null>(null);
@@ -368,7 +368,7 @@ const AdminDashboardPage: React.FC = () => {
         
         // Send email notification
         if (booking) {
-            const formattedRoom = `${booking.rooms?.apartment_name ? `${booking.rooms.apartment_name.replace('Apartment', '').trim()} – ` : ''}${formatStoredRoomString(booking.rooms?.room_number || '')}`;
+            const formattedRoom = getDisplayFromRoom(booking.rooms);
             const emailTemplate = getApprovalEmailTemplate(booking.full_name, booking.id, formattedRoom);
             try {
                 await sendEmail({
@@ -451,6 +451,28 @@ const AdminDashboardPage: React.FC = () => {
             addActivity({ user_id: user!.id, type: 'system', description: `Deleted admin user ID: ${id}`, timestamp: new Date().toISOString() });
         } else {
             alert(`Failed to delete user: ${result.error}`);
+        }
+    }
+  };
+
+  const handleDeleteStudent = async (id: number, studentName: string) => {
+    if (user?.role !== 'staff' && user?.role !== 'proprietor') {
+        alert("Unauthorized: Only administrators are authorized to delete student records.");
+        return;
+    }
+
+    if (confirm(`Are you sure you want to delete the student record for ${studentName}?\n\nThis will permanently delete their residency booking, contract details, payment history, and safely update the corresponding room or bed status to Vacant (if applicable) so it can be booked by others.`)) {
+        const result = await deleteBooking(id);
+        if (result.success) {
+            addActivity({ 
+                user_id: user.id, 
+                type: 'system', 
+                description: `Deleted student record for ${studentName}. Bed space/room released and marked vacant.`, 
+                timestamp: new Date().toISOString() 
+            });
+            alert(`Successfully deleted student record for ${studentName}.`);
+        } else {
+            alert(`Failed to delete student record: ${result.error}`);
         }
     }
   };
@@ -585,7 +607,7 @@ const AdminDashboardPage: React.FC = () => {
                         </tr></thead>
                         <tbody className="divide-y divide-gray-100 dark:divide-gray-700">{analytics.pendingContracts.map(item => (<tr key={item.id}>
                             <td className="px-6 py-4 font-medium">{item.full_name}</td>
-                            <td className="px-6 py-4 font-bold text-brand-600">Room {item.rooms.room_number}</td>
+                            <td className="px-6 py-4 font-bold text-brand-600 text-xs">{getDisplayFromRoom(item.rooms)}</td>
                             <td className="px-6 py-4 text-xs text-gray-500">{item.phone_number}</td>
                         </tr>))}</tbody>
                     </table></div>
@@ -657,8 +679,7 @@ const AdminDashboardPage: React.FC = () => {
                 </div>
                 <div className="overflow-x-auto"><table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
                     <thead className="bg-gray-50 dark:bg-gray-900"><tr>
-                        <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase">Room</th>
-                        <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase">Apartment</th>
+                        <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase">Room Display</th>
                         <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase">Category</th>
                         <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase">Status</th>
                         <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase">Price</th>
@@ -668,13 +689,9 @@ const AdminDashboardPage: React.FC = () => {
                         const isOccupied = analytics.occupiedRoomIds.has(room.id);
                         return (<tr key={room.id}>
                             <td className="px-6 py-4">
-                                <span className="font-bold">{room.room_number}</span>
-                                <div className="text-[10px] text-gray-500">
-                                  {room.type?.toLowerCase().includes('private') ? 'Private Room' : 'Shared Room'}
-                                </div>
+                                <span className="font-bold text-sm text-gray-900 dark:text-white">{getDisplayFromRoom(room)}</span>
                             </td>
-                            <td className="px-6 py-4 text-xs font-medium">{room.apartment_name}</td>
-                            <td className="px-6 py-4 text-xs">{room.category}</td>
+                            <td className="px-6 py-4 text-xs font-semibold uppercase">{room.category}</td>
                             <td className="px-6 py-4"><span className={`px-2 py-1 text-[10px] rounded-full font-bold ${isOccupied ? 'bg-orange-100 text-orange-700' : 'bg-green-100 text-green-700'}`}>{isOccupied ? t.occupied : t.unoccupied}</span></td>
                             <td className="px-6 py-4 text-sm font-bold text-brand-600">${room.price_per_month}</td>
                             <td className="px-6 py-4"><button onClick={() => handleOpenRoomModal(room)} className="text-brand-600 text-xs font-bold underline">Edit</button></td>
@@ -717,15 +734,23 @@ const AdminDashboardPage: React.FC = () => {
                     <tbody className="divide-y divide-gray-100 dark:divide-gray-700">{sortedBookings.map(booking => (<tr key={booking.id}>
                         <td className="px-6 py-4 font-bold">{booking.full_name}</td>
                         <td className="px-6 py-4 text-sm font-bold text-brand-600">
-                          {booking.rooms?.apartment_name ? `${booking.rooms.apartment_name.replace('Apartment', '').trim()} – ` : ''}
-                          {formatStoredRoomString(booking.rooms?.room_number || '')}
+                          {getDisplayFromRoom(booking.rooms)}
                         </td>
                         <td className="px-6 py-4 text-xs">{booking.duration_of_stay}</td>
                         <td className="px-6 py-4 text-xs font-bold text-red-600">{booking.payment_expiry_date ? new Date(booking.payment_expiry_date).toLocaleDateString() : 'N/A'}</td>
                         <td className="px-6 py-4"><BookingStatusBadge status={booking.status} /></td>
                         <td className="px-6 py-4">
-                            <div className="flex gap-2">
-                                <button onClick={() => setSelectedBooking(booking)} className="text-brand-600 hover:text-brand-700 text-xs font-bold underline">View</button>
+                            <div className="flex gap-3 items-center">
+                                <div className="flex flex-col gap-2">
+                                    <button onClick={() => setSelectedBooking(booking)} className="text-brand-600 hover:text-brand-700 text-xs font-bold underline text-left">View</button>
+                                    <button 
+                                        onClick={() => handleDeleteStudent(booking.id, booking.full_name)} 
+                                        className="text-red-500 hover:text-red-700 text-xs font-bold underline text-left flex items-center gap-1"
+                                        title="Delete Student Record"
+                                    >
+                                        <IconTrash className="w-3.5 h-3.5" /> Delete
+                                    </button>
+                                </div>
                                 <div className="flex flex-col gap-1">
                                     <button 
                                         onClick={() => {

@@ -193,9 +193,29 @@ const MultiStepBookingForm: React.FC = () => {
     return calculatePriceBreakdown(formData.category, isPrivate, formData.duration);
   }, [formData.category, formData.roomType, formData.duration]);
 
-  // Find dynamic room object in Supabase context that matches current category & room type
+  // Find the exact matching room in Supabase database
   const selectedSupabaseRoom = useMemo(() => {
     const isPrivate = formData.roomType === 'Private';
+    const roomDigits = formData.roomName.replace('Room', '').trim(); // e.g. "1"
+    
+    // Construct the expected db room_number formats
+    let expectedRoomNum = '';
+    if (!isPrivate) {
+      const bedLetter = formData.bedSpaceName === 'Bed B' ? 'B' : 'A';
+      expectedRoomNum = `R${roomDigits}-${bedLetter}`;
+    } else {
+      expectedRoomNum = `Room ${roomDigits}`;
+    }
+
+    // Try finding the exact room number and apartment/category name match
+    const exactMatch = rooms.find(r => 
+      r.apartment_name === formData.category &&
+      (r.room_number === expectedRoomNum || r.room_number?.toLowerCase().replace(/[-_ ]/g, '') === expectedRoomNum.toLowerCase().replace(/[-_ ]/g, ''))
+    );
+
+    if (exactMatch) return exactMatch;
+
+    // Fallback: match by category and room type
     const catSimple = formData.category.startsWith('Premium') ? 'Premium' : 'Standard';
     const reqType = isPrivate 
       ? (`${catSimple} Private` as AccommodationType)
@@ -206,7 +226,7 @@ const MultiStepBookingForm: React.FC = () => {
       r.category.toLowerCase() === catSimple.toLowerCase() && 
       r.type === reqType
     ) || rooms.find(r => r.category.toLowerCase() === catSimple.toLowerCase()) || null;
-  }, [rooms, formData.category, formData.roomType]);
+  }, [rooms, formData.category, formData.roomType, formData.roomName, formData.bedSpaceName]);
 
   const startDate = formData.arrivalDate;
   const endDate = useMemo(() => {
@@ -229,8 +249,8 @@ const MultiStepBookingForm: React.FC = () => {
       return;
     }
 
-    if (!formData.fullName || !formData.nationality || !formData.passportNumber || !formData.arrivalDate) {
-      setError("Please fill out all student details on step 3 before submitting.");
+    if (!formData.fullName || !formData.nationality || !formData.passportNumber || !formData.arrivalDate || !formData.email) {
+      setError("Please fill out all student details (including email) on step 3 before submitting.");
       return;
     }
 
@@ -289,7 +309,19 @@ const MultiStepBookingForm: React.FC = () => {
       // Email notifications
       const emailTemplate = getAgreementSignedTemplate(formData.fullName, createdBooking.id);
       
-      // Send Landlord bank details via simulated contact email to student
+      // 1. Send Booking Confirmation / Tenancy Agreement Signed Email
+      try {
+        await sendEmail({
+          to: formData.email,
+          subject: emailTemplate.subject,
+          body: emailTemplate.body
+        });
+        console.log("Successfully sent booking confirmation email to student:", formData.email);
+      } catch (err) {
+        console.error("Failed to send booking confirmation email:", err);
+      }
+      
+      // 2. Send Landlord bank details via simulated contact email to student
       try {
         await sendEmail({
           to: formData.email,
@@ -734,7 +766,7 @@ Please verify the agreement details in the Admin Dashboard at your earliest conv
                 <IconChevronLeft className="w-4 h-4" /> Back to stay options
               </button>
               <button
-                disabled={!formData.fullName || !formData.nationality || !formData.passportNumber || !formData.arrivalDate}
+                disabled={!formData.fullName || !formData.nationality || !formData.passportNumber || !formData.arrivalDate || !formData.email}
                 onClick={nextStep}
                 className="flex items-center gap-2 bg-brand-600 disabled:opacity-50 hover:bg-brand-700 text-white px-8 py-3.5 rounded-xl font-bold transition-all shadow-md active:scale-95"
               >
