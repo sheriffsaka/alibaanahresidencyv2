@@ -4,6 +4,7 @@ import { Booking, BookingStatus } from '../types';
 import { IconClose } from './Icon';
 import { useApp } from '../hooks/useApp';
 import { useTranslation } from '../hooks/useTranslation';
+import { formatStoredRoomString } from '../lib/roomNaming';
 
 interface InvoiceViewProps {
   booking: Booking;
@@ -130,8 +131,11 @@ const InvoiceView: React.FC<InvoiceViewProps> = ({ booking, onClose, isReceipt }
               <tbody className="divide-y divide-gray-50 dark:divide-gray-800">
                 <tr>
                   <td className="py-6">
-                    <p className="font-bold text-gray-900 dark:text-white">{booking.rooms.type} Room Stay</p>
-                    <p className="text-xs text-gray-500">Room Number: {booking.rooms.room_number}</p>
+                    <p className="font-bold text-gray-900 dark:text-white">{(booking.rooms?.type || 'Standard') + ' Room Stay'}</p>
+                    <p className="text-xs text-gray-500 font-semibold text-brand-600">
+                      Residency Unit: {booking.rooms?.apartment_name ? `${booking.rooms.apartment_name.replace('Apartment', '').trim()} – ` : ''}
+                      {formatStoredRoomString(booking.rooms?.room_number || '')}
+                    </p>
                     <p className="text-xs text-gray-500">{new Date(booking.start_date).toLocaleDateString()} to {new Date(booking.end_date).toLocaleDateString()}</p>
                   </td>
                   <td className="py-6 text-center text-sm font-medium">{booking.duration_of_stay}</td>

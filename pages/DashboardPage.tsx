@@ -9,28 +9,7 @@ import PaymentProofModal from '../components/PaymentProofModal';
 import { supabase } from '../lib/supabaseClient';
 import AgreementModal from '../components/AgreementModal';
 import { sendEmail, getAgreementSignedTemplate } from '../lib/email';
-
-// Predefined Rooms structure matching MultiStepBookingForm precisely
-const ALL_ROOM_SPACES = [
-  // Premium 1
-  { id: 'p1_r1_a', category: 'Premium 1', roomName: 'Room 1', bedSpaceName: 'Bed A', type: 'Shared' },
-  { id: 'p1_r1_b', category: 'Premium 1', roomName: 'Room 1', bedSpaceName: 'Bed B', type: 'Shared' },
-  { id: 'p1_r2', category: 'Premium 1', roomName: 'Room 2', bedSpaceName: 'Single', type: 'Private' },
-  { id: 'p1_r3', category: 'Premium 1', roomName: 'Room 3', bedSpaceName: 'Single', type: 'Private' },
-  // Premium 2
-  { id: 'p2_r1_a', category: 'Premium 2', roomName: 'Room 1', bedSpaceName: 'Bed A', type: 'Shared' },
-  { id: 'p2_r1_b', category: 'Premium 2', roomName: 'Room 1', bedSpaceName: 'Bed B', type: 'Shared' },
-  { id: 'p2_r2', category: 'Premium 2', roomName: 'Room 2', bedSpaceName: 'Single', type: 'Private' },
-  { id: 'p2_r3', category: 'Premium 2', roomName: 'Room 3', bedSpaceName: 'Single', type: 'Private' },
-  // Standard
-  { id: 'std_r1_a', category: 'Standard', roomName: 'Room 1', bedSpaceName: 'Bed A', type: 'Shared' },
-  { id: 'std_r1_b', category: 'Standard', roomName: 'Room 1', bedSpaceName: 'Bed B', type: 'Shared' },
-  { id: 'std_r2_a', category: 'Standard', roomName: 'Room 2', bedSpaceName: 'Bed A', type: 'Shared' },
-  { id: 'std_r2_b', category: 'Standard', roomName: 'Room 2', bedSpaceName: 'Bed B', type: 'Shared' },
-  { id: 'std_r3', category: 'Standard', roomName: 'Room 3', bedSpaceName: 'Single', type: 'Private' },
-  { id: 'std_r4_a', category: 'Standard', roomName: 'Room 4', bedSpaceName: 'Bed A', type: 'Shared' },
-  { id: 'std_r4_b', category: 'Standard', roomName: 'Room 4', bedSpaceName: 'Bed B', type: 'Shared' },
-];
+import { ALL_ROOM_SPACES, getUnifiedRoomName, formatStoredRoomString } from '../lib/roomNaming';
 
 const DashboardPage: React.FC = () => {
   const t = useTranslation();
@@ -51,12 +30,28 @@ const DashboardPage: React.FC = () => {
   const parsedAvailabilityData = useMemo(() => {
     return ALL_ROOM_SPACES.map(space => {
       // Find active booking that has reserved/occupied this room spacing representation
-      const targetRoomString = `${space.category} - ${space.roomName} (${space.bedSpaceName})`;
-      
       const spaceBookings = (bookings || []).filter(b => {
         if (b.status === BookingStatus.CANCELLED || b.status === BookingStatus.COMPLETED) return false;
         const bookingLabel = b.rooms?.room_number || '';
-        return bookingLabel === targetRoomString || bookingLabel.includes(targetRoomString);
+        const bookingApt = b.rooms?.apartment_name || '';
+        
+        // 1. Direct display name and apartment match
+        if (bookingLabel === space.displayName && bookingApt.includes(space.category)) {
+          return true;
+        }
+        
+        // 2. Fallback to older format (e.g. "Premium 1 - Room 1 (Bed A)")
+        const oldTargetString = `${space.category} - ${space.roomName} (${space.bedSpaceName})`;
+        if (bookingLabel === oldTargetString || bookingLabel.includes(oldTargetString)) {
+          return true;
+        }
+        
+        // 3. Alternate match: if booking room_number has the unified name
+        if (bookingLabel.includes(space.displayName) && (bookingApt.includes(space.category) || bookingLabel.includes(space.category))) {
+          return true;
+        }
+        
+        return false;
       });
 
       // Find if there is a currently occupied or confirmed booking
@@ -335,7 +330,10 @@ Al-Ibaanah Student Residency Notification System`
                         <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-brand-600 dark:text-brand-400">BK{booking.id}</td>
                         <td className="px-6 py-4 whitespace-nowrap">
                             <div className="text-sm font-medium text-gray-900 dark:text-white">{booking.rooms?.type || 'Standard Room'}</div>
-                            <div className="text-xs text-gray-500 dark:text-gray-400">{booking.rooms?.room_number}</div>
+                            <div className="text-xs text-gray-500 dark:text-gray-400">
+                              {booking.rooms?.apartment_name ? `${booking.rooms.apartment_name.replace('Apartment', '').trim()} – ` : ''}
+                              {formatStoredRoomString(booking.rooms?.room_number)}
+                            </div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-xs text-gray-700 dark:text-gray-350">{booking.duration_of_stay}</td>
                         <td className="px-6 py-4 whitespace-nowrap">

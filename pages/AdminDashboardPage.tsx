@@ -10,6 +10,7 @@ import { uploadFile, generateFileName } from '../lib/storage';
 import { sendEmail, getApprovalEmailTemplate } from '../lib/email';
 import AgreementModal from '../components/AgreementModal';
 import UserEditorModal from '../components/UserEditorModal';
+import { formatStoredRoomString } from '../lib/roomNaming';
 
 // A simple, animated SVG Bar Chart component created for this page
 const OccupancyChart = ({ data }: { data: { name: string; value: number }[] }) => {
@@ -367,12 +368,17 @@ const AdminDashboardPage: React.FC = () => {
         
         // Send email notification
         if (booking) {
-            const emailTemplate = getApprovalEmailTemplate(booking.full_name, booking.id, booking.rooms.room_number);
-            sendEmail({
-                to: booking.email,
-                subject: emailTemplate.subject,
-                body: emailTemplate.body
-            }).catch(err => console.error("Failed to send approval email:", err));
+            const formattedRoom = `${booking.rooms?.apartment_name ? `${booking.rooms.apartment_name.replace('Apartment', '').trim()} – ` : ''}${formatStoredRoomString(booking.rooms?.room_number || '')}`;
+            const emailTemplate = getApprovalEmailTemplate(booking.full_name, booking.id, formattedRoom);
+            try {
+                await sendEmail({
+                    to: booking.email,
+                    subject: emailTemplate.subject,
+                    body: emailTemplate.body
+                });
+            } catch (err) {
+                console.error("Failed to send approval email:", err);
+            }
         }
 
         alert("Booking approved successfully! Student has been notified via email.");
@@ -710,7 +716,10 @@ const AdminDashboardPage: React.FC = () => {
                     </tr></thead>
                     <tbody className="divide-y divide-gray-100 dark:divide-gray-700">{sortedBookings.map(booking => (<tr key={booking.id}>
                         <td className="px-6 py-4 font-bold">{booking.full_name}</td>
-                        <td className="px-6 py-4 text-sm font-bold text-brand-600">Room {booking.rooms.room_number}</td>
+                        <td className="px-6 py-4 text-sm font-bold text-brand-600">
+                          {booking.rooms?.apartment_name ? `${booking.rooms.apartment_name.replace('Apartment', '').trim()} – ` : ''}
+                          {formatStoredRoomString(booking.rooms?.room_number || '')}
+                        </td>
                         <td className="px-6 py-4 text-xs">{booking.duration_of_stay}</td>
                         <td className="px-6 py-4 text-xs font-bold text-red-600">{booking.payment_expiry_date ? new Date(booking.payment_expiry_date).toLocaleDateString() : 'N/A'}</td>
                         <td className="px-6 py-4"><BookingStatusBadge status={booking.status} /></td>

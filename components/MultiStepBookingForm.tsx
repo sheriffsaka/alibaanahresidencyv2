@@ -15,30 +15,31 @@ import SignaturePad from 'react-signature-canvas';
 import { useReactToPrint } from 'react-to-print';
 import TenancyAgreementDocument from './TenancyAgreementDocument';
 import { sendEmail, getAgreementSignedTemplate } from '../lib/email';
+import { ALL_ROOM_SPACES, getUnifiedRoomName } from '../lib/roomNaming';
 
 // Predefined Accommodation Categories and Rooms based on exact user specification
 const ACCOMMODATIONS_SELECTION: Record<string, Array<{ id: string; room: string; space: string; type: 'Shared' | 'Private'; label: string }>> = {
-  'Premium 1': [
-    { id: 'p1_r1_a', room: 'Room 1', space: 'Bed A', type: 'Shared', label: 'Room 1 - Bed A (Shared)' },
-    { id: 'p1_r1_b', room: 'Room 1', space: 'Bed B', type: 'Shared', label: 'Room 1 - Bed B (Shared)' },
-    { id: 'p1_r2', room: 'Room 2', space: 'Single', type: 'Private', label: 'Room 2 (Private)' },
-    { id: 'p1_r3', room: 'Room 3', space: 'Single', type: 'Private', label: 'Room 3 (Private)' }
-  ],
-  'Premium 2': [
-    { id: 'p2_r1_a', room: 'Room 1', space: 'Bed A', type: 'Shared', label: 'Room 1 - Bed A (Shared)' },
-    { id: 'p2_r1_b', room: 'Room 1', space: 'Bed B', type: 'Shared', label: 'Room 1 - Bed B (Shared)' },
-    { id: 'p2_r2', room: 'Room 2', space: 'Single', type: 'Private', label: 'Room 2 (Private)' },
-    { id: 'p2_r3', room: 'Room 3', space: 'Single', type: 'Private', label: 'Room 3 (Private)' }
-  ],
-  'Standard': [
-    { id: 'std_r1_a', room: 'Room 1', space: 'Bed A', type: 'Shared', label: 'Room 1 - Bed A (Shared)' },
-    { id: 'std_r1_b', room: 'Room 1', space: 'Bed B', type: 'Shared', label: 'Room 1 - Bed B (Shared)' },
-    { id: 'std_r2_a', room: 'Room 2', space: 'Bed A', type: 'Shared', label: 'Room 2 - Bed A (Shared)' },
-    { id: 'std_r2_b', room: 'Room 2', space: 'Bed B', type: 'Shared', label: 'Room 2 - Bed B (Shared)' },
-    { id: 'std_r3', room: 'Room 3', space: 'Single', type: 'Private', label: 'Room 3 (Private)' },
-    { id: 'std_r4_a', room: 'Room 4', space: 'Bed A', type: 'Shared', label: 'Room 4 - Bed A (Shared)' },
-    { id: 'std_r4_b', room: 'Room 4', space: 'Bed B', type: 'Shared', label: 'Room 4 - Bed B (Shared)' }
-  ],
+  'Premium 1': ALL_ROOM_SPACES.filter(r => r.category === 'Premium 1').map(r => ({
+    id: r.id,
+    room: r.roomName,
+    space: r.bedSpaceName,
+    type: r.type,
+    label: r.displayName
+  })),
+  'Premium 2': ALL_ROOM_SPACES.filter(r => r.category === 'Premium 2').map(r => ({
+    id: r.id,
+    room: r.roomName,
+    space: r.bedSpaceName,
+    type: r.type,
+    label: r.displayName
+  })),
+  'Standard': ALL_ROOM_SPACES.filter(r => r.category === 'Standard').map(r => ({
+    id: r.id,
+    room: r.roomName,
+    space: r.bedSpaceName,
+    type: r.type,
+    label: r.displayName
+  })),
 };
 
 // Swappable media assets (images, tour videos, and features) for each student accommodation category.
@@ -270,7 +271,7 @@ const MultiStepBookingForm: React.FC = () => {
         signature_data: signature,
         contract_signed_at: new Date().toISOString(),
         rooms: { 
-          room_number: `${formData.category} - ${formData.roomName} (${formData.bedSpaceName})`, 
+          room_number: getUnifiedRoomName(formData.category, formData.roomName, formData.bedSpaceName), 
           type: (formData.category.startsWith('Premium') 
             ? (formData.roomType === 'Private' ? 'Premium Private' : 'Premium Shared')
             : (formData.roomType === 'Private' ? 'Standard Private' : 'Standard Shared')) as AccommodationType,
@@ -289,10 +290,11 @@ const MultiStepBookingForm: React.FC = () => {
       const emailTemplate = getAgreementSignedTemplate(formData.fullName, createdBooking.id);
       
       // Send Landlord bank details via simulated contact email to student
-      sendEmail({
-        to: formData.email,
-        subject: `Booking Agreement BK${createdBooking.id} & Landlord Payment Instructions`,
-        body: `Dear ${formData.fullName},
+      try {
+        await sendEmail({
+          to: formData.email,
+          subject: `Booking Agreement BK${createdBooking.id} & Landlord Payment Instructions`,
+          body: `Dear ${formData.fullName},
 
 We have received your officially signed tenancy agreement for your stay at Al-Ibaanah Student Residency!
 
@@ -344,16 +346,23 @@ Please log into your student dashboard page to upload your deposit transfer conf
 
 Warm regards,
 Al-Ibaanah Student Residency Administration`
-      }).catch(err => console.error("Failed to send signature email:", err));
+        });
+      } catch (err) {
+        console.error("Failed to send signature email:", err);
+      }
 
       // Admin alert
-      sendEmail({
-        to: landlordDetails?.adminEmail || 'sheriffdeenalade@gmail.com',
-        subject: `New Tenancy Agreement Signed - (BK${createdBooking.id})`,
-        body: `A new tenancy agreement has been signed by ${formData.fullName} for BK${createdBooking.id}.
+      try {
+        await sendEmail({
+          to: landlordDetails?.adminEmail || 'sheriffdeenalade@gmail.com',
+          subject: `New Tenancy Agreement Signed - (BK${createdBooking.id})`,
+          body: `A new tenancy agreement has been signed by ${formData.fullName} for BK${createdBooking.id}.
 
 Please verify the agreement details in the Admin Dashboard at your earliest convenience.`
-      }).catch(err => console.error("Failed to send admin email:", err));
+        });
+      } catch (err) {
+        console.error("Failed to send admin email:", err);
+      }
       
       await addActivity({
         user_id: user.id,
