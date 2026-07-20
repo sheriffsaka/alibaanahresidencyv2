@@ -203,17 +203,25 @@ const MultiStepBookingForm: React.FC = () => {
     }
   }, [user]);
 
-  // Sync Category change with preselecting room
+  // Sync Category change with preselecting room (pre-selecting first available)
   const handleCategoryChange = (cat: 'Standard' | 'Premium 1' | 'Premium 2') => {
     const list = ACCOMMODATIONS_SELECTION[cat];
     if (list && list.length > 0) {
+      const availableItem = list.find(item => {
+        const spaceConfig = parsedAvailabilityData.find(s => s.id === item.id);
+        const isOccupied = spaceConfig?.isOccupied;
+        const bookingForSpace = spaceConfig?.booking;
+        const isSpaceOccupied = isOccupied && (!extendingBooking || bookingForSpace?.id !== extendingBooking.id);
+        return !isSpaceOccupied;
+      }) || list[0];
+
       setFormData(prev => ({
         ...prev,
         category: cat,
-        selectedRoomId: list[0].id,
-        roomName: list[0].room,
-        bedSpaceName: list[0].space,
-        roomType: list[0].type,
+        selectedRoomId: availableItem.id,
+        roomName: availableItem.room,
+        bedSpaceName: availableItem.space,
+        roomType: availableItem.type,
       }));
     }
   };
@@ -222,6 +230,13 @@ const MultiStepBookingForm: React.FC = () => {
     const list = ACCOMMODATIONS_SELECTION[formData.category];
     const item = list?.find(it => it.id === id);
     if (item) {
+      const spaceConfig = parsedAvailabilityData.find(s => s.id === id);
+      const isOccupied = spaceConfig?.isOccupied;
+      const bookingForSpace = spaceConfig?.booking;
+      const isSpaceOccupied = isOccupied && (!extendingBooking || bookingForSpace?.id !== extendingBooking.id);
+
+      if (isSpaceOccupied) return; // Do not allow selection of occupied rooms
+
       setFormData(prev => ({
         ...prev,
         selectedRoomId: id,
@@ -231,6 +246,82 @@ const MultiStepBookingForm: React.FC = () => {
       }));
     }
   };
+
+  // Determine if all spaces in the selected category are occupied
+  const areAllSpacesInSelectedCategoryOccupied = useMemo(() => {
+    const list = ACCOMMODATIONS_SELECTION[formData.category] || [];
+    return list.every(item => {
+      const spaceConfig = parsedAvailabilityData.find(s => s.id === item.id);
+      const isOccupied = spaceConfig?.isOccupied;
+      const bookingForSpace = spaceConfig?.booking;
+      return isOccupied && (!extendingBooking || bookingForSpace?.id !== extendingBooking.id);
+    });
+  }, [parsedAvailabilityData, formData.category, extendingBooking]);
+
+  // Determine if the currently selected room is occupied
+  const isCurrentSelectionOccupied = useMemo(() => {
+    const spaceConfig = parsedAvailabilityData.find(s => s.id === formData.selectedRoomId);
+    const isOccupied = spaceConfig?.isOccupied;
+    const bookingForSpace = spaceConfig?.booking;
+    return isOccupied && (!extendingBooking || bookingForSpace?.id !== extendingBooking.id);
+  }, [parsedAvailabilityData, formData.selectedRoomId, extendingBooking]);
+
+  // Pre-select first available room on load or update if current selected is occupied
+  useEffect(() => {
+    if (parsedAvailabilityData.length > 0) {
+      const selectedSpace = parsedAvailabilityData.find(s => s.id === formData.selectedRoomId);
+      const isSelectedOccupied = selectedSpace?.isOccupied && (!extendingBooking || selectedSpace?.booking?.id !== extendingBooking.id);
+      
+      if (isSelectedOccupied) {
+        const list = ACCOMMODATIONS_SELECTION[formData.category];
+        const firstAvailable = list?.find(item => {
+          const spaceConfig = parsedAvailabilityData.find(s => s.id === item.id);
+          const isOccupied = spaceConfig?.isOccupied;
+          const bookingForSpace = spaceConfig?.booking;
+          const isSpaceOccupied = isOccupied && (!extendingBooking || bookingForSpace?.id !== extendingBooking.id);
+          return !isSpaceOccupied;
+        });
+        
+        if (firstAvailable) {
+          setFormData(prev => ({
+            ...prev,
+            selectedRoomId: firstAvailable.id,
+            roomName: firstAvailable.room,
+            bedSpaceName: firstAvailable.space,
+            roomType: firstAvailable.type,
+          }));
+        }
+      }
+    }
+  }, [parsedAvailabilityData, extendingBooking]);
+
+  // Automatically pre-select existing bed space on extension flow
+  useEffect(() => {
+    if (extendingBooking && parsedAvailabilityData.length > 0) {
+      const mySpace = parsedAvailabilityData.find(s => s.booking?.id === extendingBooking.id);
+      if (mySpace) {
+        let foundCat: 'Standard' | 'Premium 1' | 'Premium 2' = 'Premium 1';
+        for (const cat of ['Premium 1', 'Premium 2', 'Standard'] as const) {
+          if (ACCOMMODATIONS_SELECTION[cat].some(item => item.id === mySpace.id)) {
+            foundCat = cat;
+            break;
+          }
+        }
+        
+        const item = ACCOMMODATIONS_SELECTION[foundCat].find(it => it.id === mySpace.id);
+        if (item) {
+          setFormData(prev => ({
+            ...prev,
+            category: foundCat,
+            selectedRoomId: item.id,
+            roomName: item.room,
+            bedSpaceName: item.space,
+            roomType: item.type,
+          }));
+        }
+      }
+    }
+  }, [extendingBooking, parsedAvailabilityData]);
 
   // Pricing rules
   const calculatePriceBreakdown = (category: string, isPrivate: boolean, durationMonths: string) => {
@@ -526,12 +617,23 @@ Please verify the agreement details in the Admin Dashboard at your earliest conv
               <h3 className="font-bold text-sm text-gray-800 dark:text-gray-200 uppercase tracking-wider">
                 Rooms & Bed space configuration in {formData.category}
               </h3>
+
+              {areAllSpacesInSelectedCategoryOccupied && (
+                <div className="p-4 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800/60 rounded-xl text-amber-800 dark:text-amber-400 text-xs font-medium flex items-center gap-2.5">
+                  <IconInfo className="w-5 h-5 text-amber-600 flex-shrink-0" />
+                  <div>
+                    <p className="font-bold uppercase tracking-wider text-[10px]">Category Fully Booked</p>
+                    <p className="mt-0.5">All bed spaces in the {formData.category} category are currently reserved. Please explore our other beautiful accommodations.</p>
+                  </div>
+                </div>
+              )}
               
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 {ACCOMMODATIONS_SELECTION[formData.category]?.map(item => {
                   const spaceConfig = parsedAvailabilityData.find(s => s.id === item.id);
                   const isOccupied = spaceConfig?.isOccupied;
                   const bookingForSpace = spaceConfig?.booking;
+                  const isSpaceOccupied = isOccupied && (!extendingBooking || bookingForSpace?.id !== extendingBooking.id);
 
                   let calculatedAvailDate = 'Available Now';
                   if (isOccupied && bookingForSpace && bookingForSpace.end_date) {
@@ -567,10 +669,13 @@ Please verify the agreement details in the Admin Dashboard at your earliest conv
                     <button
                       key={item.id}
                       onClick={() => handleRoomSelect(item.id)}
+                      disabled={isSpaceOccupied}
                       className={`p-4 rounded-xl border text-left flex justify-between items-center transition-all ${
-                        formData.selectedRoomId === item.id
+                        isSpaceOccupied
+                          ? 'border-gray-200 dark:border-gray-800 bg-gray-100/40 dark:bg-gray-950/40 opacity-60 cursor-not-allowed'
+                          : formData.selectedRoomId === item.id
                           ? 'border-brand-500 bg-brand-50/20 text-brand-700 dark:text-brand-400 font-bold'
-                          : 'border-gray-100 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-900 text-gray-700 dark:text-gray-300'
+                          : 'border-gray-100 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-900 text-gray-700 dark:text-gray-300 hover:border-brand-200 hover:bg-gray-50 dark:hover:bg-gray-800/80 cursor-pointer'
                       }`}
                     >
                       <div>
@@ -579,18 +684,26 @@ Please verify the agreement details in the Admin Dashboard at your earliest conv
                         <div className="mt-2 flex items-center gap-1.5">
                           <span className="text-[9px] uppercase font-bold text-gray-400">Available:</span>
                           <span className={`text-[9px] font-black uppercase px-1.5 py-0.5 rounded ${
-                            finalAvailDate === 'Available Now'
+                            isSpaceOccupied
+                              ? 'bg-red-50 text-red-700 dark:bg-red-950/20 dark:text-red-400'
+                              : finalAvailDate === 'Available Now'
                               ? 'bg-green-50 text-green-700 dark:bg-green-950/20 dark:text-green-400'
                               : 'bg-amber-50 text-amber-700 dark:bg-amber-950/20 dark:text-amber-400'
                           }`}>
-                            {finalAvailDate}
+                            {isSpaceOccupied
+                              ? (finalAvailDate === 'Available Now' ? 'Fully Booked' : `Fully Booked (Next: ${finalAvailDate})`)
+                              : finalAvailDate
+                            }
                           </span>
                         </div>
                       </div>
-                      {formData.selectedRoomId === item.id && (
+                      {formData.selectedRoomId === item.id && !isSpaceOccupied && (
                         <div className="w-5 h-5 rounded-full bg-brand-600 text-white flex items-center justify-center flex-shrink-0">
                           <IconCheck className="w-3.5 h-3.5" />
                         </div>
+                      )}
+                      {isSpaceOccupied && (
+                        <span className="text-[10px] text-red-600 font-black uppercase tracking-wider">Booked</span>
                       )}
                     </button>
                   );
@@ -611,10 +724,18 @@ Please verify the agreement details in the Admin Dashboard at your earliest conv
               </div>
             </div>
 
-            <div className="flex justify-end pt-4">
+            <div className="flex flex-col items-end gap-2 pt-4">
+              {isCurrentSelectionOccupied && (
+                <p className="text-xs text-red-500 font-bold">The selected space is currently fully booked. Please choose an available space.</p>
+              )}
               <button
                 onClick={nextStep}
-                className="flex items-center gap-2 bg-brand-600 hover:bg-brand-700 text-white px-8 py-3.5 rounded-xl font-bold transition-all shadow-md active:scale-95"
+                disabled={isCurrentSelectionOccupied}
+                className={`flex items-center gap-2 text-white px-8 py-3.5 rounded-xl font-bold transition-all shadow-md active:scale-95 ${
+                  isCurrentSelectionOccupied
+                    ? 'bg-gray-300 dark:bg-gray-700 text-gray-500 dark:text-gray-400 cursor-not-allowed opacity-70'
+                    : 'bg-brand-600 hover:bg-brand-700'
+                }`}
               >
                 Continue to Features & Pricing <IconChevronRight className="w-5 h-5" />
               </button>
