@@ -261,6 +261,7 @@ const AdminDashboardPage: React.FC = () => {
   const [selectedProof, setSelectedProof] = useState<string | null>(null);
   const [roomFilter, setRoomFilter] = useState<'all' | 'occupied' | 'available'>('all');
   const [studentSort, setStudentSort] = useState<{ field: keyof Booking; direction: 'asc' | 'desc' }>({ field: 'full_name', direction: 'asc' });
+  const [selectedBookingIds, setSelectedBookingIds] = useState<number[]>([]);
   
   const [isRoomModalOpen, setIsRoomModalOpen] = useState(false);
   const [selectedRoomForEdit, setSelectedRoomForEdit] = useState<Room | null>(null);
@@ -327,23 +328,52 @@ const AdminDashboardPage: React.FC = () => {
 
   const analytics = useMemo(() => {
     const safeBookings = bookings || [];
-    const occupiedBookings = safeBookings.filter(b => b.status === BookingStatus.OCCUPIED || b.status === BookingStatus.CONFIRMED);
-    const occupiedRoomIds = new Set(occupiedBookings.map(b => b.room_id));
-    const occupiedRooms = (rooms || []).filter(r => occupiedRoomIds.has(r.id));
+    // Active residency bookings (excluding completed/cancelled)
+    const activeBookings = safeBookings.filter(b => b.status !== BookingStatus.CANCELLED && b.status !== BookingStatus.COMPLETED);
     
+    // Count active bookings per room
+    const bookingsCountByRoom: Record<number, number> = {};
+    activeBookings.forEach(b => {
+      bookingsCountByRoom[b.room_id] = (bookingsCountByRoom[b.room_id] || 0) + 1;
+    });
+
+    // A room is fully occupied if its bookings count is >= capacity
+    const fullyOccupiedRoomIds = new Set<number>();
+    (rooms || []).forEach(r => {
+      const bookingsCount = bookingsCountByRoom[r.id] || 0;
+      if (bookingsCount >= (r.capacity || 1)) {
+        fullyOccupiedRoomIds.add(r.id);
+      }
+    });
+
+    const occupiedRoomIds = new Set<number>(activeBookings.map(b => b.room_id));
+    
+    // Total available bed spaces in the building
+    const totalCapacity = (rooms || []).reduce((sum, r) => sum + (r.capacity || 1), 0);
+    const totalBooked = activeBookings.length;
+    const availableBedSpaces = Math.max(0, totalCapacity - totalBooked);
+
     return {
       pendingVerifications: safeBookings.filter(b => b.status === BookingStatus.PENDING_VERIFICATION),
       pendingPayments: safeBookings.filter(b => b.status === BookingStatus.PENDING_PAYMENT),
       pendingContracts: safeBookings.filter(b => b.status === BookingStatus.PENDING_CONTRACT),
       occupiedRoomIds,
-      occupancyByType: Object.values(AccommodationType).map(type => ({
-        name: type,
-        value: occupiedRooms.filter(r => r.type === type).length
-      })),
-      totalRevenue: occupiedBookings.reduce((sum, b) => sum + (b.total_price || 0), 0),
-      occupancyRate: (rooms || []).length > 0 ? Math.round((occupiedRoomIds.size / (rooms || []).length) * 100) : 0,
-      totalRooms: (rooms || []).length,
-      availableRooms: (rooms || []).length - occupiedRoomIds.size
+      fullyOccupiedRoomIds,
+      bookingsCountByRoom,
+      occupancyByType: Object.values(AccommodationType).map(type => {
+        const typeBookings = activeBookings.filter(b => {
+          const roomObj = (rooms || []).find(r => r.id === b.room_id);
+          return roomObj && roomObj.type === type;
+        });
+        return {
+          name: type,
+          value: typeBookings.length
+        };
+      }),
+      totalRevenue: safeBookings.filter(b => b.status === BookingStatus.OCCUPIED || b.status === BookingStatus.CONFIRMED).reduce((sum, b) => sum + (b.total_price || 0), 0),
+      occupancyRate: totalCapacity > 0 ? Math.round((totalBooked / totalCapacity) * 100) : 0,
+      totalRooms: totalCapacity,
+      availableRooms: availableBedSpaces
     };
   }, [bookings, rooms]);
 
@@ -354,11 +384,20 @@ const AdminDashboardPage: React.FC = () => {
         : rooms;
 
     switch(roomFilter) {
-      case 'occupied': return visibleRooms.filter(r => analytics.occupiedRoomIds.has(r.id));
-      case 'available': return visibleRooms.filter(r => !analytics.occupiedRoomIds.has(r.id));
-      default: return visibleRooms;
+      case 'occupied': 
+        return visibleRooms.filter(r => {
+          const bookedCount = analytics.bookingsCountByRoom[r.id] || 0;
+          return bookedCount > 0;
+        });
+      case 'available': 
+        return visibleRooms.filter(r => {
+          const bookedCount = analytics.bookingsCountByRoom[r.id] || 0;
+          return bookedCount < (r.capacity || 1);
+        });
+      default: 
+        return visibleRooms;
     }
-  }, [rooms, roomFilter, analytics.occupiedRoomIds, user]);
+  }, [rooms, roomFilter, analytics.bookingsCountByRoom, user]);
 
   const handleApprove = async (id: number) => {
     const booking = bookings.find(b => b.id === id);
@@ -464,6 +503,8 @@ const AdminDashboardPage: React.FC = () => {
     if (confirm(`Are you sure you want to delete the student record for ${studentName}?\n\nThis will permanently delete their residency booking, contract details, payment history, and safely update the corresponding room or bed status to Vacant (if applicable) so it can be booked by others.`)) {
         const result = await deleteBooking(id);
         if (result.success) {
+            // Remove from selectedBookingIds if present
+            setSelectedBookingIds(prev => prev.filter(bId => bId !== id));
             addActivity({ 
                 user_id: user.id, 
                 type: 'system', 
@@ -473,6 +514,56 @@ const AdminDashboardPage: React.FC = () => {
             alert(`Successfully deleted student record for ${studentName}.`);
         } else {
             alert(`Failed to delete student record: ${result.error}`);
+        }
+    }
+  };
+
+  const handleBulkDeleteStudents = async () => {
+    if (user?.role !== 'staff' && user?.role !== 'proprietor') {
+        alert("Unauthorized: Only administrators are authorized to delete student records.");
+        return;
+    }
+
+    if (selectedBookingIds.length === 0) {
+        alert("Please select at least one student to delete.");
+        return;
+    }
+
+    const namesToDelete = sortedBookings
+        .filter(b => selectedBookingIds.includes(b.id))
+        .map(b => b.full_name)
+        .join(", ");
+
+    if (confirm(`Are you sure you want to permanently delete the student records for the following ${selectedBookingIds.length} student(s)?\n\n[ ${namesToDelete} ]\n\nThis will permanently delete their residency bookings, contract details, payment histories, and safely update the corresponding room or bed statuses to Vacant (if applicable).`)) {
+        let successCount = 0;
+        let failCount = 0;
+        const failedNames: string[] = [];
+
+        for (const id of selectedBookingIds) {
+            const booking = bookings.find(b => b.id === id);
+            if (!booking) continue;
+            
+            const result = await deleteBooking(id);
+            if (result.success) {
+                successCount++;
+                addActivity({ 
+                    user_id: user.id, 
+                    type: 'system', 
+                    description: `Deleted student record for ${booking.full_name} via bulk delete. Bed space/room released and marked vacant.`, 
+                    timestamp: new Date().toISOString() 
+                });
+            } else {
+                failCount++;
+                failedNames.push(`${booking.full_name} (${result.error})`);
+            }
+        }
+
+        setSelectedBookingIds([]);
+
+        if (failCount === 0) {
+            alert(`Successfully deleted ${successCount} student record(s).`);
+        } else {
+            alert(`Bulk delete completed.\nSuccessfully deleted: ${successCount} student(s).\nFailed to delete ${failCount} student(s):\n${failedNames.join("\n")}`);
         }
     }
   };
@@ -677,43 +768,100 @@ const AdminDashboardPage: React.FC = () => {
                       <button onClick={() => handleOpenRoomModal(null)} className="bg-brand-600 text-white px-4 py-2 rounded-lg text-xs font-bold">+ {t.addNewRoom}</button>
                    </div>
                 </div>
-                <div className="overflow-x-auto"><table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-                    <thead className="bg-gray-50 dark:bg-gray-900"><tr>
-                        <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase">Room Display</th>
-                        <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase">Category</th>
-                        <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase">Status</th>
-                        <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase">Price</th>
-                        <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase">Actions</th>
-                    </tr></thead>
-                    <tbody className="divide-y divide-gray-100 dark:divide-gray-700">{filteredRooms.map(room => {
-                        const isOccupied = analytics.occupiedRoomIds.has(room.id);
-                        return (<tr key={room.id}>
-                            <td className="px-6 py-4">
-                                <span className="font-bold text-sm text-gray-900 dark:text-white">{getDisplayFromRoom(room)}</span>
-                            </td>
-                            <td className="px-6 py-4 text-xs font-semibold uppercase">{room.category}</td>
-                            <td className="px-6 py-4"><span className={`px-2 py-1 text-[10px] rounded-full font-bold ${isOccupied ? 'bg-orange-100 text-orange-700' : 'bg-green-100 text-green-700'}`}>{isOccupied ? t.occupied : t.unoccupied}</span></td>
-                            <td className="px-6 py-4 text-sm font-bold text-brand-600">${room.price_per_month}</td>
-                            <td className="px-6 py-4"><button onClick={() => handleOpenRoomModal(room)} className="text-brand-600 text-xs font-bold underline">Edit</button></td>
-                        </tr>);
-                    })}</tbody>
-                </table></div>
+                <div className="overflow-x-auto">
+                  <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                     <thead className="bg-gray-50 dark:bg-gray-900">
+                        <tr>
+                           <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase">Room Display</th>
+                           <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase">Category</th>
+                           <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase">Status</th>
+                           <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase">Price</th>
+                           <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase">Actions</th>
+                        </tr>
+                     </thead>
+                     <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
+                        {filteredRooms.map(room => {
+                           const bookedCount = analytics.bookingsCountByRoom[room.id] || 0;
+                           const capacity = room.capacity || 1;
+                           const isFull = bookedCount >= capacity;
+                           return (
+                              <tr key={room.id}>
+                                 <td className="px-6 py-4">
+                                    <span className="font-bold text-sm text-gray-900 dark:text-white">{getDisplayFromRoom(room)}</span>
+                                 </td>
+                                 <td className="px-6 py-4 text-xs font-semibold uppercase">{room.category}</td>
+                                 <td className="px-6 py-4">
+                                    <span className={`px-2 py-1 text-[10px] rounded-full font-bold ${
+                                       isFull 
+                                          ? 'bg-orange-100 text-orange-700 dark:bg-orange-950/20 dark:text-orange-400' 
+                                          : 'bg-green-100 text-green-700 dark:bg-green-950/20 dark:text-green-400'
+                                    }`}>
+                                       {isFull ? 'Fully Booked' : 'Available'} ({bookedCount}/{capacity} Booked)
+                                    </span>
+                                 </td>
+                                 <td className="px-6 py-4 text-sm font-bold text-brand-600">${room.price_per_month}</td>
+                                 <td className="px-6 py-4"><button onClick={() => handleOpenRoomModal(room)} className="text-brand-600 text-xs font-bold underline">Edit</button></td>
+                              </tr>
+                           );
+                        })}
+                     </tbody>
+                  </table>
+               </div>
              </div>
           )}
 
           {activeTab === 'students' && (
              <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg overflow-hidden border border-gray-100 dark:border-gray-700">
-                <div className="px-6 py-4 border-b dark:border-gray-700 flex justify-between items-center">
-                  <h2 className="text-xl font-bold">{t.studentsList}</h2>
-                  <button 
-                    onClick={exportToCSV}
-                    className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-xs font-bold transition-colors flex items-center gap-2"
-                  >
-                    📥 Export CSV
-                  </button>
+                <div className="px-6 py-4 border-b dark:border-gray-700 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                  <div className="flex items-center gap-3">
+                    <h2 className="text-xl font-bold">{t.studentsList}</h2>
+                    {selectedBookingIds.length > 0 && (
+                      <span className="bg-brand-50 text-brand-700 dark:bg-brand-900/30 dark:text-brand-300 text-xs px-2.5 py-1 rounded-full font-bold">
+                        {selectedBookingIds.length} Selected
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    {selectedBookingIds.length > 0 && (
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={handleBulkDeleteStudents}
+                          className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg text-xs font-bold transition-colors flex items-center gap-1.5 shadow-sm"
+                        >
+                          <IconTrash className="w-3.5 h-3.5" /> Delete Selected ({selectedBookingIds.length})
+                        </button>
+                        <button
+                          onClick={() => setSelectedBookingIds([])}
+                          className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-white text-xs font-bold px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-lg"
+                        >
+                          Deselect All
+                        </button>
+                      </div>
+                    )}
+                    <button 
+                      onClick={exportToCSV}
+                      className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-xs font-bold transition-colors flex items-center gap-2"
+                    >
+                      📥 Export CSV
+                    </button>
+                  </div>
                 </div>
                 <div className="overflow-x-auto"><table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
                     <thead className="bg-gray-50 dark:bg-gray-900"><tr>
+                        <th className="px-6 py-3 text-left w-12">
+                          <input 
+                            type="checkbox"
+                            className="w-4 h-4 rounded border-gray-300 dark:border-gray-600 text-brand-600 focus:ring-brand-500 cursor-pointer"
+                            checked={sortedBookings.length > 0 && selectedBookingIds.length === sortedBookings.length}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                setSelectedBookingIds(sortedBookings.map(b => b.id));
+                              } else {
+                                setSelectedBookingIds([]);
+                              }
+                            }}
+                          />
+                        </th>
                         <th 
                           className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase cursor-pointer hover:text-brand-600"
                           onClick={() => setStudentSort({ field: 'full_name', direction: studentSort.field === 'full_name' && studentSort.direction === 'asc' ? 'desc' : 'asc' })}
@@ -732,6 +880,20 @@ const AdminDashboardPage: React.FC = () => {
                         <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase">Actions</th>
                     </tr></thead>
                     <tbody className="divide-y divide-gray-100 dark:divide-gray-700">{sortedBookings.map(booking => (<tr key={booking.id}>
+                        <td className="px-6 py-4 w-12">
+                          <input 
+                            type="checkbox"
+                            className="w-4 h-4 rounded border-gray-300 dark:border-gray-600 text-brand-600 focus:ring-brand-500 cursor-pointer"
+                            checked={selectedBookingIds.includes(booking.id)}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                setSelectedBookingIds(prev => [...prev, booking.id]);
+                              } else {
+                                setSelectedBookingIds(prev => prev.filter(id => id !== booking.id));
+                              }
+                            }}
+                          />
+                        </td>
                         <td className="px-6 py-4 font-bold">{booking.full_name}</td>
                         <td className="px-6 py-4 text-sm font-bold text-brand-600">
                           {getDisplayFromRoom(booking.rooms)}

@@ -11,6 +11,35 @@ import AgreementModal from '../components/AgreementModal';
 import { sendEmail, getAgreementSignedTemplate } from '../lib/email';
 import { ALL_ROOM_SPACES, getUnifiedRoomName, formatStoredRoomString } from '../lib/roomNaming';
 
+const findDatabaseRoomForSpace = (rooms: any[], space: { category: string; type: 'Shared' | 'Private' }) => {
+  const isPrivate = space.type === 'Private';
+  const catSimple = space.category.startsWith('Premium') ? 'Premium' : 'Standard';
+  const reqType = isPrivate ? `${catSimple} Private` : `${catSimple} Shared`;
+  
+  // Specific apartment mapping
+  let aptName = '';
+  if (space.category === 'Premium 1') {
+    aptName = 'Apartment 1';
+  } else if (space.category === 'Premium 2') {
+    aptName = 'Apartment 3';
+  } else if (space.category === 'Standard') {
+    aptName = 'Apartment 2';
+  }
+  
+  // Try exact match with apartment_name and type
+  const match = rooms.find(r => 
+    r.apartment_name === aptName && 
+    r.type === reqType
+  );
+  if (match) return match;
+  
+  // Fallback to type matching
+  return rooms.find(r => 
+    r.category.toLowerCase() === catSimple.toLowerCase() && 
+    r.type === reqType
+  ) || null;
+};
+
 const DashboardPage: React.FC = () => {
   const t = useTranslation();
   const { user, bookings, activities, setPage, cmsContent, addActivity, updateBooking, language, rooms, landlordDetails } = useApp();
@@ -21,60 +50,67 @@ const DashboardPage: React.FC = () => {
   const [uploadingProofBooking, setUploadingProofBooking] = useState<Booking | null>(null);
   
   const [selectedFilterCategory, setSelectedFilterCategory] = useState<'All' | 'Standard' | 'Premium 1' | 'Premium 2'>('All');
-
+  
   const userBookings = (bookings || []).filter(b => b.student_id === user?.id);
   const userActivities = (activities || []).filter(a => a.user_id === user?.id).slice(0, 5);
   const announcements = cmsContent.announcements?.[language] || [];
 
   // Determine which rooms/beds are currently occupied based on all system bookings
   const parsedAvailabilityData = useMemo(() => {
+    const activeBookings = (bookings || []).filter(b => b.status !== BookingStatus.CANCELLED && b.status !== BookingStatus.COMPLETED);
+    
+    // Group active bookings by room_id, sorted deterministically by id
+    const bookingsByRoom: Record<number, Booking[]> = {};
+    activeBookings.forEach(b => {
+      if (!bookingsByRoom[b.room_id]) {
+        bookingsByRoom[b.room_id] = [];
+      }
+      bookingsByRoom[b.room_id].push(b);
+    });
+    
+    // Sort bookings within each room for deterministic bed assignment
+    Object.keys(bookingsByRoom).forEach(roomId => {
+      bookingsByRoom[Number(roomId)].sort((a, b) => a.id - b.id);
+    });
+
+    // Keep track of how many bookings we have assigned to each room_id so far
+    const assignedCounts: Record<number, number> = {};
+
     return ALL_ROOM_SPACES.map(space => {
-      // Find active booking that has reserved/occupied this room spacing representation
-      const spaceBookings = (bookings || []).filter(b => {
-        if (b.status === BookingStatus.CANCELLED || b.status === BookingStatus.COMPLETED) return false;
-        const bookingLabel = b.rooms?.room_number || '';
-        const bookingApt = b.rooms?.apartment_name || '';
-        
-        // 1. Direct display name and apartment match
-        if (bookingLabel === space.displayName && bookingApt.includes(space.category)) {
-          return true;
-        }
-        
-        // 2. Fallback to older format (e.g. "Premium 1 - Room 1 (Bed A)")
-        const oldTargetString = `${space.category} - ${space.roomName} (${space.bedSpaceName})`;
-        if (bookingLabel === oldTargetString || bookingLabel.includes(oldTargetString)) {
-          return true;
-        }
-        
-        // 3. Alternate match: if booking room_number has the unified name
-        if (bookingLabel.includes(space.displayName) && (bookingApt.includes(space.category) || bookingLabel.includes(space.category))) {
-          return true;
-        }
-        
-        return false;
-      });
+      // Find the database room that represents this space
+      const dbRoom = findDatabaseRoomForSpace(rooms || [], space);
+      if (!dbRoom) {
+        return {
+          ...space,
+          isOccupied: false,
+          occupantName: null,
+          status: null,
+          booking: undefined,
+          supabaseRoom: null
+        };
+      }
 
-      // Find if there is a currently occupied or confirmed booking
-      const activeBooking = spaceBookings.find(b => b.status === BookingStatus.OCCUPIED || b.status === BookingStatus.CONFIRMED);
-      const currentActiveBooking = activeBooking || spaceBookings[0];
+      // Get bookings for this database room
+      const roomBookings = bookingsByRoom[dbRoom.id] || [];
+      const currentIndex = assignedCounts[dbRoom.id] || 0;
 
-      // Retrieve matching DB Room object to check for any manual override date
-      const matchingSupabaseRoom = rooms?.find(r => {
-        const rCategory = r.category || '';
-        const rType = r.type || '';
-        const isPrivate = space.type === 'Private';
-        const catSimple = space.category.startsWith('Premium') ? 'Premium' : 'Standard';
-        const reqType = isPrivate ? `${catSimple} Private` : `${catSimple} Shared`;
-        return rCategory.toLowerCase() === catSimple.toLowerCase() && rType === reqType;
-      });
+      // Assign the next available booking to this space
+      let assignedBooking: Booking | undefined = undefined;
+      let isOccupied = false;
+
+      if (currentIndex < roomBookings.length) {
+        assignedBooking = roomBookings[currentIndex];
+        isOccupied = true;
+        assignedCounts[dbRoom.id] = currentIndex + 1;
+      }
 
       return {
         ...space,
-        isOccupied: !!currentActiveBooking,
-        occupantName: currentActiveBooking ? currentActiveBooking.full_name : null,
-        status: currentActiveBooking ? currentActiveBooking.status : null,
-        booking: currentActiveBooking,
-        supabaseRoom: matchingSupabaseRoom
+        isOccupied,
+        occupantName: assignedBooking ? assignedBooking.full_name : null,
+        status: assignedBooking ? assignedBooking.status : null,
+        booking: assignedBooking,
+        supabaseRoom: dbRoom
       };
     });
   }, [bookings, rooms]);

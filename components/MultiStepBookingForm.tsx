@@ -75,9 +75,91 @@ export const CATEGORY_MEDIA: Record<'Standard' | 'Premium 1' | 'Premium 2', {
   }
 };
 
+const findDatabaseRoomForSpace = (rooms: any[], space: { category: string; type: 'Shared' | 'Private' }) => {
+  const isPrivate = space.type === 'Private';
+  const catSimple = space.category.startsWith('Premium') ? 'Premium' : 'Standard';
+  const reqType = isPrivate ? `${catSimple} Private` : `${catSimple} Shared`;
+  
+  // Specific apartment mapping
+  let aptName = '';
+  if (space.category === 'Premium 1') {
+    aptName = 'Apartment 1';
+  } else if (space.category === 'Premium 2') {
+    aptName = 'Apartment 3';
+  } else if (space.category === 'Standard') {
+    aptName = 'Apartment 2';
+  }
+  
+  // Try exact match with apartment_name and type
+  const match = rooms.find(r => 
+    r.apartment_name === aptName && 
+    r.type === reqType
+  );
+  if (match) return match;
+  
+  // Fallback to type matching
+  return rooms.find(r => 
+    r.category.toLowerCase() === catSimple.toLowerCase() && 
+    r.type === reqType
+  ) || null;
+};
+
 const MultiStepBookingForm: React.FC = () => {
   const t = useTranslation();
   const { user, setPage, addBooking, addActivity, rooms, bookings, extendingBooking, landlordDetails, cmsContent } = useApp();
+
+  const parsedAvailabilityData = useMemo(() => {
+    const activeBookings = (bookings || []).filter(b => b.status !== BookingStatus.CANCELLED && b.status !== BookingStatus.COMPLETED);
+    
+    // Group active bookings by room_id, sorted deterministically by id
+    const bookingsByRoom: Record<number, Booking[]> = {};
+    activeBookings.forEach(b => {
+      if (!bookingsByRoom[b.room_id]) {
+        bookingsByRoom[b.room_id] = [];
+      }
+      bookingsByRoom[b.room_id].push(b);
+    });
+    
+    // Sort bookings within each room for deterministic bed assignment
+    Object.keys(bookingsByRoom).forEach(roomId => {
+      bookingsByRoom[Number(roomId)].sort((a, b) => a.id - b.id);
+    });
+
+    // Keep track of how many bookings we have assigned to each room_id so far
+    const assignedCounts: Record<number, number> = {};
+
+    return ALL_ROOM_SPACES.map(space => {
+      // Find the database room that represents this space
+      const dbRoom = findDatabaseRoomForSpace(rooms || [], space);
+      if (!dbRoom) {
+        return {
+          ...space,
+          isOccupied: false,
+          booking: undefined
+        };
+      }
+
+      // Get bookings for this database room
+      const roomBookings = bookingsByRoom[dbRoom.id] || [];
+      const currentIndex = assignedCounts[dbRoom.id] || 0;
+
+      // Assign the next available booking to this space
+      let assignedBooking: Booking | undefined = undefined;
+      let isOccupied = false;
+
+      if (currentIndex < roomBookings.length) {
+        assignedBooking = roomBookings[currentIndex];
+        isOccupied = true;
+        assignedCounts[dbRoom.id] = currentIndex + 1;
+      }
+
+      return {
+        ...space,
+        isOccupied,
+        booking: assignedBooking
+      };
+    });
+  }, [bookings, rooms]);
   
   const [step, setStep] = useState(1);
   const [formData, setFormData] = useState({
@@ -195,38 +277,11 @@ const MultiStepBookingForm: React.FC = () => {
 
   // Find the exact matching room in Supabase database
   const selectedSupabaseRoom = useMemo(() => {
-    const isPrivate = formData.roomType === 'Private';
-    const roomDigits = formData.roomName.replace('Room', '').trim(); // e.g. "1"
-    
-    // Construct the expected db room_number formats
-    let expectedRoomNum = '';
-    if (!isPrivate) {
-      const bedLetter = formData.bedSpaceName === 'Bed B' ? 'B' : 'A';
-      expectedRoomNum = `R${roomDigits}-${bedLetter}`;
-    } else {
-      expectedRoomNum = `Room ${roomDigits}`;
-    }
-
-    // Try finding the exact room number and apartment/category name match
-    const exactMatch = rooms.find(r => 
-      r.apartment_name === formData.category &&
-      (r.room_number === expectedRoomNum || r.room_number?.toLowerCase().replace(/[-_ ]/g, '') === expectedRoomNum.toLowerCase().replace(/[-_ ]/g, ''))
-    );
-
-    if (exactMatch) return exactMatch;
-
-    // Fallback: match by category and room type
-    const catSimple = formData.category.startsWith('Premium') ? 'Premium' : 'Standard';
-    const reqType = isPrivate 
-      ? (`${catSimple} Private` as AccommodationType)
-      : (`${catSimple} Shared` as AccommodationType);
-
-    // Filter available rooms in Supabase database
-    return rooms.find(r => 
-      r.category.toLowerCase() === catSimple.toLowerCase() && 
-      r.type === reqType
-    ) || rooms.find(r => r.category.toLowerCase() === catSimple.toLowerCase()) || null;
-  }, [rooms, formData.category, formData.roomType, formData.roomName, formData.bedSpaceName]);
+    return findDatabaseRoomForSpace(rooms || [], {
+      category: formData.category,
+      type: formData.roomType
+    });
+  }, [rooms, formData.category, formData.roomType]);
 
   const startDate = formData.arrivalDate;
   const endDate = useMemo(() => {
@@ -474,30 +529,17 @@ Please verify the agreement details in the Admin Dashboard at your earliest conv
               
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 {ACCOMMODATIONS_SELECTION[formData.category]?.map(item => {
-                  const targetLabel = `${formData.category} - ${item.room} (${item.space})`;
-                  
-                  // Calculate Dynamic Next Available Date based on current active student resident bookings
-                  const activeBedsBookings = (bookings || []).filter(b => {
-                    if (b.status === BookingStatus.CANCELLED || b.status === BookingStatus.COMPLETED) return false;
-                    const bookingLabel = (b as any).room_number || b.rooms?.room_number || '';
-                    return bookingLabel === targetLabel;
-                  });
+                  const spaceConfig = parsedAvailabilityData.find(s => s.id === item.id);
+                  const isOccupied = spaceConfig?.isOccupied;
+                  const bookingForSpace = spaceConfig?.booking;
 
-                  // Sort active bookings to find the latest residency lease end_date
-                  const sortedBookings = [...activeBedsBookings].sort((a, b) => {
-                    const dateA = a.end_date ? new Date(a.end_date).getTime() : 0;
-                    const dateB = b.end_date ? new Date(b.end_date).getTime() : 0;
-                    return dateB - dateA;
-                  });
-
-                  const latestBooking = sortedBookings[0];
                   let calculatedAvailDate = 'Available Now';
-                  if (latestBooking && latestBooking.end_date) {
+                  if (isOccupied && bookingForSpace && bookingForSpace.end_date) {
                     try {
-                      const endD = new Date(latestBooking.end_date);
+                      const endD = new Date(bookingForSpace.end_date);
                       calculatedAvailDate = endD.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
                     } catch (e) {
-                      calculatedAvailDate = latestBooking.end_date;
+                      calculatedAvailDate = bookingForSpace.end_date;
                     }
                   }
 
