@@ -9,7 +9,7 @@ import PaymentProofModal from '../components/PaymentProofModal';
 import { supabase } from '../lib/supabaseClient';
 import AgreementModal from '../components/AgreementModal';
 import { sendEmail, getAgreementSignedTemplate } from '../lib/email';
-import { ALL_ROOM_SPACES, getUnifiedRoomName, formatStoredRoomString } from '../lib/roomNaming';
+import { ALL_ROOM_SPACES, getUnifiedRoomName, formatStoredRoomString, getParsedRoomSpaces } from '../lib/roomNaming';
 
 const findDatabaseRoomForSpace = (rooms: any[], space: { category: string; type: 'Shared' | 'Private' }) => {
   const isPrivate = space.type === 'Private';
@@ -57,62 +57,7 @@ const DashboardPage: React.FC = () => {
 
   // Determine which rooms/beds are currently occupied based on all system bookings
   const parsedAvailabilityData = useMemo(() => {
-    const activeBookings = (bookings || []).filter(b => b.status !== BookingStatus.CANCELLED && b.status !== BookingStatus.COMPLETED);
-    
-    // Group active bookings by room_id, sorted deterministically by id
-    const bookingsByRoom: Record<number, Booking[]> = {};
-    activeBookings.forEach(b => {
-      if (!bookingsByRoom[b.room_id]) {
-        bookingsByRoom[b.room_id] = [];
-      }
-      bookingsByRoom[b.room_id].push(b);
-    });
-    
-    // Sort bookings within each room for deterministic bed assignment
-    Object.keys(bookingsByRoom).forEach(roomId => {
-      bookingsByRoom[Number(roomId)].sort((a, b) => a.id - b.id);
-    });
-
-    // Keep track of how many bookings we have assigned to each room_id so far
-    const assignedCounts: Record<number, number> = {};
-
-    return ALL_ROOM_SPACES.map(space => {
-      // Find the database room that represents this space
-      const dbRoom = findDatabaseRoomForSpace(rooms || [], space);
-      if (!dbRoom) {
-        return {
-          ...space,
-          isOccupied: false,
-          occupantName: null,
-          status: null,
-          booking: undefined,
-          supabaseRoom: null
-        };
-      }
-
-      // Get bookings for this database room
-      const roomBookings = bookingsByRoom[dbRoom.id] || [];
-      const currentIndex = assignedCounts[dbRoom.id] || 0;
-
-      // Assign the next available booking to this space
-      let assignedBooking: Booking | undefined = undefined;
-      let isOccupied = false;
-
-      if (currentIndex < roomBookings.length) {
-        assignedBooking = roomBookings[currentIndex];
-        isOccupied = true;
-        assignedCounts[dbRoom.id] = currentIndex + 1;
-      }
-
-      return {
-        ...space,
-        isOccupied,
-        occupantName: assignedBooking ? assignedBooking.full_name : null,
-        status: assignedBooking ? assignedBooking.status : null,
-        booking: assignedBooking,
-        supabaseRoom: dbRoom
-      };
-    });
+    return getParsedRoomSpaces(rooms, bookings);
   }, [bookings, rooms]);
 
   const filteredAvailabilityData = useMemo(() => {

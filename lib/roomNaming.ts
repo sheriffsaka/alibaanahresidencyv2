@@ -154,6 +154,7 @@ export interface ParsedRoomSpace extends RoomSpaceConfig {
   isOccupied: boolean;
   booking?: any;
   dbRoom?: any;
+  supabaseRoom?: any;
   nextAvailableDate: string;
 }
 
@@ -182,6 +183,7 @@ export const getParsedRoomSpaces = (rooms: any[], bookings: any[]): ParsedRoomSp
         isOccupied: false,
         booking: undefined,
         dbRoom: null,
+        supabaseRoom: null,
         nextAvailableDate: 'Available Now'
       };
     }
@@ -224,6 +226,7 @@ export const getParsedRoomSpaces = (rooms: any[], bookings: any[]): ParsedRoomSp
       isOccupied,
       booking: assignedBooking,
       dbRoom,
+      supabaseRoom: dbRoom,
       nextAvailableDate
     };
   });

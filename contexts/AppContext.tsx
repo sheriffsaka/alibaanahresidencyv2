@@ -170,15 +170,13 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         const loggedInUser = { id: profile.id, email: session.user.email, full_name: profile.full_name, role: profile.role, gender: profile.gender };
         setUser(loggedInUser);
 
-        // Role-aware booking query
-        let query = supabase
+        // Fetch all system bookings for global availability calculations
+        const { data: bookingsData, error: bookingsError } = await supabase
             .from('bookings')
             .select('*, rooms(room_number, type, apartment_name, category), profiles:student_id(full_name)')
             .order('booked_at', { ascending: false });
-        
-        if (profile.role === 'student') {
-            query = query.eq('student_id', session.user.id);
-        } else {
+
+        if (profile.role !== 'student') {
             // If admin, fetch all students for the booking form
             const { data: studentsData } = await supabase
                 .from('profiles')
@@ -212,13 +210,10 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             }
         }
 
-        const { data: bookingsData, error: bookingsError } = await query;
-
         if (bookingsError) {
             console.error("Error fetching bookings:", bookingsError.message);
-            setBookings([]);
-        } else {
-            const mappedBookings = (bookingsData || []).map((b: any) => ({
+        } else if (bookingsData) {
+            const mappedBookings = bookingsData.map((b: any) => ({
                 ...b,
                 student_name: b.profiles?.full_name,
             }));
@@ -227,87 +222,91 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       } catch (err) {
         console.error("Unexpected error in updateUserSession:", err);
         setUser(null);
-        setBookings([]);
         setStudents([]);
       }
     } else {
       setUser(null);
-      setBookings([]);
       setStudents([]);
     }
   }, []);
 
   useEffect(() => {
-    if (user) {
-        // Real-time subscription for bookings
-        if (bookingsSubscriptionRef.current) {
-            supabase.removeChannel(bookingsSubscriptionRef.current);
-        }
-
-        bookingsSubscriptionRef.current = supabase
-            .channel('bookings-changes')
-            .on('postgres_changes', { 
-                event: '*', 
-                schema: 'public', 
-                table: 'bookings' 
-            }, async (payload) => {
-                console.log('Real-time booking update:', payload);
+    // Real-time subscription for global bookings changes
+    const bookingsChannel = supabase
+        .channel('global-bookings-changes')
+        .on('postgres_changes', { 
+            event: '*', 
+            schema: 'public', 
+            table: 'bookings' 
+        }, async (payload) => {
+            console.log('Real-time booking update:', payload);
+            
+            if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
+                const { data, error } = await supabase
+                    .from('bookings')
+                    .select('*, rooms(room_number, type, apartment_name, category), profiles:student_id(full_name)')
+                    .eq('id', payload.new.id)
+                    .maybeSingle();
                 
-                if (payload.eventType === 'INSERT') {
-                    // Fetch the full booking with joins
-                    const { data, error } = await supabase
-                        .from('bookings')
-                        .select('*, rooms(room_number, type, apartment_name, category), profiles:student_id(full_name)')
-                        .eq('id', payload.new.id)
-                        .single();
-                    
-                    if (data && !error) {
-                        const mapped = { ...data, student_name: data.profiles?.full_name };
-                        // Only add if it belongs to the student or if user is admin
-                        if (user.role !== 'student' || data.student_id === user.id) {
-                            setBookings(prev => {
-                                if (prev.some(b => b.id === mapped.id)) return prev;
-                                return [mapped, ...prev];
-                            });
+                if (data && !error) {
+                    const mapped = { ...data, student_name: data.profiles?.full_name };
+                    setBookings(prev => {
+                        const exists = prev.some(b => b.id === mapped.id);
+                        if (exists) {
+                            return prev.map(b => b.id === mapped.id ? mapped : b);
                         }
-                    }
-                } else if (payload.eventType === 'UPDATE') {
-                    // Fetch updated data to get joins
-                    const { data, error } = await supabase
-                        .from('bookings')
-                        .select('*, rooms(room_number, type, apartment_name, category), profiles:student_id(full_name)')
-                        .eq('id', payload.new.id)
-                        .single();
-                    
-                    if (data && !error) {
-                        const mapped = { ...data, student_name: data.profiles?.full_name };
-                        setBookings(prev => prev.map(b => b.id === mapped.id ? mapped : b));
-                    }
-                } else if (payload.eventType === 'DELETE') {
-                    setBookings(prev => prev.filter(b => b.id !== payload.old.id));
+                        return [mapped, ...prev];
+                    });
                 }
-            })
-            .subscribe();
-    } else {
-        if (bookingsSubscriptionRef.current) {
-            supabase.removeChannel(bookingsSubscriptionRef.current);
-            bookingsSubscriptionRef.current = null;
-        }
-    }
+            } else if (payload.eventType === 'DELETE') {
+                setBookings(prev => prev.filter(b => b.id !== payload.old.id));
+            }
+        })
+        .subscribe();
+
+    // Real-time subscription for global rooms changes
+    const roomsChannel = supabase
+        .channel('global-rooms-changes')
+        .on('postgres_changes', {
+            event: '*',
+            schema: 'public',
+            table: 'rooms'
+        }, async (payload) => {
+            console.log('Real-time room update:', payload);
+            if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
+                const { data, error } = await supabase
+                    .from('rooms')
+                    .select('*')
+                    .eq('id', payload.new.id)
+                    .maybeSingle();
+                
+                if (data && !error) {
+                    setRooms(prev => {
+                        const exists = prev.some(r => r.id === data.id);
+                        if (exists) {
+                            return prev.map(r => r.id === data.id ? data : r);
+                        }
+                        return [...prev, data];
+                    });
+                }
+            } else if (payload.eventType === 'DELETE') {
+                setRooms(prev => prev.filter(r => r.id !== payload.old.id));
+            }
+        })
+        .subscribe();
 
     return () => {
-        if (bookingsSubscriptionRef.current) {
-            supabase.removeChannel(bookingsSubscriptionRef.current);
-            bookingsSubscriptionRef.current = null;
-        }
+        supabase.removeChannel(bookingsChannel);
+        supabase.removeChannel(roomsChannel);
     };
-  }, [user]);
+  }, []);
 
   const fetchPublicData = useCallback(async () => {
         try {
             console.log("Fetching public data...");
-            const [roomsRes, termsRes, packagesRes, cmsRes, activitiesRes] = await Promise.all([
+            const [roomsRes, bookingsRes, termsRes, packagesRes, cmsRes, activitiesRes] = await Promise.all([
                 supabase.from('rooms').select('*'),
+                supabase.from('bookings').select('*, rooms(room_number, type, apartment_name, category), profiles:student_id(full_name)').order('booked_at', { ascending: false }),
                 supabase.from('academic_terms').select('*').eq('is_active', true),
                 supabase.from('booking_packages').select('*').eq('is_active', true),
                 supabase.from('cms_content').select('*').limit(1).maybeSingle(),
@@ -316,6 +315,15 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             
             if (roomsRes.error) console.error('Error fetching rooms:', roomsRes.error.message);
             else setRooms(roomsRes.data || []);
+
+            if (bookingsRes.error) console.error('Error fetching public bookings:', bookingsRes.error.message);
+            else if (bookingsRes.data) {
+                const mappedBookings = bookingsRes.data.map((b: any) => ({
+                    ...b,
+                    student_name: b.profiles?.full_name,
+                }));
+                setBookings(mappedBookings);
+            }
             
             if (termsRes.error) console.error('Error fetching academic terms:', termsRes.error.message);
             else setAcademicTerms(termsRes.data || []);

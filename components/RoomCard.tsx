@@ -1,18 +1,24 @@
 
 import React from 'react';
-import { Room } from '../types';
+import { Room, BookingStatus } from '../types';
 import { useTranslation } from '../hooks/useTranslation';
 import { useApp } from '../hooks/useApp';
 import { IconCheckCircle } from './Icon';
 
 interface RoomCardProps {
   room: Room;
-  isOccupied: boolean;
+  isOccupied?: boolean;
 }
 
-const RoomCard: React.FC<RoomCardProps> = ({ room, isOccupied }) => {
+const RoomCard: React.FC<RoomCardProps> = ({ room, isOccupied: propIsOccupied }) => {
   const t = useTranslation();
-  const { setPage } = useApp();
+  const { setPage, bookings } = useApp();
+
+  const activeBookings = (bookings || []).filter(b => b.room_id === room.id && b.status !== BookingStatus.CANCELLED && b.status !== BookingStatus.COMPLETED);
+  const occupiedSlots = activeBookings.length;
+  const capacity = room.capacity || 1;
+  const slotsLeft = Math.max(0, capacity - occupiedSlots);
+  const isOccupied = propIsOccupied !== undefined ? propIsOccupied : (slotsLeft === 0);
 
   return (
     <div className={`bg-white dark:bg-gray-800 rounded-2xl shadow-xl overflow-hidden transition-all duration-500 ${isOccupied ? 'filter grayscale cursor-not-allowed' : 'transform hover:-translate-y-2 hover:shadow-2xl'}`}>
@@ -44,12 +50,12 @@ const RoomCard: React.FC<RoomCardProps> = ({ room, isOccupied }) => {
         <div className="flex items-center gap-2 mb-6">
             <div className="flex-1 h-2 bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden">
                 <div 
-                    className={`h-full transition-all duration-500 ${((room.occupied_slots || 0) / (room.capacity || 1)) > 0.8 ? 'bg-red-500' : 'bg-brand-600'}`}
-                    style={{ width: `${((room.occupied_slots || 0) / (room.capacity || 1)) * 100}%` }}
+                    className={`h-full transition-all duration-500 ${(occupiedSlots / capacity) > 0.8 ? 'bg-red-500' : 'bg-brand-600'}`}
+                    style={{ width: `${Math.min(100, (occupiedSlots / capacity) * 100)}%` }}
                 ></div>
             </div>
             <span className="text-[10px] font-bold text-gray-500 uppercase">
-                {room.capacity! - room.occupied_slots!} Slots Left
+                {slotsLeft} Slots Left
             </span>
         </div>
         
