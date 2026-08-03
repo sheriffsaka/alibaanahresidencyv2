@@ -10,7 +10,7 @@ import { uploadFile, generateFileName } from '../lib/storage';
 import { sendEmail, getApprovalEmailTemplate } from '../lib/email';
 import AgreementModal from '../components/AgreementModal';
 import UserEditorModal from '../components/UserEditorModal';
-import { formatStoredRoomString, getDisplayFromRoom, getParsedRoomSpaces, getAccommodationAddress } from '../lib/roomNaming';
+import { formatStoredRoomString, getDisplayFromRoom, getParsedRoomSpaces, getAccommodationAddress, getLiveStudentRoomDetails } from '../lib/roomNaming';
 
 // A responsive, accessible SVG Bar Chart component for occupancy metrics
 const OccupancyChart = ({ data }: { data: { name: string; value: number }[] }) => {
@@ -449,16 +449,23 @@ const AdminDashboardPage: React.FC = () => {
   }, [bookings, studentSort]);
 
   const exportToCSV = () => {
-    const headers = ['ID', 'Student Name', 'Email', 'Nationality', 'Room', 'Status', 'Booked At'];
-    const rows = sortedBookings.map(b => [
-      `BK${b.id}`,
-      b.full_name,
-      b.email,
-      b.nationality,
-      b.rooms.room_number,
-      b.status,
-      new Date(b.booked_at).toLocaleDateString()
-    ]);
+    const headers = ['ID', 'Student Name', 'Email', 'Nationality', 'Accommodation', 'Room Name/Number', 'Bed Space', 'Arrival Date', 'Expiry Date', 'Status', 'Booked At'];
+    const rows = sortedBookings.map(b => {
+      const details = getLiveStudentRoomDetails(b, rooms);
+      return [
+        `BK${b.id}`,
+        b.full_name,
+        b.email,
+        b.nationality,
+        details.category,
+        details.roomName,
+        details.bedSpaceName,
+        b.expected_arrival_date ? new Date(b.expected_arrival_date).toLocaleDateString() : 'N/A',
+        b.payment_expiry_date ? new Date(b.payment_expiry_date).toLocaleDateString() : 'N/A',
+        b.status,
+        new Date(b.booked_at).toLocaleDateString()
+      ];
+    });
     
     const csvContent = [headers, ...rows].map(e => e.join(",")).join("\n");
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
@@ -782,6 +789,11 @@ const AdminDashboardPage: React.FC = () => {
       updateCmsContent({ announcements: { ...cmsContent.announcements, [language]: newAnnouncements } });
     }
   };
+
+  const selectedBookingLiveDetails = useMemo(() => {
+    if (!selectedBooking) return null;
+    return getLiveStudentRoomDetails(selectedBooking, rooms);
+  }, [selectedBooking, rooms]);
 
   return (
     <div className="pb-12 space-y-8 animate-fade-in">
@@ -1192,11 +1204,13 @@ const AdminDashboardPage: React.FC = () => {
                           className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase cursor-pointer hover:text-brand-600"
                           onClick={() => setStudentSort({ field: 'full_name', direction: studentSort.field === 'full_name' && studentSort.direction === 'asc' ? 'desc' : 'asc' })}
                         >
-                          Name {studentSort.field === 'full_name' && (studentSort.direction === 'asc' ? '↑' : '↓')}
+                          Student Name {studentSort.field === 'full_name' && (studentSort.direction === 'asc' ? '↑' : '↓')}
                         </th>
-                        <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase">Room</th>
-                        <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase">Duration</th>
-                        <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase">Expiry</th>
+                        <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase">Accommodation</th>
+                        <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase">Room Name/Number</th>
+                        <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase">Bed Space</th>
+                        <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase">Arrival Date</th>
+                        <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase">Expiry Date</th>
                         <th 
                           className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase cursor-pointer hover:text-brand-600"
                           onClick={() => setStudentSort({ field: 'status', direction: studentSort.field === 'status' && studentSort.direction === 'asc' ? 'desc' : 'asc' })}
@@ -1205,71 +1219,94 @@ const AdminDashboardPage: React.FC = () => {
                         </th>
                         <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase">Actions</th>
                     </tr></thead>
-                    <tbody className="divide-y divide-gray-100 dark:divide-gray-700">{sortedBookings.map(booking => (<tr key={booking.id}>
-                        <td className="px-6 py-4 w-12">
-                          <input 
-                            type="checkbox"
-                            className="w-4 h-4 rounded border-gray-300 dark:border-gray-600 text-brand-600 focus:ring-brand-500 cursor-pointer"
-                            checked={selectedBookingIds.includes(booking.id)}
-                            onChange={(e) => {
-                              if (e.target.checked) {
-                                setSelectedBookingIds(prev => [...prev, booking.id]);
-                              } else {
-                                setSelectedBookingIds(prev => prev.filter(id => id !== booking.id));
-                              }
-                            }}
-                          />
-                        </td>
-                        <td className="px-6 py-4 font-bold">{booking.full_name}</td>
-                        <td className="px-6 py-4 text-sm font-bold text-brand-600">
-                          {getDisplayFromRoom(booking.rooms)}
-                        </td>
-                        <td className="px-6 py-4 text-xs">{booking.duration_of_stay}</td>
-                        <td className="px-6 py-4 text-xs font-bold text-red-600">{booking.payment_expiry_date ? new Date(booking.payment_expiry_date).toLocaleDateString() : 'N/A'}</td>
-                        <td className="px-6 py-4"><BookingStatusBadge status={booking.status} /></td>
-                        <td className="px-6 py-4">
-                            <div className="flex gap-3 items-center">
-                                <div className="flex flex-col gap-2">
-                                    <button onClick={() => setSelectedBooking(booking)} className="text-brand-600 hover:text-brand-700 text-xs font-bold underline text-left">View</button>
-                                    <button 
-                                        onClick={() => handleDeleteStudent(booking.id, booking.full_name)} 
-                                        className="text-red-500 hover:text-red-700 text-xs font-bold underline text-left flex items-center gap-1"
-                                        title="Delete Student Record"
-                                    >
-                                        <IconTrash className="w-3.5 h-3.5" /> Delete
-                                    </button>
+                    <tbody className="divide-y divide-gray-100 dark:divide-gray-700">{sortedBookings.map(booking => {
+                        const roomDetails = getLiveStudentRoomDetails(booking, rooms);
+                        return (
+                          <tr key={booking.id} className="hover:bg-gray-50/70 dark:hover:bg-gray-750 transition-colors">
+                            <td className="px-6 py-4 w-12">
+                              <input 
+                                type="checkbox"
+                                className="w-4 h-4 rounded border-gray-300 dark:border-gray-600 text-brand-600 focus:ring-brand-500 cursor-pointer"
+                                checked={selectedBookingIds.includes(booking.id)}
+                                onChange={(e) => {
+                                  if (e.target.checked) {
+                                    setSelectedBookingIds(prev => [...prev, booking.id]);
+                                  } else {
+                                    setSelectedBookingIds(prev => prev.filter(id => id !== booking.id));
+                                  }
+                                }}
+                              />
+                            </td>
+                            <td className="px-6 py-4">
+                              <div className="font-bold text-gray-900 dark:text-white text-sm">{booking.full_name}</div>
+                              <div className="text-[11px] text-gray-500 font-mono">{booking.email}</div>
+                            </td>
+                            <td className="px-6 py-4">
+                              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-black bg-brand-50 text-brand-700 dark:bg-brand-950/40 dark:text-brand-300 border border-brand-200/60 dark:border-brand-800/40">
+                                {roomDetails.category}
+                              </span>
+                              <p className="text-[10px] text-gray-500 dark:text-gray-400 mt-1 max-w-[170px] truncate" title={roomDetails.address}>
+                                📍 {roomDetails.address}
+                              </p>
+                            </td>
+                            <td className="px-6 py-4 text-xs font-bold text-gray-800 dark:text-gray-200">
+                              {roomDetails.roomName}
+                            </td>
+                            <td className="px-6 py-4 text-xs font-semibold text-brand-600 dark:text-brand-400">
+                              {roomDetails.bedSpaceName}
+                            </td>
+                            <td className="px-6 py-4 text-xs font-medium text-gray-700 dark:text-gray-300">
+                              {booking.expected_arrival_date ? new Date(booking.expected_arrival_date).toLocaleDateString() : 'N/A'}
+                            </td>
+                            <td className="px-6 py-4 text-xs font-bold text-red-600 dark:text-red-400">
+                              {booking.payment_expiry_date ? new Date(booking.payment_expiry_date).toLocaleDateString() : 'N/A'}
+                            </td>
+                            <td className="px-6 py-4"><BookingStatusBadge status={booking.status} /></td>
+                            <td className="px-6 py-4">
+                                <div className="flex gap-3 items-center">
+                                    <div className="flex flex-col gap-2">
+                                        <button onClick={() => setSelectedBooking(booking)} className="text-brand-600 hover:text-brand-700 text-xs font-bold underline text-left">View</button>
+                                        <button 
+                                            onClick={() => handleDeleteStudent(booking.id, booking.full_name)} 
+                                            className="text-red-500 hover:text-red-700 text-xs font-bold underline text-left flex items-center gap-1"
+                                            title="Delete Student Record"
+                                        >
+                                            <IconTrash className="w-3.5 h-3.5" /> Delete
+                                        </button>
+                                    </div>
+                                    <div className="flex flex-col gap-1">
+                                        <button 
+                                            onClick={() => {
+                                              sendEmail({
+                                                to: booking.email,
+                                                subject: `Reminder: Your Arrival at Al-Ibaanah Student Residency is Tomorrow!`,
+                                                body: `Dear ${booking.full_name},\n\nThis is a friendly reminder that your scheduled arrival date at Al-Ibaanah Student Residency is tomorrow (${booking.expected_arrival_date || 'scheduled soon'})!\n\nPlease ensure you have uploaded your security deposit transfer confirmation on your dashboard to complete checking-in clearance.\n\nWarm regards,\nAl-Ibaanah Student Residency Team`
+                                              });
+                                              alert(`Arrival reminder email sent to ${booking.email}`);
+                                            }}
+                                            className="bg-brand-50 text-brand-600 px-2 py-1 rounded text-[9px] font-black uppercase tracking-wider hover:bg-brand-100 text-center"
+                                        >
+                                            ⏰ Arrival Remind
+                                        </button>
+                                        <button 
+                                            onClick={() => {
+                                              sendEmail({
+                                                to: booking.email,
+                                                subject: `Urgent Reminder: Your Monthly Rent Payment is Due in 1 Week`,
+                                                body: `Dear ${booking.full_name},\n\nThis is a professional reminder that your monthly rent/subscription payment for ${roomDetails.roomName} (${roomDetails.bedSpaceName}) in ${roomDetails.category} is due in exactly one week on ${booking.payment_expiry_date || 'scheduled next payment'}.\n\nPlease prepare to execute the bank transfer or Remitly transfer of your subscription rate.\n\nWarm regards,\nAl-Ibaanah Student Residency Team`
+                                              });
+                                              alert(`Rent due reminder email sent to ${booking.email}`);
+                                            }}
+                                            className="bg-amber-50 text-amber-700 px-2 py-1 rounded text-[9px] font-black uppercase tracking-wider hover:bg-amber-100 text-center"
+                                        >
+                                            💰 Rent Remind
+                                        </button>
+                                    </div>
                                 </div>
-                                <div className="flex flex-col gap-1">
-                                    <button 
-                                        onClick={() => {
-                                          sendEmail({
-                                            to: booking.email,
-                                            subject: `Reminder: Your Arrival at Al-Ibaanah Student Residency is Tomorrow!`,
-                                            body: `Dear ${booking.full_name},\n\nThis is a friendly reminder that your scheduled arrival date at Al-Ibaanah Student Residency is tomorrow (${booking.expected_arrival_date || 'scheduled soon'})!\n\nPlease ensure you have uploaded your security deposit transfer confirmation on your dashboard to complete checking-in clearance.\n\nWarm regards,\nAl-Ibaanah Student Residency Team`
-                                          });
-                                          alert(`Arrival reminder email sent to ${booking.email}`);
-                                        }}
-                                        className="bg-brand-50 text-brand-600 px-2 py-1 rounded text-[9px] font-black uppercase tracking-wider hover:bg-brand-100 text-center"
-                                    >
-                                        ⏰ Arrival Remind
-                                    </button>
-                                    <button 
-                                        onClick={() => {
-                                          sendEmail({
-                                            to: booking.email,
-                                            subject: `Urgent Reminder: Your Monthly Rent Payment is Due in 1 Week`,
-                                            body: `Dear ${booking.full_name},\n\nThis is a professional reminder that your monthly rent/subscription payment for Room ${booking.rooms?.room_number || 'your room'} is due in exactly one week on ${booking.payment_expiry_date || 'scheduled next payment'}.\n\nPlease prepare to execute the bank transfer or Remitly transfer of your subscription rate.\n\nWarm regards,\nAl-Ibaanah Student Residency Team`
-                                          });
-                                          alert(`Rent due reminder email sent to ${booking.email}`);
-                                        }}
-                                        className="bg-amber-50 text-amber-700 px-2 py-1 rounded text-[9px] font-black uppercase tracking-wider hover:bg-amber-100 text-center"
-                                    >
-                                        💰 Rent Remind
-                                    </button>
-                                </div>
-                            </div>
-                        </td>
-                    </tr>))}</tbody>
+                            </td>
+                        </tr>
+                      );
+                    })}</tbody>
                 </table></div>
              </div>
           )}
@@ -1758,7 +1795,7 @@ const AdminDashboardPage: React.FC = () => {
           isReadOnly={true}
         />
       )}
-      {selectedBooking && (
+      {selectedBooking && selectedBookingLiveDetails && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
           <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl w-full max-w-4xl flex flex-col max-h-[90vh]">
             <div className="p-6 border-b dark:border-gray-800 flex justify-between items-center">
@@ -1776,19 +1813,25 @@ const AdminDashboardPage: React.FC = () => {
                     <div><p className="text-gray-500 text-[10px] uppercase font-bold">Passport No.</p><p className="font-medium">{selectedBooking.passport_number}</p></div>
                     <div><p className="text-gray-500 text-[10px] uppercase font-bold">Email</p><p className="font-medium">{selectedBooking.email}</p></div>
                     <div><p className="text-gray-500 text-[10px] uppercase font-bold">Phone</p><p className="font-medium">{selectedBooking.phone_number}</p></div>
-                    <div><p className="text-gray-500 text-[10px] uppercase font-bold">Arrival Date</p><p className="font-medium">{new Date(selectedBooking.expected_arrival_date).toLocaleDateString()}</p></div>
+                    <div><p className="text-gray-500 text-[10px] uppercase font-bold">Arrival Date</p><p className="font-medium">{selectedBooking.expected_arrival_date ? new Date(selectedBooking.expected_arrival_date).toLocaleDateString() : 'N/A'}</p></div>
                     <div><p className="text-gray-500 text-[10px] uppercase font-bold">Duration</p><p className="font-medium">{selectedBooking.duration_of_stay}</p></div>
-                    <div><p className="text-gray-500 text-[10px] uppercase font-bold">Accommodation</p><p className="font-medium">{selectedBooking.preferred_accommodation}</p></div>
+                    <div><p className="text-gray-500 text-[10px] uppercase font-bold">Accommodation</p><p className="font-medium">{selectedBookingLiveDetails.category}</p></div>
+                    <div><p className="text-gray-500 text-[10px] uppercase font-bold">Room Assigned</p><p className="font-medium text-brand-600">{selectedBookingLiveDetails.roomName} ({selectedBookingLiveDetails.bedSpaceName})</p></div>
+                    <div><p className="text-gray-500 text-[10px] uppercase font-bold">Full Unified Name</p><p className="font-medium text-xs text-gray-700 dark:text-gray-300">{selectedBookingLiveDetails.fullDisplay}</p></div>
                   </div>
                   <div className="mt-4">
-                    <p className="text-gray-500 text-[10px] uppercase font-bold">Emergency Contact</p>
-                    <p className="text-sm">{selectedBooking.emergency_contact_details}</p>
+                    <p className="text-gray-500 text-[10px] uppercase font-bold">Address</p>
+                    <p className="text-xs text-gray-600 dark:text-gray-300">📍 {selectedBookingLiveDetails.address}</p>
                   </div>
-                  <div className="mt-4">
-                    <p className="text-gray-500 text-[10px] uppercase font-bold">Home Address</p>
-                    <p className="text-sm">{selectedBooking.address_in_egypt || 'N/A'}</p>
+                    <div className="mt-4">
+                      <p className="text-gray-500 text-[10px] uppercase font-bold">Emergency Contact</p>
+                      <p className="text-sm">{selectedBooking.emergency_contact_details}</p>
+                    </div>
+                    <div className="mt-4">
+                      <p className="text-gray-500 text-[10px] uppercase font-bold">Home Address</p>
+                      <p className="text-sm">{selectedBooking.address_in_egypt || 'N/A'}</p>
+                    </div>
                   </div>
-                </div>
 
                 {/* Documents */}
                 <div className="space-y-6">

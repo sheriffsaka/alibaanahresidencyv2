@@ -252,3 +252,78 @@ export const getParsedRoomSpaces = (rooms: any[], bookings: any[]): ParsedRoomSp
   });
 };
 
+export interface LiveRoomDetails {
+  category: string;
+  roomName: string;
+  bedSpaceName: string;
+  fullDisplay: string;
+  address: string;
+}
+
+export const getLiveStudentRoomDetails = (booking: any, roomsList: any[] = []): LiveRoomDetails => {
+  const roomObj = roomsList.find(r => r.id === booking?.room_id) || booking?.rooms;
+  
+  if (!roomObj) {
+    let fallbackCat = booking?.preferred_accommodation || 'Standard';
+    if (fallbackCat.includes('–')) {
+      fallbackCat = fallbackCat.split('–')[0].trim();
+    }
+    if (fallbackCat.startsWith('Apartment 1')) fallbackCat = 'Premium 1';
+    else if (fallbackCat.startsWith('Apartment 3')) fallbackCat = 'Premium 2';
+    else if (fallbackCat.startsWith('Apartment 2')) fallbackCat = 'Standard';
+    
+    return {
+      category: fallbackCat,
+      roomName: 'Room 1',
+      bedSpaceName: 'Bed A',
+      fullDisplay: booking?.preferred_accommodation || `${fallbackCat} – Room 1 – Bed A`,
+      address: getAccommodationAddress(fallbackCat)
+    };
+  }
+
+  // Category
+  let category = roomObj.apartment_name || roomObj.category || booking?.preferred_accommodation || 'Standard';
+  if (category.startsWith('Apartment 1')) category = 'Premium 1';
+  else if (category.startsWith('Apartment 3')) category = 'Premium 2';
+  else if (category.startsWith('Apartment 2')) category = 'Standard';
+  else if (category === 'Premium') category = 'Premium 1';
+
+  const fullDisplay = getDisplayFromRoom(roomObj);
+  const address = getAccommodationAddress(category);
+
+  // Extract Room Name and Bed Space from fullDisplay or room_number
+  let roomName = 'Room 1';
+  let bedSpaceName = 'Single';
+
+  if (fullDisplay.includes('–')) {
+    const parts = fullDisplay.split('–').map(s => s.trim());
+    if (parts.length >= 2) {
+      roomName = parts[1].replace(/\([^)]*\)/g, '').trim();
+    }
+    if (parts.length >= 3) {
+      bedSpaceName = parts[2].trim();
+    }
+  } else {
+    const numClean = (roomObj.room_number || '').replace('Room', '').trim();
+    const isPrivate = roomObj.type?.toLowerCase().includes('private');
+    if (isPrivate) {
+      roomName = `Room ${numClean || '1'}`;
+      bedSpaceName = 'Single';
+    } else if (numClean.toLowerCase().includes('b')) {
+      roomName = `Room ${numClean.replace(/[Bb]/g, '').trim() || '1'}`;
+      bedSpaceName = 'Bed B';
+    } else {
+      roomName = `Room ${numClean.replace(/[Aa]/g, '').trim() || '1'}`;
+      bedSpaceName = 'Bed A';
+    }
+  }
+
+  return {
+    category,
+    roomName,
+    bedSpaceName,
+    fullDisplay,
+    address
+  };
+};
+
