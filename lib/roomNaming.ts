@@ -123,3 +123,109 @@ export const formatStoredRoomString = (storedStr: string): string => {
   
   return storedStr;
 };
+
+export const findDatabaseRoomForSpace = (rooms: any[], space: { category: string; type: 'Shared' | 'Private' }) => {
+  const isPrivate = space.type === 'Private';
+  const catSimple = space.category.startsWith('Premium') ? 'Premium' : 'Standard';
+  const reqType = isPrivate ? `${catSimple} Private` : `${catSimple} Shared`;
+  
+  let aptName = '';
+  if (space.category === 'Premium 1') {
+    aptName = 'Apartment 1';
+  } else if (space.category === 'Premium 2') {
+    aptName = 'Apartment 3';
+  } else if (space.category === 'Standard') {
+    aptName = 'Apartment 2';
+  }
+  
+  const match = rooms.find(r => 
+    r.apartment_name === aptName && 
+    r.type === reqType
+  );
+  if (match) return match;
+  
+  return rooms.find(r => 
+    r.category?.toLowerCase() === catSimple.toLowerCase() && 
+    r.type === reqType
+  ) || null;
+};
+
+export interface ParsedRoomSpace extends RoomSpaceConfig {
+  isOccupied: boolean;
+  booking?: any;
+  dbRoom?: any;
+  nextAvailableDate: string;
+}
+
+export const getParsedRoomSpaces = (rooms: any[], bookings: any[]): ParsedRoomSpace[] => {
+  const activeBookings = (bookings || []).filter(b => b.status !== 'CANCELLED' && b.status !== 'COMPLETED');
+  
+  const bookingsByRoom: Record<number, any[]> = {};
+  activeBookings.forEach(b => {
+    if (!bookingsByRoom[b.room_id]) {
+      bookingsByRoom[b.room_id] = [];
+    }
+    bookingsByRoom[b.room_id].push(b);
+  });
+  
+  Object.keys(bookingsByRoom).forEach(roomId => {
+    bookingsByRoom[Number(roomId)].sort((a, b) => a.id - b.id);
+  });
+
+  const assignedCounts: Record<number, number> = {};
+
+  return ALL_ROOM_SPACES.map(space => {
+    const dbRoom = findDatabaseRoomForSpace(rooms || [], space);
+    if (!dbRoom) {
+      return {
+        ...space,
+        isOccupied: false,
+        booking: undefined,
+        dbRoom: null,
+        nextAvailableDate: 'Available Now'
+      };
+    }
+
+    const roomBookings = bookingsByRoom[dbRoom.id] || [];
+    const currentIndex = assignedCounts[dbRoom.id] || 0;
+
+    let assignedBooking: any | undefined = undefined;
+    let isOccupied = false;
+
+    if (currentIndex < roomBookings.length) {
+      assignedBooking = roomBookings[currentIndex];
+      isOccupied = true;
+      assignedCounts[dbRoom.id] = currentIndex + 1;
+    }
+
+    let nextAvailableDate = 'Available Now';
+
+    if (isOccupied && assignedBooking?.end_date) {
+      try {
+        const d = new Date(assignedBooking.end_date);
+        nextAvailableDate = d.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
+      } catch (e) {
+        nextAvailableDate = assignedBooking.end_date;
+      }
+    }
+
+    const manualOverride = (dbRoom as any)?.next_available_date;
+    if (manualOverride) {
+      try {
+        const ovD = new Date(manualOverride);
+        nextAvailableDate = ovD.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
+      } catch (e) {
+        nextAvailableDate = manualOverride;
+      }
+    }
+
+    return {
+      ...space,
+      isOccupied,
+      booking: assignedBooking,
+      dbRoom,
+      nextAvailableDate
+    };
+  });
+};
+

@@ -10,7 +10,7 @@ import { uploadFile, generateFileName } from '../lib/storage';
 import { sendEmail, getApprovalEmailTemplate } from '../lib/email';
 import AgreementModal from '../components/AgreementModal';
 import UserEditorModal from '../components/UserEditorModal';
-import { formatStoredRoomString, getDisplayFromRoom } from '../lib/roomNaming';
+import { formatStoredRoomString, getDisplayFromRoom, getParsedRoomSpaces } from '../lib/roomNaming';
 
 // A responsive, accessible SVG Bar Chart component for occupancy metrics
 const OccupancyChart = ({ data }: { data: { name: string; value: number }[] }) => {
@@ -404,6 +404,8 @@ const AdminDashboardPage: React.FC = () => {
   const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
   const [selectedProof, setSelectedProof] = useState<string | null>(null);
   const [roomFilter, setRoomFilter] = useState<'all' | 'occupied' | 'available'>('all');
+  const [roomCategoryFilter, setRoomCategoryFilter] = useState<'all' | 'Premium 1' | 'Premium 2' | 'Standard'>('all');
+  const [roomSearchQuery, setRoomSearchQuery] = useState('');
   const [studentSort, setStudentSort] = useState<{ field: keyof Booking; direction: 'asc' | 'desc' }>({ field: 'full_name', direction: 'asc' });
   const [selectedBookingIds, setSelectedBookingIds] = useState<number[]>([]);
   
@@ -520,6 +522,38 @@ const AdminDashboardPage: React.FC = () => {
       availableRooms: availableBedSpaces
     };
   }, [bookings, rooms]);
+
+  const parsedRoomSpaces = useMemo(() => {
+    return getParsedRoomSpaces(rooms, bookings);
+  }, [rooms, bookings]);
+
+  const filteredRoomSpaces = useMemo(() => {
+    return parsedRoomSpaces.filter(space => {
+      // 1. Category Filter
+      if (roomCategoryFilter !== 'all' && space.category !== roomCategoryFilter) {
+        return false;
+      }
+      // 2. Status Filter
+      if (roomFilter === 'occupied' && !space.isOccupied) {
+        return false;
+      }
+      if (roomFilter === 'available' && space.isOccupied) {
+        return false;
+      }
+      // 3. Search Query
+      if (roomSearchQuery.trim()) {
+        const q = roomSearchQuery.toLowerCase();
+        const matchCat = space.category.toLowerCase().includes(q);
+        const matchRoom = space.roomName.toLowerCase().includes(q);
+        const matchBed = space.bedSpaceName.toLowerCase().includes(q);
+        const matchType = space.type.toLowerCase().includes(q);
+        const matchStudent = (space.booking?.full_name || space.booking?.student_name || space.booking?.profiles?.full_name || '').toLowerCase().includes(q);
+        const matchDisplay = space.displayName.toLowerCase().includes(q);
+        return matchCat || matchRoom || matchBed || matchType || matchStudent || matchDisplay;
+      }
+      return true;
+    });
+  }, [parsedRoomSpaces, roomCategoryFilter, roomFilter, roomSearchQuery]);
 
   const filteredRooms = useMemo(() => {
     // Also filter rooms by admin's gender scope if they are a staff member
@@ -903,55 +937,197 @@ const AdminDashboardPage: React.FC = () => {
           )}
 
           {activeTab === 'rooms' && (
-             <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg overflow-hidden border border-gray-100 dark:border-gray-700">
-                <div className="px-6 py-4 border-b dark:border-gray-700 flex justify-between items-center">
-                   <h2 className="text-xl font-bold">{t.manageRooms}</h2>
-                   <div className="flex items-center gap-4">
-                      <div className="flex bg-gray-100 dark:bg-gray-700 rounded-lg p-1">
-                         {['all', 'occupied', 'available'].map(f => <button key={f} onClick={() => setRoomFilter(f as any)} className={`px-3 py-1 text-xs font-bold rounded-md capitalize ${roomFilter === f ? 'bg-white dark:bg-gray-600 text-brand-600 shadow-sm' : 'text-gray-500'}`}>{f}</button>)}
-                      </div>
-                      <button onClick={() => handleOpenRoomModal(null)} className="bg-brand-600 text-white px-4 py-2 rounded-lg text-xs font-bold">+ {t.addNewRoom}</button>
+             <div className="space-y-6">
+                {/* Summary Metrics Bar */}
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                   <div className="bg-white dark:bg-gray-800 p-4 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm">
+                      <p className="text-xs font-bold text-gray-500 uppercase">Total Bed Spaces</p>
+                      <p className="text-2xl font-black text-gray-900 dark:text-white mt-1">{parsedRoomSpaces.length}</p>
+                   </div>
+                   <div className="bg-white dark:bg-gray-800 p-4 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm">
+                      <p className="text-xs font-bold text-green-600 dark:text-green-400 uppercase">Available Beds</p>
+                      <p className="text-2xl font-black text-green-700 dark:text-green-300 mt-1">
+                         {parsedRoomSpaces.filter(s => !s.isOccupied).length}
+                      </p>
+                   </div>
+                   <div className="bg-white dark:bg-gray-800 p-4 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm">
+                      <p className="text-xs font-bold text-amber-600 dark:text-amber-400 uppercase">Occupied Beds</p>
+                      <p className="text-2xl font-black text-amber-700 dark:text-amber-300 mt-1">
+                         {parsedRoomSpaces.filter(s => s.isOccupied).length}
+                      </p>
+                   </div>
+                   <div className="bg-white dark:bg-gray-800 p-4 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm">
+                      <p className="text-xs font-bold text-brand-600 dark:text-brand-400 uppercase">Occupancy Rate</p>
+                      <p className="text-2xl font-black text-brand-700 dark:text-brand-300 mt-1">
+                         {parsedRoomSpaces.length > 0 
+                            ? `${Math.round((parsedRoomSpaces.filter(s => s.isOccupied).length / parsedRoomSpaces.length) * 100)}%` 
+                            : '0%'}
+                      </p>
                    </div>
                 </div>
-                <div className="overflow-x-auto">
-                  <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-                     <thead className="bg-gray-50 dark:bg-gray-900">
-                        <tr>
-                           <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase">Room Display</th>
-                           <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase">Category</th>
-                           <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase">Status</th>
-                           <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase">Price</th>
-                           <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase">Actions</th>
-                        </tr>
-                     </thead>
-                     <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
-                        {filteredRooms.map(room => {
-                           const bookedCount = analytics.bookingsCountByRoom[room.id] || 0;
-                           const capacity = room.capacity || 1;
-                           const isFull = bookedCount >= capacity;
-                           return (
-                              <tr key={room.id}>
-                                 <td className="px-6 py-4">
-                                    <span className="font-bold text-sm text-gray-900 dark:text-white">{getDisplayFromRoom(room)}</span>
-                                 </td>
-                                 <td className="px-6 py-4 text-xs font-semibold uppercase">{room.category}</td>
-                                 <td className="px-6 py-4">
-                                    <span className={`px-2 py-1 text-[10px] rounded-full font-bold ${
-                                       isFull 
-                                          ? 'bg-orange-100 text-orange-700 dark:bg-orange-950/20 dark:text-orange-400' 
-                                          : 'bg-green-100 text-green-700 dark:bg-green-950/20 dark:text-green-400'
-                                    }`}>
-                                       {isFull ? 'Fully Booked' : 'Available'} ({bookedCount}/{capacity} Booked)
-                                    </span>
-                                 </td>
-                                 <td className="px-6 py-4 text-sm font-bold text-brand-600">${room.price_per_month}</td>
-                                 <td className="px-6 py-4"><button onClick={() => handleOpenRoomModal(room)} className="text-brand-600 text-xs font-bold underline">Edit</button></td>
-                              </tr>
-                           );
-                        })}
-                     </tbody>
-                  </table>
-               </div>
+
+                {/* Main Table Card */}
+                <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg overflow-hidden border border-gray-100 dark:border-gray-700">
+                   <div className="p-6 border-b dark:border-gray-700 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                      <div>
+                         <h2 className="text-xl font-bold text-gray-900 dark:text-white">{t.manageRooms}</h2>
+                         <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                            Synchronized live with student booking engine and Supabase backend data
+                         </p>
+                      </div>
+
+                      <div className="flex flex-wrap items-center gap-3">
+                         {/* Search Filter */}
+                         <input 
+                            type="text"
+                            placeholder="Search room, bed, student..."
+                            value={roomSearchQuery}
+                            onChange={(e) => setRoomSearchQuery(e.target.value)}
+                            className="px-3 py-1.5 text-xs border rounded-lg dark:bg-gray-700 dark:border-gray-600 dark:text-white focus:ring-1 focus:ring-brand-500"
+                         />
+
+                         {/* Accommodation Category Filter */}
+                         <select
+                            value={roomCategoryFilter}
+                            onChange={(e) => setRoomCategoryFilter(e.target.value as any)}
+                            className="px-3 py-1.5 text-xs font-bold border rounded-lg bg-gray-50 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                         >
+                            <option value="all">All Accommodations</option>
+                            <option value="Premium 1">Premium 1</option>
+                            <option value="Premium 2">Premium 2</option>
+                            <option value="Standard">Standard</option>
+                         </select>
+
+                         {/* Bed Availability Status Filter */}
+                         <div className="flex bg-gray-100 dark:bg-gray-700 rounded-lg p-1">
+                            {(['all', 'available', 'occupied'] as const).map(f => (
+                               <button 
+                                  key={f} 
+                                  onClick={() => setRoomFilter(f)} 
+                                  className={`px-3 py-1 text-xs font-bold rounded-md capitalize transition-all ${
+                                     roomFilter === f 
+                                        ? 'bg-white dark:bg-gray-600 text-brand-600 dark:text-brand-400 shadow-sm' 
+                                        : 'text-gray-500 dark:text-gray-400'
+                                  }`}
+                               >
+                                  {f}
+                               </button>
+                            ))}
+                         </div>
+
+                         <button 
+                            onClick={() => handleOpenRoomModal(null)} 
+                            className="bg-brand-600 hover:bg-brand-700 text-white px-4 py-2 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-colors shadow-sm"
+                         >
+                            + {t.addNewRoom}
+                         </button>
+                      </div>
+                   </div>
+
+                   {/* Synchronized Room Table */}
+                   <div className="overflow-x-auto">
+                      <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                         <thead className="bg-gray-50 dark:bg-gray-900">
+                            <tr>
+                               <th className="px-6 py-3.5 text-left text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Accommodation</th>
+                               <th className="px-6 py-3.5 text-left text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Room Number</th>
+                               <th className="px-6 py-3.5 text-left text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Bed Spaces</th>
+                               <th className="px-6 py-3.5 text-left text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Room Type</th>
+                               <th className="px-6 py-3.5 text-left text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Bed Status</th>
+                               <th className="px-6 py-3.5 text-left text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Next Available Date</th>
+                               <th className="px-6 py-3.5 text-left text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Actions</th>
+                            </tr>
+                         </thead>
+                         <tbody className="divide-y divide-gray-100 dark:divide-gray-700 bg-white dark:bg-gray-800">
+                            {filteredRoomSpaces.length > 0 ? (
+                               filteredRoomSpaces.map(space => {
+                                  return (
+                                     <tr key={space.id} className="hover:bg-gray-50/70 dark:hover:bg-gray-750 transition-colors">
+                                        {/* Accommodation */}
+                                        <td className="px-6 py-4">
+                                           <span className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-black uppercase bg-brand-50 text-brand-700 dark:bg-brand-900/30 dark:text-brand-300 border border-brand-200/50 dark:border-brand-800/40">
+                                              {space.category}
+                                           </span>
+                                        </td>
+
+                                        {/* Room Number */}
+                                        <td className="px-6 py-4">
+                                           <span className="font-bold text-sm text-gray-900 dark:text-white">
+                                              {space.roomName}
+                                           </span>
+                                        </td>
+
+                                        {/* Bed Spaces */}
+                                        <td className="px-6 py-4">
+                                           <span className="font-bold text-xs text-gray-800 dark:text-gray-200">
+                                              {space.bedSpaceName}
+                                           </span>
+                                        </td>
+
+                                        {/* Room Type */}
+                                        <td className="px-6 py-4">
+                                           <span className={`text-xs font-bold px-2.5 py-1 rounded-md ${
+                                              space.type === 'Private' 
+                                                 ? 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300' 
+                                                 : 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300'
+                                           }`}>
+                                              {space.type}
+                                           </span>
+                                        </td>
+
+                                        {/* Bed Status */}
+                                        <td className="px-6 py-4">
+                                           <div className="flex flex-col gap-1">
+                                              <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 text-xs rounded-full font-bold w-fit ${
+                                                 space.isOccupied
+                                                    ? 'bg-amber-100 text-amber-800 dark:bg-amber-950/40 dark:text-amber-400'
+                                                    : 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-400'
+                                              }`}>
+                                                 <span className={`w-1.5 h-1.5 rounded-full ${space.isOccupied ? 'bg-amber-600' : 'bg-emerald-600'}`} />
+                                                 {space.isOccupied ? 'Occupied' : 'Available'}
+                                              </span>
+                                              {space.isOccupied && space.booking && (
+                                                 <span className="text-[11px] text-gray-500 dark:text-gray-400 font-medium truncate max-w-[180px]">
+                                                    👤 {space.booking.full_name || space.booking.student_name || space.booking.profiles?.full_name || 'Student'}
+                                                 </span>
+                                              )}
+                                           </div>
+                                        </td>
+
+                                        {/* Next Available Date */}
+                                        <td className="px-6 py-4">
+                                           <span className={`text-xs font-bold ${
+                                              space.nextAvailableDate === 'Available Now' 
+                                                 ? 'text-emerald-600 dark:text-emerald-400' 
+                                                 : 'text-gray-800 dark:text-gray-200'
+                                           }`}>
+                                              {space.nextAvailableDate}
+                                           </span>
+                                        </td>
+
+                                        {/* Actions */}
+                                        <td className="px-6 py-4">
+                                           <button 
+                                              onClick={() => handleOpenRoomModal(space.dbRoom)} 
+                                              className="bg-gray-100 hover:bg-brand-50 text-brand-600 dark:bg-gray-700 dark:hover:bg-brand-900/30 dark:text-brand-400 text-xs font-bold px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1 border border-gray-200 dark:border-gray-600"
+                                           >
+                                              <IconEdit className="w-3.5 h-3.5" /> Edit
+                                           </button>
+                                        </td>
+                                     </tr>
+                                  );
+                               })
+                            ) : (
+                               <tr>
+                                  <td colSpan={7} className="px-6 py-12 text-center text-gray-500 dark:text-gray-400 text-sm">
+                                     No rooms or bed spaces match the selected filters.
+                                  </td>
+                               </tr>
+                            )}
+                         </tbody>
+                      </table>
+                   </div>
+                </div>
              </div>
           )}
 
