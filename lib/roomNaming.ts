@@ -202,22 +202,21 @@ export const getParsedRoomSpaces = (rooms: any[], bookings: any[]): ParsedRoomSp
 
     let nextAvailableDate = 'Available Now';
 
-    if (isOccupied && assignedBooking?.end_date) {
-      try {
-        const d = new Date(assignedBooking.end_date);
-        nextAvailableDate = d.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
-      } catch (e) {
-        nextAvailableDate = assignedBooking.end_date;
-      }
-    }
-
-    const manualOverride = (dbRoom as any)?.next_available_date;
-    if (manualOverride) {
-      try {
-        const ovD = new Date(manualOverride);
-        nextAvailableDate = ovD.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
-      } catch (e) {
-        nextAvailableDate = manualOverride;
+    if (isOccupied && assignedBooking) {
+      const rawDate = assignedBooking.end_date || assignedBooking.payment_expiry_date;
+      if (rawDate) {
+        try {
+          const d = new Date(rawDate);
+          if (!isNaN(d.getTime())) {
+            nextAvailableDate = d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+          } else {
+            nextAvailableDate = rawDate;
+          }
+        } catch (e) {
+          nextAvailableDate = rawDate;
+        }
+      } else {
+        nextAvailableDate = 'Occupied';
       }
     }
 

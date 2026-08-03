@@ -256,13 +256,15 @@ Al-Ibaanah Student Residency Notification System`
               <div className="space-y-1.5 text-[11px] text-gray-500 dark:text-gray-400">
                 <p><span className="font-semibold">Beds:</span> {space.bedSpaceName}</p>
                 <p><span className="font-semibold">Type:</span> {space.type} Room</p>
-                {space.isOccupied && space.booking?.end_date ? (
+                {space.isOccupied ? (
                   <div className="pt-1.5 border-t border-gray-100 dark:border-gray-800 space-y-0.5">
-                    <p className="text-red-600 dark:text-red-400 font-bold">
-                      <span className="font-semibold text-gray-400">Lease Expiry:</span> {new Date(space.booking.end_date).toLocaleDateString()}
-                    </p>
+                    {space.booking?.end_date && (
+                      <p className="text-red-600 dark:text-red-400 font-bold">
+                        <span className="font-semibold text-gray-400">Lease Expiry:</span> {space.nextAvailableDate}
+                      </p>
+                    )}
                     <p className="text-brand-600 dark:text-brand-400 font-bold">
-                      <span className="font-semibold text-gray-400">Next Available:</span> {new Date(space.booking.end_date).toLocaleDateString()}
+                      <span className="font-semibold text-gray-400">Next Available:</span> {space.nextAvailableDate}
                     </p>
                   </div>
                 ) : (
@@ -270,11 +272,6 @@ Al-Ibaanah Student Residency Notification System`
                     <p className="text-emerald-600 dark:text-emerald-400 font-bold">
                       <span className="font-semibold text-gray-400">Next Available:</span> Available Now
                     </p>
-                    {space.supabaseRoom?.next_available_date && (
-                      <p className="text-blue-600 dark:text-blue-400 font-bold">
-                        <span className="font-semibold text-gray-400">Expected Date:</span> {new Date(space.supabaseRoom.next_available_date).toLocaleDateString()}
-                      </p>
-                    )}
                   </div>
                 )}
               </div>

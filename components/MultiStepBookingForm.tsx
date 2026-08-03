@@ -585,36 +585,7 @@ Please verify the agreement details in the Admin Dashboard at your earliest conv
                   const isOccupied = spaceConfig?.isOccupied;
                   const bookingForSpace = spaceConfig?.booking;
                   const isSpaceOccupied = isOccupied && (!extendingBooking || bookingForSpace?.id !== extendingBooking.id);
-
-                  let calculatedAvailDate = 'Available Now';
-                  if (isOccupied && bookingForSpace && bookingForSpace.end_date) {
-                    try {
-                      const endD = new Date(bookingForSpace.end_date);
-                      calculatedAvailDate = endD.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
-                    } catch (e) {
-                      calculatedAvailDate = bookingForSpace.end_date;
-                    }
-                  }
-
-                  // Retrieve matching DB Room object to check for any manual override date
-                  const matchingSupabaseRoom = rooms.find(r => {
-                    const rCategory = r.category || '';
-                    const rType = r.type || '';
-                    const isPrivate = item.type === 'Private';
-                    const catSimple = formData.category.startsWith('Premium') ? 'Premium' : 'Standard';
-                    const reqType = isPrivate ? `${catSimple} Private` : `${catSimple} Shared`;
-                    return rCategory.toLowerCase() === catSimple.toLowerCase() && rType === reqType;
-                  });
-
-                  const manualOverride = (matchingSupabaseRoom as any)?.next_available_date;
-                  let finalAvailDate = calculatedAvailDate;
-                  if (manualOverride) {
-                    try {
-                      finalAvailDate = new Date(manualOverride).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
-                    } catch (e) {
-                      finalAvailDate = manualOverride;
-                    }
-                  }
+                  const finalAvailDate = spaceConfig?.nextAvailableDate || 'Available Now';
 
                   return (
                     <button
