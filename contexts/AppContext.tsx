@@ -453,7 +453,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     try {
         // Remove the 'rooms', 'profiles', and 'id' objects before inserting into Supabase
         // We let Supabase generate the ID
-        const { rooms, profiles, student_name, id, ...bookingToInsert } = newBooking as any;
+        const { rooms: rObj, profiles, student_name, id, ...bookingToInsert } = newBooking as any;
         
         const { data, error } = await supabase
             .from('bookings')
@@ -467,7 +467,30 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             ...data,
             student_name: data.profiles?.full_name,
         };
-        setBookings(prev => [mappedBooking, ...prev]);
+        const updatedBookings = [mappedBooking, ...bookings];
+        setBookings(updatedBookings);
+
+        // Recalculate room occupancy slots and availability in Supabase
+        const room = rooms.find(r => r.id === data.room_id);
+        if (room) {
+            const activeRoomBookings = updatedBookings.filter(b => 
+                b.room_id === room.id && 
+                b.status !== BookingStatus.CANCELLED && 
+                b.status !== BookingStatus.COMPLETED
+            );
+            const newOccupied = activeRoomBookings.length;
+            const isNowAvailable = newOccupied < (room.capacity || 1);
+
+            const { error: roomErr } = await supabase
+                .from('rooms')
+                .update({ occupied_slots: newOccupied, is_available: isNowAvailable })
+                .eq('id', room.id);
+
+            if (!roomErr) {
+                setRooms(prev => prev.map(r => r.id === room.id ? { ...r, occupied_slots: newOccupied, is_available: isNowAvailable } : r));
+            }
+        }
+
         return { success: true, data: mappedBooking };
     } catch (err: any) {
         console.error("Error adding booking to Supabase:", err.message);
@@ -487,17 +510,30 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
         if (error) throw error;
 
-        // If status changed to CONFIRMED or OCCUPIED, increment occupied_slots
-        if (status === BookingStatus.CONFIRMED || status === BookingStatus.OCCUPIED) {
-            const room = rooms.find(r => r.id === booking.room_id);
-            if (room) {
-                const newOccupied = (room.occupied_slots || 0) + 1;
-                await supabase.from('rooms').update({ occupied_slots: newOccupied }).eq('id', room.id);
-                setRooms(prev => prev.map(r => r.id === room.id ? { ...r, occupied_slots: newOccupied } : r));
+        const updatedBookings = bookings.map(b => b.id === id ? { ...b, status } : b);
+        setBookings(updatedBookings);
+
+        // Recalculate room occupancy slots and availability in Supabase
+        const room = rooms.find(r => r.id === booking.room_id);
+        if (room) {
+            const activeRoomBookings = updatedBookings.filter(b => 
+                b.room_id === room.id && 
+                b.status !== BookingStatus.CANCELLED && 
+                b.status !== BookingStatus.COMPLETED
+            );
+            const newOccupied = activeRoomBookings.length;
+            const isNowAvailable = newOccupied < (room.capacity || 1);
+
+            const { error: roomErr } = await supabase
+                .from('rooms')
+                .update({ occupied_slots: newOccupied, is_available: isNowAvailable })
+                .eq('id', room.id);
+
+            if (!roomErr) {
+                setRooms(prev => prev.map(r => r.id === room.id ? { ...r, occupied_slots: newOccupied, is_available: isNowAvailable } : r));
             }
         }
 
-        setBookings(prev => prev.map(b => b.id === id ? { ...b, status } : b));
         return { success: true };
     } catch (err: any) {
         console.error("Error updating booking status in Supabase:", err.message);
@@ -548,35 +584,39 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
         if (deleteError) throw deleteError;
 
-        // 3. Update the room/bed occupancy slots and is_available status if it was occupied or confirmed
-        if (booking.status === BookingStatus.CONFIRMED || booking.status === BookingStatus.OCCUPIED) {
-            const room = rooms.find(r => r.id === booking.room_id);
-            if (room) {
-                const newOccupied = Math.max(0, (room.occupied_slots || 0) - 1);
-                const isNowAvailable = newOccupied < (room.capacity || 1);
+        // 3. Update local state
+        const remainingBookings = bookings.filter(b => b.id !== id);
+        setBookings(remainingBookings);
 
-                const { error: roomUpdateError } = await supabase
-                    .from('rooms')
-                    .update({
-                        occupied_slots: newOccupied,
-                        is_available: isNowAvailable
-                    })
-                    .eq('id', room.id);
+        // 4. Update the room/bed occupancy slots and is_available status dynamically
+        const room = rooms.find(r => r.id === booking.room_id);
+        if (room) {
+            const activeRoomBookings = remainingBookings.filter(b => 
+                b.room_id === room.id && 
+                b.status !== BookingStatus.CANCELLED && 
+                b.status !== BookingStatus.COMPLETED
+            );
+            const newOccupied = activeRoomBookings.length;
+            const isNowAvailable = newOccupied < (room.capacity || 1);
 
-                if (roomUpdateError) {
-                    console.error("Error updating room slots after student deletion:", roomUpdateError.message);
-                } else {
-                    setRooms(prev => prev.map(r => r.id === room.id ? { ...r, occupied_slots: newOccupied, is_available: isNowAvailable } : r));
-                }
+            const { error: roomUpdateError } = await supabase
+                .from('rooms')
+                .update({
+                    occupied_slots: newOccupied,
+                    is_available: isNowAvailable
+                })
+                .eq('id', room.id);
+
+            if (roomUpdateError) {
+                console.error("Error updating room slots after student deletion:", roomUpdateError.message);
+            } else {
+                setRooms(prev => prev.map(r => r.id === room.id ? { ...r, occupied_slots: newOccupied, is_available: isNowAvailable } : r));
             }
         }
 
-        // 4. Update local state
-        setBookings(prev => prev.filter(b => b.id !== id));
-
         // 5. Clean up student profile if they have no other bookings
-        const remainingBookings = bookings.filter(b => b.student_id === booking.student_id && b.id !== id);
-        if (remainingBookings.length === 0) {
+        const studentBookings = remainingBookings.filter(b => b.student_id === booking.student_id);
+        if (studentBookings.length === 0) {
             const { error: profileDeleteError } = await supabase
                 .from('profiles')
                 .delete()
