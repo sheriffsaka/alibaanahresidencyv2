@@ -12,47 +12,191 @@ import AgreementModal from '../components/AgreementModal';
 import UserEditorModal from '../components/UserEditorModal';
 import { formatStoredRoomString, getDisplayFromRoom } from '../lib/roomNaming';
 
-// A simple, animated SVG Bar Chart component created for this page
+// A responsive, accessible SVG Bar Chart component for occupancy metrics
 const OccupancyChart = ({ data }: { data: { name: string; value: number }[] }) => {
-    const maxValue = Math.max(...data.map(d => d.value), 1);
-    const chartHeight = 200;
-    const barWidth = 50;
-    const barMargin = 30;
-    const chartWidth = data.length * (barWidth + barMargin);
+    // 1. Scale Calculation
+    const maxVal = Math.max(...data.map(d => d.value), 0);
+    // Determine upper scale bound for Y-axis with headroom
+    const maxScale = Math.max(Math.ceil(maxVal * 1.25), 4);
+
+    // 2. Geometry
+    const svgWidth = 640;
+    const svgHeight = 310;
+    
+    const marginTop = 50;     // Room for values above max bar
+    const marginBottom = 70;  // Room for 2-line category labels
+    const marginLeft = 45;    // Room for Y-axis labels and ticks
+    const marginRight = 25;   // Right padding
+    
+    const plotWidth = svgWidth - marginLeft - marginRight; // 570
+    const plotHeight = svgHeight - marginTop - marginBottom; // 190
+    const baselineY = marginTop + plotHeight; // 240
+
+    const numItems = Math.max(data.length, 1);
+    const colWidth = plotWidth / numItems; // e.g. 142.5px per column
+    const barWidth = Math.min(48, colWidth * 0.45); // Bar width
+
+    // Generate Y-axis tick values (e.g. 0, step1, step2, maxScale)
+    const rawTicks = [0, Math.round(maxScale * 0.33), Math.round(maxScale * 0.67), maxScale];
+    const uniqueTicks = Array.from(new Set(rawTicks)).sort((a, b) => a - b);
+
+    // Helper to format category names into clean multi-line segments
+    const formatNameLines = (name: string): string[] => {
+        if (!name) return [''];
+        const parts = name.trim().split(/\s+/);
+        if (parts.length <= 1) return [name];
+        if (parts.length === 2) return parts; // e.g. ["Standard", "Shared"]
+        if (parts.length === 3) return [`${parts[0]} ${parts[1]}`, parts[2]]; // e.g. ["Premium 1", "Private"]
+        const mid = Math.ceil(parts.length / 2);
+        return [parts.slice(0, mid).join(' '), parts.slice(mid).join(' ')];
+    };
 
     return (
-        <svg width={chartWidth} height={chartHeight + 40} viewBox={`0 0 ${chartWidth} ${chartHeight + 40}`} aria-label="Occupancy by Room Type Chart">
-            {data.map((d, i) => {
-                const barHeight = (d.value / maxValue) * chartHeight;
-                return (
-                    <g key={d.name} transform={`translate(${i * (barWidth + barMargin)}, 0)`}>
-                        <title>{`${d.name}: ${d.value} occupied`}</title>
-                        <rect 
-                            y={chartHeight - barHeight} 
-                            width={barWidth} 
-                            height={barHeight} 
-                            fill="url(#gradient)"
-                            rx="4"
-                        >
-                           <animate attributeName="height" from="0" to={barHeight} dur="0.5s" fill="freeze" begin={`${i * 0.1}s`} />
-                           <animate attributeName="y" from={chartHeight} to={chartHeight - barHeight} dur="0.5s" fill="freeze" begin={`${i * 0.1}s`} />
-                        </rect>
-                        <text x={barWidth / 2} y={chartHeight - barHeight - 10} textAnchor="middle" className="fill-current text-gray-800 dark:text-white font-bold text-sm">
-                            {d.value}
-                        </text>
-                        <text x={barWidth / 2} y={chartHeight + 20} textAnchor="middle" className="fill-current text-gray-500 dark:text-gray-400 text-xs font-bold">
-                            {d.name}
-                        </text>
-                    </g>
-                );
-            })}
-            <defs>
-                <linearGradient id="gradient" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="#347d5c" />
-                    <stop offset="100%" stopColor="#286046" />
-                </linearGradient>
-            </defs>
-        </svg>
+        <div className="w-full space-y-4">
+            <div className="w-full overflow-x-auto no-scrollbar">
+                <div className="min-w-[460px] w-full">
+                    <svg 
+                        width="100%" 
+                        height="100%" 
+                        viewBox={`0 0 ${svgWidth} ${svgHeight}`} 
+                        className="w-full h-auto overflow-visible select-none"
+                        aria-label="Occupancy by Room Type Bar Chart"
+                    >
+                        <defs>
+                            <linearGradient id="occupancyBarGradient" x1="0" y1="0" x2="0" y2="1">
+                                <stop offset="0%" stopColor="#347d5c" />
+                                <stop offset="100%" stopColor="#1e4936" />
+                            </linearGradient>
+                            <filter id="barShadow" x="-10%" y="-10%" width="120%" height="120%">
+                                <feDropShadow dx="0" dy="2" stdDeviation="3" floodOpacity="0.15" />
+                            </filter>
+                        </defs>
+
+                        {/* Y-Axis Grid Lines & Ticks */}
+                        {uniqueTicks.map((tick) => {
+                            const y = baselineY - (tick / maxScale) * plotHeight;
+                            return (
+                                <g key={`grid-${tick}`}>
+                                    <line 
+                                        x1={marginLeft} 
+                                        y1={y} 
+                                        x2={svgWidth - marginRight} 
+                                        y2={y} 
+                                        className="stroke-gray-200 dark:stroke-gray-700/60" 
+                                        strokeWidth="1" 
+                                        strokeDasharray={tick === 0 ? "none" : "4 4"}
+                                    />
+                                    <text 
+                                        x={marginLeft - 10} 
+                                        y={y + 4} 
+                                        textAnchor="end" 
+                                        className="fill-gray-400 dark:fill-gray-500 text-[11px] font-medium"
+                                    >
+                                        {tick}
+                                    </text>
+                                </g>
+                            );
+                        })}
+
+                        {/* Main Baseline */}
+                        <line 
+                            x1={marginLeft} 
+                            y1={baselineY} 
+                            x2={svgWidth - marginRight} 
+                            y2={baselineY} 
+                            className="stroke-gray-300 dark:stroke-gray-600" 
+                            strokeWidth="1.5" 
+                        />
+
+                        {/* Bars & Labels */}
+                        {data.map((d, i) => {
+                            const centerX = marginLeft + (i + 0.5) * colWidth;
+                            const barX = centerX - barWidth / 2;
+                            const barHeight = (d.value / maxScale) * plotHeight;
+                            const barY = baselineY - barHeight;
+                            const lines = formatNameLines(d.name);
+
+                            return (
+                                <g key={d.name} className="group cursor-pointer">
+                                    <title>{`${d.name}: ${d.value} booked/occupied`}</title>
+                                    
+                                    {/* Bar Hover Highlight Slot */}
+                                    <rect 
+                                        x={centerX - colWidth / 2 + 4}
+                                        y={marginTop - 10}
+                                        width={colWidth - 8}
+                                        height={plotHeight + 10}
+                                        className="fill-transparent group-hover:fill-brand-50/40 dark:group-hover:fill-brand-900/10 transition-colors"
+                                        rx="8"
+                                    />
+
+                                    {/* Animated Bar */}
+                                    {d.value > 0 && (
+                                        <rect 
+                                            x={barX} 
+                                            y={barY} 
+                                            width={barWidth} 
+                                            height={barHeight} 
+                                            fill="url(#occupancyBarGradient)"
+                                            rx="6"
+                                            filter="url(#barShadow)"
+                                            className="transition-all duration-300 group-hover:opacity-90"
+                                        >
+                                           <animate attributeName="height" from="0" to={barHeight} dur="0.4s" fill="freeze" begin={`${i * 0.08}s`} />
+                                           <animate attributeName="y" from={baselineY} to={barY} dur="0.4s" fill="freeze" begin={`${i * 0.08}s`} />
+                                        </rect>
+                                    )}
+
+                                    {/* Bar Value Label above bar */}
+                                    <g transform={`translate(${centerX}, ${d.value === 0 ? baselineY - 10 : barY - 12})`}>
+                                        <text 
+                                            x="0" 
+                                            y="0" 
+                                            textAnchor="middle" 
+                                            className={`font-black text-xs ${d.value > 0 ? 'fill-brand-700 dark:fill-brand-400' : 'fill-gray-400 dark:fill-gray-500'}`}
+                                        >
+                                            {d.value} {d.value === 1 ? 'bed' : 'beds'}
+                                        </text>
+                                    </g>
+
+                                    {/* Category X-Axis Labels (Multi-line formatted) */}
+                                    <text 
+                                        x={centerX} 
+                                        y={baselineY + 22} 
+                                        textAnchor="middle" 
+                                        className="fill-gray-700 dark:fill-gray-200"
+                                    >
+                                        {lines.map((line, lineIdx) => (
+                                            <tspan 
+                                                key={lineIdx} 
+                                                x={centerX} 
+                                                dy={lineIdx === 0 ? 0 : 16} 
+                                                className={`text-xs ${lineIdx === 0 ? 'font-bold fill-gray-800 dark:fill-gray-100' : 'font-medium fill-gray-500 dark:fill-gray-400'}`}
+                                            >
+                                                {line}
+                                            </tspan>
+                                        ))}
+                                    </text>
+                                </g>
+                            );
+                        })}
+                    </svg>
+                </div>
+            </div>
+
+            {/* Responsive Legend / Summary Grid below chart */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-3 border-t border-gray-100 dark:border-gray-700/60">
+                {data.map((d) => (
+                    <div key={`summary-${d.name}`} className="flex items-center gap-2.5 p-2.5 rounded-xl bg-gray-50/80 dark:bg-gray-800/60 border border-gray-100 dark:border-gray-700/50">
+                        <div className="w-2.5 h-2.5 rounded-full bg-brand-600 flex-shrink-0" />
+                        <div className="min-w-0 flex-1">
+                            <p className="text-[11px] font-medium text-gray-500 dark:text-gray-400 truncate">{d.name}</p>
+                            <p className="text-xs font-bold text-gray-900 dark:text-white mt-0.5">{d.value} {d.value === 1 ? 'Occupied' : 'Occupied'}</p>
+                        </div>
+                    </div>
+                ))}
+            </div>
+        </div>
     );
 };
 
@@ -672,12 +816,13 @@ const AdminDashboardPage: React.FC = () => {
               </div>
               {/* Occupancy Chart */}
               <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 border border-gray-100 dark:border-gray-700">
-                  <h2 className="text-xl font-bold mb-4">{t.occupancyByType}</h2>
-                  <div className="overflow-x-auto py-2">
-                     <div className="mx-auto min-w-max">
-                        <OccupancyChart data={analytics.occupancyByType} />
-                     </div>
+                  <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 mb-6">
+                    <div>
+                      <h2 className="text-xl font-bold text-gray-900 dark:text-white">{t.occupancyByType}</h2>
+                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Live distribution of currently booked/occupied bed spaces by accommodation type</p>
+                    </div>
                   </div>
+                  <OccupancyChart data={analytics.occupancyByType} />
               </div>
             </>
           )}
