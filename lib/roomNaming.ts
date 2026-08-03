@@ -1,3 +1,24 @@
+export const ACCOMMODATION_ADDRESSES: Record<string, string> = {
+  'Premium 2': '2 Ezzat Salamat Street, Off Kaabool, Makram Ebeid, Nasr City, Cairo.',
+  'Standard': '24 Saqaliyyah Street, Off Kaabool, Makram Ebeid, Nasr City, Cairo.',
+  'Premium 1': '2 Ezzat Salamat Street, Off Kaabool, Makram Ebeid, Nasr City, Cairo.',
+};
+
+export const getAccommodationAddress = (category?: string): string => {
+  if (!category) return ACCOMMODATION_ADDRESSES['Standard'];
+  const cat = category.trim();
+  if (cat.toLowerCase().includes('premium 2') || cat === 'Apartment 3') {
+    return ACCOMMODATION_ADDRESSES['Premium 2'];
+  }
+  if (cat.toLowerCase().includes('standard') || cat === 'Apartment 2') {
+    return ACCOMMODATION_ADDRESSES['Standard'];
+  }
+  if (cat.toLowerCase().includes('premium 1') || cat === 'Apartment 1') {
+    return ACCOMMODATION_ADDRESSES['Premium 1'];
+  }
+  return ACCOMMODATION_ADDRESSES['Standard'];
+};
+
 export interface RoomSpaceConfig {
   id: string;
   category: 'Standard' | 'Premium 1' | 'Premium 2';

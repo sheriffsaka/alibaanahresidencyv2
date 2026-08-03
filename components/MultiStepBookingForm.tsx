@@ -15,7 +15,7 @@ import SignaturePad from 'react-signature-canvas';
 import { useReactToPrint } from 'react-to-print';
 import TenancyAgreementDocument from './TenancyAgreementDocument';
 import { sendEmail, getAgreementSignedTemplate } from '../lib/email';
-import { ALL_ROOM_SPACES, getUnifiedRoomName, getParsedRoomSpaces } from '../lib/roomNaming';
+import { ALL_ROOM_SPACES, getUnifiedRoomName, getParsedRoomSpaces, getAccommodationAddress } from '../lib/roomNaming';
 
 // Predefined Accommodation Categories and Rooms based on exact user specification
 const ACCOMMODATIONS_SELECTION: Record<string, Array<{ id: string; room: string; space: string; type: 'Shared' | 'Private'; label: string }>> = {
@@ -565,9 +565,14 @@ Please verify the agreement details in the Admin Dashboard at your earliest conv
 
             {/* Room choice & Bed selection for selected category */}
             <div className="bg-white dark:bg-gray-800 p-6 rounded-2xl border border-gray-200 dark:border-gray-700 space-y-4">
-              <h3 className="font-bold text-sm text-gray-800 dark:text-gray-200 uppercase tracking-wider">
-                Rooms & Bed space configuration in {formData.category}
-              </h3>
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-gray-100 dark:border-gray-700 pb-3">
+                <h3 className="font-bold text-sm text-gray-800 dark:text-gray-200 uppercase tracking-wider">
+                  Rooms & Bed space configuration in {formData.category}
+                </h3>
+                <span className="text-xs text-brand-600 dark:text-brand-400 font-semibold bg-brand-50 dark:bg-brand-950/40 px-3 py-1 rounded-full w-fit">
+                  📍 {getAccommodationAddress(formData.category)}
+                </span>
+              </div>
 
               {areAllSpacesInSelectedCategoryOccupied && (
                 <div className="p-4 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800/60 rounded-xl text-amber-800 dark:text-amber-400 text-xs font-medium flex items-center gap-2.5">
@@ -877,6 +882,9 @@ Please verify the agreement details in the Admin Dashboard at your earliest conv
                   <SummaryItem label="Room Name" value={`${formData.roomName} (${formData.bedSpaceName})`} />
                   <SummaryItem label="Placement Level" value={`${formData.roomType} room`} />
                   <SummaryItem label="Duration" value={`${formData.duration} Months`} />
+                  <div className="col-span-2">
+                    <SummaryItem label="Accommodation Address" value={getAccommodationAddress(formData.category)} />
+                  </div>
                 </div>
               </div>
 

@@ -1,6 +1,6 @@
 import React from 'react';
 import { IconCheckCircle } from './Icon';
-import { getUnifiedRoomName } from '../lib/roomNaming';
+import { getUnifiedRoomName, getAccommodationAddress } from '../lib/roomNaming';
 
 interface TenancyAgreementDocumentProps {
   formData: any;
@@ -84,7 +84,7 @@ const TenancyAgreementDocument: React.ForwardRefRenderFunction<HTMLDivElement, T
             <h2 className="text-sm font-bold border-b border-brand-800 text-brand-800 pb-1 uppercase tracking-wider mt-8">2. RENTAL PROPERTY & UNIT</h2>
             <div className="space-y-2 text-xs text-gray-700">
               <p>The property subject to this Agreement is located at:</p>
-              <strong className="text-xs text-gray-900 block px-4 py-2 border border-brand-100 bg-brand-50/20 rounded-lg text-center font-bold">11, Samir Moursey Street, Nasr City, Cairo, Egypt</strong>
+              <strong className="text-xs text-gray-900 block px-4 py-2 border border-brand-100 bg-brand-50/20 rounded-lg text-center font-bold">{getAccommodationAddress(formData.category)}</strong>
               {formData.category && formData.roomName && (
                 <p className="mt-2 text-xs">
                   <span className="font-bold text-gray-600">Assigned Unit Space:</span>{' '}

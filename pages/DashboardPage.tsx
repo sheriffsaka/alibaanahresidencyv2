@@ -9,7 +9,7 @@ import PaymentProofModal from '../components/PaymentProofModal';
 import { supabase } from '../lib/supabaseClient';
 import AgreementModal from '../components/AgreementModal';
 import { sendEmail, getAgreementSignedTemplate } from '../lib/email';
-import { ALL_ROOM_SPACES, getUnifiedRoomName, formatStoredRoomString, getParsedRoomSpaces } from '../lib/roomNaming';
+import { ALL_ROOM_SPACES, getUnifiedRoomName, formatStoredRoomString, getParsedRoomSpaces, getAccommodationAddress } from '../lib/roomNaming';
 
 const findDatabaseRoomForSpace = (rooms: any[], space: { category: string; type: 'Shared' | 'Private' }) => {
   const isPrivate = space.type === 'Private';
@@ -256,6 +256,9 @@ Al-Ibaanah Student Residency Notification System`
               <div className="space-y-1.5 text-[11px] text-gray-500 dark:text-gray-400">
                 <p><span className="font-semibold">Beds:</span> {space.bedSpaceName}</p>
                 <p><span className="font-semibold">Type:</span> {space.type} Room</p>
+                <p className="text-[10px] text-gray-500 dark:text-gray-400 font-medium truncate" title={getAccommodationAddress(space.category)}>
+                  <span className="font-semibold text-gray-400">Address:</span> {getAccommodationAddress(space.category)}
+                </p>
                 {space.isOccupied ? (
                   <div className="pt-1.5 border-t border-gray-100 dark:border-gray-800 space-y-0.5">
                     {space.booking?.end_date && (

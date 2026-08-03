@@ -10,7 +10,7 @@ import { uploadFile, generateFileName } from '../lib/storage';
 import { sendEmail, getApprovalEmailTemplate } from '../lib/email';
 import AgreementModal from '../components/AgreementModal';
 import UserEditorModal from '../components/UserEditorModal';
-import { formatStoredRoomString, getDisplayFromRoom, getParsedRoomSpaces } from '../lib/roomNaming';
+import { formatStoredRoomString, getDisplayFromRoom, getParsedRoomSpaces, getAccommodationAddress } from '../lib/roomNaming';
 
 // A responsive, accessible SVG Bar Chart component for occupancy metrics
 const OccupancyChart = ({ data }: { data: { name: string; value: number }[] }) => {
@@ -1045,9 +1045,14 @@ const AdminDashboardPage: React.FC = () => {
                                      <tr key={space.id} className="hover:bg-gray-50/70 dark:hover:bg-gray-750 transition-colors">
                                         {/* Accommodation */}
                                         <td className="px-6 py-4">
-                                           <span className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-black uppercase bg-brand-50 text-brand-700 dark:bg-brand-900/30 dark:text-brand-300 border border-brand-200/50 dark:border-brand-800/40">
-                                              {space.category}
-                                           </span>
+                                           <div className="flex flex-col gap-1">
+                                              <span className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-black uppercase bg-brand-50 text-brand-700 dark:bg-brand-900/30 dark:text-brand-300 border border-brand-200/50 dark:border-brand-800/40 w-fit">
+                                                 {space.category}
+                                              </span>
+                                              <span className="text-[10px] text-gray-500 dark:text-gray-400 font-medium max-w-[200px]" title={getAccommodationAddress(space.category)}>
+                                                 📍 {getAccommodationAddress(space.category)}
+                                              </span>
+                                           </div>
                                         </td>
 
                                         {/* Room Number */}
