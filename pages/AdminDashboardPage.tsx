@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo, ChangeEvent } from 'react';
 import { useTranslation } from '../hooks/useTranslation';
 import { useApp } from '../hooks/useApp';
@@ -6,6 +5,8 @@ import { Booking, BookingStatus, Room, AccommodationType, User, Language, DEFAUL
 import { IconEdit, IconClose, IconBuilding, IconCheckCircle, IconPlus, IconTrash, IconUpload, IconFile } from '../components/Icon';
 import BookingStatusBadge from '../components/BookingStatusBadge';
 import RoomEditorModal from '../components/RoomEditorModal';
+import AdminCreateBookingModal from '../components/AdminCreateBookingModal';
+import StudentDetailsModal from '../components/StudentDetailsModal';
 import { uploadFile, generateFileName } from '../lib/storage';
 import { sendEmail, getApprovalEmailTemplate } from '../lib/email';
 import AgreementModal from '../components/AgreementModal';
@@ -14,188 +15,110 @@ import { formatStoredRoomString, getDisplayFromRoom, getParsedRoomSpaces, getAcc
 
 // A responsive, accessible SVG Bar Chart component for occupancy metrics
 const OccupancyChart = ({ data }: { data: { name: string; value: number }[] }) => {
-    // 1. Scale Calculation
     const maxVal = Math.max(...data.map(d => d.value), 0);
-    // Determine upper scale bound for Y-axis with headroom
     const maxScale = Math.max(Math.ceil(maxVal * 1.25), 4);
 
-    // 2. Geometry
     const svgWidth = 640;
     const svgHeight = 310;
     
-    const marginTop = 50;     // Room for values above max bar
-    const marginBottom = 70;  // Room for 2-line category labels
-    const marginLeft = 45;    // Room for Y-axis labels and ticks
-    const marginRight = 25;   // Right padding
-    
-    const plotWidth = svgWidth - marginLeft - marginRight; // 570
-    const plotHeight = svgHeight - marginTop - marginBottom; // 190
-    const baselineY = marginTop + plotHeight; // 240
+    const margin = { top: 30, right: 30, bottom: 60, left: 50 };
+    const chartWidth = svgWidth - margin.left - margin.right;
+    const chartHeight = svgHeight - margin.top - margin.bottom;
 
-    const numItems = Math.max(data.length, 1);
-    const colWidth = plotWidth / numItems; // e.g. 142.5px per column
-    const barWidth = Math.min(48, colWidth * 0.45); // Bar width
+    const numGridLines = 4;
+    const gridTicks = Array.from({ length: numGridLines + 1 }, (_, i) => Math.round((maxScale / numGridLines) * i));
 
-    // Generate Y-axis tick values (e.g. 0, step1, step2, maxScale)
-    const rawTicks = [0, Math.round(maxScale * 0.33), Math.round(maxScale * 0.67), maxScale];
-    const uniqueTicks = Array.from(new Set(rawTicks)).sort((a, b) => a - b);
-
-    // Helper to format category names into clean multi-line segments
-    const formatNameLines = (name: string): string[] => {
-        if (!name) return [''];
-        const parts = name.trim().split(/\s+/);
-        if (parts.length <= 1) return [name];
-        if (parts.length === 2) return parts; // e.g. ["Standard", "Shared"]
-        if (parts.length === 3) return [`${parts[0]} ${parts[1]}`, parts[2]]; // e.g. ["Premium 1", "Private"]
-        const mid = Math.ceil(parts.length / 2);
-        return [parts.slice(0, mid).join(' '), parts.slice(mid).join(' ')];
-    };
+    const totalBars = data.length || 1;
+    const step = chartWidth / totalBars;
+    const barWidth = Math.min(step * 0.45, 64);
 
     return (
-        <div className="w-full space-y-4">
-            <div className="w-full overflow-x-auto no-scrollbar">
-                <div className="min-w-[460px] w-full">
-                    <svg 
-                        width="100%" 
-                        height="100%" 
-                        viewBox={`0 0 ${svgWidth} ${svgHeight}`} 
-                        className="w-full h-auto overflow-visible select-none"
-                        aria-label="Occupancy by Room Type Bar Chart"
-                    >
-                        <defs>
-                            <linearGradient id="occupancyBarGradient" x1="0" y1="0" x2="0" y2="1">
-                                <stop offset="0%" stopColor="#347d5c" />
-                                <stop offset="100%" stopColor="#1e4936" />
-                            </linearGradient>
-                            <filter id="barShadow" x="-10%" y="-10%" width="120%" height="120%">
-                                <feDropShadow dx="0" dy="2" stdDeviation="3" floodOpacity="0.15" />
-                            </filter>
-                        </defs>
+        <div className="w-full overflow-x-auto">
+            <svg 
+                viewBox={`0 0 ${svgWidth} ${svgHeight}`} 
+                className="w-full h-auto max-h-[320px] font-sans text-xs select-none"
+                aria-label="Occupancy by Accommodation Category Bar Chart"
+            >
+                {/* Y-Axis Grid Lines and Numeric Labels */}
+                {gridTicks.map((tickVal) => {
+                    const yPos = margin.top + chartHeight - (tickVal / maxScale) * chartHeight;
+                    return (
+                        <g key={tickVal} className="text-gray-400 dark:text-gray-500">
+                            <line 
+                                x1={margin.left} 
+                                y1={yPos} 
+                                x2={margin.left + chartWidth} 
+                                y2={yPos} 
+                                stroke="currentColor" 
+                                strokeDasharray="3 3" 
+                                strokeOpacity="0.3" 
+                            />
+                            <text 
+                                x={margin.left - 10} 
+                                y={yPos + 4} 
+                                textAnchor="end" 
+                                className="fill-gray-500 dark:fill-gray-400 font-medium text-[10px]"
+                            >
+                                {tickVal}
+                            </text>
+                        </g>
+                    );
+                })}
 
-                        {/* Y-Axis Grid Lines & Ticks */}
-                        {uniqueTicks.map((tick) => {
-                            const y = baselineY - (tick / maxScale) * plotHeight;
-                            return (
-                                <g key={`grid-${tick}`}>
-                                    <line 
-                                        x1={marginLeft} 
-                                        y1={y} 
-                                        x2={svgWidth - marginRight} 
-                                        y2={y} 
-                                        className="stroke-gray-200 dark:stroke-gray-700/60" 
-                                        strokeWidth="1" 
-                                        strokeDasharray={tick === 0 ? "none" : "4 4"}
-                                    />
-                                    <text 
-                                        x={marginLeft - 10} 
-                                        y={y + 4} 
-                                        textAnchor="end" 
-                                        className="fill-gray-400 dark:fill-gray-500 text-[11px] font-medium"
-                                    >
-                                        {tick}
-                                    </text>
-                                </g>
-                            );
-                        })}
+                {/* X-Axis Baseline */}
+                <line 
+                    x1={margin.left} 
+                    y1={margin.top + chartHeight} 
+                    x2={margin.left + chartWidth} 
+                    y2={margin.top + chartHeight} 
+                    stroke="currentColor" 
+                    className="text-gray-300 dark:text-gray-600" 
+                    strokeWidth="1.5" 
+                />
 
-                        {/* Main Baseline */}
-                        <line 
-                            x1={marginLeft} 
-                            y1={baselineY} 
-                            x2={svgWidth - marginRight} 
-                            y2={baselineY} 
-                            className="stroke-gray-300 dark:stroke-gray-600" 
-                            strokeWidth="1.5" 
-                        />
+                {/* SVG Rendered Bars and Category Labels */}
+                {data.map((item, index) => {
+                    const barHeight = (item.value / maxScale) * chartHeight;
+                    const xPos = margin.left + (index * step) + (step / 2) - (barWidth / 2);
+                    const yPos = margin.top + chartHeight - barHeight;
 
-                        {/* Bars & Labels */}
-                        {data.map((d, i) => {
-                            const centerX = marginLeft + (i + 0.5) * colWidth;
-                            const barX = centerX - barWidth / 2;
-                            const barHeight = (d.value / maxScale) * plotHeight;
-                            const barY = baselineY - barHeight;
-                            const lines = formatNameLines(d.name);
+                    return (
+                        <g key={item.name} className="group cursor-pointer">
+                            {/* SVG Bar with Gradient Styling */}
+                            <rect
+                                x={xPos}
+                                y={yPos}
+                                width={barWidth}
+                                height={barHeight}
+                                rx="6"
+                                className="fill-brand-600 hover:fill-brand-500 transition-all duration-300 shadow-md"
+                            />
+                            
+                            {/* Value Label above Bar */}
+                            {item.value > 0 && (
+                                <text
+                                    x={xPos + barWidth / 2}
+                                    y={yPos - 8}
+                                    textAnchor="middle"
+                                    className="fill-gray-900 dark:fill-white font-extrabold text-[11px]"
+                                >
+                                    {item.value}
+                                </text>
+                            )}
 
-                            return (
-                                <g key={d.name} className="group cursor-pointer">
-                                    <title>{`${d.name}: ${d.value} booked/occupied`}</title>
-                                    
-                                    {/* Bar Hover Highlight Slot */}
-                                    <rect 
-                                        x={centerX - colWidth / 2 + 4}
-                                        y={marginTop - 10}
-                                        width={colWidth - 8}
-                                        height={plotHeight + 10}
-                                        className="fill-transparent group-hover:fill-brand-50/40 dark:group-hover:fill-brand-900/10 transition-colors"
-                                        rx="8"
-                                    />
-
-                                    {/* Animated Bar */}
-                                    {d.value > 0 && (
-                                        <rect 
-                                            x={barX} 
-                                            y={barY} 
-                                            width={barWidth} 
-                                            height={barHeight} 
-                                            fill="url(#occupancyBarGradient)"
-                                            rx="6"
-                                            filter="url(#barShadow)"
-                                            className="transition-all duration-300 group-hover:opacity-90"
-                                        >
-                                           <animate attributeName="height" from="0" to={barHeight} dur="0.4s" fill="freeze" begin={`${i * 0.08}s`} />
-                                           <animate attributeName="y" from={baselineY} to={barY} dur="0.4s" fill="freeze" begin={`${i * 0.08}s`} />
-                                        </rect>
-                                    )}
-
-                                    {/* Bar Value Label above bar */}
-                                    <g transform={`translate(${centerX}, ${d.value === 0 ? baselineY - 10 : barY - 12})`}>
-                                        <text 
-                                            x="0" 
-                                            y="0" 
-                                            textAnchor="middle" 
-                                            className={`font-black text-xs ${d.value > 0 ? 'fill-brand-700 dark:fill-brand-400' : 'fill-gray-400 dark:fill-gray-500'}`}
-                                        >
-                                            {d.value} {d.value === 1 ? 'bed' : 'beds'}
-                                        </text>
-                                    </g>
-
-                                    {/* Category X-Axis Labels (Multi-line formatted) */}
-                                    <text 
-                                        x={centerX} 
-                                        y={baselineY + 22} 
-                                        textAnchor="middle" 
-                                        className="fill-gray-700 dark:fill-gray-200"
-                                    >
-                                        {lines.map((line, lineIdx) => (
-                                            <tspan 
-                                                key={lineIdx} 
-                                                x={centerX} 
-                                                dy={lineIdx === 0 ? 0 : 16} 
-                                                className={`text-xs ${lineIdx === 0 ? 'font-bold fill-gray-800 dark:fill-gray-100' : 'font-medium fill-gray-500 dark:fill-gray-400'}`}
-                                            >
-                                                {line}
-                                            </tspan>
-                                        ))}
-                                    </text>
-                                </g>
-                            );
-                        })}
-                    </svg>
-                </div>
-            </div>
-
-            {/* Responsive Legend / Summary Grid below chart */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-3 border-t border-gray-100 dark:border-gray-700/60">
-                {data.map((d) => (
-                    <div key={`summary-${d.name}`} className="flex items-center gap-2.5 p-2.5 rounded-xl bg-gray-50/80 dark:bg-gray-800/60 border border-gray-100 dark:border-gray-700/50">
-                        <div className="w-2.5 h-2.5 rounded-full bg-brand-600 flex-shrink-0" />
-                        <div className="min-w-0 flex-1">
-                            <p className="text-[11px] font-medium text-gray-500 dark:text-gray-400 truncate">{d.name}</p>
-                            <p className="text-xs font-bold text-gray-900 dark:text-white mt-0.5">{d.value} {d.value === 1 ? 'Occupied' : 'Occupied'}</p>
-                        </div>
-                    </div>
-                ))}
-            </div>
+                            {/* X-Axis Category Name */}
+                            <text
+                                x={xPos + barWidth / 2}
+                                y={margin.top + chartHeight + 20}
+                                textAnchor="middle"
+                                className="fill-gray-600 dark:fill-gray-300 font-bold text-[11px]"
+                            >
+                                {item.name}
+                            </text>
+                        </g>
+                    );
+                })}
+            </svg>
         </div>
     );
 };
@@ -399,27 +322,39 @@ const SummaryCard: React.FC<SummaryCardProps> = ({ label, value, icon, trend, co
 
 const AdminDashboardPage: React.FC = () => {
   const t = useTranslation();
-  const { user, bookings, updateBookingStatus, deleteBooking, cmsContent, updateCmsContent, rooms, addRoom, updateRoom, activities, addActivity, language, setPage, users, addUser, updateUser, deleteUser } = useApp();
-  const [activeTab, setActiveTab] = useState<'analytics' | 'pending' | 'rooms' | 'students' | 'cms' | 'users'>('analytics');
+  const { user, bookings, updateBookingStatus, deleteBooking, cmsContent, updateCmsContent, rooms, addRoom, updateRoom, deleteRoom, activities, addActivity, language, setPage, users, addUser, updateUser, deleteUser, students } = useApp();
+  const [activeTab, setActiveTab] = useState<'analytics' | 'transactions' | 'bookings' | 'students' | 'cms' | 'users'>('analytics');
+  const [cmsSubTab, setCmsSubTab] = useState<'rooms' | 'branding' | 'media' | 'contracts' | 'faqs'>('rooms');
+
   const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
   const [selectedProof, setSelectedProof] = useState<string | null>(null);
   const [roomFilter, setRoomFilter] = useState<'all' | 'occupied' | 'available'>('all');
   const [roomCategoryFilter, setRoomCategoryFilter] = useState<'all' | 'Premium 1' | 'Premium 2' | 'Standard'>('all');
   const [roomSearchQuery, setRoomSearchQuery] = useState('');
+  
   const [studentSort, setStudentSort] = useState<{ field: keyof Booking; direction: 'asc' | 'desc' }>({ field: 'full_name', direction: 'asc' });
   const [selectedBookingIds, setSelectedBookingIds] = useState<number[]>([]);
   
   const [isRoomModalOpen, setIsRoomModalOpen] = useState(false);
   const [selectedRoomForEdit, setSelectedRoomForEdit] = useState<Room | null>(null);
   
+  const [isAdminBookingModalOpen, setIsAdminBookingModalOpen] = useState(false);
+
   const [isUserModalOpen, setIsUserModalOpen] = useState(false);
   const [selectedUserForEdit, setSelectedUserForEdit] = useState<User | null>(null);
   
+  const [selectedStudentForDetails, setSelectedStudentForDetails] = useState<User | null>(null);
+  const [isStudentDetailsModalOpen, setIsStudentDetailsModalOpen] = useState(false);
+
   const [viewingAgreement, setViewingAgreement] = useState<Booking | null>(null);
 
   const [editingContract, setEditingContract] = useState<{ roomType: AccommodationType; lang: Language } | null>(null);
   const [isUploadingCms, setIsUploadingCms] = useState(false);
   const [activeCategoryConfig, setActiveCategoryConfig] = useState<'Standard' | 'Premium 1' | 'Premium 2'>('Standard');
+
+  // Transactions tab search & filter
+  const [trxSearchQuery, setTrxSearchQuery] = useState('');
+  const [trxStatusFilter, setTrxStatusFilter] = useState<'all' | 'pending_verification' | 'pending_payment' | 'confirmed' | 'cancelled'>('all');
 
   const handleCmsFileUpload = async (e: ChangeEvent<HTMLInputElement>, field: 'logoUrl' | 'heroImageUrl') => {
     if (e.target.files && e.target.files[0]) {
@@ -447,6 +382,57 @@ const AdminDashboardPage: React.FC = () => {
       return 0;
     });
   }, [bookings, studentSort]);
+
+  // Unique Registered Students list for the Students tab
+  const uniqueStudentRecords = useMemo(() => {
+    // Collect from users where role === 'student' or fallback to students list
+    const registeredStudentUsers = (users || []).filter(u => u.role === 'student');
+    
+    // Map each unique student with their live room/accommodation info
+    if (registeredStudentUsers.length > 0) {
+      return registeredStudentUsers.map(st => {
+        const studentBookings = bookings.filter(b => b.user_id === st.id || b.email.toLowerCase() === st.email.toLowerCase());
+        const activeBooking = studentBookings.find(b => b.status === BookingStatus.CONFIRMED || b.status === BookingStatus.OCCUPIED) || studentBookings[0] || null;
+        const liveDetails = activeBooking ? getLiveStudentRoomDetails(activeBooking, rooms) : null;
+        return {
+          student: st,
+          activeBooking,
+          allBookings: studentBookings,
+          liveDetails
+        };
+      });
+    }
+
+    // Fallback: group bookings by student email/user_id if user records aren't loaded
+    const seen = new Set<string>();
+    const list: { student: User; activeBooking: Booking | null; allBookings: Booking[]; liveDetails: any }[] = [];
+    bookings.forEach(b => {
+      const key = b.user_id || b.email.toLowerCase();
+      if (!seen.has(key)) {
+        seen.add(key);
+        const studentBookings = bookings.filter(bk => (bk.user_id && bk.user_id === b.user_id) || bk.email.toLowerCase() === b.email.toLowerCase());
+        const activeBooking = studentBookings.find(bk => bk.status === BookingStatus.CONFIRMED || bk.status === BookingStatus.OCCUPIED) || b;
+        const liveDetails = getLiveStudentRoomDetails(activeBooking, rooms);
+        const studentObj: User = {
+          id: b.user_id || `user_${b.id}`,
+          email: b.email,
+          full_name: b.full_name,
+          role: 'student',
+          phone_number: b.phone_number,
+          nationality: b.nationality,
+          passport_number: b.passport_number,
+          created_at: b.booked_at
+        };
+        list.push({
+          student: studentObj,
+          activeBooking,
+          allBookings: studentBookings,
+          liveDetails
+        });
+      }
+    });
+    return list;
+  }, [users, bookings, rooms]);
 
   const exportToCSV = () => {
     const headers = ['ID', 'Student Name', 'Email', 'Nationality', 'Accommodation', 'Room Name/Number', 'Bed Space', 'Arrival Date', 'Expiry Date', 'Status', 'Booked At'];
@@ -481,16 +467,13 @@ const AdminDashboardPage: React.FC = () => {
 
   const analytics = useMemo(() => {
     const safeBookings = bookings || [];
-    // Active residency bookings (excluding completed/cancelled)
     const activeBookings = safeBookings.filter(b => b.status !== BookingStatus.CANCELLED && b.status !== BookingStatus.COMPLETED);
     
-    // Count active bookings per room
     const bookingsCountByRoom: Record<number, number> = {};
     activeBookings.forEach(b => {
       bookingsCountByRoom[b.room_id] = (bookingsCountByRoom[b.room_id] || 0) + 1;
     });
 
-    // A room is fully occupied if its bookings count is >= capacity
     const fullyOccupiedRoomIds = new Set<number>();
     (rooms || []).forEach(r => {
       const bookingsCount = bookingsCountByRoom[r.id] || 0;
@@ -501,7 +484,6 @@ const AdminDashboardPage: React.FC = () => {
 
     const occupiedRoomIds = new Set<number>(activeBookings.map(b => b.room_id));
     
-    // Total available bed spaces in the building
     const totalCapacity = (rooms || []).reduce((sum, r) => sum + (r.capacity || 1), 0);
     const totalBooked = activeBookings.length;
     const availableBedSpaces = Math.max(0, totalCapacity - totalBooked);
@@ -530,24 +512,43 @@ const AdminDashboardPage: React.FC = () => {
     };
   }, [bookings, rooms]);
 
+  const filteredTransactions = useMemo(() => {
+    return bookings.filter(b => {
+      // Status filter
+      if (trxStatusFilter === 'pending_verification' && b.status !== BookingStatus.PENDING_VERIFICATION) return false;
+      if (trxStatusFilter === 'pending_payment' && b.status !== BookingStatus.PENDING_PAYMENT) return false;
+      if (trxStatusFilter === 'confirmed' && b.status !== BookingStatus.CONFIRMED && b.status !== BookingStatus.OCCUPIED) return false;
+      if (trxStatusFilter === 'cancelled' && b.status !== BookingStatus.CANCELLED) return false;
+
+      // Search query
+      if (trxSearchQuery.trim()) {
+        const q = trxSearchQuery.toLowerCase();
+        const matchName = b.full_name.toLowerCase().includes(q);
+        const matchEmail = b.email.toLowerCase().includes(q);
+        const matchRef = `bk${b.id}`.includes(q);
+        const roomDetails = getLiveStudentRoomDetails(b, rooms);
+        const matchRoom = roomDetails.roomName.toLowerCase().includes(q) || roomDetails.category.toLowerCase().includes(q);
+        return matchName || matchEmail || matchRef || matchRoom;
+      }
+      return true;
+    });
+  }, [bookings, trxStatusFilter, trxSearchQuery, rooms]);
+
   const parsedRoomSpaces = useMemo(() => {
     return getParsedRoomSpaces(rooms, bookings);
   }, [rooms, bookings]);
 
   const filteredRoomSpaces = useMemo(() => {
     return parsedRoomSpaces.filter(space => {
-      // 1. Category Filter
       if (roomCategoryFilter !== 'all' && space.category !== roomCategoryFilter) {
         return false;
       }
-      // 2. Status Filter
       if (roomFilter === 'occupied' && !space.isOccupied) {
         return false;
       }
       if (roomFilter === 'available' && space.isOccupied) {
         return false;
       }
-      // 3. Search Query
       if (roomSearchQuery.trim()) {
         const q = roomSearchQuery.toLowerCase();
         const matchCat = space.category.toLowerCase().includes(q);
@@ -562,35 +563,12 @@ const AdminDashboardPage: React.FC = () => {
     });
   }, [parsedRoomSpaces, roomCategoryFilter, roomFilter, roomSearchQuery]);
 
-  const filteredRooms = useMemo(() => {
-    // Also filter rooms by admin's gender scope if they are a staff member
-    const visibleRooms = user?.role === 'staff' && user.gender
-        ? rooms.filter(r => r.gender_restriction === 'Any' || r.gender_restriction === user.gender)
-        : rooms;
-
-    switch(roomFilter) {
-      case 'occupied': 
-        return visibleRooms.filter(r => {
-          const bookedCount = analytics.bookingsCountByRoom[r.id] || 0;
-          return bookedCount > 0;
-        });
-      case 'available': 
-        return visibleRooms.filter(r => {
-          const bookedCount = analytics.bookingsCountByRoom[r.id] || 0;
-          return bookedCount < (r.capacity || 1);
-        });
-      default: 
-        return visibleRooms;
-    }
-  }, [rooms, roomFilter, analytics.bookingsCountByRoom, user]);
-
   const handleApprove = async (id: number) => {
     const booking = bookings.find(b => b.id === id);
     const result = await updateBookingStatus(id, BookingStatus.CONFIRMED);
     if (result.success) {
         addActivity({ user_id: user?.id || 'admin', type: 'payment', description: `Staff verified payment for BK${id}`, timestamp: new Date().toISOString() });
         
-        // Send email notification
         if (booking) {
             const formattedRoom = getDisplayFromRoom(booking.rooms);
             const emailTemplate = getApprovalEmailTemplate(booking.full_name, booking.id, formattedRoom);
@@ -630,6 +608,23 @@ const AdminDashboardPage: React.FC = () => {
         setIsRoomModalOpen(false);
     } else {
         alert(`Failed to save room: ${result?.error || 'Unknown error'}`);
+    }
+  };
+
+  const handleDeleteRoom = async (roomId: number, roomNumber: string) => {
+    if (user?.role !== 'staff' && user?.role !== 'proprietor') {
+      alert("Unauthorized: Only administrators can delete rooms.");
+      return;
+    }
+
+    if (confirm(`Are you sure you want to delete Room ${roomNumber}?\n\nSafety check: Rooms with active or historical student bookings cannot be deleted to maintain data integrity.`)) {
+      const res = await deleteRoom(roomId);
+      if (res.success) {
+        addActivity({ user_id: user.id, type: 'system', description: `Deleted Room ${roomNumber}`, timestamp: new Date().toISOString() });
+        alert(`Room ${roomNumber} deleted successfully.`);
+      } else {
+        alert(`Cannot Delete Room: ${res.error}`);
+      }
     }
   };
 
@@ -688,7 +683,6 @@ const AdminDashboardPage: React.FC = () => {
     if (confirm(`Are you sure you want to delete the student record for ${studentName}?\n\nThis will permanently delete their residency booking, contract details, payment history, and safely update the corresponding room or bed status to Vacant (if applicable) so it can be booked by others.`)) {
         const result = await deleteBooking(id);
         if (result.success) {
-            // Remove from selectedBookingIds if present
             setSelectedBookingIds(prev => prev.filter(bId => bId !== id));
             addActivity({ 
                 user_id: user.id, 
@@ -804,20 +798,63 @@ const AdminDashboardPage: React.FC = () => {
               {t.adminWelcome.replace('Proprietor', user?.full_name || 'Administrator')}
           </p>
         </div>
-        <div className="flex flex-nowrap bg-gray-100 dark:bg-gray-800 p-1 rounded-xl shadow-inner w-full xl:w-auto overflow-x-auto no-scrollbar">
-          {['analytics', 'pending', 'rooms', 'students', 'cms', 'users'].map((tab) => (
-            <button key={tab} onClick={() => setActiveTab(tab as any)} className={`flex-none px-6 py-2 rounded-lg text-xs font-bold transition-all capitalize whitespace-nowrap ${activeTab === tab ? 'bg-white dark:bg-gray-700 text-brand-600 shadow-sm' : 'text-gray-500'}`}>
-              {tab === 'analytics' ? 'Dashboard' : tab === 'pending' ? `Pending (${analytics.pendingVerifications.length + analytics.pendingPayments.length + analytics.pendingContracts.length})` : tab}
-            </button>
-          ))}
+        
+        {/* Restructured Top Navigation Bar */}
+        <div className="flex flex-nowrap bg-gray-100 dark:bg-gray-800 p-1.5 rounded-2xl shadow-inner w-full xl:w-auto overflow-x-auto no-scrollbar gap-1">
+          <button 
+            onClick={() => setActiveTab('analytics')} 
+            className={`px-5 py-2.5 rounded-xl text-xs font-black transition-all whitespace-nowrap flex items-center gap-2 ${activeTab === 'analytics' ? 'bg-white dark:bg-gray-700 text-brand-600 dark:text-brand-400 shadow-sm' : 'text-gray-500 dark:text-gray-400 hover:text-gray-800'}`}
+          >
+            📊 Dashboard
+          </button>
+          
+          <button 
+            onClick={() => setActiveTab('transactions')} 
+            className={`px-5 py-2.5 rounded-xl text-xs font-black transition-all whitespace-nowrap flex items-center gap-2 ${activeTab === 'transactions' ? 'bg-white dark:bg-gray-700 text-brand-600 dark:text-brand-400 shadow-sm' : 'text-gray-500 dark:text-gray-400 hover:text-gray-800'}`}
+          >
+            💳 Transactions
+            {analytics.pendingVerifications.length > 0 && (
+              <span className="bg-amber-500 text-white text-[10px] px-1.5 py-0.5 rounded-full font-mono">
+                {analytics.pendingVerifications.length}
+              </span>
+            )}
+          </button>
+
+          <button 
+            onClick={() => setActiveTab('bookings')} 
+            className={`px-5 py-2.5 rounded-xl text-xs font-black transition-all whitespace-nowrap flex items-center gap-2 ${activeTab === 'bookings' ? 'bg-white dark:bg-gray-700 text-brand-600 dark:text-brand-400 shadow-sm' : 'text-gray-500 dark:text-gray-400 hover:text-gray-800'}`}
+          >
+            🛏️ Bookings
+          </button>
+
+          <button 
+            onClick={() => setActiveTab('students')} 
+            className={`px-5 py-2.5 rounded-xl text-xs font-black transition-all whitespace-nowrap flex items-center gap-2 ${activeTab === 'students' ? 'bg-white dark:bg-gray-700 text-brand-600 dark:text-brand-400 shadow-sm' : 'text-gray-500 dark:text-gray-400 hover:text-gray-800'}`}
+          >
+            🎓 Students ({uniqueStudentRecords.length})
+          </button>
+
+          <button 
+            onClick={() => setActiveTab('cms')} 
+            className={`px-5 py-2.5 rounded-xl text-xs font-black transition-all whitespace-nowrap flex items-center gap-2 ${activeTab === 'cms' ? 'bg-white dark:bg-gray-700 text-brand-600 dark:text-brand-400 shadow-sm' : 'text-gray-500 dark:text-gray-400 hover:text-gray-800'}`}
+          >
+            ⚙️ CMS & Rooms
+          </button>
+
+          <button 
+            onClick={() => setActiveTab('users')} 
+            className={`px-5 py-2.5 rounded-xl text-xs font-black transition-all whitespace-nowrap flex items-center gap-2 ${activeTab === 'users' ? 'bg-white dark:bg-gray-700 text-brand-600 dark:text-brand-400 shadow-sm' : 'text-gray-500 dark:text-gray-400 hover:text-gray-800'}`}
+          >
+            👥 Admin Users
+          </button>
         </div>
       </div>
       
       <div className="grid grid-cols-1 xl:grid-cols-4 gap-8">
         <div className="xl:col-span-3 space-y-8">
+          {/* DASHBOARD ANALYTICS TAB */}
           {activeTab === 'analytics' && (
             <>
-              {/* Summary Metrics Grid */}
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                   <SummaryCard 
                     label="Total Revenue" 
@@ -834,7 +871,7 @@ const AdminDashboardPage: React.FC = () => {
                     colorClass="bg-brand-100 dark:bg-brand-900/30 text-brand-600"
                   />
                   <SummaryCard 
-                    label="Total Rooms" 
+                    label="Total Bed Spaces" 
                     value={analytics.totalRooms} 
                     icon="🚪" 
                     colorClass="bg-purple-100 dark:bg-purple-900/30 text-purple-600"
@@ -847,162 +884,181 @@ const AdminDashboardPage: React.FC = () => {
                   />
               </div>
 
-              {/* Quick Actions */}
-              <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 border border-gray-100 dark:border-gray-700">
-                  <h2 className="text-xl font-bold mb-4">{t.quickActions}</h2>
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                      <button onClick={() => handleOpenRoomModal(null)} className="p-4 bg-brand-50 dark:bg-brand-900/20 rounded-lg text-center font-bold text-brand-700 dark:text-brand-300 hover:bg-brand-100 dark:hover:bg-brand-900/40">
-                          {t.addNewRoom}
-                      </button>
-                      <button onClick={() => setActiveTab('pending')} className="p-4 bg-accent-50 dark:bg-accent-900/20 rounded-lg text-center font-bold text-accent-700 dark:text-accent-300 hover:bg-accent-100 dark:hover:bg-accent-900/40 relative">
-                          {t.reviewPayments}
-                          {analytics.pendingVerifications.length > 0 && <span className="absolute -top-1 -right-1 flex h-4 w-4"><span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-accent-400 opacity-75"></span><span className="relative inline-flex rounded-full h-4 w-4 bg-accent-500 text-white text-[10px] items-center justify-center">{analytics.pendingVerifications.length}</span></span>}
-                      </button>
-                  </div>
-              </div>
               {/* Occupancy Chart */}
-              <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 border border-gray-100 dark:border-gray-700">
-                  <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 mb-6">
-                    <div>
-                      <h2 className="text-xl font-bold text-gray-900 dark:text-white">{t.occupancyByType}</h2>
-                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Live distribution of currently booked/occupied bed spaces by accommodation type</p>
-                    </div>
-                  </div>
-                  <OccupancyChart data={analytics.occupancyByType} />
+              <div className="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700">
+                <h3 className="text-lg font-bold mb-4">Occupancy by Category</h3>
+                <OccupancyChart data={analytics.occupancyByType} />
               </div>
             </>
           )}
 
-          {activeTab === 'pending' && (
-             <div className="space-y-8">
-               <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg overflow-hidden border border-gray-100 dark:border-gray-700">
-                  <div className="px-6 py-4 border-b dark:border-gray-700 flex justify-between items-center">
-                    <h2 className="text-xl font-bold">Pending Contracts</h2>
-                    <span className="bg-yellow-100 text-yellow-700 px-2 py-1 rounded text-[10px] font-bold uppercase">Started Booking</span>
-                  </div>
-                  {analytics.pendingContracts.length > 0 ? (
-                    <div className="overflow-x-auto"><table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-                        <thead className="bg-gray-50 dark:bg-gray-900"><tr>
-                            <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase">Student</th>
-                            <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase">Room</th>
-                            <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase">Contact</th>
-                        </tr></thead>
-                        <tbody className="divide-y divide-gray-100 dark:divide-gray-700">{analytics.pendingContracts.map(item => (<tr key={item.id}>
-                            <td className="px-6 py-4 font-medium">{item.full_name}</td>
-                            <td className="px-6 py-4 font-bold text-brand-600 text-xs">{getDisplayFromRoom(item.rooms)}</td>
-                            <td className="px-6 py-4 text-xs text-gray-500">{item.phone_number}</td>
-                        </tr>))}</tbody>
-                    </table></div>
-                  ) : <div className="p-12 text-center text-gray-500">No pending contracts.</div>}
-               </div>
+          {/* TRANSACTIONS TAB */}
+          {activeTab === 'transactions' && (
+            <div className="space-y-6">
+              {/* Transactions Metrics Summary */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div className="bg-white dark:bg-gray-800 p-5 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm">
+                  <p className="text-xs font-bold text-gray-500 uppercase">Total Revenue Volume</p>
+                  <p className="text-2xl font-black text-gray-900 dark:text-white mt-1">${analytics.totalRevenue.toLocaleString()}</p>
+                </div>
+                <div className="bg-white dark:bg-gray-800 p-5 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm">
+                  <p className="text-xs font-bold text-amber-600 uppercase">Pending Review</p>
+                  <p className="text-2xl font-black text-amber-600 mt-1">{analytics.pendingVerifications.length}</p>
+                </div>
+                <div className="bg-white dark:bg-gray-800 p-5 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm">
+                  <p className="text-xs font-bold text-green-600 uppercase">Confirmed Transactions</p>
+                  <p className="text-2xl font-black text-green-600 mt-1">
+                    {bookings.filter(b => b.status === BookingStatus.CONFIRMED || b.status === BookingStatus.OCCUPIED).length}
+                  </p>
+                </div>
+                <div className="bg-white dark:bg-gray-800 p-5 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm">
+                  <p className="text-xs font-bold text-blue-600 uppercase">Awaiting Payment</p>
+                  <p className="text-2xl font-black text-blue-600 mt-1">{analytics.pendingPayments.length}</p>
+                </div>
+              </div>
 
-               <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg overflow-hidden border border-gray-100 dark:border-gray-700">
-                  <div className="px-6 py-4 border-b dark:border-gray-700 flex justify-between items-center">
-                    <h2 className="text-xl font-bold">Payment Verifications</h2>
-                    <span className="bg-purple-100 text-purple-700 px-2 py-1 rounded text-[10px] font-bold uppercase">Awaiting Review</span>
+              {/* Transactions Table Card */}
+              <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg overflow-hidden border border-gray-100 dark:border-gray-700">
+                <div className="p-6 border-b dark:border-gray-700 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                  <div>
+                    <h2 className="text-xl font-bold text-gray-900 dark:text-white">Student Transactions & Payment Log</h2>
+                    <p className="text-xs text-gray-500 mt-0.5">Live transaction audit fetched directly from Supabase database</p>
                   </div>
-                  {analytics.pendingVerifications.length > 0 ? (
-                    <div className="overflow-x-auto"><table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-                        <thead className="bg-gray-50 dark:bg-gray-900"><tr>
-                            <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase">Student</th>
-                            <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase">Amount</th>
-                            <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase">Actions</th>
-                        </tr></thead>
-                        <tbody className="divide-y divide-gray-100 dark:divide-gray-700">{analytics.pendingVerifications.map(item => (<tr key={item.id}>
-                            <td className="px-6 py-4 font-medium">{item.full_name}</td>
-                            <td className="px-6 py-4 font-bold text-brand-600">${item.total_price}</td>
-                            <td className="px-6 py-4"><div className="flex gap-2">
-                                <button onClick={() => setSelectedBooking(item)} className="bg-brand-100 text-brand-700 px-3 py-1.5 rounded-md text-xs font-bold">Review Details</button>
-                                <button onClick={() => handleApprove(item.id)} className="bg-green-100 text-green-700 px-3 py-1.5 rounded-md text-xs font-bold">Quick Approve</button>
-                            </div></td>
-                        </tr>))}</tbody>
-                    </table></div>
-                  ) : <div className="p-12 text-center text-gray-500">No pending verifications.</div>}
-               </div>
 
-               <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg overflow-hidden border border-gray-100 dark:border-gray-700">
-                  <div className="px-6 py-4 border-b dark:border-gray-700 flex justify-between items-center">
-                    <h2 className="text-xl font-bold">Awaiting Payment</h2>
-                    <span className="bg-accent-100 text-accent-700 px-2 py-1 rounded text-[10px] font-bold uppercase">Waiting for Student</span>
+                  <div className="flex flex-wrap items-center gap-3">
+                    <input 
+                      type="text"
+                      placeholder="Search TRX ID, student, room..."
+                      value={trxSearchQuery}
+                      onChange={(e) => setTrxSearchQuery(e.target.value)}
+                      className="px-3 py-2 text-xs border rounded-xl dark:bg-gray-700 dark:border-gray-600 font-medium"
+                    />
+
+                    <select
+                      value={trxStatusFilter}
+                      onChange={(e) => setTrxStatusFilter(e.target.value as any)}
+                      className="px-3 py-2 text-xs font-bold border rounded-xl bg-gray-50 dark:bg-gray-700 dark:border-gray-600"
+                    >
+                      <option value="all">All Statuses</option>
+                      <option value="pending_verification">Pending Verification</option>
+                      <option value="pending_payment">Awaiting Payment</option>
+                      <option value="confirmed">Confirmed / Paid</option>
+                      <option value="cancelled">Cancelled</option>
+                    </select>
                   </div>
-                  {analytics.pendingPayments.length > 0 ? (
-                    <div className="overflow-x-auto"><table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-                        <thead className="bg-gray-50 dark:bg-gray-900"><tr>
-                            <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase">Student</th>
-                            <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase">Amount</th>
-                            <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase">Contact</th>
-                        </tr></thead>
-                        <tbody className="divide-y divide-gray-100 dark:divide-gray-700">{analytics.pendingPayments.map(item => (<tr key={item.id}>
-                            <td className="px-6 py-4 font-medium">{item.full_name}</td>
-                            <td className="px-6 py-4 font-bold text-brand-600">${item.total_price}</td>
-                            <td className="px-6 py-4">
-                              <div className="flex flex-col gap-1">
-                                <p className="text-xs text-gray-500">{item.email}</p>
-                                <p className="text-xs text-gray-500">{item.phone_number}</p>
-                              </div>
-                            </td>
-                        </tr>))}</tbody>
-                    </table></div>
-                  ) : <div className="p-12 text-center text-gray-500">No bookings awaiting payment.</div>}
-               </div>
-             </div>
-          )}
-
-          {activeTab === 'rooms' && (
-             <div className="space-y-6">
-                {/* Summary Metrics Bar */}
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                   <div className="bg-white dark:bg-gray-800 p-4 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm">
-                      <p className="text-xs font-bold text-gray-500 uppercase">Total Bed Spaces</p>
-                      <p className="text-2xl font-black text-gray-900 dark:text-white mt-1">{parsedRoomSpaces.length}</p>
-                   </div>
-                   <div className="bg-white dark:bg-gray-800 p-4 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm">
-                      <p className="text-xs font-bold text-green-600 dark:text-green-400 uppercase">Available Beds</p>
-                      <p className="text-2xl font-black text-green-700 dark:text-green-300 mt-1">
-                         {parsedRoomSpaces.filter(s => !s.isOccupied).length}
-                      </p>
-                   </div>
-                   <div className="bg-white dark:bg-gray-800 p-4 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm">
-                      <p className="text-xs font-bold text-amber-600 dark:text-amber-400 uppercase">Occupied Beds</p>
-                      <p className="text-2xl font-black text-amber-700 dark:text-amber-300 mt-1">
-                         {parsedRoomSpaces.filter(s => s.isOccupied).length}
-                      </p>
-                   </div>
-                   <div className="bg-white dark:bg-gray-800 p-4 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm">
-                      <p className="text-xs font-bold text-brand-600 dark:text-brand-400 uppercase">Occupancy Rate</p>
-                      <p className="text-2xl font-black text-brand-700 dark:text-brand-300 mt-1">
-                         {parsedRoomSpaces.length > 0 
-                            ? `${Math.round((parsedRoomSpaces.filter(s => s.isOccupied).length / parsedRoomSpaces.length) * 100)}%` 
-                            : '0%'}
-                      </p>
-                   </div>
                 </div>
 
-                {/* Main Table Card */}
-                <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg overflow-hidden border border-gray-100 dark:border-gray-700">
-                   <div className="p-6 border-b dark:border-gray-700 flex flex-col md:flex-row md:items-center justify-between gap-4">
-                      <div>
-                         <h2 className="text-xl font-bold text-gray-900 dark:text-white">{t.manageRooms}</h2>
-                         <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-                            Synchronized live with student booking engine and Supabase backend data
-                         </p>
-                      </div>
+                <div className="overflow-x-auto">
+                  <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                    <thead className="bg-gray-50 dark:bg-gray-900">
+                      <tr>
+                        <th className="px-6 py-3.5 text-left text-xs font-bold text-gray-500 uppercase">TRX Ref ID</th>
+                        <th className="px-6 py-3.5 text-left text-xs font-bold text-gray-500 uppercase">Student</th>
+                        <th className="px-6 py-3.5 text-left text-xs font-bold text-gray-500 uppercase">Type / Description</th>
+                        <th className="px-6 py-3.5 text-left text-xs font-bold text-gray-500 uppercase">Amount</th>
+                        <th className="px-6 py-3.5 text-left text-xs font-bold text-gray-500 uppercase">Status</th>
+                        <th className="px-6 py-3.5 text-left text-xs font-bold text-gray-500 uppercase">Date</th>
+                        <th className="px-6 py-3.5 text-left text-xs font-bold text-gray-500 uppercase">Accommodation</th>
+                        <th className="px-6 py-3.5 text-left text-xs font-bold text-gray-500 uppercase">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-100 dark:divide-gray-700 bg-white dark:bg-gray-800">
+                      {filteredTransactions.length > 0 ? (
+                        filteredTransactions.map(trx => {
+                          const liveDetails = getLiveStudentRoomDetails(trx, rooms);
+                          return (
+                            <tr key={trx.id} className="hover:bg-gray-50/70 dark:hover:bg-gray-750 transition-colors">
+                              <td className="px-6 py-4 font-mono font-bold text-xs text-brand-600 dark:text-brand-400">
+                                BK{trx.id}
+                              </td>
+                              <td className="px-6 py-4">
+                                <div className="font-bold text-sm text-gray-900 dark:text-white">{trx.full_name}</div>
+                                <div className="text-[11px] text-gray-500 font-mono">{trx.email}</div>
+                              </td>
+                              <td className="px-6 py-4 text-xs font-semibold text-gray-700 dark:text-gray-300">
+                                Security Deposit + Residency Rent
+                              </td>
+                              <td className="px-6 py-4 font-black text-sm text-gray-900 dark:text-white">
+                                ${trx.total_price || 0}
+                              </td>
+                              <td className="px-6 py-4">
+                                <BookingStatusBadge status={trx.status} />
+                              </td>
+                              <td className="px-6 py-4 text-xs text-gray-500">
+                                {new Date(trx.booked_at).toLocaleDateString()}
+                              </td>
+                              <td className="px-6 py-4">
+                                <span className="font-bold text-xs text-gray-800 dark:text-gray-200">
+                                  {liveDetails.category} - {liveDetails.roomName}
+                                </span>
+                              </td>
+                              <td className="px-6 py-4">
+                                <div className="flex items-center gap-2">
+                                  <button
+                                    onClick={() => setSelectedBooking(trx)}
+                                    className="bg-brand-50 hover:bg-brand-100 text-brand-700 dark:bg-brand-950/40 dark:text-brand-300 text-xs font-bold px-3 py-1.5 rounded-lg border border-brand-200/50"
+                                  >
+                                    Details
+                                  </button>
+                                  {trx.status === BookingStatus.PENDING_VERIFICATION && (
+                                    <button
+                                      onClick={() => handleApprove(trx.id)}
+                                      className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold px-3 py-1.5 rounded-lg shadow-sm"
+                                    >
+                                      Approve
+                                    </button>
+                                  )}
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        })
+                      ) : (
+                        <tr>
+                          <td colSpan={8} className="px-6 py-12 text-center text-gray-500 text-sm">
+                            No transaction records found.
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          )}
 
+          {/* BOOKINGS TAB */}
+          {activeTab === 'bookings' && (
+             <div className="space-y-6">
+                <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-6 border border-gray-100 dark:border-gray-700 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                  <div>
+                    <h2 className="text-xl font-bold text-gray-900 dark:text-white">Bookings & Residency Management</h2>
+                    <p className="text-xs text-gray-500 mt-0.5">Manage existing student residency bookings or create admin-initiated bookings</p>
+                  </div>
+                  <button
+                    onClick={() => setIsAdminBookingModalOpen(true)}
+                    className="bg-brand-600 hover:bg-brand-700 text-white px-5 py-2.5 rounded-xl text-xs font-bold flex items-center gap-2 shadow-md transition-all"
+                  >
+                    <IconPlus className="w-4 h-4" /> Book Room for Student
+                  </button>
+                </div>
+
+                {/* Main Bookings Table Card */}
+                <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg overflow-hidden border border-gray-100 dark:border-gray-700">
+                   <div className="p-6 border-b dark:border-gray-700 flex flex-col md:flex-row md:items-center justify-between gap-4">
                       <div className="flex flex-wrap items-center gap-3">
-                         {/* Search Filter */}
                          <input 
                             type="text"
                             placeholder="Search room, bed, student..."
                             value={roomSearchQuery}
                             onChange={(e) => setRoomSearchQuery(e.target.value)}
-                            className="px-3 py-1.5 text-xs border rounded-lg dark:bg-gray-700 dark:border-gray-600 dark:text-white focus:ring-1 focus:ring-brand-500"
+                            className="px-3 py-2 text-xs border rounded-xl dark:bg-gray-700 dark:border-gray-600 dark:text-white focus:ring-1 focus:ring-brand-500"
                          />
 
-                         {/* Accommodation Category Filter */}
                          <select
                             value={roomCategoryFilter}
                             onChange={(e) => setRoomCategoryFilter(e.target.value as any)}
-                            className="px-3 py-1.5 text-xs font-bold border rounded-lg bg-gray-50 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                            className="px-3 py-2 text-xs font-bold border rounded-xl bg-gray-50 dark:bg-gray-700 dark:border-gray-600"
                          >
                             <option value="all">All Accommodations</option>
                             <option value="Premium 1">Premium 1</option>
@@ -1010,15 +1066,14 @@ const AdminDashboardPage: React.FC = () => {
                             <option value="Standard">Standard</option>
                          </select>
 
-                         {/* Bed Availability Status Filter */}
-                         <div className="flex bg-gray-100 dark:bg-gray-700 rounded-lg p-1">
+                         <div className="flex bg-gray-100 dark:bg-gray-700 rounded-xl p-1">
                             {(['all', 'available', 'occupied'] as const).map(f => (
                                <button 
                                   key={f} 
                                   onClick={() => setRoomFilter(f)} 
-                                  className={`px-3 py-1 text-xs font-bold rounded-md capitalize transition-all ${
+                                  className={`px-3 py-1 text-xs font-bold rounded-lg capitalize transition-all ${
                                      roomFilter === f 
-                                        ? 'bg-white dark:bg-gray-600 text-brand-600 dark:text-brand-400 shadow-sm' 
+                                        ? 'bg-white dark:bg-gray-600 text-brand-600 shadow-sm' 
                                         : 'text-gray-500 dark:text-gray-400'
                                   }`}
                                >
@@ -1026,28 +1081,20 @@ const AdminDashboardPage: React.FC = () => {
                                </button>
                             ))}
                          </div>
-
-                         <button 
-                            onClick={() => handleOpenRoomModal(null)} 
-                            className="bg-brand-600 hover:bg-brand-700 text-white px-4 py-2 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-colors shadow-sm"
-                         >
-                            + {t.addNewRoom}
-                         </button>
                       </div>
                    </div>
 
-                   {/* Synchronized Room Table */}
                    <div className="overflow-x-auto">
                       <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
                          <thead className="bg-gray-50 dark:bg-gray-900">
                             <tr>
-                               <th className="px-6 py-3.5 text-left text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Accommodation</th>
-                               <th className="px-6 py-3.5 text-left text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Room Number</th>
-                               <th className="px-6 py-3.5 text-left text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Bed Spaces</th>
-                               <th className="px-6 py-3.5 text-left text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Room Type</th>
-                               <th className="px-6 py-3.5 text-left text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Bed Status</th>
-                               <th className="px-6 py-3.5 text-left text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Next Available Date</th>
-                               <th className="px-6 py-3.5 text-left text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Actions</th>
+                               <th className="px-6 py-3.5 text-left text-xs font-bold text-gray-500 uppercase">Accommodation</th>
+                               <th className="px-6 py-3.5 text-left text-xs font-bold text-gray-500 uppercase">Room Number</th>
+                               <th className="px-6 py-3.5 text-left text-xs font-bold text-gray-500 uppercase">Bed Space</th>
+                               <th className="px-6 py-3.5 text-left text-xs font-bold text-gray-500 uppercase">Room Type</th>
+                               <th className="px-6 py-3.5 text-left text-xs font-bold text-gray-500 uppercase">Bed Status</th>
+                               <th className="px-6 py-3.5 text-left text-xs font-bold text-gray-500 uppercase">Current Student</th>
+                               <th className="px-6 py-3.5 text-left text-xs font-bold text-gray-500 uppercase">Actions</th>
                             </tr>
                          </thead>
                          <tbody className="divide-y divide-gray-100 dark:divide-gray-700 bg-white dark:bg-gray-800">
@@ -1055,89 +1102,64 @@ const AdminDashboardPage: React.FC = () => {
                                filteredRoomSpaces.map(space => {
                                   return (
                                      <tr key={space.id} className="hover:bg-gray-50/70 dark:hover:bg-gray-750 transition-colors">
-                                        {/* Accommodation */}
                                         <td className="px-6 py-4">
-                                           <div className="flex flex-col gap-1">
-                                              <span className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-black uppercase bg-brand-50 text-brand-700 dark:bg-brand-900/30 dark:text-brand-300 border border-brand-200/50 dark:border-brand-800/40 w-fit">
-                                                 {space.category}
-                                              </span>
-                                              <span className="text-[10px] text-gray-500 dark:text-gray-400 font-medium max-w-[200px]" title={getAccommodationAddress(space.category)}>
-                                                 📍 {getAccommodationAddress(space.category)}
-                                              </span>
-                                           </div>
-                                        </td>
-
-                                        {/* Room Number */}
-                                        <td className="px-6 py-4">
-                                           <span className="font-bold text-sm text-gray-900 dark:text-white">
-                                              {space.roomName}
+                                           <span className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-black uppercase bg-brand-50 text-brand-700 dark:bg-brand-900/30 dark:text-brand-300">
+                                              {space.category}
                                            </span>
                                         </td>
-
-                                        {/* Bed Spaces */}
-                                        <td className="px-6 py-4">
-                                           <span className="font-bold text-xs text-gray-800 dark:text-gray-200">
-                                              {space.bedSpaceName}
-                                           </span>
+                                        <td className="px-6 py-4 font-bold text-sm text-gray-900 dark:text-white">
+                                           {space.roomName}
                                         </td>
-
-                                        {/* Room Type */}
+                                        <td className="px-6 py-4 font-bold text-xs text-gray-800 dark:text-gray-200">
+                                           {space.bedSpaceName}
+                                        </td>
                                         <td className="px-6 py-4">
-                                           <span className={`text-xs font-bold px-2.5 py-1 rounded-md ${
-                                              space.type === 'Private' 
-                                                 ? 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300' 
-                                                 : 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300'
-                                           }`}>
+                                           <span className="text-xs font-bold px-2.5 py-1 rounded-md bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300">
                                               {space.type}
                                            </span>
                                         </td>
-
-                                        {/* Bed Status */}
                                         <td className="px-6 py-4">
-                                           <div className="flex flex-col gap-1">
-                                              <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 text-xs rounded-full font-bold w-fit ${
-                                                 space.isOccupied
-                                                    ? 'bg-amber-100 text-amber-800 dark:bg-amber-950/40 dark:text-amber-400'
-                                                    : 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-400'
-                                              }`}>
-                                                 <span className={`w-1.5 h-1.5 rounded-full ${space.isOccupied ? 'bg-amber-600' : 'bg-emerald-600'}`} />
-                                                 {space.isOccupied ? 'Occupied' : 'Available'}
-                                              </span>
-                                              {space.isOccupied && space.booking && (
-                                                 <span className="text-[11px] text-gray-500 dark:text-gray-400 font-medium truncate max-w-[180px]">
-                                                    👤 {space.booking.full_name || space.booking.student_name || space.booking.profiles?.full_name || 'Student'}
-                                                 </span>
-                                              )}
-                                           </div>
-                                        </td>
-
-                                        {/* Next Available Date */}
-                                        <td className="px-6 py-4">
-                                           <span className={`text-xs font-bold ${
-                                              space.nextAvailableDate === 'Available Now' 
-                                                 ? 'text-emerald-600 dark:text-emerald-400' 
-                                                 : 'text-gray-800 dark:text-gray-200'
+                                           <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 text-xs rounded-full font-bold ${
+                                              space.isOccupied ? 'bg-amber-100 text-amber-800' : 'bg-emerald-100 text-emerald-800'
                                            }`}>
-                                              {space.nextAvailableDate}
+                                              {space.isOccupied ? 'Occupied' : 'Vacant / Available'}
                                            </span>
                                         </td>
-
-                                        {/* Actions */}
                                         <td className="px-6 py-4">
-                                           <button 
-                                              onClick={() => handleOpenRoomModal(space.dbRoom)} 
-                                              className="bg-gray-100 hover:bg-brand-50 text-brand-600 dark:bg-gray-700 dark:hover:bg-brand-900/30 dark:text-brand-400 text-xs font-bold px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1 border border-gray-200 dark:border-gray-600"
-                                           >
-                                              <IconEdit className="w-3.5 h-3.5" /> Edit
-                                           </button>
+                                           {space.isOccupied && space.booking ? (
+                                              <div className="text-xs">
+                                                 <p className="font-bold text-gray-900 dark:text-white">{space.booking.full_name}</p>
+                                                 <p className="text-[10px] text-gray-500 font-mono">{space.booking.email}</p>
+                                              </div>
+                                           ) : (
+                                              <span className="text-xs text-gray-400 italic">None</span>
+                                           )}
+                                        </td>
+                                        <td className="px-6 py-4">
+                                           <div className="flex gap-2">
+                                              {space.booking && (
+                                                 <button 
+                                                    onClick={() => setSelectedBooking(space.booking)} 
+                                                    className="bg-brand-50 text-brand-600 hover:bg-brand-100 text-xs font-bold px-3 py-1.5 rounded-lg border border-brand-200"
+                                                 >
+                                                    View Booking
+                                                 </button>
+                                              )}
+                                              <button 
+                                                 onClick={() => handleOpenRoomModal(space.dbRoom)} 
+                                                 className="bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-bold px-3 py-1.5 rounded-lg"
+                                              >
+                                                 Edit Room
+                                              </button>
+                                           </div>
                                         </td>
                                      </tr>
                                   );
                                })
                             ) : (
                                <tr>
-                                  <td colSpan={7} className="px-6 py-12 text-center text-gray-500 dark:text-gray-400 text-sm">
-                                     No rooms or bed spaces match the selected filters.
+                                  <td colSpan={7} className="px-6 py-12 text-center text-gray-500 text-sm">
+                                     No rooms match selected filters.
                                   </td>
                                </tr>
                             )}
@@ -1148,172 +1170,210 @@ const AdminDashboardPage: React.FC = () => {
              </div>
           )}
 
+          {/* UNIQUE REGISTERED STUDENTS TAB */}
           {activeTab === 'students' && (
-             <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg overflow-hidden border border-gray-100 dark:border-gray-700">
-                <div className="px-6 py-4 border-b dark:border-gray-700 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                  <div className="flex items-center gap-3">
-                    <h2 className="text-xl font-bold">{t.studentsList}</h2>
-                    {selectedBookingIds.length > 0 && (
-                      <span className="bg-brand-50 text-brand-700 dark:bg-brand-900/30 dark:text-brand-300 text-xs px-2.5 py-1 rounded-full font-bold">
-                        {selectedBookingIds.length} Selected
-                      </span>
-                    )}
+             <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg overflow-hidden border border-gray-100 dark:border-gray-700">
+                <div className="px-6 py-5 border-b dark:border-gray-700 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                  <div>
+                    <h2 className="text-xl font-bold text-gray-900 dark:text-white">Registered Unique Students</h2>
+                    <p className="text-xs text-gray-500 mt-0.5">Unique student profiles registered in the system with their assigned rooms and booking histories</p>
                   </div>
-                  <div className="flex flex-wrap items-center gap-2">
+                  
+                  <div className="flex flex-wrap items-center gap-3">
                     {selectedBookingIds.length > 0 && (
-                      <div className="flex items-center gap-2">
-                        <button
-                          onClick={handleBulkDeleteStudents}
-                          className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg text-xs font-bold transition-colors flex items-center gap-1.5 shadow-sm"
-                        >
-                          <IconTrash className="w-3.5 h-3.5" /> Delete Selected ({selectedBookingIds.length})
-                        </button>
-                        <button
-                          onClick={() => setSelectedBookingIds([])}
-                          className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-white text-xs font-bold px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-lg"
-                        >
-                          Deselect All
-                        </button>
-                      </div>
+                      <button
+                        onClick={handleBulkDeleteStudents}
+                        className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-sm"
+                      >
+                        <IconTrash className="w-3.5 h-3.5" /> Delete Selected ({selectedBookingIds.length})
+                      </button>
                     )}
                     <button 
                       onClick={exportToCSV}
-                      className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-xs font-bold transition-colors flex items-center gap-2"
+                      className="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-xl text-xs font-bold transition-colors flex items-center gap-2 shadow-sm"
                     >
                       📥 Export CSV
                     </button>
                   </div>
                 </div>
-                <div className="overflow-x-auto"><table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-                    <thead className="bg-gray-50 dark:bg-gray-900"><tr>
-                        <th className="px-6 py-3 text-left w-12">
-                          <input 
-                            type="checkbox"
-                            className="w-4 h-4 rounded border-gray-300 dark:border-gray-600 text-brand-600 focus:ring-brand-500 cursor-pointer"
-                            checked={sortedBookings.length > 0 && selectedBookingIds.length === sortedBookings.length}
-                            onChange={(e) => {
-                              if (e.target.checked) {
-                                setSelectedBookingIds(sortedBookings.map(b => b.id));
-                              } else {
-                                setSelectedBookingIds([]);
-                              }
-                            }}
-                          />
-                        </th>
-                        <th 
-                          className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase cursor-pointer hover:text-brand-600"
-                          onClick={() => setStudentSort({ field: 'full_name', direction: studentSort.field === 'full_name' && studentSort.direction === 'asc' ? 'desc' : 'asc' })}
-                        >
-                          Student Name {studentSort.field === 'full_name' && (studentSort.direction === 'asc' ? '↑' : '↓')}
-                        </th>
-                        <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase">Accommodation</th>
-                        <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase">Room Name/Number</th>
-                        <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase">Bed Space</th>
-                        <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase">Arrival Date</th>
-                        <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase">Expiry Date</th>
-                        <th 
-                          className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase cursor-pointer hover:text-brand-600"
-                          onClick={() => setStudentSort({ field: 'status', direction: studentSort.field === 'status' && studentSort.direction === 'asc' ? 'desc' : 'asc' })}
-                        >
-                          Status {studentSort.field === 'status' && (studentSort.direction === 'asc' ? '↑' : '↓')}
-                        </th>
-                        <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase">Actions</th>
-                    </tr></thead>
-                    <tbody className="divide-y divide-gray-100 dark:divide-gray-700">{sortedBookings.map(booking => {
-                        const roomDetails = getLiveStudentRoomDetails(booking, rooms);
+
+                <div className="overflow-x-auto">
+                  <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                    <thead className="bg-gray-50 dark:bg-gray-900">
+                      <tr>
+                        <th className="px-6 py-3.5 text-left text-xs font-bold text-gray-500 uppercase">Student Name</th>
+                        <th className="px-6 py-3.5 text-left text-xs font-bold text-gray-500 uppercase">Accommodation</th>
+                        <th className="px-6 py-3.5 text-left text-xs font-bold text-gray-500 uppercase">Room Name/Number</th>
+                        <th className="px-6 py-3.5 text-left text-xs font-bold text-gray-500 uppercase">Bed Space</th>
+                        <th className="px-6 py-3.5 text-left text-xs font-bold text-gray-500 uppercase">Booking Status</th>
+                        <th className="px-6 py-3.5 text-left text-xs font-bold text-gray-500 uppercase">Arrival Date</th>
+                        <th className="px-6 py-3.5 text-left text-xs font-bold text-gray-500 uppercase">Expiry Date</th>
+                        <th className="px-6 py-3.5 text-left text-xs font-bold text-gray-500 uppercase">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-100 dark:divide-gray-700 bg-white dark:bg-gray-800">
+                      {uniqueStudentRecords.map(({ student, activeBooking, liveDetails }) => {
                         return (
-                          <tr key={booking.id} className="hover:bg-gray-50/70 dark:hover:bg-gray-750 transition-colors">
-                            <td className="px-6 py-4 w-12">
-                              <input 
-                                type="checkbox"
-                                className="w-4 h-4 rounded border-gray-300 dark:border-gray-600 text-brand-600 focus:ring-brand-500 cursor-pointer"
-                                checked={selectedBookingIds.includes(booking.id)}
-                                onChange={(e) => {
-                                  if (e.target.checked) {
-                                    setSelectedBookingIds(prev => [...prev, booking.id]);
-                                  } else {
-                                    setSelectedBookingIds(prev => prev.filter(id => id !== booking.id));
-                                  }
-                                }}
-                              />
+                          <tr key={student.id} className="hover:bg-gray-50/70 dark:hover:bg-gray-750 transition-colors">
+                            <td className="px-6 py-4">
+                              <div className="font-bold text-gray-900 dark:text-white text-sm">{student.full_name}</div>
+                              <div className="text-[11px] text-gray-500 font-mono">{student.email}</div>
+                              {student.phone_number && <div className="text-[10px] text-gray-400">{student.phone_number}</div>}
                             </td>
                             <td className="px-6 py-4">
-                              <div className="font-bold text-gray-900 dark:text-white text-sm">{booking.full_name}</div>
-                              <div className="text-[11px] text-gray-500 font-mono">{booking.email}</div>
-                            </td>
-                            <td className="px-6 py-4">
-                              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-black bg-brand-50 text-brand-700 dark:bg-brand-950/40 dark:text-brand-300 border border-brand-200/60 dark:border-brand-800/40">
-                                {roomDetails.category}
+                              <span className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-black bg-brand-50 text-brand-700 dark:bg-brand-950/40 dark:text-brand-300">
+                                {liveDetails?.category || 'N/A'}
                               </span>
-                              <p className="text-[10px] text-gray-500 dark:text-gray-400 mt-1 max-w-[170px] truncate" title={roomDetails.address}>
-                                📍 {roomDetails.address}
-                              </p>
                             </td>
                             <td className="px-6 py-4 text-xs font-bold text-gray-800 dark:text-gray-200">
-                              {roomDetails.roomName}
+                              {liveDetails?.roomName || 'Unassigned'}
                             </td>
                             <td className="px-6 py-4 text-xs font-semibold text-brand-600 dark:text-brand-400">
-                              {roomDetails.bedSpaceName}
+                              {liveDetails?.bedSpaceName || 'N/A'}
+                            </td>
+                            <td className="px-6 py-4">
+                              {activeBooking ? (
+                                <BookingStatusBadge status={activeBooking.status} />
+                              ) : (
+                                <span className="text-xs text-gray-400 font-medium">No Active Booking</span>
+                              )}
                             </td>
                             <td className="px-6 py-4 text-xs font-medium text-gray-700 dark:text-gray-300">
-                              {booking.expected_arrival_date ? new Date(booking.expected_arrival_date).toLocaleDateString() : 'N/A'}
+                              {activeBooking?.expected_arrival_date ? new Date(activeBooking.expected_arrival_date).toLocaleDateString() : 'N/A'}
                             </td>
                             <td className="px-6 py-4 text-xs font-bold text-red-600 dark:text-red-400">
-                              {booking.payment_expiry_date ? new Date(booking.payment_expiry_date).toLocaleDateString() : 'N/A'}
+                              {activeBooking?.payment_expiry_date ? new Date(activeBooking.payment_expiry_date).toLocaleDateString() : 'N/A'}
                             </td>
-                            <td className="px-6 py-4"><BookingStatusBadge status={booking.status} /></td>
                             <td className="px-6 py-4">
-                                <div className="flex gap-3 items-center">
-                                    <div className="flex flex-col gap-2">
-                                        <button onClick={() => setSelectedBooking(booking)} className="text-brand-600 hover:text-brand-700 text-xs font-bold underline text-left">View</button>
-                                        <button 
-                                            onClick={() => handleDeleteStudent(booking.id, booking.full_name)} 
-                                            className="text-red-500 hover:text-red-700 text-xs font-bold underline text-left flex items-center gap-1"
-                                            title="Delete Student Record"
-                                        >
-                                            <IconTrash className="w-3.5 h-3.5" /> Delete
-                                        </button>
-                                    </div>
-                                    <div className="flex flex-col gap-1">
-                                        <button 
-                                            onClick={() => {
-                                              sendEmail({
-                                                to: booking.email,
-                                                subject: `Reminder: Your Arrival at Al-Ibaanah Student Residency is Tomorrow!`,
-                                                body: `Dear ${booking.full_name},\n\nThis is a friendly reminder that your scheduled arrival date at Al-Ibaanah Student Residency is tomorrow (${booking.expected_arrival_date || 'scheduled soon'})!\n\nPlease ensure you have uploaded your security deposit transfer confirmation on your dashboard to complete checking-in clearance.\n\nWarm regards,\nAl-Ibaanah Student Residency Team`
-                                              });
-                                              alert(`Arrival reminder email sent to ${booking.email}`);
-                                            }}
-                                            className="bg-brand-50 text-brand-600 px-2 py-1 rounded text-[9px] font-black uppercase tracking-wider hover:bg-brand-100 text-center"
-                                        >
-                                            ⏰ Arrival Remind
-                                        </button>
-                                        <button 
-                                            onClick={() => {
-                                              sendEmail({
-                                                to: booking.email,
-                                                subject: `Urgent Reminder: Your Monthly Rent Payment is Due in 1 Week`,
-                                                body: `Dear ${booking.full_name},\n\nThis is a professional reminder that your monthly rent/subscription payment for ${roomDetails.roomName} (${roomDetails.bedSpaceName}) in ${roomDetails.category} is due in exactly one week on ${booking.payment_expiry_date || 'scheduled next payment'}.\n\nPlease prepare to execute the bank transfer or Remitly transfer of your subscription rate.\n\nWarm regards,\nAl-Ibaanah Student Residency Team`
-                                              });
-                                              alert(`Rent due reminder email sent to ${booking.email}`);
-                                            }}
-                                            className="bg-amber-50 text-amber-700 px-2 py-1 rounded text-[9px] font-black uppercase tracking-wider hover:bg-amber-100 text-center"
-                                        >
-                                            💰 Rent Remind
-                                        </button>
-                                    </div>
-                                </div>
+                              <div className="flex gap-2 items-center">
+                                <button 
+                                  onClick={() => {
+                                    setSelectedStudentForDetails(student);
+                                    setIsStudentDetailsModalOpen(true);
+                                  }} 
+                                  className="bg-brand-600 hover:bg-brand-700 text-white text-xs font-bold px-3 py-1.5 rounded-lg shadow-sm"
+                                >
+                                  View Profile
+                                </button>
+
+                                {activeBooking && (
+                                  <button 
+                                    onClick={() => handleDeleteStudent(activeBooking.id, student.full_name)} 
+                                    className="text-red-500 hover:text-red-700 text-xs font-bold p-1"
+                                    title="Delete Student Booking"
+                                  >
+                                    <IconTrash className="w-4 h-4" />
+                                  </button>
+                                )}
+                              </div>
                             </td>
-                        </tr>
-                      );
-                    })}</tbody>
-                </table></div>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
              </div>
           )}
 
+          {/* CMS & ROOMS TAB */}
           {activeTab === 'cms' && (
             <div className="space-y-8">
-              <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 border border-gray-100 dark:border-gray-700">
+              {/* Sub-tab Navigation Bar for CMS */}
+              <div className="flex border-b border-gray-200 dark:border-gray-700 gap-4 bg-white dark:bg-gray-800 p-3 rounded-2xl shadow-sm overflow-x-auto">
+                <button
+                  onClick={() => setCmsSubTab('rooms')}
+                  className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${cmsSubTab === 'rooms' ? 'bg-brand-600 text-white shadow-sm' : 'text-gray-500 hover:text-gray-800'}`}
+                >
+                  🚪 Room & Accommodations Management
+                </button>
+                <button
+                  onClick={() => setCmsSubTab('branding')}
+                  className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${cmsSubTab === 'branding' ? 'bg-brand-600 text-white shadow-sm' : 'text-gray-500 hover:text-gray-800'}`}
+                >
+                  🎨 Landing Page Branding
+                </button>
+                <button
+                  onClick={() => setCmsSubTab('media')}
+                  className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${cmsSubTab === 'media' ? 'bg-brand-600 text-white shadow-sm' : 'text-gray-500 hover:text-gray-800'}`}
+                >
+                  📷 Accommodation Media & Perks
+                </button>
+                <button
+                  onClick={() => setCmsSubTab('contracts')}
+                  className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${cmsSubTab === 'contracts' ? 'bg-brand-600 text-white shadow-sm' : 'text-gray-500 hover:text-gray-800'}`}
+                >
+                  📄 Contract Templates
+                </button>
+                <button
+                  onClick={() => setCmsSubTab('faqs')}
+                  className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${cmsSubTab === 'faqs' ? 'bg-brand-600 text-white shadow-sm' : 'text-gray-500 hover:text-gray-800'}`}
+                >
+                  ❓ FAQs & Announcements
+                </button>
+              </div>
+
+              {/* ROOM & ACCOMMODATION MANAGEMENT SUB-SECTION */}
+              {cmsSubTab === 'rooms' && (
+                <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-6 border border-gray-100 dark:border-gray-700 space-y-6">
+                  <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b dark:border-gray-700 pb-4">
+                    <div>
+                      <h2 className="text-xl font-bold text-gray-900 dark:text-white">Rooms & Bed Spaces Database</h2>
+                      <p className="text-xs text-gray-500 mt-0.5">Manage building rooms, bed capacities, category pricing, and availability</p>
+                    </div>
+                    <button
+                      onClick={() => handleOpenRoomModal(null)}
+                      className="bg-brand-600 hover:bg-brand-700 text-white px-5 py-2.5 rounded-xl text-xs font-bold flex items-center gap-2 shadow-md transition-all"
+                    >
+                      <IconPlus className="w-4 h-4" /> Add New Room
+                    </button>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {rooms.map(room => (
+                      <div key={room.id} className="border dark:border-gray-700 rounded-2xl p-5 space-y-4 bg-gray-50/50 dark:bg-gray-900/30 hover:border-brand-500 transition-colors">
+                        <div className="flex justify-between items-start">
+                          <div>
+                            <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded bg-brand-100 text-brand-700 dark:bg-brand-950/40 dark:text-brand-300">
+                              {room.category || 'Standard'}
+                            </span>
+                            <h3 className="text-lg font-bold text-gray-900 dark:text-white mt-1">Room {room.room_number}</h3>
+                          </div>
+                          <span className={`text-xs font-bold px-2 py-1 rounded-full ${room.is_available ? 'bg-emerald-100 text-emerald-800' : 'bg-red-100 text-red-800'}`}>
+                            {room.is_available ? 'Available' : 'Full / Maintenance'}
+                          </span>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-2 text-xs text-gray-600 dark:text-gray-300">
+                          <div><span className="font-bold text-gray-400">Type:</span> {room.type}</div>
+                          <div><span className="font-bold text-gray-400">Bed Capacity:</span> {room.capacity}</div>
+                          <div><span className="font-bold text-gray-400">Price/Mo:</span> ${room.price_per_month}</div>
+                          <div><span className="font-bold text-gray-400">Gender:</span> {room.gender_restriction}</div>
+                        </div>
+
+                        <div className="pt-3 border-t dark:border-gray-700 flex justify-end gap-2">
+                          <button
+                            onClick={() => handleOpenRoomModal(room)}
+                            className="bg-brand-50 text-brand-600 hover:bg-brand-100 px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1"
+                          >
+                            <IconEdit className="w-3.5 h-3.5" /> Edit
+                          </button>
+                          <button
+                            onClick={() => handleDeleteRoom(room.id, room.room_number)}
+                            className="bg-red-50 text-red-600 hover:bg-red-100 px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1"
+                          >
+                            <IconTrash className="w-3.5 h-3.5" /> Delete
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* BRANDING SUB-SECTION */}
+              {cmsSubTab === 'branding' && (
+                <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-6 border border-gray-100 dark:border-gray-700 space-y-6">
                   <div className="flex items-center mb-6"><IconEdit className="w-6 h-6 text-brand-600 mr-2" /><h2 className="text-xl font-bold">Landing Page Content (English)</h2></div>
                   <div className="space-y-6">
                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -1343,223 +1403,55 @@ const AdminDashboardPage: React.FC = () => {
                      <div><label className="block text-sm font-bold mb-1">Hero Title (EN)</label><input type="text" value={cmsContent.hero.en?.title} onChange={(e) => updateCmsContent({ hero: { ...cmsContent.hero, en: { ...cmsContent.hero.en!, title: e.target.value } } })} className="w-full p-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600" /></div>
                      <div><label className="block text-sm font-bold mb-1">Hero Subtitle (EN)</label><textarea value={cmsContent.hero.en?.subtitle} onChange={(e) => updateCmsContent({ hero: { ...cmsContent.hero, en: { ...cmsContent.hero.en!, subtitle: e.target.value } } })} className="w-full p-2 border rounded-lg h-24 dark:bg-gray-700 dark:border-gray-600" /></div>
                   </div>
-              </div>
+                </div>
+              )}
 
-              <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 border border-gray-100 dark:border-gray-700">
-                  <div className="flex items-center mb-6"><IconEdit className="w-6 h-6 text-brand-600 mr-2" /><h2 className="text-xl font-bold">How-To Videos (YouTube Embed URLs)</h2></div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    {['en', 'ar', 'fr', 'ru', 'uz', 'zh'].map(lang => (
-                      <div key={lang}>
-                        <label className="block text-sm font-bold mb-1 uppercase text-gray-500">{lang} Video URL</label>
-                        <input 
-                          type="text" 
-                          value={cmsContent.howToVideos?.[lang as Language] || ''} 
-                          onChange={(e) => updateCmsContent({ howToVideos: { ...cmsContent.howToVideos, [lang]: e.target.value } })} 
-                          placeholder="https://www.youtube.com/embed/..."
-                          className="w-full p-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600" 
-                        />
-                      </div>
-                    ))}
+              {/* MEDIA & PERKS SUB-SECTION */}
+              {cmsSubTab === 'media' && (
+                <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-6 border border-gray-100 dark:border-gray-700 space-y-6">
+                  <div className="flex items-center mb-4">
+                    <IconEdit className="w-6 h-6 text-brand-600 mr-2" />
+                    <div>
+                      <h2 className="text-xl font-bold">Category Visuals & Features Configuration</h2>
+                      <p className="text-xs text-gray-500 mt-0.5">Customize default tour videos, presentation photos, and perk lists for Premium 1, Premium 2 & Standard.</p>
+                    </div>
                   </div>
-              </div>
 
-              {/* Dynamic Student Accommodation Categories Configuration */}
-              <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 border border-gray-100 dark:border-gray-700 animate-fade-in">
-                <div className="flex items-center mb-4">
-                  <IconEdit className="w-6 h-6 text-brand-600 mr-2" />
-                  <div>
-                    <h2 className="text-xl font-bold">Category Visuals & Features Configuration</h2>
-                    <p className="text-xs text-gray-500 mt-0.5">Customize the default tour videos, presentation photos, and perk lists for Premium 1, Premium 2 & Standard.</p>
+                  <div className="border border-gray-150 dark:border-gray-750 rounded-xl overflow-hidden mt-4">
+                    <div className="flex border-b border-gray-200 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-900/50">
+                      {(['Standard', 'Premium 1', 'Premium 2'] as const).map(cat => {
+                        const isActive = activeCategoryConfig === cat;
+                        return (
+                          <button
+                            key={cat}
+                            type="button"
+                            onClick={() => setActiveCategoryConfig(cat)}
+                            className={`flex-1 py-3 text-xs font-black uppercase tracking-wider transition-all border-b-2 ${
+                              isActive
+                                ? 'border-brand-600 bg-white dark:bg-gray-800 text-brand-600 border-b-brand-600'
+                                : 'border-transparent text-gray-500 hover:text-gray-800'
+                            }`}
+                          >
+                            {cat} Config
+                          </button>
+                        );
+                      })}
+                    </div>
+
+                    <div className="p-6 bg-white dark:bg-gray-800">
+                      <CategoryMediaEditor 
+                        category={activeCategoryConfig} 
+                        cmsContent={cmsContent} 
+                        updateCmsContent={updateCmsContent} 
+                      />
+                    </div>
                   </div>
                 </div>
+              )}
 
-                <div className="border border-gray-150 dark:border-gray-750 rounded-xl overflow-hidden mt-4">
-                  {/* Category Selector Tabs */}
-                  <div className="flex border-b border-gray-200 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-900/50">
-                    {(['Standard', 'Premium 1', 'Premium 2'] as const).map(cat => {
-                      const isActive = activeCategoryConfig === cat;
-                      return (
-                        <button
-                          key={cat}
-                          type="button"
-                          onClick={() => setActiveCategoryConfig(cat)}
-                          className={`flex-1 py-3 text-xs font-black uppercase tracking-wider transition-all border-b-2 ${
-                            isActive
-                              ? 'border-brand-600 bg-white dark:bg-gray-800 text-brand-600 border-b-brand-600'
-                              : 'border-transparent text-gray-500 hover:text-gray-800 dark:hover:text-gray-300'
-                          }`}
-                        >
-                          {cat} Config
-                        </button>
-                      );
-                    })}
-                  </div>
-
-                  {/* Editing Inputs inside selected tab */}
-                  <div className="p-6 bg-white dark:bg-gray-800">
-                    <CategoryMediaEditor 
-                      category={activeCategoryConfig} 
-                      cmsContent={cmsContent} 
-                      updateCmsContent={updateCmsContent} 
-                    />
-                  </div>
-                </div>
-              </div>
-
-              <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 border border-gray-100 dark:border-gray-700 animate-fade-in">
-                  <div className="flex items-center mb-6">
-                    <IconBuilding className="w-6 h-6 text-brand-600 mr-2" />
-                    <h2 className="text-xl font-bold">Landlord Payment & Notification Settings</h2>
-                  </div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    <div>
-                      <label className="block text-xs font-bold uppercase text-gray-500 mb-1">Recipient Name</label>
-                      <input 
-                        type="text" 
-                        value={cmsContent.landlordDetails?.recipientName || ''} 
-                        onChange={(e) => updateCmsContent({ 
-                          landlordDetails: { ...cmsContent.landlordDetails!, recipientName: e.target.value } 
-                        })} 
-                        className="w-full p-2.5 border rounded-lg dark:bg-gray-700 dark:border-gray-600 font-medium text-sm" 
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-bold uppercase text-gray-500 mb-1">Bank Name</label>
-                      <input 
-                        type="text" 
-                        value={cmsContent.landlordDetails?.bankName || ''} 
-                        onChange={(e) => updateCmsContent({ 
-                          landlordDetails: { ...cmsContent.landlordDetails!, bankName: e.target.value } 
-                        })} 
-                        className="w-full p-2.5 border rounded-lg dark:bg-gray-700 dark:border-gray-600 font-medium text-sm" 
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-bold uppercase text-gray-500 mb-1">Bank IBAN</label>
-                      <input 
-                        type="text" 
-                        value={cmsContent.landlordDetails?.iban || ''} 
-                        onChange={(e) => updateCmsContent({ 
-                          landlordDetails: { ...cmsContent.landlordDetails!, iban: e.target.value } 
-                        })} 
-                        className="w-full p-2.5 border rounded-lg dark:bg-gray-700 dark:border-gray-600 font-mono text-sm" 
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-bold uppercase text-gray-500 mb-1">SWIFT / BIC Code</label>
-                      <input 
-                        type="text" 
-                        value={cmsContent.landlordDetails?.swiftCode || ''} 
-                        onChange={(e) => updateCmsContent({ 
-                          landlordDetails: { ...cmsContent.landlordDetails!, swiftCode: e.target.value } 
-                        })} 
-                        className="w-full p-2.5 border rounded-lg dark:bg-gray-700 dark:border-gray-600 font-mono text-sm" 
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-bold uppercase text-gray-500 mb-1">Phone Number</label>
-                      <input 
-                        type="text" 
-                        value={cmsContent.landlordDetails?.phone || ''} 
-                        onChange={(e) => updateCmsContent({ 
-                          landlordDetails: { ...cmsContent.landlordDetails!, phone: e.target.value } 
-                        })} 
-                        className="w-full p-2.5 border rounded-lg dark:bg-gray-700 dark:border-gray-600 font-medium text-sm" 
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-bold uppercase text-gray-500 mb-1">Street Address</label>
-                      <input 
-                        type="text" 
-                        value={cmsContent.landlordDetails?.street || ''} 
-                        onChange={(e) => updateCmsContent({ 
-                          landlordDetails: { ...cmsContent.landlordDetails!, street: e.target.value } 
-                        })} 
-                        className="w-full p-2.5 border rounded-lg dark:bg-gray-700 dark:border-gray-600 font-medium text-sm" 
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-bold uppercase text-gray-500 mb-1">City</label>
-                      <input 
-                        type="text" 
-                        value={cmsContent.landlordDetails?.city || ''} 
-                        onChange={(e) => updateCmsContent({ 
-                          landlordDetails: { ...cmsContent.landlordDetails!, city: e.target.value } 
-                        })} 
-                        className="w-full p-2.5 border rounded-lg dark:bg-gray-700 dark:border-gray-600 font-medium text-sm" 
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-bold uppercase text-gray-500 mb-1">Country</label>
-                      <input 
-                        type="text" 
-                        value={cmsContent.landlordDetails?.country || ''} 
-                        onChange={(e) => updateCmsContent({ 
-                          landlordDetails: { ...cmsContent.landlordDetails!, country: e.target.value } 
-                        })} 
-                        className="w-full p-2.5 border rounded-lg dark:bg-gray-700 dark:border-gray-600 font-medium text-sm" 
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-bold uppercase text-gray-500 mb-1">P.O. Box</label>
-                      <input 
-                        type="text" 
-                        value={cmsContent.landlordDetails?.poBox || ''} 
-                        onChange={(e) => updateCmsContent({ 
-                          landlordDetails: { ...cmsContent.landlordDetails!, poBox: e.target.value } 
-                        })} 
-                        className="w-full p-2.5 border rounded-lg dark:bg-gray-700 dark:border-gray-600 font-medium text-sm" 
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-bold uppercase text-gray-500 mb-1">Remitly IBAN Account</label>
-                      <input 
-                        type="text" 
-                        value={cmsContent.landlordDetails?.remitlyIban || ''} 
-                        onChange={(e) => updateCmsContent({ 
-                          landlordDetails: { ...cmsContent.landlordDetails!, remitlyIban: e.target.value } 
-                        })} 
-                        className="w-full p-2.5 border rounded-lg dark:bg-gray-700 dark:border-gray-600 font-mono text-sm" 
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-bold uppercase text-gray-500 mb-1">Remitly Bank Name</label>
-                      <input 
-                        type="text" 
-                        value={cmsContent.landlordDetails?.remitlyBankName || ''} 
-                        onChange={(e) => updateCmsContent({ 
-                          landlordDetails: { ...cmsContent.landlordDetails!, remitlyBankName: e.target.value } 
-                        })} 
-                        className="w-full p-2.5 border rounded-lg dark:bg-gray-700 dark:border-gray-600 font-medium text-sm" 
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-bold uppercase text-gray-500 mb-1">Remitly Location</label>
-                      <input 
-                        type="text" 
-                        value={cmsContent.landlordDetails?.remitlyLocation || ''} 
-                        onChange={(e) => updateCmsContent({ 
-                          landlordDetails: { ...cmsContent.landlordDetails!, remitlyLocation: e.target.value } 
-                        })} 
-                        className="w-full p-2.5 border rounded-lg dark:bg-gray-700 dark:border-gray-600 font-medium text-sm" 
-                      />
-                    </div>
-                    <div className="md:col-span-2 lg:col-span-3 border-t pt-4">
-                      <label className="block text-xs font-bold uppercase text-gray-500 mb-1 text-brand-600">Admin Email for Notifications</label>
-                      <input 
-                        type="email" 
-                        value={cmsContent.landlordDetails?.adminEmail || ''} 
-                        onChange={(e) => updateCmsContent({ 
-                          landlordDetails: { ...cmsContent.landlordDetails!, adminEmail: e.target.value } 
-                        })} 
-                        className="w-full max-w-md p-2.5 border rounded-lg dark:bg-gray-700 dark:border-gray-600 font-medium text-sm" 
-                      />
-                      <p className="text-[10px] text-gray-400 mt-1">This email address will receive real-time alerts when agreements are signed or payments are uploaded.</p>
-                    </div>
-                  </div>
-              </div>
-
-              <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 border border-gray-100 dark:border-gray-700">
+              {/* CONTRACT TEMPLATES SUB-SECTION */}
+              {cmsSubTab === 'contracts' && (
+                <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-6 border border-gray-100 dark:border-gray-700 space-y-6">
                   <div className="flex items-center justify-between mb-6">
                     <div className="flex items-center">
                       <IconEdit className="w-6 h-6 text-purple-600 mr-2" />
@@ -1614,144 +1506,104 @@ const AdminDashboardPage: React.FC = () => {
                       </tbody>
                     </table>
                   </div>
-              </div>
-
-              {editingContract && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-                  <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl w-full max-w-2xl flex flex-col max-h-[90vh]">
-                    <div className="p-6 border-b dark:border-gray-800 flex justify-between items-center">
-                      <div>
-                        <h3 className="text-xl font-bold">Edit Contract Template</h3>
-                        <p className="text-xs text-gray-500">{editingContract.roomType} - {editingContract.lang.toUpperCase()}</p>
-                      </div>
-                      <button onClick={() => setEditingContract(null)}><IconClose className="w-6 h-6" /></button>
-                    </div>
-                    <div className="p-6 space-y-4 overflow-y-auto">
-                      <div className="flex gap-4">
-                        <div className="flex-1">
-                          <label className="block text-xs font-bold mb-1">Language</label>
-                          <select 
-                            value={editingContract.lang} 
-                            onChange={(e) => setEditingContract({ ...editingContract, lang: e.target.value as Language })}
-                            className="w-full p-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600"
-                          >
-                            {['en', 'fr', 'ru', 'ar', 'uz', 'zh'].map(l => <option key={l} value={l}>{l.toUpperCase()}</option>)}
-                          </select>
-                        </div>
-                      </div>
-                      <div>
-                        <label className="block text-xs font-bold mb-1">Contract Text</label>
-                        <textarea 
-                          value={cmsContent.contractTemplates[editingContract.roomType]?.[editingContract.lang] || ''} 
-                          onChange={(e) => {
-                            const newTemplates = { ...cmsContent.contractTemplates };
-                            if (!newTemplates[editingContract.roomType]) newTemplates[editingContract.roomType] = {};
-                            newTemplates[editingContract.roomType]![editingContract.lang] = e.target.value;
-                            updateCmsContent({ contractTemplates: newTemplates });
-                          }}
-                          className="w-full p-2 border rounded-lg h-64 dark:bg-gray-700 dark:border-gray-600 font-serif text-sm"
-                          placeholder="Enter contract text here..."
-                        />
-                      </div>
-                    </div>
-                    <div className="p-6 border-t dark:border-gray-800 flex justify-end">
-                      <button 
-                        onClick={() => setEditingContract(null)}
-                        className="bg-brand-600 text-white px-8 py-2 rounded-xl font-bold"
-                      >
-                        Done
-                      </button>
-                    </div>
-                  </div>
                 </div>
               )}
 
-              <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 border border-gray-100 dark:border-gray-700">
-                  <h2 className="text-xl font-bold mb-6">Manage Announcements ({language.toUpperCase()})</h2>
-                  <div className="space-y-6">
-                      {(cmsContent.announcements?.[language] || []).map((ann, index) => (
-                          <div key={ann.id} className="p-4 border rounded-lg dark:border-gray-700 space-y-3 relative">
-                              <button onClick={() => handleRemoveAnnouncement(ann.id)} className="absolute -top-3 -right-3 bg-red-500 text-white rounded-full p-1 hover:bg-red-600"><IconTrash className="w-4 h-4" /></button>
-                              <div>
-                                  <label className="text-xs font-bold">Title</label>
-                                  <input type="text" value={ann.title} onChange={(e) => handleAnnouncementChange(index, 'title', e.target.value)} className="w-full p-2 mt-1 border rounded-md dark:bg-gray-700 dark:border-gray-600"/>
+              {/* FAQS & ANNOUNCEMENTS SUB-SECTION */}
+              {cmsSubTab === 'faqs' && (
+                <div className="space-y-6">
+                  <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-6 border border-gray-100 dark:border-gray-700">
+                      <h2 className="text-xl font-bold mb-6">Manage Announcements ({language.toUpperCase()})</h2>
+                      <div className="space-y-6">
+                          {(cmsContent.announcements?.[language] || []).map((ann, index) => (
+                              <div key={ann.id} className="p-4 border rounded-lg dark:border-gray-700 space-y-3 relative">
+                                  <button onClick={() => handleRemoveAnnouncement(ann.id)} className="absolute -top-3 -right-3 bg-red-500 text-white rounded-full p-1 hover:bg-red-600"><IconTrash className="w-4 h-4" /></button>
+                                  <div>
+                                      <label className="text-xs font-bold">Title</label>
+                                      <input type="text" value={ann.title} onChange={(e) => handleAnnouncementChange(index, 'title', e.target.value)} className="w-full p-2 mt-1 border rounded-md dark:bg-gray-700 dark:border-gray-600"/>
+                                  </div>
+                                  <div>
+                                      <label className="text-xs font-bold">Content</label>
+                                      <textarea value={ann.content} onChange={(e) => handleAnnouncementChange(index, 'content', e.target.value)} rows={3} className="w-full p-2 mt-1 border rounded-md dark:bg-gray-700 dark:border-gray-600"/>
+                                  </div>
+                                  <p className="text-[10px] text-gray-400 italic">Posted on: {new Date(ann.date).toLocaleString()}</p>
                               </div>
-                              <div>
-                                  <label className="text-xs font-bold">Content</label>
-                                  <textarea value={ann.content} onChange={(e) => handleAnnouncementChange(index, 'content', e.target.value)} rows={3} className="w-full p-2 mt-1 border rounded-md dark:bg-gray-700 dark:border-gray-600"/>
-                              </div>
-                              <p className="text-[10px] text-gray-400 italic">Posted on: {new Date(ann.date).toLocaleString()}</p>
-                          </div>
-                      ))}
-                      <button onClick={handleAddAnnouncement} className="w-full flex items-center justify-center gap-2 border-2 border-dashed p-3 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-750 dark:border-gray-600">
-                          <IconPlus className="w-5 h-5" /> Add Announcement
-                      </button>
+                          ))}
+                          <button onClick={handleAddAnnouncement} className="w-full flex items-center justify-center gap-2 border-2 border-dashed p-3 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-750 dark:border-gray-600">
+                              <IconPlus className="w-5 h-5" /> Add Announcement
+                          </button>
+                      </div>
                   </div>
-              </div>
 
-              <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 border border-gray-100 dark:border-gray-700">
-                  <h2 className="text-xl font-bold mb-6">Manage FAQs ({language.toUpperCase()})</h2>
-                  <div className="space-y-6">
-                      {(cmsContent.faqs.en || []).map((faq, index) => (
-                          <div key={faq.id} className="p-4 border rounded-lg dark:border-gray-700 space-y-3 relative">
-                              <button onClick={() => handleRemoveFaq(faq.id)} className="absolute -top-3 -right-3 bg-red-500 text-white rounded-full p-1 hover:bg-red-600"><IconTrash className="w-4 h-4" /></button>
-                              <div>
-                                  <label className="text-xs font-bold">Question</label>
-                                  <input type="text" value={faq.q} onChange={(e) => handleFaqChange(index, 'q', e.target.value)} className="w-full p-2 mt-1 border rounded-md dark:bg-gray-700 dark:border-gray-600"/>
+                  <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-6 border border-gray-100 dark:border-gray-700">
+                      <h2 className="text-xl font-bold mb-6">Manage FAQs ({language.toUpperCase()})</h2>
+                      <div className="space-y-6">
+                          {(cmsContent.faqs.en || []).map((faq, index) => (
+                              <div key={faq.id} className="p-4 border rounded-lg dark:border-gray-700 space-y-3 relative">
+                                  <button onClick={() => handleRemoveFaq(faq.id)} className="absolute -top-3 -right-3 bg-red-500 text-white rounded-full p-1 hover:bg-red-600"><IconTrash className="w-4 h-4" /></button>
+                                  <div>
+                                      <label className="text-xs font-bold">Question</label>
+                                      <input type="text" value={faq.q} onChange={(e) => handleFaqChange(index, 'q', e.target.value)} className="w-full p-2 mt-1 border rounded-md dark:bg-gray-700 dark:border-gray-600"/>
+                                  </div>
+                                  <div>
+                                      <label className="text-xs font-bold">Answer</label>
+                                      <textarea value={faq.a} onChange={(e) => handleFaqChange(index, 'a', e.target.value)} rows={3} className="w-full p-2 mt-1 border rounded-md dark:bg-gray-700 dark:border-gray-600"/>
+                                  </div>
                               </div>
-                              <div>
-                                  <label className="text-xs font-bold">Answer</label>
-                                  <textarea value={faq.a} onChange={(e) => handleFaqChange(index, 'a', e.target.value)} rows={3} className="w-full p-2 mt-1 border rounded-md dark:bg-gray-700 dark:border-gray-600"/>
-                              </div>
-                          </div>
-                      ))}
-                      <button onClick={handleAddFaq} className="w-full flex items-center justify-center gap-2 border-2 border-dashed p-3 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-750 dark:border-gray-600">
-                          <IconPlus className="w-5 h-5" /> Add FAQ
-                      </button>
+                          ))}
+                          <button onClick={handleAddFaq} className="w-full flex items-center justify-center gap-2 border-2 border-dashed p-3 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-750 dark:border-gray-600">
+                              <IconPlus className="w-5 h-5" /> Add FAQ
+                          </button>
+                      </div>
                   </div>
-              </div>
+                </div>
+              )}
             </div>
           )}
 
+          {/* ADMIN USERS TAB */}
           {activeTab === 'users' && (
-             <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg overflow-hidden border border-gray-100 dark:border-gray-700">
-                <div className="px-6 py-4 border-b dark:border-gray-700 flex justify-between items-center">
-                  <h2 className="text-xl font-bold">Admin Users</h2>
+             <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg overflow-hidden border border-gray-100 dark:border-gray-700">
+                <div className="px-6 py-5 border-b dark:border-gray-700 flex justify-between items-center">
+                  <div>
+                    <h2 className="text-xl font-bold text-gray-900 dark:text-white">Admin Users Management</h2>
+                    <p className="text-xs text-gray-500 mt-0.5">Manage administrative accounts, staff members, and proprietors</p>
+                  </div>
                   <button 
                     onClick={() => handleOpenUserModal(null)}
-                    className="bg-brand-600 hover:bg-brand-700 text-white px-4 py-2 rounded-lg text-xs font-bold transition-colors flex items-center gap-2"
+                    className="bg-brand-600 hover:bg-brand-700 text-white px-4 py-2 rounded-xl text-xs font-bold transition-colors flex items-center gap-2 shadow-sm"
                   >
-                    <IconPlus className="w-4 h-4" /> Add Admin
+                    <IconPlus className="w-4 h-4" /> Add Admin User
                   </button>
                 </div>
                 <div className="overflow-x-auto">
                     <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
                         <thead className="bg-gray-50 dark:bg-gray-900">
                             <tr>
-                                <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase">Name</th>
-                                <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase">Email</th>
-                                <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase">Role</th>
-                                <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase">Gender</th>
-                                <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase">Actions</th>
+                                <th className="px-6 py-3.5 text-left text-xs font-bold text-gray-500 uppercase">Name</th>
+                                <th className="px-6 py-3.5 text-left text-xs font-bold text-gray-500 uppercase">Email</th>
+                                <th className="px-6 py-3.5 text-left text-xs font-bold text-gray-500 uppercase">Role</th>
+                                <th className="px-6 py-3.5 text-left text-xs font-bold text-gray-500 uppercase">Gender Scope</th>
+                                <th className="px-6 py-3.5 text-left text-xs font-bold text-gray-500 uppercase">Actions</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
                             {users.map(u => (
                                 <tr key={u.id}>
                                     <td className="px-6 py-4">
-                                        <div className="font-bold text-gray-900 dark:text-white">{u.full_name} {u.id === user?.id && <span className="ml-2 text-[10px] bg-brand-100 text-brand-600 px-1 rounded">You</span>}</div>
+                                        <div className="font-bold text-gray-900 dark:text-white">{u.full_name} {u.id === user?.id && <span className="ml-2 text-[10px] bg-brand-100 text-brand-600 px-1.5 py-0.5 rounded font-bold">You</span>}</div>
                                     </td>
-                                    <td className="px-6 py-4 text-xs text-gray-500 dark:text-gray-400 font-medium">
+                                    <td className="px-6 py-4 text-xs text-gray-500 font-mono">
                                         {u.email}
                                     </td>
                                     <td className="px-6 py-4">
-                                        <span className={`px-2 py-1 rounded text-[10px] font-bold uppercase ${u.role === 'proprietor' ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'}`}>
+                                        <span className={`px-2.5 py-1 rounded-md text-[10px] font-black uppercase ${u.role === 'proprietor' ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'}`}>
                                             {u.role}
                                         </span>
                                     </td>
-                                    <td className="px-6 py-4 text-xs">{u.gender || 'Any'}</td>
+                                    <td className="px-6 py-4 text-xs font-medium text-gray-700 dark:text-gray-300">{u.gender || 'Any'}</td>
                                     <td className="px-6 py-4">
-                                        <div className="flex gap-4">
+                                        <div className="flex gap-3">
                                             <button 
                                               onClick={() => handleOpenUserModal(u)}
                                               className="text-brand-600 hover:text-brand-700 text-xs font-bold underline"
@@ -1777,17 +1629,27 @@ const AdminDashboardPage: React.FC = () => {
           )}
         </div>
 
-        {/* Right Sidebar */}
+        {/* Right Sidebar - Recent Activities */}
         <div className="space-y-6">
-           <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-lg border"><h3 className="text-lg font-bold mb-6">🕒 {t.recentActivities}</h3><div className="space-y-6">{(activities || []).map(act => <div key={act.id} className="flex gap-4 relative">
-              <div className={`flex-shrink-0 w-2 h-2 rounded-full mt-2 z-10 ${act.type === 'payment' ? 'bg-green-500' : 'bg-brand-500'}`}></div>
-              <div className="absolute left-[3px] top-4 w-[2px] h-full bg-gray-100 dark:bg-gray-700 last:hidden"></div>
-              <div><p className="text-sm font-medium">{act.description}</p><p className="text-[10px] text-gray-500 mt-1 uppercase">{new Date(act.timestamp).toLocaleString()}</p></div>
-           </div>)}</div></div>
+           <div className="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700">
+              <h3 className="text-lg font-bold mb-6 text-gray-900 dark:text-white">🕒 {t.recentActivities}</h3>
+              <div className="space-y-6">
+                 {(activities || []).map(act => (
+                    <div key={act.id} className="flex gap-4 relative">
+                       <div className={`flex-shrink-0 w-2.5 h-2.5 rounded-full mt-1.5 z-10 ${act.type === 'payment' ? 'bg-emerald-500' : 'bg-brand-500'}`}></div>
+                       <div className="absolute left-[4px] top-4 w-[2px] h-full bg-gray-100 dark:bg-gray-700 last:hidden"></div>
+                       <div>
+                          <p className="text-xs font-semibold text-gray-800 dark:text-gray-200">{act.description}</p>
+                          <p className="text-[10px] text-gray-400 mt-1 font-mono uppercase">{new Date(act.timestamp).toLocaleString()}</p>
+                       </div>
+                    </div>
+                 ))}
+              </div>
+           </div>
         </div>
       </div>
 
-      {/* Modals */}
+      {/* MODALS */}
       {viewingAgreement && (
         <AgreementModal 
           booking={viewingAgreement}
@@ -1795,6 +1657,37 @@ const AdminDashboardPage: React.FC = () => {
           isReadOnly={true}
         />
       )}
+
+      {/* Admin Create Booking Modal */}
+      {isAdminBookingModalOpen && (
+        <AdminCreateBookingModal 
+          isOpen={isAdminBookingModalOpen}
+          onClose={() => setIsAdminBookingModalOpen(false)}
+          onSuccess={() => {
+            setIsAdminBookingModalOpen(false);
+            addActivity({
+              user_id: user?.id || 'admin',
+              type: 'system',
+              description: 'Created a new admin-initiated room booking',
+              timestamp: new Date().toISOString()
+            });
+          }}
+        />
+      )}
+
+      {/* Student Details Modal */}
+      {isStudentDetailsModalOpen && selectedStudentForDetails && (
+        <StudentDetailsModal
+          isOpen={isStudentDetailsModalOpen}
+          onClose={() => {
+            setIsStudentDetailsModalOpen(false);
+            setSelectedStudentForDetails(null);
+          }}
+          student={selectedStudentForDetails}
+        />
+      )}
+
+      {/* Booking Details Drawer Modal */}
       {selectedBooking && selectedBookingLiveDetails && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
           <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl w-full max-w-4xl flex flex-col max-h-[90vh]">
@@ -1823,15 +1716,11 @@ const AdminDashboardPage: React.FC = () => {
                     <p className="text-gray-500 text-[10px] uppercase font-bold">Address</p>
                     <p className="text-xs text-gray-600 dark:text-gray-300">📍 {selectedBookingLiveDetails.address}</p>
                   </div>
-                    <div className="mt-4">
-                      <p className="text-gray-500 text-[10px] uppercase font-bold">Emergency Contact</p>
-                      <p className="text-sm">{selectedBooking.emergency_contact_details}</p>
-                    </div>
-                    <div className="mt-4">
-                      <p className="text-gray-500 text-[10px] uppercase font-bold">Home Address</p>
-                      <p className="text-sm">{selectedBooking.address_in_egypt || 'N/A'}</p>
-                    </div>
+                  <div className="mt-4">
+                    <p className="text-gray-500 text-[10px] uppercase font-bold">Emergency Contact</p>
+                    <p className="text-sm">{selectedBooking.emergency_contact_details}</p>
                   </div>
+                </div>
 
                 {/* Documents */}
                 <div className="space-y-6">
@@ -1870,7 +1759,7 @@ const AdminDashboardPage: React.FC = () => {
                           href={selectedBooking.payment_proof_url} 
                           target="_blank" 
                           rel="noreferrer" 
-                          className="block p-4 border rounded-xl bg-gray-50 dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                          className="block p-4 border rounded-xl bg-gray-50 dark:bg-gray-800 hover:bg-gray-100 transition-colors"
                         >
                           <p className="text-xs font-bold text-brand-600 flex items-center gap-2">
                             <IconFile className="w-4 h-4" /> View Payment Proof PDF ↗
@@ -1895,7 +1784,7 @@ const AdminDashboardPage: React.FC = () => {
               )}
               <button 
                 onClick={() => setSelectedBooking(null)}
-                className="flex-1 bg-gray-100 dark:bg-gray-800 py-3 rounded-xl font-bold hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
+                className="flex-1 bg-gray-100 dark:bg-gray-800 py-3 rounded-xl font-bold hover:bg-gray-200 transition-colors"
               >
                 Close
               </button>
@@ -1910,18 +1799,6 @@ const AdminDashboardPage: React.FC = () => {
 
       {isUserModalOpen && (
         <UserEditorModal user={selectedUserForEdit} onClose={() => setIsUserModalOpen(false)} onSave={handleSaveUser} />
-      )}
-
-      {selectedProof && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md"><div className="relative bg-white dark:bg-gray-900 rounded-2xl max-w-2xl w-full p-2 shadow-2xl">
-            <button onClick={() => setSelectedProof(null)} className="absolute top-4 right-4 z-10 p-2 bg-black/50 text-white rounded-full"><IconClose className="w-6 h-6" /></button>
-            <div className="p-4 border-b dark:border-gray-800"><h3 className="text-lg font-bold">Payment Proof</h3></div>
-            <div className="p-4"><img src={selectedProof} alt="Proof of Payment" className="w-full h-auto rounded-lg max-h-[70vh] object-contain" /></div>
-            <div className="p-4 flex gap-4">
-              <button onClick={() => { const target = analytics.pendingVerifications.find(v => v.payment_proof_url === selectedProof); if (target) handleApprove(target.id); setSelectedProof(null); }} className="flex-1 bg-green-600 text-white py-3 rounded-xl font-bold">Accept Payment</button>
-              <button onClick={() => setSelectedProof(null)} className="flex-1 bg-gray-200 dark:bg-gray-700 py-3 rounded-xl font-bold">Close</button>
-            </div>
-        </div></div>
       )}
     </div>
   );

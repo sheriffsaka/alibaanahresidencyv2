@@ -79,10 +79,13 @@ export interface Booking {
 
   // Deprecated/optional fields for backward compatibility
   student_name?: string;
+  user_id?: string;
+  gender?: 'Male' | 'Female' | 'Any';
   academic_term_id?: number;
   booking_package_id?: number;
   total_price?: number;
   payment_proof_url?: string;
+  transfer_proof_url?: string;
   payment_expiry_date?: string;
   parent_booking_id?: number;
   payment_method?: 'Online' | 'Bank Transfer';
@@ -107,6 +110,10 @@ export interface User {
   full_name?: string;
   role: UserRole;
   gender?: 'Male' | 'Female';
+  phone_number?: string;
+  nationality?: string;
+  passport_number?: string;
+  created_at?: string;
 }
 
 export interface LandlordDetails {
@@ -224,6 +231,7 @@ export interface AppContextType {
   rooms: Room[];
   addRoom: (room: Room) => Promise<{ success: boolean; error?: string }>;
   updateRoom: (room: Room) => Promise<{ success: boolean; error?: string }>;
+  deleteRoom: (id: number) => Promise<{ success: boolean; error?: string }>;
   activities: Activity[];
   addActivity: (activity: Omit<Activity, 'id'>) => void;
   students: User[];

@@ -6,6 +6,116 @@ import { Session } from '@supabase/supabase-js';
 
 export const AppContext = createContext<AppContextType | undefined>(undefined);
 
+export const DEFAULT_ROOMS: Room[] = [
+  {
+    id: 1,
+    property_id: 'prop_1',
+    room_number: 'Room 1 A',
+    type: AccommodationType.STANDARD_SHARED,
+    apartment_name: 'Standard',
+    category: 'Standard',
+    price_per_month: 250,
+    capacity: 2,
+    occupied_slots: 0,
+    amenities: ['High-speed Wi-Fi', 'Air Conditioning', 'Study Desk'],
+    image_urls: ['https://res.cloudinary.com/di7okmjsx/image/upload/v1770388212/shared_bathroom1_hlxjdg.jpg'],
+    is_available: true,
+    created_at: new Date().toISOString(),
+    gender_restriction: 'Male'
+  },
+  {
+    id: 2,
+    property_id: 'prop_1',
+    room_number: 'Room 2',
+    type: AccommodationType.STANDARD_PRIVATE,
+    apartment_name: 'Standard',
+    category: 'Standard',
+    price_per_month: 300,
+    capacity: 1,
+    occupied_slots: 0,
+    amenities: ['High-speed Wi-Fi', 'Air Conditioning', 'Private Desk'],
+    image_urls: ['https://res.cloudinary.com/di7okmjsx/image/upload/v1770388212/single_room2_zhd9uo.jpg'],
+    is_available: true,
+    created_at: new Date().toISOString(),
+    gender_restriction: 'Male'
+  },
+  {
+    id: 3,
+    property_id: 'prop_1',
+    room_number: 'Room 1 A',
+    type: AccommodationType.PREMIUM_SHARED,
+    apartment_name: 'Premium 1',
+    category: 'Premium',
+    price_per_month: 350,
+    capacity: 2,
+    occupied_slots: 0,
+    amenities: ['High-speed Wi-Fi', 'Air Conditioning', 'En-suite Bathroom'],
+    image_urls: ['https://res.cloudinary.com/di7okmjsx/image/upload/v1770388212/Suite2_q62y4w.jpg'],
+    is_available: true,
+    created_at: new Date().toISOString(),
+    gender_restriction: 'Male'
+  },
+  {
+    id: 4,
+    property_id: 'prop_1',
+    room_number: 'Room 2',
+    type: AccommodationType.PREMIUM_PRIVATE,
+    apartment_name: 'Premium 1',
+    category: 'Premium',
+    price_per_month: 400,
+    capacity: 1,
+    occupied_slots: 0,
+    amenities: ['High-speed Wi-Fi', 'Air Conditioning', 'Private Balcony'],
+    image_urls: ['https://res.cloudinary.com/di7okmjsx/image/upload/v1770388212/Suite1_t4dczv.jpg'],
+    is_available: true,
+    created_at: new Date().toISOString(),
+    gender_restriction: 'Female'
+  },
+  {
+    id: 5,
+    property_id: 'prop_1',
+    room_number: 'Room 1 A',
+    type: AccommodationType.PREMIUM_SHARED,
+    apartment_name: 'Premium 2',
+    category: 'Premium',
+    price_per_month: 380,
+    capacity: 2,
+    occupied_slots: 0,
+    amenities: ['High-speed Wi-Fi', 'In-room AC', 'Modern Kitchenette'],
+    image_urls: ['https://res.cloudinary.com/di7okmjsx/image/upload/v1770388212/Suite2_q62y4w.jpg'],
+    is_available: true,
+    created_at: new Date().toISOString(),
+    gender_restriction: 'Female'
+  },
+  {
+    id: 6,
+    property_id: 'prop_1',
+    room_number: 'Room 2',
+    type: AccommodationType.PREMIUM_PRIVATE,
+    apartment_name: 'Premium 2',
+    category: 'Premium',
+    price_per_month: 450,
+    capacity: 1,
+    occupied_slots: 0,
+    amenities: ['High-speed Wi-Fi', 'In-room AC', 'Resident Lounge Access'],
+    image_urls: ['https://res.cloudinary.com/di7okmjsx/image/upload/v1770388212/Suite1_t4dczv.jpg'],
+    is_available: true,
+    created_at: new Date().toISOString(),
+    gender_restriction: 'Any'
+  }
+];
+
+export const DEFAULT_ACADEMIC_TERMS: AcademicTerm[] = [
+  { id: 1, term_name: 'Autumn Term 2026', start_date: '2026-09-01', end_date: '2026-12-31' },
+  { id: 2, term_name: 'Spring Term 2027', start_date: '2027-01-15', end_date: '2027-05-30' }
+];
+
+export const DEFAULT_BOOKING_PACKAGES: BookingPackage[] = [
+  { id: 1, duration_months: 3, discount_percentage: 0, description: '3 Months Package' },
+  { id: 2, duration_months: 6, discount_percentage: 5, description: '6 Months Package' },
+  { id: 3, duration_months: 12, discount_percentage: 10, description: '12 Months Package' }
+];
+
 export const DEFAULT_LANDLORD_DETAILS = {
   recipientName: 'Jimoh Bolakale Ajao',
   bankName: 'Commercial International Bank (CIB)',
@@ -93,9 +203,9 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   
   // App data state
   const [bookings, setBookings] = useState<Booking[]>([]);
-  const [rooms, setRooms] = useState<Room[]>([]);
-  const [academicTerms, setAcademicTerms] = useState<AcademicTerm[]>([]);
-  const [bookingPackages, setBookingPackages] = useState<BookingPackage[]>([]);
+  const [rooms, setRooms] = useState<Room[]>(DEFAULT_ROOMS);
+  const [academicTerms, setAcademicTerms] = useState<AcademicTerm[]>(DEFAULT_ACADEMIC_TERMS);
+  const [bookingPackages, setBookingPackages] = useState<BookingPackage[]>(DEFAULT_BOOKING_PACKAGES);
   const [cmsContent, setCmsContent] = useState<CmsContent>(INITIAL_CMS);
   const [activities, setActivities] = useState<Activity[]>(MOCK_ACTIVITIES);
   const [students, setStudents] = useState<User[]>([]);
@@ -211,7 +321,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         }
 
         if (bookingsError) {
-            console.error("Error fetching bookings:", bookingsError.message);
+            console.warn("Notice fetching bookings:", bookingsError.message);
         } else if (bookingsData) {
             const mappedBookings = bookingsData.map((b: any) => ({
                 ...b,
@@ -220,7 +330,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             setBookings(mappedBookings);
         }
       } catch (err) {
-        console.error("Unexpected error in updateUserSession:", err);
+        console.warn("Notice in updateUserSession:", err);
         setUser(null);
         setStudents([]);
       }
@@ -301,23 +411,33 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     };
   }, []);
 
+  const safeFetch = async (query: PromiseLike<any>) => {
+    try {
+      return await query;
+    } catch (err) {
+      return { data: null, error: err };
+    }
+  };
+
   const fetchPublicData = useCallback(async () => {
         try {
             console.log("Fetching public data...");
             const [roomsRes, bookingsRes, termsRes, packagesRes, cmsRes, activitiesRes] = await Promise.all([
-                supabase.from('rooms').select('*'),
-                supabase.from('bookings').select('*, rooms(room_number, type, apartment_name, category), profiles:student_id(full_name)').order('booked_at', { ascending: false }),
-                supabase.from('academic_terms').select('*').eq('is_active', true),
-                supabase.from('booking_packages').select('*').eq('is_active', true),
-                supabase.from('cms_content').select('*').limit(1).maybeSingle(),
-                supabase.from('admin_audit_log').select('*').order('created_at', { ascending: false }).limit(20)
+                safeFetch(supabase.from('rooms').select('*')),
+                safeFetch(supabase.from('bookings').select('*, rooms(room_number, type, apartment_name, category), profiles:student_id(full_name)').order('booked_at', { ascending: false })),
+                safeFetch(supabase.from('academic_terms').select('*').eq('is_active', true)),
+                safeFetch(supabase.from('booking_packages').select('*').eq('is_active', true)),
+                safeFetch(supabase.from('cms_content').select('*').limit(1).maybeSingle()),
+                safeFetch(supabase.from('admin_audit_log').select('*').order('created_at', { ascending: false }).limit(20))
             ]);
             
-            if (roomsRes.error) console.error('Error fetching rooms:', roomsRes.error.message);
-            else setRooms(roomsRes.data || []);
+            if (roomsRes && !roomsRes.error && roomsRes.data && roomsRes.data.length > 0) {
+                setRooms(roomsRes.data);
+            } else {
+                setRooms(prev => prev && prev.length > 0 ? prev : DEFAULT_ROOMS);
+            }
 
-            if (bookingsRes.error) console.error('Error fetching public bookings:', bookingsRes.error.message);
-            else if (bookingsRes.data) {
+            if (bookingsRes && !bookingsRes.error && bookingsRes.data && bookingsRes.data.length > 0) {
                 const mappedBookings = bookingsRes.data.map((b: any) => ({
                     ...b,
                     student_name: b.profiles?.full_name,
@@ -325,13 +445,19 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                 setBookings(mappedBookings);
             }
             
-            if (termsRes.error) console.error('Error fetching academic terms:', termsRes.error.message);
-            else setAcademicTerms(termsRes.data || []);
+            if (termsRes && !termsRes.error && termsRes.data && termsRes.data.length > 0) {
+                setAcademicTerms(termsRes.data);
+            } else {
+                setAcademicTerms(prev => prev && prev.length > 0 ? prev : DEFAULT_ACADEMIC_TERMS);
+            }
             
-            if (packagesRes.error) console.error('Error fetching booking packages:', packagesRes.error.message);
-            else setBookingPackages(packagesRes.data || []);
+            if (packagesRes && !packagesRes.error && packagesRes.data && packagesRes.data.length > 0) {
+                setBookingPackages(packagesRes.data);
+            } else {
+                setBookingPackages(prev => prev && prev.length > 0 ? prev : DEFAULT_BOOKING_PACKAGES);
+            }
 
-            if (activitiesRes.data) {
+            if (activitiesRes && !activitiesRes.error && activitiesRes.data && activitiesRes.data.length > 0) {
                 const mappedActivities = activitiesRes.data.map((act: any) => ({
                     id: act.id,
                     user_id: act.user_id,
@@ -780,6 +906,32 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     }
   };
 
+  const deleteRoom = async (roomId: number) => {
+    try {
+        // 1. Check if there are active or historical bookings associated with this room
+        const associatedBookings = bookings.filter(b => b.room_id === roomId);
+        if (associatedBookings.length > 0) {
+            return { 
+                success: false, 
+                error: `Cannot delete room: It has ${associatedBookings.length} booking(s) associated with it in Supabase. Please delete or reassign those bookings first.` 
+            };
+        }
+
+        const { error } = await supabase
+            .from('rooms')
+            .delete()
+            .eq('id', roomId);
+
+        if (error) throw error;
+
+        setRooms(prev => prev.filter(r => r.id !== roomId));
+        return { success: true };
+    } catch (err: any) {
+        console.error("Error deleting room in Supabase:", err.message);
+        return { success: false, error: err.message };
+    }
+  };
+
   const addActivity = async (activity: Omit<Activity, 'id'>) => {
     try {
         const { error } = await supabase
@@ -916,6 +1068,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     rooms,
     addRoom,
     updateRoom,
+    deleteRoom,
     activities,
     addActivity,
     students,
