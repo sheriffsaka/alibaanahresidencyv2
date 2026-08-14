@@ -1027,9 +1027,9 @@ const AdminDashboardPage: React.FC = () => {
                                 <div className="flex items-center gap-2">
                                   <button
                                     onClick={() => setSelectedBooking(trx)}
-                                    className="bg-brand-50 hover:bg-brand-100 text-brand-700 dark:bg-brand-950/40 dark:text-brand-300 text-xs font-bold px-3 py-1.5 rounded-lg border border-brand-200/50"
+                                    className="bg-brand-600 hover:bg-brand-700 text-white text-xs font-bold px-3 py-1.5 rounded-lg shadow-sm flex items-center gap-1.5"
                                   >
-                                    Details
+                                    <IconEdit className="w-3.5 h-3.5" /> Edit Booking
                                   </button>
                                   {trx.status === BookingStatus.PENDING_VERIFICATION && (
                                     <button
@@ -1168,19 +1168,26 @@ const AdminDashboardPage: React.FC = () => {
                                         </td>
                                         <td className="px-6 py-4">
                                            <div className="flex gap-2">
-                                              {space.booking && (
+                                              {space.booking ? (
                                                  <button 
                                                     onClick={() => setSelectedBooking(space.booking)} 
-                                                    className="bg-brand-50 text-brand-600 hover:bg-brand-100 text-xs font-bold px-3 py-1.5 rounded-lg border border-brand-200"
+                                                    className="bg-brand-600 hover:bg-brand-700 text-white text-xs font-bold px-3 py-1.5 rounded-lg shadow-sm flex items-center gap-1.5"
                                                  >
-                                                    View Booking
+                                                    <IconEdit className="w-3.5 h-3.5" /> Edit Booking
+                                                 </button>
+                                              ) : (
+                                                 <button 
+                                                    onClick={() => setIsAdminBookingModalOpen(true)} 
+                                                    className="bg-brand-50 hover:bg-brand-100 text-brand-700 dark:bg-brand-950/40 dark:text-brand-300 text-xs font-bold px-3 py-1.5 rounded-lg border border-brand-200/50"
+                                                 >
+                                                    Book Space
                                                  </button>
                                               )}
                                               <button 
                                                  onClick={() => handleOpenRoomModal(space.dbRoom)} 
-                                                 className="bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-bold px-3 py-1.5 rounded-lg"
+                                                 className="bg-gray-100 hover:bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-300 text-xs font-bold px-3 py-1.5 rounded-lg"
                                               >
-                                                 Edit Room
+                                                 {space.booking ? 'Room Specs' : 'Edit Room'}
                                               </button>
                                            </div>
                                         </td>
