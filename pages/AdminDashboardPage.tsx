@@ -13,6 +13,16 @@ import AgreementModal from '../components/AgreementModal';
 import UserEditorModal from '../components/UserEditorModal';
 import { formatStoredRoomString, getDisplayFromRoom, getParsedRoomSpaces, getAccommodationAddress, getLiveStudentRoomDetails } from '../lib/roomNaming';
 
+// Restructured Admin Components
+import AdminSidebar, { AdminNavSection } from '../components/admin/AdminSidebar';
+import AdminActivityDrawer from '../components/admin/AdminActivityDrawer';
+import WaitlistView from '../components/admin/WaitlistView';
+import MaintenanceView from '../components/admin/MaintenanceView';
+import PaymentsCreditsView from '../components/admin/PaymentsCreditsView';
+import MessagesInboxView from '../components/admin/MessagesInboxView';
+import ReviewsRatingsView from '../components/admin/ReviewsRatingsView';
+import AdminSettingsView from '../components/admin/AdminSettingsView';
+
 // A responsive, accessible SVG Bar Chart component for occupancy metrics
 const OccupancyChart = ({ data }: { data: { name: string; value: number }[] }) => {
     const maxVal = Math.max(...data.map(d => d.value), 0);
@@ -323,7 +333,9 @@ const SummaryCard: React.FC<SummaryCardProps> = ({ label, value, icon, trend, co
 const AdminDashboardPage: React.FC = () => {
   const t = useTranslation();
   const { user, bookings, updateBookingStatus, deleteBooking, cmsContent, updateCmsContent, rooms, addRoom, updateRoom, deleteRoom, activities, addActivity, language, setPage, users, addUser, updateUser, deleteUser, students } = useApp();
-  const [activeTab, setActiveTab] = useState<'analytics' | 'transactions' | 'bookings' | 'students' | 'cms' | 'users'>('analytics');
+  const [activeSection, setActiveSection] = useState<AdminNavSection>('dashboard');
+  const [isActivityDrawerOpen, setIsActivityDrawerOpen] = useState(false);
+  const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
   const [cmsSubTab, setCmsSubTab] = useState<'rooms' | 'branding' | 'media' | 'contracts' | 'faqs'>('rooms');
 
   const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
@@ -790,70 +802,78 @@ const AdminDashboardPage: React.FC = () => {
   }, [selectedBooking, rooms]);
 
   return (
-    <div className="pb-12 space-y-8 animate-fade-in">
-      <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-6">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">{t.adminDashboardTitle}</h1>
-          <p className="text-lg text-gray-600 dark:text-gray-300">
-              {t.adminWelcome.replace('Proprietor', user?.full_name || 'Administrator')}
-          </p>
-        </div>
-        
-        {/* Restructured Top Navigation Bar */}
-        <div className="flex flex-nowrap bg-gray-100 dark:bg-gray-800 p-1.5 rounded-2xl shadow-inner w-full xl:w-auto overflow-x-auto no-scrollbar gap-1">
-          <button 
-            onClick={() => setActiveTab('analytics')} 
-            className={`px-5 py-2.5 rounded-xl text-xs font-black transition-all whitespace-nowrap flex items-center gap-2 ${activeTab === 'analytics' ? 'bg-white dark:bg-gray-700 text-brand-600 dark:text-brand-400 shadow-sm' : 'text-gray-500 dark:text-gray-400 hover:text-gray-800'}`}
-          >
-            📊 Dashboard
-          </button>
-          
-          <button 
-            onClick={() => setActiveTab('transactions')} 
-            className={`px-5 py-2.5 rounded-xl text-xs font-black transition-all whitespace-nowrap flex items-center gap-2 ${activeTab === 'transactions' ? 'bg-white dark:bg-gray-700 text-brand-600 dark:text-brand-400 shadow-sm' : 'text-gray-500 dark:text-gray-400 hover:text-gray-800'}`}
-          >
-            💳 Transactions
-            {analytics.pendingVerifications.length > 0 && (
-              <span className="bg-amber-500 text-white text-[10px] px-1.5 py-0.5 rounded-full font-mono">
-                {analytics.pendingVerifications.length}
-              </span>
-            )}
-          </button>
+    <div className="min-h-screen bg-gray-50/50 dark:bg-gray-950 flex">
+      {/* Grouped Admin Navigation Sidebar */}
+      <AdminSidebar
+        currentSection={activeSection}
+        onSelectSection={(sec) => setActiveSection(sec)}
+        pendingVerificationsCount={analytics.pendingVerifications.length}
+        totalStudentsCount={uniqueStudentRecords.length}
+        isMobileOpen={isMobileSidebarOpen}
+        onCloseMobile={() => setIsMobileSidebarOpen(false)}
+      />
 
-          <button 
-            onClick={() => setActiveTab('bookings')} 
-            className={`px-5 py-2.5 rounded-xl text-xs font-black transition-all whitespace-nowrap flex items-center gap-2 ${activeTab === 'bookings' ? 'bg-white dark:bg-gray-700 text-brand-600 dark:text-brand-400 shadow-sm' : 'text-gray-500 dark:text-gray-400 hover:text-gray-800'}`}
-          >
-            🛏️ Bookings
-          </button>
+      {/* Main Content Area */}
+      <div className="flex-1 flex flex-col min-w-0">
+        {/* Sticky Admin Header */}
+        <header className="h-16 bg-white dark:bg-gray-900 border-b border-gray-100 dark:border-gray-800 px-6 flex items-center justify-between sticky top-0 z-30 shadow-xs">
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => setIsMobileSidebarOpen(true)}
+              className="lg:hidden p-2 text-gray-500 hover:text-gray-700 dark:hover:text-gray-200 rounded-xl"
+              title="Open Navigation"
+            >
+              ☰
+            </button>
+            <div>
+              <h1 className="text-base font-bold text-gray-900 dark:text-white capitalize">
+                {activeSection.replace(/_/g, ' ')}
+              </h1>
+              <p className="text-[11px] text-gray-400 font-medium hidden sm:block">
+                Al-Ibaanah Student Residency • {user?.full_name || 'Administrator'} ({user?.role || 'Staff'})
+              </p>
+            </div>
+          </div>
 
-          <button 
-            onClick={() => setActiveTab('students')} 
-            className={`px-5 py-2.5 rounded-xl text-xs font-black transition-all whitespace-nowrap flex items-center gap-2 ${activeTab === 'students' ? 'bg-white dark:bg-gray-700 text-brand-600 dark:text-brand-400 shadow-sm' : 'text-gray-500 dark:text-gray-400 hover:text-gray-800'}`}
-          >
-            🎓 Students ({uniqueStudentRecords.length})
-          </button>
+          <div className="flex items-center gap-3">
+            {/* Quick Action: New Booking */}
+            <button
+              onClick={() => setIsAdminBookingModalOpen(true)}
+              className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 bg-brand-600 hover:bg-brand-700 text-white rounded-xl text-xs font-bold transition-colors shadow-xs"
+            >
+              <IconPlus className="w-3.5 h-3.5" /> New Booking
+            </button>
 
-          <button 
-            onClick={() => setActiveTab('cms')} 
-            className={`px-5 py-2.5 rounded-xl text-xs font-black transition-all whitespace-nowrap flex items-center gap-2 ${activeTab === 'cms' ? 'bg-white dark:bg-gray-700 text-brand-600 dark:text-brand-400 shadow-sm' : 'text-gray-500 dark:text-gray-400 hover:text-gray-800'}`}
-          >
-            ⚙️ CMS & Rooms
-          </button>
+            {/* Notification Bell for Slide-over Activity Drawer */}
+            <button
+              id="admin-notification-bell"
+              onClick={() => setIsActivityDrawerOpen(true)}
+              className="relative p-2 rounded-xl text-gray-500 hover:text-brand-600 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+              title="Open Activity & Notifications Log"
+            >
+              <span className="text-xl">🔔</span>
+              {(activities?.length || 0) > 0 && (
+                <span className="absolute top-1 right-1 w-2.5 h-2.5 bg-emerald-500 rounded-full ring-2 ring-white dark:ring-gray-900" />
+              )}
+            </button>
 
-          <button 
-            onClick={() => setActiveTab('users')} 
-            className={`px-5 py-2.5 rounded-xl text-xs font-black transition-all whitespace-nowrap flex items-center gap-2 ${activeTab === 'users' ? 'bg-white dark:bg-gray-700 text-brand-600 dark:text-brand-400 shadow-sm' : 'text-gray-500 dark:text-gray-400 hover:text-gray-800'}`}
-          >
-            👥 Admin Users
-          </button>
-        </div>
-      </div>
-      
-      <div className="grid grid-cols-1 xl:grid-cols-4 gap-8">
-        <div className="xl:col-span-3 space-y-8">
-          {/* DASHBOARD ANALYTICS TAB */}
-          {activeTab === 'analytics' && (
+            {/* User Avatar */}
+            <div className="flex items-center gap-2 pl-3 border-l border-gray-100 dark:border-gray-800">
+              <div className="w-8 h-8 rounded-full bg-brand-600 text-white font-bold text-xs flex items-center justify-center shadow-xs">
+                {(user?.full_name || 'AD').slice(0, 2).toUpperCase()}
+              </div>
+              <div className="text-left hidden sm:block">
+                <p className="text-xs font-bold text-gray-900 dark:text-white leading-tight">{user?.full_name || 'Admin'}</p>
+                <p className="text-[10px] text-gray-400 font-mono capitalize">{user?.role || 'Staff'}</p>
+              </div>
+            </div>
+          </div>
+        </header>
+
+        {/* Dynamic Section Content */}
+        <main className="flex-1 p-6 lg:p-8 max-w-7xl w-full mx-auto space-y-8">
+          {/* 1. OVERVIEW: Dashboard Analytics */}
+          {activeSection === 'dashboard' && (
             <>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                   <SummaryCard 
@@ -892,8 +912,8 @@ const AdminDashboardPage: React.FC = () => {
             </>
           )}
 
-          {/* TRANSACTIONS TAB */}
-          {activeTab === 'transactions' && (
+          {/* 2. TRANSACTIONS TAB */}
+          {activeSection === 'transactions' && (
             <div className="space-y-6">
               {/* Transactions Metrics Summary */}
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -1027,8 +1047,8 @@ const AdminDashboardPage: React.FC = () => {
             </div>
           )}
 
-          {/* BOOKINGS TAB */}
-          {activeTab === 'bookings' && (
+          {/* 3. BOOKINGS TAB */}
+          {activeSection === 'bookings' && (
              <div className="space-y-6">
                 <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-6 border border-gray-100 dark:border-gray-700 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                   <div>
@@ -1170,8 +1190,8 @@ const AdminDashboardPage: React.FC = () => {
              </div>
           )}
 
-          {/* UNIQUE REGISTERED STUDENTS TAB */}
-          {activeTab === 'students' && (
+          {/* 4. STUDENTS TAB */}
+          {activeSection === 'students' && (
              <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg overflow-hidden border border-gray-100 dark:border-gray-700">
                 <div className="px-6 py-5 border-b dark:border-gray-700 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                   <div>
@@ -1276,293 +1296,281 @@ const AdminDashboardPage: React.FC = () => {
              </div>
           )}
 
-          {/* CMS & ROOMS TAB */}
-          {activeTab === 'cms' && (
-            <div className="space-y-8">
-              {/* Sub-tab Navigation Bar for CMS */}
-              <div className="flex border-b border-gray-200 dark:border-gray-700 gap-4 bg-white dark:bg-gray-800 p-3 rounded-2xl shadow-sm overflow-x-auto">
+          {/* 5. WAITLIST VIEW */}
+          {activeSection === 'waitlist' && (
+            <WaitlistView rooms={rooms} />
+          )}
+
+          {/* 6. MAINTENANCE TICKETS VIEW */}
+          {activeSection === 'maintenance' && (
+            <MaintenanceView rooms={rooms} />
+          )}
+
+          {/* 7. PAYMENTS & CREDITS LEDGER VIEW */}
+          {activeSection === 'payments_credits' && (
+            <PaymentsCreditsView
+              bookings={bookings}
+              adminUser={user}
+              onAddActivity={addActivity}
+            />
+          )}
+
+          {/* 8. TWO-WAY MESSAGING INBOX VIEW */}
+          {activeSection === 'messages' && (
+            <MessagesInboxView bookings={bookings} />
+          )}
+
+          {/* 9. REVIEWS & RATINGS VIEW */}
+          {activeSection === 'reviews' && (
+            <ReviewsRatingsView />
+          )}
+
+          {/* 10. ROOMS & INVENTORY DATABASE VIEW */}
+          {activeSection === 'rooms_inventory' && (
+            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-6 border border-gray-100 dark:border-gray-700 space-y-6">
+              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b dark:border-gray-700 pb-4">
+                <div>
+                  <h2 className="text-xl font-bold text-gray-900 dark:text-white">Rooms & Bed Spaces Database</h2>
+                  <p className="text-xs text-gray-500 mt-0.5">Manage building rooms, bed capacities, category pricing, and availability</p>
+                </div>
                 <button
-                  onClick={() => setCmsSubTab('rooms')}
-                  className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${cmsSubTab === 'rooms' ? 'bg-brand-600 text-white shadow-sm' : 'text-gray-500 hover:text-gray-800'}`}
+                  onClick={() => handleOpenRoomModal(null)}
+                  className="bg-brand-600 hover:bg-brand-700 text-white px-5 py-2.5 rounded-xl text-xs font-bold flex items-center gap-2 shadow-md transition-all"
                 >
-                  🚪 Room & Accommodations Management
-                </button>
-                <button
-                  onClick={() => setCmsSubTab('branding')}
-                  className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${cmsSubTab === 'branding' ? 'bg-brand-600 text-white shadow-sm' : 'text-gray-500 hover:text-gray-800'}`}
-                >
-                  🎨 Landing Page Branding
-                </button>
-                <button
-                  onClick={() => setCmsSubTab('media')}
-                  className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${cmsSubTab === 'media' ? 'bg-brand-600 text-white shadow-sm' : 'text-gray-500 hover:text-gray-800'}`}
-                >
-                  📷 Accommodation Media & Perks
-                </button>
-                <button
-                  onClick={() => setCmsSubTab('contracts')}
-                  className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${cmsSubTab === 'contracts' ? 'bg-brand-600 text-white shadow-sm' : 'text-gray-500 hover:text-gray-800'}`}
-                >
-                  📄 Contract Templates
-                </button>
-                <button
-                  onClick={() => setCmsSubTab('faqs')}
-                  className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${cmsSubTab === 'faqs' ? 'bg-brand-600 text-white shadow-sm' : 'text-gray-500 hover:text-gray-800'}`}
-                >
-                  ❓ FAQs & Announcements
+                  <IconPlus className="w-4 h-4" /> Add New Room
                 </button>
               </div>
 
-              {/* ROOM & ACCOMMODATION MANAGEMENT SUB-SECTION */}
-              {cmsSubTab === 'rooms' && (
-                <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-6 border border-gray-100 dark:border-gray-700 space-y-6">
-                  <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b dark:border-gray-700 pb-4">
-                    <div>
-                      <h2 className="text-xl font-bold text-gray-900 dark:text-white">Rooms & Bed Spaces Database</h2>
-                      <p className="text-xs text-gray-500 mt-0.5">Manage building rooms, bed capacities, category pricing, and availability</p>
-                    </div>
-                    <button
-                      onClick={() => handleOpenRoomModal(null)}
-                      className="bg-brand-600 hover:bg-brand-700 text-white px-5 py-2.5 rounded-xl text-xs font-bold flex items-center gap-2 shadow-md transition-all"
-                    >
-                      <IconPlus className="w-4 h-4" /> Add New Room
-                    </button>
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {rooms.map(room => (
-                      <div key={room.id} className="border dark:border-gray-700 rounded-2xl p-5 space-y-4 bg-gray-50/50 dark:bg-gray-900/30 hover:border-brand-500 transition-colors">
-                        <div className="flex justify-between items-start">
-                          <div>
-                            <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded bg-brand-100 text-brand-700 dark:bg-brand-950/40 dark:text-brand-300">
-                              {room.category || 'Standard'}
-                            </span>
-                            <h3 className="text-lg font-bold text-gray-900 dark:text-white mt-1">Room {room.room_number}</h3>
-                          </div>
-                          <span className={`text-xs font-bold px-2 py-1 rounded-full ${room.is_available ? 'bg-emerald-100 text-emerald-800' : 'bg-red-100 text-red-800'}`}>
-                            {room.is_available ? 'Available' : 'Full / Maintenance'}
-                          </span>
-                        </div>
-
-                        <div className="grid grid-cols-2 gap-2 text-xs text-gray-600 dark:text-gray-300">
-                          <div><span className="font-bold text-gray-400">Type:</span> {room.type}</div>
-                          <div><span className="font-bold text-gray-400">Bed Capacity:</span> {room.capacity}</div>
-                          <div><span className="font-bold text-gray-400">Price/Mo:</span> ${room.price_per_month}</div>
-                          <div><span className="font-bold text-gray-400">Gender:</span> {room.gender_restriction}</div>
-                        </div>
-
-                        <div className="pt-3 border-t dark:border-gray-700 flex justify-end gap-2">
-                          <button
-                            onClick={() => handleOpenRoomModal(room)}
-                            className="bg-brand-50 text-brand-600 hover:bg-brand-100 px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1"
-                          >
-                            <IconEdit className="w-3.5 h-3.5" /> Edit
-                          </button>
-                          <button
-                            onClick={() => handleDeleteRoom(room.id, room.room_number)}
-                            className="bg-red-50 text-red-600 hover:bg-red-100 px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1"
-                          >
-                            <IconTrash className="w-3.5 h-3.5" /> Delete
-                          </button>
-                        </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {rooms.map(room => (
+                  <div key={room.id} className="border dark:border-gray-700 rounded-2xl p-5 space-y-4 bg-gray-50/50 dark:bg-gray-900/30 hover:border-brand-500 transition-colors">
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded bg-brand-100 text-brand-700 dark:bg-brand-950/40 dark:text-brand-300">
+                          {room.category || 'Standard'}
+                        </span>
+                        <h3 className="text-lg font-bold text-gray-900 dark:text-white mt-1">Room {room.room_number}</h3>
                       </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* BRANDING SUB-SECTION */}
-              {cmsSubTab === 'branding' && (
-                <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-6 border border-gray-100 dark:border-gray-700 space-y-6">
-                  <div className="flex items-center mb-6"><IconEdit className="w-6 h-6 text-brand-600 mr-2" /><h2 className="text-xl font-bold">Landing Page Content (English)</h2></div>
-                  <div className="space-y-6">
-                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <div className="space-y-2">
-                           <label className="block text-sm font-bold mb-1">Logo</label>
-                           <div className="flex items-center gap-4">
-                              <img src={cmsContent.logoUrl} alt="Logo" className="h-12 w-auto object-contain bg-gray-100 rounded p-1" />
-                              <label className="cursor-pointer bg-brand-50 text-brand-600 px-4 py-2 rounded-lg text-xs font-bold hover:bg-brand-100 flex items-center gap-2">
-                                 <IconUpload className="w-4 h-4" />
-                                 {isUploadingCms ? 'Uploading...' : 'Change Logo'}
-                                 <input type="file" className="hidden" onChange={(e) => handleCmsFileUpload(e, 'logoUrl')} accept="image/*" disabled={isUploadingCms} />
-                              </label>
-                           </div>
-                        </div>
-                        <div className="space-y-2">
-                           <label className="block text-sm font-bold mb-1">Hero Image</label>
-                           <div className="flex items-center gap-4">
-                              <img src={cmsContent.heroImageUrl} alt="Hero" className="h-12 w-20 object-cover bg-gray-100 rounded" />
-                              <label className="cursor-pointer bg-brand-50 text-brand-600 px-4 py-2 rounded-lg text-xs font-bold hover:bg-brand-100 flex items-center gap-2">
-                                 <IconUpload className="w-4 h-4" />
-                                 {isUploadingCms ? 'Uploading...' : 'Change Hero Image'}
-                                 <input type="file" className="hidden" onChange={(e) => handleCmsFileUpload(e, 'heroImageUrl')} accept="image/*" disabled={isUploadingCms} />
-                              </label>
-                           </div>
-                        </div>
-                     </div>
-                     <div><label className="block text-sm font-bold mb-1">Hero Title (EN)</label><input type="text" value={cmsContent.hero.en?.title} onChange={(e) => updateCmsContent({ hero: { ...cmsContent.hero, en: { ...cmsContent.hero.en!, title: e.target.value } } })} className="w-full p-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600" /></div>
-                     <div><label className="block text-sm font-bold mb-1">Hero Subtitle (EN)</label><textarea value={cmsContent.hero.en?.subtitle} onChange={(e) => updateCmsContent({ hero: { ...cmsContent.hero, en: { ...cmsContent.hero.en!, subtitle: e.target.value } } })} className="w-full p-2 border rounded-lg h-24 dark:bg-gray-700 dark:border-gray-600" /></div>
-                  </div>
-                </div>
-              )}
-
-              {/* MEDIA & PERKS SUB-SECTION */}
-              {cmsSubTab === 'media' && (
-                <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-6 border border-gray-100 dark:border-gray-700 space-y-6">
-                  <div className="flex items-center mb-4">
-                    <IconEdit className="w-6 h-6 text-brand-600 mr-2" />
-                    <div>
-                      <h2 className="text-xl font-bold">Category Visuals & Features Configuration</h2>
-                      <p className="text-xs text-gray-500 mt-0.5">Customize default tour videos, presentation photos, and perk lists for Premium 1, Premium 2 & Standard.</p>
-                    </div>
-                  </div>
-
-                  <div className="border border-gray-150 dark:border-gray-750 rounded-xl overflow-hidden mt-4">
-                    <div className="flex border-b border-gray-200 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-900/50">
-                      {(['Standard', 'Premium 1', 'Premium 2'] as const).map(cat => {
-                        const isActive = activeCategoryConfig === cat;
-                        return (
-                          <button
-                            key={cat}
-                            type="button"
-                            onClick={() => setActiveCategoryConfig(cat)}
-                            className={`flex-1 py-3 text-xs font-black uppercase tracking-wider transition-all border-b-2 ${
-                              isActive
-                                ? 'border-brand-600 bg-white dark:bg-gray-800 text-brand-600 border-b-brand-600'
-                                : 'border-transparent text-gray-500 hover:text-gray-800'
-                            }`}
-                          >
-                            {cat} Config
-                          </button>
-                        );
-                      })}
+                      <span className={`text-xs font-bold px-2 py-1 rounded-full ${room.is_available ? 'bg-emerald-100 text-emerald-800' : 'bg-red-100 text-red-800'}`}>
+                        {room.is_available ? 'Available' : 'Full / Maintenance'}
+                      </span>
                     </div>
 
-                    <div className="p-6 bg-white dark:bg-gray-800">
-                      <CategoryMediaEditor 
-                        category={activeCategoryConfig} 
-                        cmsContent={cmsContent} 
-                        updateCmsContent={updateCmsContent} 
-                      />
+                    <div className="grid grid-cols-2 gap-2 text-xs text-gray-600 dark:text-gray-300">
+                      <div><span className="font-bold text-gray-400">Type:</span> {room.type}</div>
+                      <div><span className="font-bold text-gray-400">Bed Capacity:</span> {room.capacity}</div>
+                      <div><span className="font-bold text-gray-400">Price/Mo:</span> ${room.price_per_month}</div>
+                      <div><span className="font-bold text-gray-400">Gender:</span> {room.gender_restriction}</div>
+                    </div>
+
+                    <div className="pt-3 border-t dark:border-gray-700 flex justify-end gap-2">
+                      <button
+                        onClick={() => handleOpenRoomModal(room)}
+                        className="bg-brand-50 text-brand-600 hover:bg-brand-100 px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1"
+                      >
+                        <IconEdit className="w-3.5 h-3.5" /> Edit
+                      </button>
+                      <button
+                        onClick={() => handleDeleteRoom(room.id, room.room_number)}
+                        className="bg-red-50 text-red-600 hover:bg-red-100 px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1"
+                      >
+                        <IconTrash className="w-3.5 h-3.5" /> Delete
+                      </button>
                     </div>
                   </div>
-                </div>
-              )}
-
-              {/* CONTRACT TEMPLATES SUB-SECTION */}
-              {cmsSubTab === 'contracts' && (
-                <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-6 border border-gray-100 dark:border-gray-700 space-y-6">
-                  <div className="flex items-center justify-between mb-6">
-                    <div className="flex items-center">
-                      <IconEdit className="w-6 h-6 text-purple-600 mr-2" />
-                      <h2 className="text-xl font-bold">Contract Templates</h2>
-                    </div>
-                    <button 
-                      onClick={() => setEditingContract({ roomType: AccommodationType.STANDARD_SHARED, lang: 'en' })}
-                      className="bg-brand-600 text-white px-4 py-2 rounded-lg text-xs font-bold"
-                    >
-                      + Add/Edit Template
-                    </button>
-                  </div>
-                  
-                  <div className="overflow-x-auto">
-                    <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-                      <thead className="bg-gray-50 dark:bg-gray-900">
-                        <tr>
-                          <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase">Room Type</th>
-                          <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase">Languages</th>
-                          <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase">Actions</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
-                        {Object.values(AccommodationType).map(type => (
-                          <tr key={type}>
-                            <td className="px-6 py-4 font-bold text-sm">{type}</td>
-                            <td className="px-6 py-4">
-                              <div className="flex gap-2">
-                                {['en', 'fr', 'ru', 'ar', 'uz', 'zh'].map(lang => {
-                                  const exists = cmsContent.contractTemplates[type]?.[lang as Language];
-                                  return (
-                                    <span 
-                                      key={lang} 
-                                      className={`px-2 py-1 rounded text-[10px] font-bold uppercase ${exists ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-400'}`}
-                                    >
-                                      {lang}
-                                    </span>
-                                  );
-                                })}
-                              </div>
-                            </td>
-                            <td className="px-6 py-4">
-                              <button 
-                                onClick={() => setEditingContract({ roomType: type, lang: 'en' })}
-                                className="text-brand-600 text-xs font-bold underline"
-                              >
-                                Manage
-                              </button>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              )}
-
-              {/* FAQS & ANNOUNCEMENTS SUB-SECTION */}
-              {cmsSubTab === 'faqs' && (
-                <div className="space-y-6">
-                  <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-6 border border-gray-100 dark:border-gray-700">
-                      <h2 className="text-xl font-bold mb-6">Manage Announcements ({language.toUpperCase()})</h2>
-                      <div className="space-y-6">
-                          {(cmsContent.announcements?.[language] || []).map((ann, index) => (
-                              <div key={ann.id} className="p-4 border rounded-lg dark:border-gray-700 space-y-3 relative">
-                                  <button onClick={() => handleRemoveAnnouncement(ann.id)} className="absolute -top-3 -right-3 bg-red-500 text-white rounded-full p-1 hover:bg-red-600"><IconTrash className="w-4 h-4" /></button>
-                                  <div>
-                                      <label className="text-xs font-bold">Title</label>
-                                      <input type="text" value={ann.title} onChange={(e) => handleAnnouncementChange(index, 'title', e.target.value)} className="w-full p-2 mt-1 border rounded-md dark:bg-gray-700 dark:border-gray-600"/>
-                                  </div>
-                                  <div>
-                                      <label className="text-xs font-bold">Content</label>
-                                      <textarea value={ann.content} onChange={(e) => handleAnnouncementChange(index, 'content', e.target.value)} rows={3} className="w-full p-2 mt-1 border rounded-md dark:bg-gray-700 dark:border-gray-600"/>
-                                  </div>
-                                  <p className="text-[10px] text-gray-400 italic">Posted on: {new Date(ann.date).toLocaleString()}</p>
-                              </div>
-                          ))}
-                          <button onClick={handleAddAnnouncement} className="w-full flex items-center justify-center gap-2 border-2 border-dashed p-3 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-750 dark:border-gray-600">
-                              <IconPlus className="w-5 h-5" /> Add Announcement
-                          </button>
-                      </div>
-                  </div>
-
-                  <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-6 border border-gray-100 dark:border-gray-700">
-                      <h2 className="text-xl font-bold mb-6">Manage FAQs ({language.toUpperCase()})</h2>
-                      <div className="space-y-6">
-                          {(cmsContent.faqs.en || []).map((faq, index) => (
-                              <div key={faq.id} className="p-4 border rounded-lg dark:border-gray-700 space-y-3 relative">
-                                  <button onClick={() => handleRemoveFaq(faq.id)} className="absolute -top-3 -right-3 bg-red-500 text-white rounded-full p-1 hover:bg-red-600"><IconTrash className="w-4 h-4" /></button>
-                                  <div>
-                                      <label className="text-xs font-bold">Question</label>
-                                      <input type="text" value={faq.q} onChange={(e) => handleFaqChange(index, 'q', e.target.value)} className="w-full p-2 mt-1 border rounded-md dark:bg-gray-700 dark:border-gray-600"/>
-                                  </div>
-                                  <div>
-                                      <label className="text-xs font-bold">Answer</label>
-                                      <textarea value={faq.a} onChange={(e) => handleFaqChange(index, 'a', e.target.value)} rows={3} className="w-full p-2 mt-1 border rounded-md dark:bg-gray-700 dark:border-gray-600"/>
-                                  </div>
-                              </div>
-                          ))}
-                          <button onClick={handleAddFaq} className="w-full flex items-center justify-center gap-2 border-2 border-dashed p-3 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-750 dark:border-gray-600">
-                              <IconPlus className="w-5 h-5" /> Add FAQ
-                          </button>
-                      </div>
-                  </div>
-                </div>
-              )}
+                ))}
+              </div>
             </div>
           )}
 
-          {/* ADMIN USERS TAB */}
-          {activeTab === 'users' && (
+          {/* 11. LANDING & BRANDING CMS VIEW */}
+          {activeSection === 'landing_branding' && (
+            <div className="space-y-8">
+              {/* Landing Page Content Editor */}
+              <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-6 border border-gray-100 dark:border-gray-700 space-y-6">
+                <div className="flex items-center mb-6"><IconEdit className="w-6 h-6 text-brand-600 mr-2" /><h2 className="text-xl font-bold">Landing Page Content (English)</h2></div>
+                <div className="space-y-6">
+                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div className="space-y-2">
+                         <label className="block text-sm font-bold mb-1">Logo</label>
+                         <div className="flex items-center gap-4">
+                            <img src={cmsContent.logoUrl} alt="Logo" className="h-12 w-auto object-contain bg-gray-100 rounded p-1" />
+                            <label className="cursor-pointer bg-brand-50 text-brand-600 px-4 py-2 rounded-lg text-xs font-bold hover:bg-brand-100 flex items-center gap-2">
+                               <IconUpload className="w-4 h-4" />
+                               {isUploadingCms ? 'Uploading...' : 'Change Logo'}
+                               <input type="file" className="hidden" onChange={(e) => handleCmsFileUpload(e, 'logoUrl')} accept="image/*" disabled={isUploadingCms} />
+                            </label>
+                         </div>
+                      </div>
+                      <div className="space-y-2">
+                         <label className="block text-sm font-bold mb-1">Hero Image</label>
+                         <div className="flex items-center gap-4">
+                            <img src={cmsContent.heroImageUrl} alt="Hero" className="h-12 w-20 object-cover bg-gray-100 rounded" />
+                            <label className="cursor-pointer bg-brand-50 text-brand-600 px-4 py-2 rounded-lg text-xs font-bold hover:bg-brand-100 flex items-center gap-2">
+                               <IconUpload className="w-4 h-4" />
+                               {isUploadingCms ? 'Uploading...' : 'Change Hero Image'}
+                               <input type="file" className="hidden" onChange={(e) => handleCmsFileUpload(e, 'heroImageUrl')} accept="image/*" disabled={isUploadingCms} />
+                            </label>
+                         </div>
+                      </div>
+                   </div>
+                   <div><label className="block text-sm font-bold mb-1">Hero Title (EN)</label><input type="text" value={cmsContent.hero.en?.title} onChange={(e) => updateCmsContent({ hero: { ...cmsContent.hero, en: { ...cmsContent.hero.en!, title: e.target.value } } })} className="w-full p-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600" /></div>
+                   <div><label className="block text-sm font-bold mb-1">Hero Subtitle (EN)</label><textarea value={cmsContent.hero.en?.subtitle} onChange={(e) => updateCmsContent({ hero: { ...cmsContent.hero, en: { ...cmsContent.hero.en!, subtitle: e.target.value } } })} className="w-full p-2 border rounded-lg h-24 dark:bg-gray-700 dark:border-gray-600" /></div>
+                </div>
+              </div>
+
+              {/* Accommodation Media & Category Perks */}
+              <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 overflow-hidden">
+                <div className="p-6 border-b dark:border-gray-700">
+                  <h2 className="text-xl font-bold text-gray-900 dark:text-white">Accommodation Categories & Media Perks</h2>
+                  <p className="text-xs text-gray-500 mt-0.5">Customize display titles, photos gallery, floor plans, and included perks per category</p>
+                </div>
+
+                <div className="border border-gray-150 dark:border-gray-750 rounded-xl overflow-hidden m-6">
+                  <div className="flex border-b border-gray-200 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-900/50">
+                    {(['Standard', 'Premium 1', 'Premium 2'] as const).map(cat => {
+                      const isActive = activeCategoryConfig === cat;
+                      return (
+                        <button
+                          key={cat}
+                          type="button"
+                          onClick={() => setActiveCategoryConfig(cat)}
+                          className={`flex-1 py-3 text-xs font-black uppercase tracking-wider transition-all border-b-2 ${
+                            isActive
+                              ? 'border-brand-600 bg-white dark:bg-gray-800 text-brand-600 border-b-brand-600'
+                              : 'border-transparent text-gray-500 hover:text-gray-800'
+                          }`}
+                        >
+                          {cat} Config
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  <div className="p-6 bg-white dark:bg-gray-800">
+                    <CategoryMediaEditor 
+                      category={activeCategoryConfig} 
+                      cmsContent={cmsContent} 
+                      updateCmsContent={updateCmsContent} 
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* 12. CONTRACT TEMPLATES VIEW */}
+          {activeSection === 'contracts' && (
+            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-6 border border-gray-100 dark:border-gray-700 space-y-6">
+              <div className="flex items-center justify-between mb-6">
+                <div className="flex items-center">
+                  <IconEdit className="w-6 h-6 text-purple-600 mr-2" />
+                  <h2 className="text-xl font-bold">Contract Templates</h2>
+                </div>
+                <button 
+                  onClick={() => setEditingContract({ roomType: AccommodationType.STANDARD_SHARED, lang: 'en' })}
+                  className="bg-brand-600 text-white px-4 py-2 rounded-lg text-xs font-bold"
+                >
+                  + Add/Edit Template
+                </button>
+              </div>
+              
+              <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                  <thead className="bg-gray-50 dark:bg-gray-900">
+                    <tr>
+                      <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase">Room Type</th>
+                      <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase">Languages</th>
+                      <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
+                    {Object.values(AccommodationType).map(type => (
+                      <tr key={type}>
+                        <td className="px-6 py-4 font-bold text-sm">{type}</td>
+                        <td className="px-6 py-4">
+                          <div className="flex gap-2">
+                            {['en', 'fr', 'ru', 'ar', 'uz', 'zh'].map(lang => {
+                              const exists = cmsContent.contractTemplates[type]?.[lang as Language];
+                              return (
+                                <span 
+                                  key={lang} 
+                                  className={`px-2 py-1 rounded text-[10px] font-bold uppercase ${exists ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-400'}`}
+                                >
+                                  {lang}
+                                </span>
+                              );
+                            })}
+                          </div>
+                        </td>
+                        <td className="px-6 py-4">
+                          <button 
+                            onClick={() => setEditingContract({ roomType: type, lang: 'en' })}
+                            className="text-brand-600 text-xs font-bold underline"
+                          >
+                            Manage
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {/* 13. FAQS & ANNOUNCEMENTS VIEW */}
+          {activeSection === 'faqs_announcements' && (
+            <div className="space-y-6">
+              <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-6 border border-gray-100 dark:border-gray-700">
+                  <h2 className="text-xl font-bold mb-6">Manage Announcements ({language.toUpperCase()})</h2>
+                  <div className="space-y-6">
+                      {(cmsContent.announcements?.[language] || []).map((ann, index) => (
+                          <div key={ann.id} className="p-4 border rounded-lg dark:border-gray-700 space-y-3 relative">
+                              <button onClick={() => handleRemoveAnnouncement(ann.id)} className="absolute -top-3 -right-3 bg-red-500 text-white rounded-full p-1 hover:bg-red-600"><IconTrash className="w-4 h-4" /></button>
+                              <div>
+                                  <label className="text-xs font-bold">Title</label>
+                                  <input type="text" value={ann.title} onChange={(e) => handleAnnouncementChange(index, 'title', e.target.value)} className="w-full p-2 mt-1 border rounded-md dark:bg-gray-700 dark:border-gray-600"/>
+                              </div>
+                              <div>
+                                  <label className="text-xs font-bold">Content</label>
+                                  <textarea value={ann.content} onChange={(e) => handleAnnouncementChange(index, 'content', e.target.value)} rows={3} className="w-full p-2 mt-1 border rounded-md dark:bg-gray-700 dark:border-gray-600"/>
+                              </div>
+                              <p className="text-[10px] text-gray-400 italic">Posted on: {new Date(ann.date).toLocaleString()}</p>
+                          </div>
+                      ))}
+                      <button onClick={handleAddAnnouncement} className="w-full flex items-center justify-center gap-2 border-2 border-dashed p-3 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-750 dark:border-gray-600">
+                          <IconPlus className="w-5 h-5" /> Add Announcement
+                      </button>
+                  </div>
+              </div>
+
+              <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-6 border border-gray-100 dark:border-gray-700">
+                  <h2 className="text-xl font-bold mb-6">Manage FAQs ({language.toUpperCase()})</h2>
+                  <div className="space-y-6">
+                      {(cmsContent.faqs.en || []).map((faq, index) => (
+                          <div key={faq.id} className="p-4 border rounded-lg dark:border-gray-700 space-y-3 relative">
+                              <button onClick={() => handleRemoveFaq(faq.id)} className="absolute -top-3 -right-3 bg-red-500 text-white rounded-full p-1 hover:bg-red-600"><IconTrash className="w-4 h-4" /></button>
+                              <div>
+                                  <label className="text-xs font-bold">Question</label>
+                                  <input type="text" value={faq.q} onChange={(e) => handleFaqChange(index, 'q', e.target.value)} className="w-full p-2 mt-1 border rounded-md dark:bg-gray-700 dark:border-gray-600"/>
+                              </div>
+                              <div>
+                                  <label className="text-xs font-bold">Answer</label>
+                                  <textarea value={faq.a} onChange={(e) => handleFaqChange(index, 'a', e.target.value)} rows={3} className="w-full p-2 mt-1 border rounded-md dark:bg-gray-700 dark:border-gray-600"/>
+                              </div>
+                          </div>
+                      ))}
+                      <button onClick={handleAddFaq} className="w-full flex items-center justify-center gap-2 border-2 border-dashed p-3 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-750 dark:border-gray-600">
+                          <IconPlus className="w-5 h-5" /> Add FAQ
+                      </button>
+                  </div>
+              </div>
+            </div>
+          )}
+
+          {/* 14. ADMIN USERS TAB */}
+          {activeSection === 'admin_users' && (
              <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg overflow-hidden border border-gray-100 dark:border-gray-700">
                 <div className="px-6 py-5 border-b dark:border-gray-700 flex justify-between items-center">
                   <div>
@@ -1627,27 +1635,20 @@ const AdminDashboardPage: React.FC = () => {
                 </div>
              </div>
           )}
-        </div>
 
-        {/* Right Sidebar - Recent Activities */}
-        <div className="space-y-6">
-           <div className="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700">
-              <h3 className="text-lg font-bold mb-6 text-gray-900 dark:text-white">🕒 {t.recentActivities}</h3>
-              <div className="space-y-6">
-                 {(activities || []).map(act => (
-                    <div key={act.id} className="flex gap-4 relative">
-                       <div className={`flex-shrink-0 w-2.5 h-2.5 rounded-full mt-1.5 z-10 ${act.type === 'payment' ? 'bg-emerald-500' : 'bg-brand-500'}`}></div>
-                       <div className="absolute left-[4px] top-4 w-[2px] h-full bg-gray-100 dark:bg-gray-700 last:hidden"></div>
-                       <div>
-                          <p className="text-xs font-semibold text-gray-800 dark:text-gray-200">{act.description}</p>
-                          <p className="text-[10px] text-gray-400 mt-1 font-mono uppercase">{new Date(act.timestamp).toLocaleString()}</p>
-                       </div>
-                    </div>
-                 ))}
-              </div>
-           </div>
-        </div>
+          {/* 15. RESIDENCY & SYSTEM SETTINGS VIEW */}
+          {activeSection === 'settings' && (
+            <AdminSettingsView />
+          )}
+        </main>
       </div>
+
+      {/* Activity Slide-Over Notification Drawer */}
+      <AdminActivityDrawer
+        isOpen={isActivityDrawerOpen}
+        onClose={() => setIsActivityDrawerOpen(false)}
+        activities={activities || []}
+      />
 
       {/* MODALS */}
       {viewingAgreement && (
