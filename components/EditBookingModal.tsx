@@ -190,7 +190,7 @@ export const EditBookingModal: React.FC<EditBookingModalProps> = ({
 
   // 3. EVICT / DISCONTINUE ACTION
   const handleEvictOrDiscontinue = async () => {
-    if (!confirm(`Are you sure you want to Evict / Discontinue residency for ${booking.full_name} (BK${booking.id})?\n\nThis will immediately conclude their tenancy, record checkout timestamp, and release the room/bed space back to Vacant.`)) {
+    if (!confirm(`Are you sure you want to Evict / Discontinue residency for ${booking.full_name} (BK${booking.id})?\n\nThis will immediately conclude their tenancy, set status to CANCELLED, record the checkout timestamp, and release the room/bed space back to Vacant.`)) {
       return;
     }
 
@@ -198,7 +198,7 @@ export const EditBookingModal: React.FC<EditBookingModalProps> = ({
     try {
       const checkoutTimestamp = new Date().toISOString();
       const res = await updateBooking(booking.id, {
-        status: BookingStatus.COMPLETED,
+        status: BookingStatus.CANCELLED,
         checked_out_at: checkoutTimestamp
       });
 
@@ -206,13 +206,13 @@ export const EditBookingModal: React.FC<EditBookingModalProps> = ({
         addActivity({
           user_id: user?.id || 'admin',
           type: 'system',
-          description: `Discontinued residency for ${booking.full_name} (BK${booking.id}). Room/bed space marked vacant immediately.`,
+          description: `Discontinued residency / Evicted ${booking.full_name} (BK${booking.id}). Status set to CANCELLED with checkout timestamp recorded. Room/bed space marked vacant immediately.`,
           timestamp: checkoutTimestamp
         });
 
-        alert(`Residency for ${booking.full_name} has been discontinued. The room/bed space is now Vacant.`);
+        alert(`Residency for ${booking.full_name} has been discontinued (Status: CANCELLED, Checkout: ${new Date(checkoutTimestamp).toLocaleString()}). The room/bed space is now Vacant.`);
         if (onBookingUpdated) {
-          onBookingUpdated({ ...booking, status: BookingStatus.COMPLETED, checked_out_at: checkoutTimestamp });
+          onBookingUpdated({ ...booking, status: BookingStatus.CANCELLED, checked_out_at: checkoutTimestamp });
         }
         onClose();
       } else {

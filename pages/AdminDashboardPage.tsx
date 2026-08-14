@@ -480,36 +480,45 @@ const AdminDashboardPage: React.FC = () => {
 
   const analytics = useMemo(() => {
     const safeBookings = bookings || [];
-    const activeBookings = safeBookings.filter(b => b.status !== BookingStatus.CANCELLED && b.status !== BookingStatus.COMPLETED);
     
-    const bookingsCountByRoom: Record<number, number> = {};
-    activeBookings.forEach(b => {
-      bookingsCountByRoom[b.room_id] = (bookingsCountByRoom[b.room_id] || 0) + 1;
-    });
+    // Confirmed / Occupied bookings for official Occupancy stats
+    const confirmedOrOccupiedBookings = safeBookings.filter(
+      b => b.status === BookingStatus.CONFIRMED || b.status === BookingStatus.OCCUPIED
+    );
 
-    const fullyOccupiedRoomIds = new Set<number>();
-    (rooms || []).forEach(r => {
-      const bookingsCount = bookingsCountByRoom[r.id] || 0;
-      if (bookingsCount >= (r.capacity || 1)) {
-        fullyOccupiedRoomIds.add(r.id);
-      }
-    });
+    // Active bookings (including holds) for pipeline capacity
+    const activePipelineBookings = safeBookings.filter(
+      b => b.status !== BookingStatus.CANCELLED && b.status !== BookingStatus.COMPLETED
+    );
 
-    const occupiedRoomIds = new Set<number>(activeBookings.map(b => b.room_id));
+    const totalCapacity = 14; // Fixed 14 physical bed spaces across 3 apartments (P1: 4, P2: 4, Std: 6)
     
-    const totalCapacity = (rooms || []).reduce((sum, r) => sum + (r.capacity || 1), 0);
-    const totalBooked = activeBookings.length;
-    const availableBedSpaces = Math.max(0, totalCapacity - totalBooked);
+    // Occupancy metrics source strictly from Confirmed/Occupied bookings
+    const confirmedCount = confirmedOrOccupiedBookings.length;
+    const occupancyRate = totalCapacity > 0 ? Math.round((confirmedCount / totalCapacity) * 100) : 0;
+    
+    // Available bed spaces accounting for active holds
+    const availableBedSpaces = Math.max(0, totalCapacity - activePipelineBookings.length);
+
+    // Revenue calculation logic: Confirmed + Occupied + Completed, plus Cancelled only where checked_out_at is set
+    const totalRevenue = safeBookings
+      .filter(b => {
+        if (b.status === BookingStatus.CONFIRMED || b.status === BookingStatus.OCCUPIED || b.status === BookingStatus.COMPLETED) {
+          return true;
+        }
+        if (b.status === BookingStatus.CANCELLED && (b as any).checked_out_at) {
+          return true;
+        }
+        return false;
+      })
+      .reduce((sum, b) => sum + (b.total_price || 0), 0);
 
     return {
       pendingVerifications: safeBookings.filter(b => b.status === BookingStatus.PENDING_VERIFICATION),
       pendingPayments: safeBookings.filter(b => b.status === BookingStatus.PENDING_PAYMENT),
       pendingContracts: safeBookings.filter(b => b.status === BookingStatus.PENDING_CONTRACT),
-      occupiedRoomIds,
-      fullyOccupiedRoomIds,
-      bookingsCountByRoom,
       occupancyByType: Object.values(AccommodationType).map(type => {
-        const typeBookings = activeBookings.filter(b => {
+        const typeBookings = confirmedOrOccupiedBookings.filter(b => {
           const roomObj = (rooms || []).find(r => r.id === b.room_id);
           return roomObj && roomObj.type === type;
         });
@@ -518,8 +527,9 @@ const AdminDashboardPage: React.FC = () => {
           value: typeBookings.length
         };
       }),
-      totalRevenue: safeBookings.filter(b => b.status === BookingStatus.OCCUPIED || b.status === BookingStatus.CONFIRMED).reduce((sum, b) => sum + (b.total_price || 0), 0),
-      occupancyRate: totalCapacity > 0 ? Math.round((totalBooked / totalCapacity) * 100) : 0,
+      totalRevenue,
+      occupancyRate,
+      confirmedBedSpaces: confirmedCount,
       totalRooms: totalCapacity,
       availableRooms: availableBedSpaces
     };
