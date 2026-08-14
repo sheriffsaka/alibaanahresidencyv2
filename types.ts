@@ -1,7 +1,7 @@
 
 export type Language = 'en' | 'ar' | 'ru' | 'fr' | 'uz' | 'zh';
 
-export type Page = 'home' | 'booking' | 'dashboard' | 'auth' | 'support';
+export type Page = 'home' | 'booking' | 'dashboard' | 'auth' | 'support' | 'my-bookings' | 'documents' | 'messages' | 'notifications' | 'profile' | 'billing';
 
 export enum AccommodationType {
   STANDARD_SHARED = 'Standard Shared',

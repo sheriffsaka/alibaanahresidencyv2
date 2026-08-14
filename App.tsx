@@ -10,6 +10,12 @@ import DashboardPage from './pages/DashboardPage';
 import AdminDashboardPage from './pages/AdminDashboardPage';
 import AuthPage from './pages/AuthPage';
 import SupportPage from './pages/SupportPage';
+import MyBookingsPage from './pages/MyBookingsPage';
+import DocumentsPage from './pages/DocumentsPage';
+import MessagesPage from './pages/MessagesPage';
+import NotificationsPage from './pages/NotificationsPage';
+import ProfilePage from './pages/ProfilePage';
+import BillingPage from './pages/BillingPage';
 import { sendEmail } from './lib/email';
 
 const DashboardLoadingFallback: React.FC<{ setPage: (page: any) => void }> = ({ setPage }) => {
@@ -117,7 +123,12 @@ Al-Ibaanah Student Residency Team`
 
   const renderPage = () => {
     // Publicly accessible pages
-    if (page === 'home') return <HomePage />;
+    if (page === 'home') {
+      if (user && user.role === 'student') {
+        return <DashboardPage />;
+      }
+      return <HomePage />;
+    }
     if (page === 'support') return <SupportPage />;
     
     // Auth guard for protected pages
@@ -125,7 +136,7 @@ Al-Ibaanah Student Residency Team`
       // If we are on a protected page but user is not yet loaded, 
       // show a small loading indicator instead of immediately redirecting to AuthPage.
       // This prevents the "flicker" back to login right after a successful signIn.
-      if (page === 'dashboard' || page === 'booking') {
+      if (page === 'dashboard' || page === 'booking' || page === 'my-bookings' || page === 'documents' || page === 'messages' || page === 'notifications' || page === 'profile' || page === 'billing') {
           return <DashboardLoadingFallback setPage={setPage} />;
       }
       return <AuthPage />;
@@ -139,18 +150,30 @@ Al-Ibaanah Student Residency Team`
             return <AdminDashboardPage />;
         }
         return <DashboardPage />;
+      case 'my-bookings':
+        return <MyBookingsPage />;
+      case 'documents':
+        return <DocumentsPage />;
+      case 'messages':
+        return <MessagesPage />;
+      case 'notifications':
+        return <NotificationsPage />;
+      case 'profile':
+        return <ProfilePage />;
+      case 'billing':
+        return <BillingPage />;
       case 'auth':
          // If user is already logged in and tries to go to auth, redirect to dashboard
         return <DashboardPage />;
       default:
-        return <HomePage />;
+        return user ? <DashboardPage /> : <HomePage />;
     }
   };
 
   return (
     <div className="bg-gray-50 dark:bg-gray-900 text-gray-800 dark:text-gray-200 min-h-screen flex flex-col">
       <Header />
-      <main className={`flex-grow ${page === 'home' ? '' : 'container mx-auto px-4 sm:px-6 lg:px-8 py-8'}`}>
+      <main className={`flex-grow ${(page === 'home' && !user) ? '' : 'container mx-auto px-4 sm:px-6 lg:px-8 py-8'}`}>
         {renderPage()}
       </main>
       <Footer />
