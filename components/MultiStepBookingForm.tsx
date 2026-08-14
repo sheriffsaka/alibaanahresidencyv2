@@ -15,7 +15,7 @@ import SignaturePad from 'react-signature-canvas';
 import { useReactToPrint } from 'react-to-print';
 import TenancyAgreementDocument from './TenancyAgreementDocument';
 import { sendEmail, getAgreementSignedTemplate } from '../lib/email';
-import { ALL_ROOM_SPACES, getUnifiedRoomName, getParsedRoomSpaces, getAccommodationAddress } from '../lib/roomNaming';
+import { ALL_ROOM_SPACES, getUnifiedRoomName, getParsedRoomSpaces, getAccommodationAddress, findDatabaseRoomForSpace } from '../lib/roomNaming';
 
 // Predefined Accommodation Categories and Rooms based on exact user specification
 const ACCOMMODATIONS_SELECTION: Record<string, Array<{ id: string; room: string; space: string; type: 'Shared' | 'Private'; label: string }>> = {
@@ -73,35 +73,6 @@ export const CATEGORY_MEDIA: Record<'Standard' | 'Premium 1' | 'Premium 2', {
     ],
     features: ['Shared bathroom area', 'High-speed student Wi-Fi', 'Air conditioning unit', 'Fully furnished student kitchen', 'Automatic washing machine access', 'Tranquil student community focus']
   }
-};
-
-const findDatabaseRoomForSpace = (rooms: any[], space: { category: string; type: 'Shared' | 'Private' }) => {
-  const isPrivate = space.type === 'Private';
-  const catSimple = space.category.startsWith('Premium') ? 'Premium' : 'Standard';
-  const reqType = isPrivate ? `${catSimple} Private` : `${catSimple} Shared`;
-  
-  // Specific apartment mapping
-  let aptName = '';
-  if (space.category === 'Premium 1') {
-    aptName = 'Apartment 1';
-  } else if (space.category === 'Premium 2') {
-    aptName = 'Apartment 3';
-  } else if (space.category === 'Standard') {
-    aptName = 'Apartment 2';
-  }
-  
-  // Try exact match with apartment_name and type
-  const match = rooms.find(r => 
-    r.apartment_name === aptName && 
-    r.type === reqType
-  );
-  if (match) return match;
-  
-  // Fallback to type matching
-  return rooms.find(r => 
-    r.category.toLowerCase() === catSimple.toLowerCase() && 
-    r.type === reqType
-  ) || null;
 };
 
 const MultiStepBookingForm: React.FC = () => {

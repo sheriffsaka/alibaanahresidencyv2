@@ -150,25 +150,29 @@ export const findDatabaseRoomForSpace = (rooms: any[], space: { category: string
   const catSimple = space.category.startsWith('Premium') ? 'Premium' : 'Standard';
   const reqType = isPrivate ? `${catSimple} Private` : `${catSimple} Shared`;
   
-  let aptName = '';
-  if (space.category === 'Premium 1') {
-    aptName = 'Apartment 1';
-  } else if (space.category === 'Premium 2') {
-    aptName = 'Apartment 3';
-  } else if (space.category === 'Standard') {
-    aptName = 'Apartment 2';
-  }
+  const catKey = space.category.toLowerCase().replace(/\s+/g, '');
   
-  const match = rooms.find(r => 
-    r.apartment_name === aptName && 
-    r.type === reqType
-  );
+  const match = (rooms || []).find(r => {
+    const rCat = (r.apartment_name || r.category || '').toLowerCase().replace(/\s+/g, '');
+    const rType = (r.type || '').toLowerCase();
+    
+    // Check exact apartment name match (e.g. "premium1", "apartment1")
+    const aptMatch = rCat === catKey || 
+      (catKey === 'premium1' && (rCat === 'apartment1' || rCat === 'premium1')) ||
+      (catKey === 'premium2' && (rCat === 'apartment3' || rCat === 'premium2')) ||
+      (catKey === 'standard' && (rCat === 'apartment2' || rCat === 'standard'));
+      
+    const typeMatch = rType.includes(isPrivate ? 'private' : 'shared');
+    return aptMatch && typeMatch;
+  });
+
   if (match) return match;
   
-  return rooms.find(r => 
-    r.category?.toLowerCase() === catSimple.toLowerCase() && 
-    r.type === reqType
-  ) || null;
+  // Fallback to category and type matching
+  return (rooms || []).find(r => 
+    (r.category?.toLowerCase() || '').includes(catSimple.toLowerCase()) && 
+    (r.type || '').toLowerCase().includes(isPrivate ? 'private' : 'shared')
+  ) || (rooms || [])[0] || null;
 };
 
 export interface ParsedRoomSpace extends RoomSpaceConfig {
@@ -180,46 +184,64 @@ export interface ParsedRoomSpace extends RoomSpaceConfig {
 }
 
 export const getParsedRoomSpaces = (rooms: any[], bookings: any[]): ParsedRoomSpace[] => {
-  const activeBookings = (bookings || []).filter(b => b.status !== 'CANCELLED' && b.status !== 'COMPLETED');
-  
-  const bookingsByRoom: Record<number, any[]> = {};
-  activeBookings.forEach(b => {
-    if (!bookingsByRoom[b.room_id]) {
-      bookingsByRoom[b.room_id] = [];
-    }
-    bookingsByRoom[b.room_id].push(b);
-  });
-  
-  Object.keys(bookingsByRoom).forEach(roomId => {
-    bookingsByRoom[Number(roomId)].sort((a, b) => a.id - b.id);
-  });
+  const isCancelledOrCompleted = (status?: string) => {
+    if (!status) return false;
+    const s = String(status).toUpperCase();
+    return s === 'CANCELLED' || s === 'COMPLETED' || s === 'REJECTED' || s === 'EVICTED' || s === 'DISCONTINUED';
+  };
 
-  const assignedCounts: Record<number, number> = {};
+  // Active bookings include Pending Verification, Pending Payment, Pending Contract, Confirmed, Occupied
+  const activeBookings = (bookings || []).filter(b => !isCancelledOrCompleted(b.status));
+
+  // Map to hold space assignments: space.id -> booking
+  const spaceBookingMap = new Map<string, any>();
+  const unassignedBookings: { booking: any; details: LiveRoomDetails }[] = [];
+
+  // Pass 1: Match bookings that specify their exact bed/room space
+  for (const b of activeBookings) {
+    const details = getLiveStudentRoomDetails(b, rooms || []);
+    
+    const exactMatch = ALL_ROOM_SPACES.find(space => {
+      const matchCat = space.category.toLowerCase().replace(/\s+/g, '') === details.category.toLowerCase().replace(/\s+/g, '');
+      const matchRoom = space.roomName.toLowerCase().replace(/\s+/g, '') === details.roomName.toLowerCase().replace(/\s+/g, '');
+      
+      if (space.type === 'Private') {
+        return matchCat && matchRoom;
+      }
+      
+      const matchBed = space.bedSpaceName.toLowerCase().replace(/\s+/g, '') === details.bedSpaceName.toLowerCase().replace(/\s+/g, '');
+      return matchCat && matchRoom && matchBed;
+    });
+
+    if (exactMatch && !spaceBookingMap.has(exactMatch.id)) {
+      spaceBookingMap.set(exactMatch.id, b);
+    } else {
+      unassignedBookings.push({ booking: b, details });
+    }
+  }
+
+  // Pass 2: If there are unassigned bookings (e.g. only category was specified), assign them to the first available space in that category
+  for (const { booking, details } of unassignedBookings) {
+    const availableSpace = ALL_ROOM_SPACES.find(space => {
+      if (spaceBookingMap.has(space.id)) return false;
+      const matchCat = space.category.toLowerCase().replace(/\s+/g, '') === details.category.toLowerCase().replace(/\s+/g, '');
+      const isPrivateBooking = String(details.fullDisplay || booking.preferred_accommodation || '').toLowerCase().includes('private');
+      const matchType = (space.type === 'Private') === isPrivateBooking;
+      return matchCat && matchType;
+    }) || ALL_ROOM_SPACES.find(space => {
+      if (spaceBookingMap.has(space.id)) return false;
+      return space.category.toLowerCase().replace(/\s+/g, '') === details.category.toLowerCase().replace(/\s+/g, '');
+    });
+
+    if (availableSpace) {
+      spaceBookingMap.set(availableSpace.id, booking);
+    }
+  }
 
   return ALL_ROOM_SPACES.map(space => {
     const dbRoom = findDatabaseRoomForSpace(rooms || [], space);
-    if (!dbRoom) {
-      return {
-        ...space,
-        isOccupied: false,
-        booking: undefined,
-        dbRoom: null,
-        supabaseRoom: null,
-        nextAvailableDate: 'Available Now'
-      };
-    }
-
-    const roomBookings = bookingsByRoom[dbRoom.id] || [];
-    const currentIndex = assignedCounts[dbRoom.id] || 0;
-
-    let assignedBooking: any | undefined = undefined;
-    let isOccupied = false;
-
-    if (currentIndex < roomBookings.length) {
-      assignedBooking = roomBookings[currentIndex];
-      isOccupied = true;
-      assignedCounts[dbRoom.id] = currentIndex + 1;
-    }
+    const assignedBooking = spaceBookingMap.get(space.id);
+    const isOccupied = !!assignedBooking;
 
     let nextAvailableDate = 'Available Now';
 

@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Room } from '../../types';
+import { ALL_ROOM_SPACES, getAccommodationAddress } from '../../lib/roomNaming';
 
 interface MaintenanceTicket {
   id: number;
@@ -300,17 +301,11 @@ export const MaintenanceView: React.FC<MaintenanceViewProps> = ({ rooms = [] }) 
                     onChange={(e) => setNewTicket(prev => ({ ...prev, room_number: e.target.value }))}
                     className="w-full text-xs p-2.5 border rounded-xl dark:bg-gray-700 dark:border-gray-600 font-medium"
                   >
-                    {rooms.length > 0 ? (
-                      rooms.map(r => (
-                        <option key={r.id} value={r.room_number}>Room {r.room_number} ({r.category})</option>
-                      ))
-                    ) : (
-                      <>
-                        <option value="101">Room 101</option>
-                        <option value="102">Room 102</option>
-                        <option value="103">Room 103</option>
-                      </>
-                    )}
+                    {ALL_ROOM_SPACES.map(space => (
+                      <option key={space.id} value={`${space.category} – ${space.roomName} (${space.bedSpaceName})`}>
+                        {space.category} – {space.roomName} ({space.bedSpaceName})
+                      </option>
+                    ))}
                   </select>
                 </div>
 

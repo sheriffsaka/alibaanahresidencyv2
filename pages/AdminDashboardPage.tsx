@@ -11,6 +11,7 @@ import { uploadFile, generateFileName } from '../lib/storage';
 import { sendEmail, getApprovalEmailTemplate } from '../lib/email';
 import AgreementModal from '../components/AgreementModal';
 import UserEditorModal from '../components/UserEditorModal';
+import EditBookingModal from '../components/EditBookingModal';
 import { formatStoredRoomString, getDisplayFromRoom, getParsedRoomSpaces, getAccommodationAddress, getLiveStudentRoomDetails } from '../lib/roomNaming';
 
 // Restructured Admin Components
@@ -1688,110 +1689,13 @@ const AdminDashboardPage: React.FC = () => {
         />
       )}
 
-      {/* Booking Details Drawer Modal */}
-      {selectedBooking && selectedBookingLiveDetails && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-          <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl w-full max-w-4xl flex flex-col max-h-[90vh]">
-            <div className="p-6 border-b dark:border-gray-800 flex justify-between items-center">
-              <h3 className="text-xl font-bold">Booking Details - BK{selectedBooking.id}</h3>
-              <button onClick={() => setSelectedBooking(null)}><IconClose className="w-6 h-6" /></button>
-            </div>
-            <div className="p-6 overflow-y-auto space-y-8">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                {/* Student Info */}
-                <div className="space-y-4">
-                  <h4 className="font-bold text-brand-600 uppercase tracking-wider text-xs">Student Information</h4>
-                  <div className="grid grid-cols-2 gap-4 text-sm">
-                    <div><p className="text-gray-500 text-[10px] uppercase font-bold">Full Name</p><p className="font-medium">{selectedBooking.full_name}</p></div>
-                    <div><p className="text-gray-500 text-[10px] uppercase font-bold">Nationality</p><p className="font-medium">{selectedBooking.nationality}</p></div>
-                    <div><p className="text-gray-500 text-[10px] uppercase font-bold">Passport No.</p><p className="font-medium">{selectedBooking.passport_number}</p></div>
-                    <div><p className="text-gray-500 text-[10px] uppercase font-bold">Email</p><p className="font-medium">{selectedBooking.email}</p></div>
-                    <div><p className="text-gray-500 text-[10px] uppercase font-bold">Phone</p><p className="font-medium">{selectedBooking.phone_number}</p></div>
-                    <div><p className="text-gray-500 text-[10px] uppercase font-bold">Arrival Date</p><p className="font-medium">{selectedBooking.expected_arrival_date ? new Date(selectedBooking.expected_arrival_date).toLocaleDateString() : 'N/A'}</p></div>
-                    <div><p className="text-gray-500 text-[10px] uppercase font-bold">Duration</p><p className="font-medium">{selectedBooking.duration_of_stay}</p></div>
-                    <div><p className="text-gray-500 text-[10px] uppercase font-bold">Accommodation</p><p className="font-medium">{selectedBookingLiveDetails.category}</p></div>
-                    <div><p className="text-gray-500 text-[10px] uppercase font-bold">Room Assigned</p><p className="font-medium text-brand-600">{selectedBookingLiveDetails.roomName} ({selectedBookingLiveDetails.bedSpaceName})</p></div>
-                    <div><p className="text-gray-500 text-[10px] uppercase font-bold">Full Unified Name</p><p className="font-medium text-xs text-gray-700 dark:text-gray-300">{selectedBookingLiveDetails.fullDisplay}</p></div>
-                  </div>
-                  <div className="mt-4">
-                    <p className="text-gray-500 text-[10px] uppercase font-bold">Address</p>
-                    <p className="text-xs text-gray-600 dark:text-gray-300">📍 {selectedBookingLiveDetails.address}</p>
-                  </div>
-                  <div className="mt-4">
-                    <p className="text-gray-500 text-[10px] uppercase font-bold">Emergency Contact</p>
-                    <p className="text-sm">{selectedBooking.emergency_contact_details}</p>
-                  </div>
-                </div>
-
-                {/* Documents */}
-                <div className="space-y-6">
-                  <div>
-                    <h4 className="font-bold text-brand-600 uppercase tracking-wider text-xs mb-2">Passport Copy</h4>
-                    <a href={selectedBooking.passport_copy_url} target="_blank" rel="noreferrer" className="block p-4 border rounded-xl hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
-                      <p className="text-xs font-bold text-brand-600">View Passport Document ↗</p>
-                    </a>
-                  </div>
-
-                  <div>
-                    <h4 className="font-bold text-brand-600 uppercase tracking-wider text-xs mb-2">Signed Tenancy Agreement</h4>
-                    {selectedBooking.signature_data ? (
-                      <div className="space-y-3">
-                        <div className="p-4 border rounded-xl bg-gray-50 dark:bg-gray-800">
-                           <img src={selectedBooking.signature_data} alt="Signature" className="max-h-16 mx-auto" />
-                           <p className="text-[10px] text-center text-gray-500 mt-2">Signed on {selectedBooking.contract_signed_at ? new Date(selectedBooking.contract_signed_at).toLocaleString() : 'N/A'}</p>
-                        </div>
-                        <button 
-                          onClick={() => setViewingAgreement(selectedBooking)}
-                          className="w-full py-2 bg-brand-600 text-white rounded-lg text-xs font-bold hover:bg-brand-700 transition-colors"
-                        >
-                          View Full Agreement
-                        </button>
-                      </div>
-                    ) : (
-                      <p className="text-sm text-red-500 italic">Contract not yet signed.</p>
-                    )}
-                  </div>
-
-                  {selectedBooking.payment_proof_url && (
-                    <div>
-                      <h4 className="font-bold text-brand-600 uppercase tracking-wider text-xs mb-2">Payment Proof</h4>
-                      {selectedBooking.payment_proof_url.toLowerCase().endsWith('.pdf') ? (
-                        <a 
-                          href={selectedBooking.payment_proof_url} 
-                          target="_blank" 
-                          rel="noreferrer" 
-                          className="block p-4 border rounded-xl bg-gray-50 dark:bg-gray-800 hover:bg-gray-100 transition-colors"
-                        >
-                          <p className="text-xs font-bold text-brand-600 flex items-center gap-2">
-                            <IconFile className="w-4 h-4" /> View Payment Proof PDF ↗
-                          </p>
-                        </a>
-                      ) : (
-                        <img src={selectedBooking.payment_proof_url} alt="Payment Proof" className="w-full h-auto rounded-xl border" />
-                      )}
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-            <div className="p-6 border-t dark:border-gray-800 flex gap-4">
-              {selectedBooking.status === BookingStatus.PENDING_VERIFICATION && (
-                <button 
-                  onClick={() => { handleApprove(selectedBooking.id); setSelectedBooking(null); }}
-                  className="flex-1 bg-green-600 text-white py-3 rounded-xl font-bold hover:bg-green-700 transition-colors"
-                >
-                  Confirm Payment & Approve
-                </button>
-              )}
-              <button 
-                onClick={() => setSelectedBooking(null)}
-                className="flex-1 bg-gray-100 dark:bg-gray-800 py-3 rounded-xl font-bold hover:bg-gray-200 transition-colors"
-              >
-                Close
-              </button>
-            </div>
-          </div>
-        </div>
+      {/* Comprehensive Edit Booking Modal (Approve, Reject, Manual Edit, Evict-Discontinue) */}
+      {selectedBooking && (
+        <EditBookingModal
+          booking={selectedBooking}
+          isOpen={!!selectedBooking}
+          onClose={() => setSelectedBooking(null)}
+        />
       )}
 
       {isRoomModalOpen && (
