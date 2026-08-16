@@ -105,7 +105,7 @@ const BillingPage: React.FC = () => {
             </div>
 
             <div className="p-3 rounded-xl bg-amber-50 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300 text-[11px] leading-relaxed border border-amber-200/50">
-              ⚠️ <strong>Important:</strong> Always include your Booking ID (e.g. <code>BK...</code>) in the transfer reference notes so our accounts department can verify your payment immediately.
+              ⚠️ <strong>Important:</strong> Always include your Room Name (e.g. <code>Premium 1 - Room 1</code>) in the transfer reference notes so our accounts department can verify your payment immediately.
             </div>
           </div>
         </div>

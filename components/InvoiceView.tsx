@@ -1,5 +1,5 @@
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { Booking, BookingStatus } from '../types';
 import { IconClose } from './Icon';
 import { useApp } from '../hooks/useApp';
@@ -17,6 +17,13 @@ const InvoiceView: React.FC<InvoiceViewProps> = ({ booking, onClose, isReceipt }
   const { cmsContent } = useApp();
   const [paymentTab, setPaymentTab] = useState<'bank' | 'remitly'>('bank');
 
+  const roomDisplayName = useMemo(() => {
+    if (!booking?.rooms) return 'Residency Room';
+    const apt = booking.rooms.apartment_name ? `${booking.rooms.apartment_name.replace('Apartment', '').trim()} – ` : '';
+    const num = formatStoredRoomString(booking.rooms.room_number || '');
+    return `${apt}${num}`.trim() || 'Residency Room';
+  }, [booking?.rooms]);
+
   useEffect(() => {
     // Automatically trigger print dialog when component mounts
     const timer = setTimeout(() => {
@@ -25,6 +32,7 @@ const InvoiceView: React.FC<InvoiceViewProps> = ({ booking, onClose, isReceipt }
 
     return () => clearTimeout(timer);
   }, []);
+
 
   return (
     <>
@@ -218,7 +226,7 @@ const InvoiceView: React.FC<InvoiceViewProps> = ({ booking, onClose, isReceipt }
                       </div>
                       <div className="flex justify-between items-center border-t border-gray-150 dark:border-gray-800 pt-2">
                         <span className="text-gray-400 uppercase font-bold text-[9px]">Memo/Reference:</span>
-                        <span className="font-bold font-mono text-gray-900 dark:text-white bg-gray-100 dark:bg-gray-950 px-2 py-0.5 rounded">BK{booking.id} - {booking.full_name}</span>
+                        <span className="font-bold font-mono text-gray-900 dark:text-white bg-gray-100 dark:bg-gray-950 px-2 py-0.5 rounded text-xs">{roomDisplayName} - {booking.full_name}</span>
                       </div>
                     </div>
                   </div>
@@ -246,7 +254,7 @@ const InvoiceView: React.FC<InvoiceViewProps> = ({ booking, onClose, isReceipt }
                             <span className="font-mono font-bold text-right col-span-1 text-brand-600 dark:text-brand-400">EG320010010900000100063328094</span>
                           </div>
                         </li>
-                        <li>Select pay method, review details, matching reference <strong>BK{booking.id}</strong>, and send.</li>
+                        <li>Select pay method, review details, matching reference <strong className="font-mono bg-gray-100 dark:bg-gray-950 px-1 py-0.5 rounded">{roomDisplayName} - {booking.full_name}</strong>, and send.</li>
                       </ol>
                     </div>
                   </div>

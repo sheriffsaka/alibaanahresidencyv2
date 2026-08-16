@@ -445,7 +445,7 @@ Step 6. Enter the recipient’s bank details exactly as written below:
 Step 7. Choose your payment method (debit card, credit card, or bank transfer).
 Step 8. Review all transfer details and transmit.
 
-✅ MANDATORY Reference memo: BK${createdBooking.id} - ${formData.fullName}
+✅ MANDATORY Reference memo: ${getUnifiedRoomName(formData.category, formData.roomName, formData.bedSpaceName)} - ${formData.fullName}
 
 Rent Breakdown: $${pricing.monthlyRate}/mo for ${formData.duration} months stay.
 Total Remaining balance upon physical arrival: $${pricing.totalPrice - pricing.monthlyRate} USD.
@@ -1096,8 +1096,8 @@ Please verify the agreement details in the Admin Dashboard at your earliest conv
 
                     <div className="border-t border-gray-100 dark:border-gray-700 pt-3 flex justify-between items-center">
                       <span className="text-gray-400 font-bold uppercase tracking-wider text-[10px]">Reference / Memo:</span>
-                      <span className="font-black font-mono text-gray-900 dark:text-white bg-gray-100 dark:bg-gray-900 px-2 py-1 rounded border border-gray-200 dark:border-gray-800">
-                        BK{bookingResult?.id || '2004'} - {formData.fullName}
+                      <span className="font-black font-mono text-gray-900 dark:text-white bg-gray-100 dark:bg-gray-900 px-2 py-1 rounded border border-gray-200 dark:border-gray-800 text-xs">
+                        {getUnifiedRoomName(formData.category, formData.roomName, formData.bedSpaceName)} - {formData.fullName}
                       </span>
                     </div>
                   </div>
@@ -1129,7 +1129,7 @@ Please verify the agreement details in the Admin Dashboard at your earliest conv
                         </div>
                       </li>
                       <li>Choose your payment method (debit card, credit card, or bank transfer).</li>
-                      <li>Carefully review all details, ensure reference is marked as <strong className="font-mono bg-gray-100 dark:bg-gray-900 px-1 py-0.5 rounded">BK{bookingResult?.id || '2004'}</strong>, and confirm.</li>
+                      <li>Carefully review all details, ensure reference is marked as <strong className="font-mono bg-gray-100 dark:bg-gray-900 px-1 py-0.5 rounded text-gray-900 dark:text-white">{getUnifiedRoomName(formData.category, formData.roomName, formData.bedSpaceName)} - {formData.fullName}</strong>, and confirm.</li>
                     </ol>
                   </div>
                 </div>
