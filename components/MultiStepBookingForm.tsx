@@ -77,7 +77,7 @@ export const CATEGORY_MEDIA: Record<'Standard' | 'Premium 1' | 'Premium 2', {
 
 const MultiStepBookingForm: React.FC = () => {
   const t = useTranslation();
-  const { user, setPage, addBooking, addActivity, rooms, bookings, effectiveOccupancyBookings, extendingBooking, landlordDetails, cmsContent } = useApp();
+  const { user, setPage, addBooking, addActivity, rooms, bookings, effectiveOccupancyBookings, extendingBooking, landlordDetails, cmsContent, accommodationAddresses } = useApp();
 
   const parsedAvailabilityData = useMemo(() => {
     return getParsedRoomSpaces(rooms, effectiveOccupancyBookings);
@@ -545,7 +545,7 @@ Please verify the agreement details in the Admin Dashboard at your earliest conv
                   Rooms & Bed space configuration in {formData.category}
                 </h3>
                 <span className="text-xs text-brand-600 dark:text-brand-400 font-semibold bg-brand-50 dark:bg-brand-950/40 px-3 py-1 rounded-full w-fit">
-                  📍 {getAccommodationAddress(formData.category)}
+                  📍 {getAccommodationAddress(formData.category, accommodationAddresses)}
                 </span>
               </div>
 
@@ -858,7 +858,7 @@ Please verify the agreement details in the Admin Dashboard at your earliest conv
                   <SummaryItem label="Placement Level" value={`${formData.roomType} room`} />
                   <SummaryItem label="Duration" value={`${formData.duration} Months`} />
                   <div className="col-span-2">
-                    <SummaryItem label="Accommodation Address" value={getAccommodationAddress(formData.category)} />
+                    <SummaryItem label="Accommodation Address" value={getAccommodationAddress(formData.category, accommodationAddresses)} />
                   </div>
                 </div>
               </div>
@@ -918,6 +918,7 @@ Please verify the agreement details in the Admin Dashboard at your earliest conv
                     startDate={startDate}
                     endDate={endDate}
                     signature={signature || undefined}
+                    customAddresses={accommodationAddresses}
                  />
               </div>
             </div>

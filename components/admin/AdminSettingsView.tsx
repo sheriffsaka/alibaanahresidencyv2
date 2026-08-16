@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useApp } from '../../hooks/useApp';
+import { DEFAULT_ACCOMMODATION_ADDRESSES } from '../../types';
 
 export const AdminSettingsView: React.FC = () => {
   const { cmsContent, updateCmsContent } = useApp();
@@ -15,7 +16,10 @@ export const AdminSettingsView: React.FC = () => {
     adminEmail: cmsContent?.landlordDetails?.adminEmail || 'sheriffdeenalade@gmail.com',
     enableEmailAlerts: true,
     enableSmsAlerts: false,
-    autoHoldWaitlistDays: 3
+    autoHoldWaitlistDays: 3,
+    premium1Address: cmsContent?.accommodationAddresses?.['Premium 1'] || DEFAULT_ACCOMMODATION_ADDRESSES['Premium 1'],
+    premium2Address: cmsContent?.accommodationAddresses?.['Premium 2'] || DEFAULT_ACCOMMODATION_ADDRESSES['Premium 2'],
+    standardAddress: cmsContent?.accommodationAddresses?.['Standard'] || DEFAULT_ACCOMMODATION_ADDRESSES['Standard'],
   });
 
   const handleSave = (e: React.FormEvent) => {
@@ -30,6 +34,11 @@ export const AdminSettingsView: React.FC = () => {
           swiftCode: settingsForm.swiftCode,
           phone: settingsForm.phone,
           adminEmail: settingsForm.adminEmail
+        },
+        accommodationAddresses: {
+          'Premium 1': settingsForm.premium1Address,
+          'Premium 2': settingsForm.premium2Address,
+          'Standard': settingsForm.standardAddress,
         }
       });
     }
@@ -161,6 +170,43 @@ export const AdminSettingsView: React.FC = () => {
                   value={settingsForm.adminEmail}
                   onChange={(e) => setSettingsForm(prev => ({ ...prev, adminEmail: e.target.value }))}
                   className="w-full text-xs p-2.5 border rounded-xl dark:bg-gray-700 dark:border-gray-600 font-mono"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Residency Building & Apartment Addresses */}
+          <div className="space-y-4 pt-4 border-t border-gray-100 dark:border-gray-700">
+            <h3 className="text-sm font-bold text-brand-600 uppercase tracking-wider">Residency Apartment Physical Addresses</h3>
+            <p className="text-xs text-gray-500">These official physical addresses automatically populate tenancy contracts, the student dashboard, booking wizards, and maintenance logs.</p>
+            <div className="grid grid-cols-1 gap-4">
+              <div>
+                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Premium 1 Apartment Address</label>
+                <input
+                  type="text"
+                  value={settingsForm.premium1Address}
+                  onChange={(e) => setSettingsForm(prev => ({ ...prev, premium1Address: e.target.value }))}
+                  className="w-full text-xs p-2.5 border rounded-xl dark:bg-gray-700 dark:border-gray-600 font-medium"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Premium 2 Apartment Address</label>
+                <input
+                  type="text"
+                  value={settingsForm.premium2Address}
+                  onChange={(e) => setSettingsForm(prev => ({ ...prev, premium2Address: e.target.value }))}
+                  className="w-full text-xs p-2.5 border rounded-xl dark:bg-gray-700 dark:border-gray-600 font-medium"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Standard Apartment Address</label>
+                <input
+                  type="text"
+                  value={settingsForm.standardAddress}
+                  onChange={(e) => setSettingsForm(prev => ({ ...prev, standardAddress: e.target.value }))}
+                  className="w-full text-xs p-2.5 border rounded-xl dark:bg-gray-700 dark:border-gray-600 font-medium"
                 />
               </div>
             </div>

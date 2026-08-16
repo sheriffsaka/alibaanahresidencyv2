@@ -29,7 +29,7 @@ export const EditBookingModal: React.FC<EditBookingModalProps> = ({
   onClose,
   onBookingUpdated
 }) => {
-  const { user, rooms, updateBooking, deleteBooking, addActivity } = useApp();
+  const { user, rooms, updateBooking, deleteBooking, addActivity, accommodationAddresses } = useApp();
 
   const [activeTab, setActiveTab] = useState<'overview' | 'edit' | 'documents'>('overview');
   const [isProcessing, setIsProcessing] = useState(false);
@@ -602,7 +602,7 @@ export const EditBookingModal: React.FC<EditBookingModalProps> = ({
                     >
                       {ALL_ROOM_SPACES.map(space => (
                         <option key={space.id} value={space.id}>
-                          {space.displayName} ({space.category} • {getAccommodationAddress(space.category)})
+                          {space.displayName} ({space.category} • {getAccommodationAddress(space.category, accommodationAddresses)})
                         </option>
                       ))}
                     </select>

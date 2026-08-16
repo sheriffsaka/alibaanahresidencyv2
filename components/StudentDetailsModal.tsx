@@ -18,7 +18,7 @@ export const StudentDetailsModal: React.FC<StudentDetailsModalProps> = ({
   onClose,
   onViewPaymentProof
 }) => {
-  const { bookings } = useApp();
+  const { bookings, accommodationAddresses } = useApp();
 
   if (!isOpen || !student) return null;
 
@@ -34,7 +34,7 @@ export const StudentDetailsModal: React.FC<StudentDetailsModalProps> = ({
   const nationality = activeBooking?.nationality || 'International';
   const passportNumber = activeBooking?.passport_number || 'N/A';
   const emergencyContact = activeBooking?.emergency_contact_details || 'N/A';
-  const addressInEgypt = activeBooking?.address_in_egypt || getAccommodationAddress(activeBooking?.preferred_accommodation);
+  const addressInEgypt = activeBooking?.address_in_egypt || getAccommodationAddress(activeBooking?.preferred_accommodation, accommodationAddresses);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs overflow-y-auto">

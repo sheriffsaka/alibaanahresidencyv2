@@ -1,22 +1,29 @@
+import { AccommodationAddresses, DEFAULT_ACCOMMODATION_ADDRESSES } from '../types';
+
 export const ACCOMMODATION_ADDRESSES: Record<string, string> = {
+  'Premium 1': '11, Samir Moursey Street, Nasr City, Cairo.',
   'Premium 2': '2 Ezzat Salamat Street, Off Kaabool, Makram Ebeid, Nasr City, Cairo.',
   'Standard': '24 Saqaliyyah Street, Off Kaabool, Makram Ebeid, Nasr City, Cairo.',
-  'Premium 1': '2 Ezzat Salamat Street, Off Kaabool, Makram Ebeid, Nasr City, Cairo.',
 };
 
-export const getAccommodationAddress = (category?: string): string => {
-  if (!category) return ACCOMMODATION_ADDRESSES['Standard'];
+export const getAccommodationAddress = (category?: string, customAddresses?: AccommodationAddresses | Record<string, string>): string => {
+  const addresses = customAddresses || ACCOMMODATION_ADDRESSES;
+  const p1 = addresses['Premium 1'] || ACCOMMODATION_ADDRESSES['Premium 1'];
+  const p2 = addresses['Premium 2'] || ACCOMMODATION_ADDRESSES['Premium 2'];
+  const std = addresses['Standard'] || ACCOMMODATION_ADDRESSES['Standard'];
+
+  if (!category) return std;
   const cat = category.trim();
   if (cat.toLowerCase().includes('premium 2') || cat === 'Apartment 3') {
-    return ACCOMMODATION_ADDRESSES['Premium 2'];
+    return p2;
   }
   if (cat.toLowerCase().includes('standard') || cat === 'Apartment 2') {
-    return ACCOMMODATION_ADDRESSES['Standard'];
+    return std;
   }
   if (cat.toLowerCase().includes('premium 1') || cat === 'Apartment 1') {
-    return ACCOMMODATION_ADDRESSES['Premium 1'];
+    return p1;
   }
-  return ACCOMMODATION_ADDRESSES['Standard'];
+  return std;
 };
 
 export interface RoomSpaceConfig {
@@ -353,7 +360,7 @@ export interface LiveRoomDetails {
   address: string;
 }
 
-export const getLiveStudentRoomDetails = (booking: any, roomsList: any[] = []): LiveRoomDetails => {
+export const getLiveStudentRoomDetails = (booking: any, roomsList: any[] = [], customAddresses?: AccommodationAddresses | Record<string, string>): LiveRoomDetails => {
   // 0. Direct bed_space_id lookup if present
   if (booking?.bed_space_id != null) {
     const spaceId = ID_TO_BED_SPACE_MAP[booking.bed_space_id];
@@ -365,7 +372,7 @@ export const getLiveStudentRoomDetails = (booking: any, roomsList: any[] = []): 
           roomName: spaceObj.roomName,
           bedSpaceName: spaceObj.bedSpaceName,
           fullDisplay: spaceObj.displayName,
-          address: getAccommodationAddress(spaceObj.category)
+          address: getAccommodationAddress(spaceObj.category, customAddresses)
         };
       }
     }
@@ -401,7 +408,7 @@ export const getLiveStudentRoomDetails = (booking: any, roomsList: any[] = []): 
       roomName: matchedSpaceById.roomName,
       bedSpaceName: matchedSpaceById.bedSpaceName,
       fullDisplay: matchedSpaceById.displayName,
-      address: getAccommodationAddress(matchedSpaceById.category)
+      address: getAccommodationAddress(matchedSpaceById.category, customAddresses)
     };
   }
 
@@ -475,7 +482,7 @@ export const getLiveStudentRoomDetails = (booking: any, roomsList: any[] = []): 
     roomName,
     bedSpaceName,
     fullDisplay,
-    address: getAccommodationAddress(category)
+    address: getAccommodationAddress(category, customAddresses)
   };
 };
 

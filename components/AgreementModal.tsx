@@ -5,6 +5,7 @@ import { useReactToPrint } from 'react-to-print';
 import TenancyAgreementDocument from './TenancyAgreementDocument';
 import { IconClose, IconSignature, IconCheck } from './Icon';
 import { Booking } from '../types';
+import { useApp } from '../hooks/useApp';
 
 interface AgreementModalProps {
   booking: Booking;
@@ -14,6 +15,7 @@ interface AgreementModalProps {
 }
 
 const AgreementModal: React.FC<AgreementModalProps> = ({ booking, onSign, onClose, isReadOnly = false }) => {
+  const { accommodationAddresses } = useApp();
   const [signature, setSignature] = useState<string | null>(booking.signature_data || null);
   const sigPadRef = useRef<SignaturePad>(null);
   const agreementRef = useRef<HTMLDivElement>(null);
@@ -72,6 +74,7 @@ const AgreementModal: React.FC<AgreementModalProps> = ({ booking, onSign, onClos
                 startDate={booking.start_date}
                 endDate={booking.end_date}
                 signature={signature || undefined}
+                customAddresses={accommodationAddresses}
               />
            </div>
         </div>

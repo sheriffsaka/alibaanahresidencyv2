@@ -1,6 +1,7 @@
 import React from 'react';
 import { IconCheckCircle } from './Icon';
 import { getUnifiedRoomName, getAccommodationAddress } from '../lib/roomNaming';
+import { AccommodationAddresses } from '../types';
 
 interface TenancyAgreementDocumentProps {
   formData: any;
@@ -8,10 +9,11 @@ interface TenancyAgreementDocumentProps {
   startDate: string;
   endDate: string;
   signature?: string;
+  customAddresses?: AccommodationAddresses | Record<string, string>;
 }
 
 const TenancyAgreementDocument: React.ForwardRefRenderFunction<HTMLDivElement, TenancyAgreementDocumentProps> = (
-  { formData, monthlyRate, startDate, endDate, signature },
+  { formData, monthlyRate, startDate, endDate, signature, customAddresses },
   ref
 ) => {
   const today = new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
@@ -84,7 +86,7 @@ const TenancyAgreementDocument: React.ForwardRefRenderFunction<HTMLDivElement, T
             <h2 className="text-sm font-bold border-b border-brand-800 text-brand-800 pb-1 uppercase tracking-wider mt-8">2. RENTAL PROPERTY & UNIT</h2>
             <div className="space-y-2 text-xs text-gray-700">
               <p>The property subject to this Agreement is located at:</p>
-              <strong className="text-xs text-gray-900 block px-4 py-2 border border-brand-100 bg-brand-50/20 rounded-lg text-center font-bold">{getAccommodationAddress(formData.category)}</strong>
+              <strong className="text-xs text-gray-900 block px-4 py-2 border border-brand-100 bg-brand-50/20 rounded-lg text-center font-bold">{getAccommodationAddress(formData.category, customAddresses)}</strong>
               {formData.category && formData.roomName && (
                 <p className="mt-2 text-xs">
                   <span className="font-bold text-gray-600">Assigned Unit Space:</span>{' '}

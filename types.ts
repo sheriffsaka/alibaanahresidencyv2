@@ -132,6 +132,18 @@ export interface User {
   created_at?: string;
 }
 
+export interface AccommodationAddresses {
+  'Premium 1': string;
+  'Premium 2': string;
+  'Standard': string;
+}
+
+export const DEFAULT_ACCOMMODATION_ADDRESSES: AccommodationAddresses = {
+  'Premium 1': '11, Samir Moursey Street, Nasr City, Cairo.',
+  'Premium 2': '2 Ezzat Salamat Street, Off Kaabool, Makram Ebeid, Nasr City, Cairo.',
+  'Standard': '24 Saqaliyyah Street, Off Kaabool, Makram Ebeid, Nasr City, Cairo.',
+};
+
 export interface LandlordDetails {
   recipientName: string;
   bankName: string;
@@ -224,6 +236,7 @@ export interface CmsContent {
   };
   landlordDetails?: LandlordDetails;
   categoryMedia?: CategoryMediaConfig;
+  accommodationAddresses?: AccommodationAddresses;
 }
 
 export interface AppContextType {
@@ -240,6 +253,7 @@ export interface AppContextType {
   bookings: Booking[];
   publicOccupancy: PublicOccupancy[];
   effectiveOccupancyBookings: any[];
+  accommodationAddresses: AccommodationAddresses;
   addBooking: (booking: Booking) => Promise<{ success: boolean; error?: string; data?: Booking }>;
   updateBookingStatus: (id: number, status: BookingStatus) => Promise<{ success: boolean; error?: string }>;
   updateBooking: (id: number, updates: Partial<Booking>) => Promise<{ success: boolean; error?: string }>;

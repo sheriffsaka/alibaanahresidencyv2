@@ -26,7 +26,7 @@ import { INITIAL_CMS } from '../contexts/AppContext';
 
 const DashboardPage: React.FC = () => {
   const t = useTranslation();
-  const { user, bookings, effectiveOccupancyBookings, activities, setPage, cmsContent, addActivity, updateBooking, language, rooms, landlordDetails } = useApp();
+  const { user, bookings, effectiveOccupancyBookings, activities, setPage, cmsContent, addActivity, updateBooking, language, rooms, landlordDetails, accommodationAddresses } = useApp();
   
   const [selectedInvoice, setSelectedInvoice] = useState<Booking | null>(null);
   const [viewingAgreement, setViewingAgreement] = useState<Booking | null>(null);
@@ -323,8 +323,8 @@ const DashboardPage: React.FC = () => {
               <div className="space-y-1 text-[11px] text-gray-500 dark:text-gray-400">
                 <p><span className="font-semibold text-gray-700 dark:text-gray-300">Bed Space:</span> {space.bedSpaceName}</p>
                 <p><span className="font-semibold text-gray-700 dark:text-gray-300">Format:</span> {space.type} Room</p>
-                <p className="text-[10px] text-gray-400 truncate" title={getAccommodationAddress(space.category)}>
-                  <span className="font-semibold text-gray-500">Address:</span> {getAccommodationAddress(space.category)}
+                <p className="text-[10px] text-gray-400 truncate" title={getAccommodationAddress(space.category, accommodationAddresses)}>
+                  <span className="font-semibold text-gray-500">Address:</span> {getAccommodationAddress(space.category, accommodationAddresses)}
                 </p>
                 {space.isOccupied ? (
                   <div className="pt-2 border-t border-gray-200/50 dark:border-gray-700/60 space-y-0.5">
