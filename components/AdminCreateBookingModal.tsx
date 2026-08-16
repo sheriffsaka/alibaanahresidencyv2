@@ -1,8 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useApp } from '../hooks/useApp';
 import { BookingStatus, Booking, User } from '../types';
 import { IconClose } from './Icon';
-import { ALL_ROOM_SPACES, RoomSpaceConfig, getUnifiedRoomName } from '../lib/roomNaming';
+import { ALL_ROOM_SPACES, RoomSpaceConfig, getUnifiedRoomName, getParsedRoomSpaces, BED_SPACE_TO_ID_MAP, findDatabaseRoomForSpace } from '../lib/roomNaming';
 
 interface AdminCreateBookingModalProps {
   isOpen: boolean;
@@ -78,24 +78,17 @@ export const AdminCreateBookingModal: React.FC<AdminCreateBookingModalProps> = (
   }, [selectedStudentId, students, bookings]);
 
   // Compute available bed spaces for selected category based on current Supabase bookings
-  const categoryBedSpaces = ALL_ROOM_SPACES.filter(space => space.category === selectedCategory);
+  const parsedSpaces = useMemo(() => {
+    return getParsedRoomSpaces(rooms, bookings);
+  }, [rooms, bookings]);
+
+  const categoryBedSpaces = parsedSpaces.filter(space => space.category === selectedCategory);
 
   const bedSpaceAvailability = categoryBedSpaces.map(space => {
-    const activeBooking = bookings.find(b => {
-      if (b.status === BookingStatus.CANCELLED || b.status === BookingStatus.COMPLETED) return false;
-      const bRoomName = b.rooms?.room_number || '';
-      const bApt = b.rooms?.apartment_name || b.preferred_accommodation || '';
-      
-      // Check if this booking occupies this bed space
-      return bApt.includes(space.category) && 
-             (bRoomName.includes(space.roomName) || b.id.toString() === space.id) &&
-             (space.type === 'Private' || bRoomName.toLowerCase().includes(space.bedSpaceName.toLowerCase()) || (b as any).bed_space === space.bedSpaceName);
-    });
-
     return {
       space,
-      isOccupied: !!activeBooking,
-      occupiedBy: activeBooking ? (activeBooking.full_name || activeBooking.student_name || 'Student') : null
+      isOccupied: space.isOccupied,
+      occupiedBy: space.booking ? (space.booking.full_name || space.booking.student_name || 'Student') : null
     };
   });
 
@@ -107,7 +100,7 @@ export const AdminCreateBookingModal: React.FC<AdminCreateBookingModalProps> = (
     } else {
       setSelectedBedSpaceId('');
     }
-  }, [selectedCategory, bookings]);
+  }, [selectedCategory, parsedSpaces]);
 
   if (!isOpen) return null;
 
@@ -136,16 +129,20 @@ export const AdminCreateBookingModal: React.FC<AdminCreateBookingModalProps> = (
       return;
     }
 
-    // Find or fallback matching room in Supabase rooms table
-    const matchingDbRoom = rooms.find(r => 
-      (r.apartment_name?.includes(selectedCategory) || r.category === selectedCategory) &&
-      r.room_number?.includes(selectedSpaceObj.roomName)
-    ) || rooms[0];
+    // Find exact physical matching room in Supabase rooms table
+    const matchingDbRoom = findDatabaseRoomForSpace(rooms, {
+      category: selectedSpaceObj.category,
+      type: selectedSpaceObj.type,
+      roomName: selectedSpaceObj.roomName,
+      id: selectedSpaceObj.id
+    }) || rooms[0];
 
     if (!matchingDbRoom) {
       setErrorMessage('No matching room found in database.');
       return;
     }
+
+    const bedSpaceIdToAssign = BED_SPACE_TO_ID_MAP[selectedBedSpaceId] || null;
 
     setIsSubmitting(true);
 
@@ -155,6 +152,7 @@ export const AdminCreateBookingModal: React.FC<AdminCreateBookingModalProps> = (
       const newBookingData: Partial<Booking> = {
         student_id: studentId,
         room_id: matchingDbRoom.id,
+        bed_space_id: bedSpaceIdToAssign,
         full_name: fullName.trim(),
         email: email.trim(),
         phone_number: phoneNumber.trim(),

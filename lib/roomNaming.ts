@@ -51,6 +51,40 @@ export const ALL_ROOM_SPACES: RoomSpaceConfig[] = [
   { id: 'std_r4', category: 'Standard', roomName: 'Room 4', bedSpaceName: 'Single', type: 'Private', displayName: 'Standard – Room 4 (Private Room)', apartmentName: 'Standard' }
 ];
 
+export const BED_SPACE_TO_ID_MAP: Record<string, number> = {
+  'p1_r1_a': 1,
+  'p1_r1_b': 2,
+  'p1_r2': 3,
+  'p1_r3': 4,
+  'p2_r1_a': 5,
+  'p2_r1_b': 6,
+  'p2_r2': 7,
+  'p2_r3': 8,
+  'std_r1_a': 9,
+  'std_r1_b': 10,
+  'std_r2_a': 11,
+  'std_r2_b': 12,
+  'std_r3': 13,
+  'std_r4': 14
+};
+
+export const ID_TO_BED_SPACE_MAP: Record<number, string> = {
+  1: 'p1_r1_a',
+  2: 'p1_r1_b',
+  3: 'p1_r2',
+  4: 'p1_r3',
+  5: 'p2_r1_a',
+  6: 'p2_r1_b',
+  7: 'p2_r2',
+  8: 'p2_r3',
+  9: 'std_r1_a',
+  10: 'std_r1_b',
+  11: 'std_r2_a',
+  12: 'std_r2_b',
+  13: 'std_r3',
+  14: 'std_r4'
+};
+
 export const getUnifiedRoomName = (category: string, roomName: string, bedSpaceName?: string): string => {
   if (!category) return roomName;
   
@@ -144,18 +178,36 @@ export const formatStoredRoomString = (storedStr: string): string => {
   return storedStr;
 };
 
-export const findDatabaseRoomForSpace = (rooms: any[], space: { category: string; type: 'Shared' | 'Private' }) => {
+export const findDatabaseRoomForSpace = (rooms: any[], space: { category: string; type: 'Shared' | 'Private'; roomName?: string; id?: string }) => {
   const isPrivate = space.type === 'Private';
   const catSimple = space.category.startsWith('Premium') ? 'Premium' : 'Standard';
-  const reqType = isPrivate ? `${catSimple} Private` : `${catSimple} Shared`;
-  
   const catKey = space.category.toLowerCase().replace(/\s+/g, '');
   
+  // Try exact room matching if roomName or id is provided
+  if (space.roomName || space.id) {
+    const spaceId = (space.id || '').toLowerCase();
+    let targetRoomNumber = '';
+    if (spaceId.startsWith('p1_r1') || (catKey.includes('premium1') && space.roomName === 'Room 1')) targetRoomNumber = 'P1-R1';
+    else if (spaceId === 'p1_r2' || (catKey.includes('premium1') && space.roomName === 'Room 2')) targetRoomNumber = 'P1-R2';
+    else if (spaceId === 'p1_r3' || (catKey.includes('premium1') && space.roomName === 'Room 3')) targetRoomNumber = 'P1-R3';
+    else if (spaceId.startsWith('p2_r1') || (catKey.includes('premium2') && space.roomName === 'Room 1')) targetRoomNumber = 'P2-R1';
+    else if (spaceId === 'p2_r2' || (catKey.includes('premium2') && space.roomName === 'Room 2')) targetRoomNumber = 'P2-R2';
+    else if (spaceId === 'p2_r3' || (catKey.includes('premium2') && space.roomName === 'Room 3')) targetRoomNumber = 'P2-R3';
+    else if (spaceId.startsWith('std_r1') || (catKey.includes('standard') && space.roomName === 'Room 1')) targetRoomNumber = 'STD-R1';
+    else if (spaceId.startsWith('std_r2') || (catKey.includes('standard') && space.roomName === 'Room 2')) targetRoomNumber = 'STD-R2';
+    else if (spaceId === 'std_r3' || (catKey.includes('standard') && space.roomName === 'Room 3')) targetRoomNumber = 'STD-R3';
+    else if (spaceId === 'std_r4' || (catKey.includes('standard') && space.roomName === 'Room 4')) targetRoomNumber = 'STD-R4';
+
+    if (targetRoomNumber) {
+      const match = (rooms || []).find(r => r.room_number === targetRoomNumber);
+      if (match) return match;
+    }
+  }
+
   const match = (rooms || []).find(r => {
     const rCat = (r.apartment_name || r.category || '').toLowerCase().replace(/\s+/g, '');
     const rType = (r.type || '').toLowerCase();
     
-    // Check exact apartment name match (e.g. "premium1", "apartment1")
     const aptMatch = rCat === catKey || 
       (catKey === 'premium1' && (rCat === 'apartment1' || rCat === 'premium1')) ||
       (catKey === 'premium2' && (rCat === 'apartment3' || rCat === 'premium2')) ||
@@ -182,11 +234,11 @@ export interface ParsedRoomSpace extends RoomSpaceConfig {
   nextAvailableDate: string;
 }
 
-export const getParsedRoomSpaces = (rooms: any[], bookings: any[]): ParsedRoomSpace[] => {
+export const getParsedRoomSpaces = (rooms: any[], bookings: any[], bedSpaces?: any[]): ParsedRoomSpace[] => {
   const isCancelledOrCompleted = (status?: string) => {
     if (!status) return false;
     const s = String(status).toUpperCase();
-    return s === 'CANCELLED' || s === 'COMPLETED' || s === 'REJECTED' || s === 'EVICTED' || s === 'DISCONTINUED';
+    return s === 'CANCELLED' || s === 'COMPLETED' || s === 'REJECTED' || s === 'DISCONTINUED';
   };
 
   // Active bookings include Pending Verification, Pending Payment, Pending Contract, Confirmed, Occupied
@@ -196,8 +248,21 @@ export const getParsedRoomSpaces = (rooms: any[], bookings: any[]): ParsedRoomSp
   const spaceBookingMap = new Map<string, any>();
   const unassignedBookings: { booking: any; details: LiveRoomDetails }[] = [];
 
-  // Pass 1: Match bookings that specify their exact bed/room space
+  // Pass 0: Direct bed_space_id matching if bed_space_id exists on booking
   for (const b of activeBookings) {
+    if (b.bed_space_id != null) {
+      // Find space by bed_space_id
+      const matchedSpace = ALL_ROOM_SPACES.find(space => {
+        const expectedBedId = BED_SPACE_TO_ID_MAP[space.id];
+        return expectedBedId === b.bed_space_id;
+      });
+      if (matchedSpace) {
+        spaceBookingMap.set(matchedSpace.id, b);
+        continue;
+      }
+    }
+
+    // Pass 1: Match bookings that specify their exact bed/room space
     const details = getLiveStudentRoomDetails(b, rooms || []);
     
     const exactMatch = ALL_ROOM_SPACES.find(space => {
@@ -282,6 +347,23 @@ export interface LiveRoomDetails {
 }
 
 export const getLiveStudentRoomDetails = (booking: any, roomsList: any[] = []): LiveRoomDetails => {
+  // 0. Direct bed_space_id lookup if present
+  if (booking?.bed_space_id != null) {
+    const spaceId = ID_TO_BED_SPACE_MAP[booking.bed_space_id];
+    if (spaceId) {
+      const spaceObj = ALL_ROOM_SPACES.find(s => s.id === spaceId);
+      if (spaceObj) {
+        return {
+          category: spaceObj.category,
+          roomName: spaceObj.roomName,
+          bedSpaceName: spaceObj.bedSpaceName,
+          fullDisplay: spaceObj.displayName,
+          address: getAccommodationAddress(spaceObj.category)
+        };
+      }
+    }
+  }
+
   // 1. Gather all potential specific space descriptors from the booking object
   const candidates: string[] = [
     typeof booking?.rooms?.room_number === 'string' ? booking.rooms.room_number : '',

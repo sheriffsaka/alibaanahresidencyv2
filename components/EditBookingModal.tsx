@@ -5,6 +5,8 @@ import { IconClose, IconCheckCircle, IconTrash, IconEdit, IconFile, IconBuilding
 import BookingStatusBadge from './BookingStatusBadge';
 import { 
   ALL_ROOM_SPACES, 
+  BED_SPACE_TO_ID_MAP,
+  ID_TO_BED_SPACE_MAP,
   getLiveStudentRoomDetails, 
   getUnifiedRoomName, 
   getAccommodationAddress, 
@@ -114,19 +116,47 @@ export const EditBookingModal: React.FC<EditBookingModalProps> = ({
 
   // 1. APPROVE ACTION
   const handleApprove = async () => {
-    if (!confirm(`Confirm payment and approve booking BK${booking.id} for ${booking.full_name}?`)) return;
+    // If booking doesn't have a bed_space_id, prompt or require selecting/confirming one
+    let targetBedSpaceId = booking.bed_space_id;
+    let targetRoomId = booking.room_id;
+
+    if (!targetBedSpaceId) {
+      // Find matching space from liveDetails or edit form
+      const matchingSpace = ALL_ROOM_SPACES.find(s => s.id === editFormData.selectedSpaceId) || ALL_ROOM_SPACES[0];
+      const proposedBedSpaceId = BED_SPACE_TO_ID_MAP[matchingSpace.id];
+      const dbRoom = findDatabaseRoomForSpace(rooms, {
+        category: matchingSpace.category,
+        type: matchingSpace.type,
+        roomName: matchingSpace.roomName,
+        id: matchingSpace.id
+      });
+
+      if (!confirm(`Approve booking BK${booking.id} for ${booking.full_name} with bed assignment "${matchingSpace.displayName}" (Bed ID: ${proposedBedSpaceId})?`)) {
+        return;
+      }
+      targetBedSpaceId = proposedBedSpaceId;
+      if (dbRoom?.id) {
+        targetRoomId = dbRoom.id;
+      }
+    } else {
+      if (!confirm(`Confirm payment and approve booking BK${booking.id} for ${booking.full_name}?`)) return;
+    }
     
     setIsProcessing(true);
     try {
-      const res = await updateBooking(booking.id, {
-        status: BookingStatus.CONFIRMED
-      });
+      const updatePayload: Partial<Booking> = {
+        status: BookingStatus.CONFIRMED,
+        bed_space_id: targetBedSpaceId,
+        room_id: targetRoomId
+      };
+
+      const res = await updateBooking(booking.id, updatePayload);
 
       if (res.success) {
         addActivity({
           user_id: user?.id || 'admin',
           type: 'payment',
-          description: `Staff verified payment and approved BK${booking.id} (${booking.full_name})`,
+          description: `Staff verified payment and approved BK${booking.id} (${booking.full_name}) with Bed Space #${targetBedSpaceId}`,
           timestamp: new Date().toISOString()
         });
 
@@ -145,7 +175,7 @@ export const EditBookingModal: React.FC<EditBookingModalProps> = ({
 
         alert(`Booking BK${booking.id} successfully approved!`);
         if (onBookingUpdated) {
-          onBookingUpdated({ ...booking, status: BookingStatus.CONFIRMED });
+          onBookingUpdated({ ...booking, ...updatePayload, status: BookingStatus.CONFIRMED });
         }
         onClose();
       } else {
@@ -231,8 +261,12 @@ export const EditBookingModal: React.FC<EditBookingModalProps> = ({
     try {
       const dbRoom = findDatabaseRoomForSpace(rooms, { 
         category: editFormData.category, 
-        type: editFormData.roomType 
+        type: editFormData.roomType,
+        roomName: editFormData.roomName,
+        id: editFormData.selectedSpaceId
       });
+
+      const assignedBedSpaceId = BED_SPACE_TO_ID_MAP[editFormData.selectedSpaceId] || booking.bed_space_id;
 
       const unifiedRoomName = getUnifiedRoomName(
         editFormData.category,
@@ -257,6 +291,7 @@ export const EditBookingModal: React.FC<EditBookingModalProps> = ({
         preferred_accommodation: prefAccommodation,
         emergency_contact_details: editFormData.emergency_contact_details,
         address_in_egypt: editFormData.address_in_egypt,
+        bed_space_id: assignedBedSpaceId,
         room_id: dbRoom?.id || booking.room_id,
         rooms: {
           room_number: unifiedRoomName,

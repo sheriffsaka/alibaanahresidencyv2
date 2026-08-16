@@ -17,7 +17,8 @@ const BookingPage: React.FC = () => {
     if (extendingBooking && extendingBooking.room_id === selectedRoom.id) {
         return false;
     }
-    return bookings.some(b => b.room_id === selectedRoom.id && occupiedStatuses.includes(b.status));
+    const activeBookingsCount = bookings.filter(b => b.room_id === selectedRoom.id && occupiedStatuses.includes(b.status)).length;
+    return activeBookingsCount >= (selectedRoom.capacity || 1);
   }, [bookings, selectedRoom, extendingBooking]);
 
   const isUnavailableForMaintenance = selectedRoom ? !selectedRoom.is_available : false;

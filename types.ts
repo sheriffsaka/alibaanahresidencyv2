@@ -29,6 +29,13 @@ export interface Room {
   next_available_date?: string;
 }
 
+export interface BedSpace {
+  id: number;
+  room_id: number;
+  label: string;
+  created_at?: string;
+}
+
 export enum BookingStatus {
   RESERVED = 'Reserved',
   PENDING_PAYMENT = 'Pending Payment',
@@ -47,6 +54,7 @@ export interface Booking {
   id: number;
   student_id: string;
   room_id: number;
+  bed_space_id?: number | null;
   start_date: string;
   end_date: string;
   status: BookingStatus;
@@ -229,6 +237,7 @@ export interface AppContextType {
   cmsContent: CmsContent;
   updateCmsContent: (content: Partial<CmsContent>) => Promise<{ success: boolean; error?: string }>;
   rooms: Room[];
+  bedSpaces: BedSpace[];
   addRoom: (room: Room) => Promise<{ success: boolean; error?: string }>;
   updateRoom: (room: Room) => Promise<{ success: boolean; error?: string }>;
   deleteRoom: (id: number) => Promise<{ success: boolean; error?: string }>;

@@ -1,6 +1,6 @@
 
 import React, { createContext, useState, ReactNode, useCallback, useEffect, useRef } from 'react';
-import { AppContextType, Language, Page, User, Room, Booking, BookingStatus, CmsContent, Activity, AcademicTerm, BookingPackage, AccommodationType, DEFAULT_CATEGORY_MEDIA, CategoryMediaConfig } from '../types';
+import { AppContextType, Language, Page, User, Room, BedSpace, Booking, BookingStatus, CmsContent, Activity, AcademicTerm, BookingPackage, AccommodationType, DEFAULT_CATEGORY_MEDIA, CategoryMediaConfig } from '../types';
 import { supabase } from '../lib/supabaseClient';
 import { Session } from '@supabase/supabase-js';
 
@@ -204,6 +204,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   // App data state
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [rooms, setRooms] = useState<Room[]>(DEFAULT_ROOMS);
+  const [bedSpaces, setBedSpaces] = useState<BedSpace[]>([]);
   const [academicTerms, setAcademicTerms] = useState<AcademicTerm[]>(DEFAULT_ACADEMIC_TERMS);
   const [bookingPackages, setBookingPackages] = useState<BookingPackage[]>(DEFAULT_BOOKING_PACKAGES);
   const [cmsContent, setCmsContent] = useState<CmsContent>(INITIAL_CMS);
@@ -422,8 +423,9 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const fetchPublicData = useCallback(async () => {
         try {
             console.log("Fetching public data...");
-            const [roomsRes, bookingsRes, termsRes, packagesRes, cmsRes, activitiesRes] = await Promise.all([
+            const [roomsRes, bedSpacesRes, bookingsRes, termsRes, packagesRes, cmsRes, activitiesRes] = await Promise.all([
                 safeFetch(supabase.from('rooms').select('*')),
+                safeFetch(supabase.from('bed_spaces').select('*').order('id', { ascending: true })),
                 safeFetch(supabase.from('bookings').select('*, rooms(room_number, type, apartment_name, category), profiles:student_id(full_name)').order('booked_at', { ascending: false })),
                 safeFetch(supabase.from('academic_terms').select('*').eq('is_active', true)),
                 safeFetch(supabase.from('booking_packages').select('*').eq('is_active', true)),
@@ -435,6 +437,10 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                 setRooms(roomsRes.data);
             } else {
                 setRooms(prev => prev && prev.length > 0 ? prev : DEFAULT_ROOMS);
+            }
+
+            if (bedSpacesRes && !bedSpacesRes.error && bedSpacesRes.data && bedSpacesRes.data.length > 0) {
+                setBedSpaces(bedSpacesRes.data);
             }
 
             if (bookingsRes && !bookingsRes.error && bookingsRes.data && bookingsRes.data.length > 0) {
@@ -1066,6 +1072,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     cmsContent,
     updateCmsContent,
     rooms,
+    bedSpaces,
     addRoom,
     updateRoom,
     deleteRoom,

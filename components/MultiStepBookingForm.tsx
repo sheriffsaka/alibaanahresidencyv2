@@ -15,7 +15,7 @@ import SignaturePad from 'react-signature-canvas';
 import { useReactToPrint } from 'react-to-print';
 import TenancyAgreementDocument from './TenancyAgreementDocument';
 import { sendEmail, getAgreementSignedTemplate } from '../lib/email';
-import { ALL_ROOM_SPACES, getUnifiedRoomName, getParsedRoomSpaces, getAccommodationAddress, findDatabaseRoomForSpace } from '../lib/roomNaming';
+import { ALL_ROOM_SPACES, BED_SPACE_TO_ID_MAP, getUnifiedRoomName, getParsedRoomSpaces, getAccommodationAddress, findDatabaseRoomForSpace } from '../lib/roomNaming';
 
 // Predefined Accommodation Categories and Rooms based on exact user specification
 const ACCOMMODATIONS_SELECTION: Record<string, Array<{ id: string; room: string; space: string; type: 'Shared' | 'Private'; label: string }>> = {
@@ -292,9 +292,11 @@ const MultiStepBookingForm: React.FC = () => {
   const selectedSupabaseRoom = useMemo(() => {
     return findDatabaseRoomForSpace(rooms || [], {
       category: formData.category,
-      type: formData.roomType
+      type: formData.roomType,
+      roomName: formData.roomName,
+      id: formData.selectedRoomId
     });
-  }, [rooms, formData.category, formData.roomType]);
+  }, [rooms, formData.category, formData.roomType, formData.roomName, formData.selectedRoomId]);
 
   const startDate = formData.arrivalDate;
   const endDate = useMemo(() => {
@@ -331,12 +333,14 @@ const MultiStepBookingForm: React.FC = () => {
     setError(null);
 
     try {
-      // Find a safe room ID
+      // Find a safe room ID and bed space ID
       const roomIdToUse = selectedSupabaseRoom?.id || 1; // fallback of 1 if not synchronized yet
+      const bedSpaceIdToUse = BED_SPACE_TO_ID_MAP[formData.selectedRoomId] || null;
       
       const newBooking: Partial<Booking> = {
         student_id: user.id,
         room_id: roomIdToUse,
+        bed_space_id: bedSpaceIdToUse,
         start_date: formData.arrivalDate,
         end_date: endDate,
         status: BookingStatus.PENDING_VERIFICATION,
