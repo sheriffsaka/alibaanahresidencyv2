@@ -398,7 +398,39 @@ CREATE POLICY "Staff and owners can view payment proof" ON storage.objects FOR S
 
 --- SEED DATA ---
 
--- Create storage buckets
+-- Create a secure, read-only public occupancy RPC function
+CREATE OR REPLACE FUNCTION public.get_public_occupancy()
+RETURNS TABLE (
+    room_id INT,
+    bed_space_id INT,
+    is_held BOOLEAN,
+    end_date DATE,
+    preferred_accommodation accommodation_type
+) 
+LANGUAGE sql 
+SECURITY DEFINER 
+SET search_path = public
+AS $$
+    SELECT 
+        b.room_id,
+        b.bed_space_id,
+        (b.status IN (
+            'Reserved',
+            'Pending Verification',
+            'Pending Payment',
+            'Pending Contract',
+            'Confirmed',
+            'Occupied'
+        )) AS is_held,
+        b.end_date,
+        b.preferred_accommodation
+    FROM bookings b
+    WHERE b.status NOT IN ('Cancelled', 'Completed', 'Maintenance');
+$$;
+
+-- Grant execution permissions to both anonymous visitors and authenticated students
+GRANT EXECUTE ON FUNCTION public.get_public_occupancy() TO anon, authenticated, service_role;
+
 INSERT INTO storage.buckets (id, name, public) 
 VALUES 
     ('rooms', 'rooms', true),

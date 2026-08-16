@@ -1,6 +1,6 @@
 
-import React, { createContext, useState, ReactNode, useCallback, useEffect, useRef } from 'react';
-import { AppContextType, Language, Page, User, Room, BedSpace, Booking, BookingStatus, CmsContent, Activity, AcademicTerm, BookingPackage, AccommodationType, DEFAULT_CATEGORY_MEDIA, CategoryMediaConfig } from '../types';
+import React, { createContext, useState, ReactNode, useCallback, useEffect, useRef, useMemo } from 'react';
+import { AppContextType, Language, Page, User, Room, BedSpace, Booking, BookingStatus, CmsContent, Activity, AcademicTerm, BookingPackage, AccommodationType, DEFAULT_CATEGORY_MEDIA, CategoryMediaConfig, PublicOccupancy } from '../types';
 import { supabase } from '../lib/supabaseClient';
 import { Session } from '@supabase/supabase-js';
 
@@ -203,6 +203,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   
   // App data state
   const [bookings, setBookings] = useState<Booking[]>([]);
+  const [publicOccupancy, setPublicOccupancy] = useState<PublicOccupancy[]>([]);
   const [rooms, setRooms] = useState<Room[]>(DEFAULT_ROOMS);
   const [bedSpaces, setBedSpaces] = useState<BedSpace[]>([]);
   const [academicTerms, setAcademicTerms] = useState<AcademicTerm[]>(DEFAULT_ACADEMIC_TERMS);
@@ -423,14 +424,15 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const fetchPublicData = useCallback(async () => {
         try {
             console.log("Fetching public data...");
-            const [roomsRes, bedSpacesRes, bookingsRes, termsRes, packagesRes, cmsRes, activitiesRes] = await Promise.all([
+            const [roomsRes, bedSpacesRes, bookingsRes, termsRes, packagesRes, cmsRes, activitiesRes, publicOccupancyRes] = await Promise.all([
                 safeFetch(supabase.from('rooms').select('*')),
                 safeFetch(supabase.from('bed_spaces').select('*').order('id', { ascending: true })),
                 safeFetch(supabase.from('bookings').select('*, rooms(room_number, type, apartment_name, category), profiles:student_id(full_name)').order('booked_at', { ascending: false })),
                 safeFetch(supabase.from('academic_terms').select('*').eq('is_active', true)),
                 safeFetch(supabase.from('booking_packages').select('*').eq('is_active', true)),
                 safeFetch(supabase.from('cms_content').select('*').limit(1).maybeSingle()),
-                safeFetch(supabase.from('admin_audit_log').select('*').order('created_at', { ascending: false }).limit(20))
+                safeFetch(supabase.from('admin_audit_log').select('*').order('created_at', { ascending: false }).limit(20)),
+                safeFetch(supabase.rpc('get_public_occupancy'))
             ]);
             
             if (roomsRes && !roomsRes.error && roomsRes.data && roomsRes.data.length > 0) {
@@ -441,6 +443,10 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
             if (bedSpacesRes && !bedSpacesRes.error && bedSpacesRes.data && bedSpacesRes.data.length > 0) {
                 setBedSpaces(bedSpacesRes.data);
+            }
+
+            if (publicOccupancyRes && !publicOccupancyRes.error && publicOccupancyRes.data) {
+                setPublicOccupancy(publicOccupancyRes.data);
             }
 
             if (bookingsRes && !bookingsRes.error && bookingsRes.data && bookingsRes.data.length > 0) {
@@ -1054,6 +1060,17 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     }
   };
 
+  // Role-based occupancy bookings calculation:
+  // For Admin / Staff: uses the full `bookings` array with student names, passport numbers, audit data.
+  // For Students / Anonymous visitors: uses strictly the anonymized `publicOccupancy` list from get_public_occupancy() RPC.
+  const effectiveOccupancyBookings = useMemo(() => {
+    const isAdminOrStaff = user && (user.role === 'staff' || user.role === 'proprietor');
+    if (isAdminOrStaff) {
+      return bookings;
+    }
+    return publicOccupancy;
+  }, [user, bookings, publicOccupancy]);
+
   const value = {
     language,
     setLanguage,
@@ -1065,6 +1082,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     session,
     logout,
     bookings,
+    publicOccupancy,
+    effectiveOccupancyBookings,
     addBooking,
     updateBookingStatus,
     updateBooking,

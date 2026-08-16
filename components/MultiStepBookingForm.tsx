@@ -77,11 +77,11 @@ export const CATEGORY_MEDIA: Record<'Standard' | 'Premium 1' | 'Premium 2', {
 
 const MultiStepBookingForm: React.FC = () => {
   const t = useTranslation();
-  const { user, setPage, addBooking, addActivity, rooms, bookings, extendingBooking, landlordDetails, cmsContent } = useApp();
+  const { user, setPage, addBooking, addActivity, rooms, bookings, effectiveOccupancyBookings, extendingBooking, landlordDetails, cmsContent } = useApp();
 
   const parsedAvailabilityData = useMemo(() => {
-    return getParsedRoomSpaces(rooms, bookings);
-  }, [bookings, rooms]);
+    return getParsedRoomSpaces(rooms, effectiveOccupancyBookings);
+  }, [effectiveOccupancyBookings, rooms]);
   
   const [step, setStep] = useState(1);
   const [formData, setFormData] = useState({

@@ -36,6 +36,14 @@ export interface BedSpace {
   created_at?: string;
 }
 
+export interface PublicOccupancy {
+  room_id: number;
+  bed_space_id: number | null;
+  is_held: boolean;
+  end_date: string | null;
+  preferred_accommodation?: string | null;
+}
+
 export enum BookingStatus {
   RESERVED = 'Reserved',
   PENDING_PAYMENT = 'Pending Payment',
@@ -230,6 +238,8 @@ export interface AppContextType {
   loading: boolean;
   logout: () => Promise<void>;
   bookings: Booking[];
+  publicOccupancy: PublicOccupancy[];
+  effectiveOccupancyBookings: any[];
   addBooking: (booking: Booking) => Promise<{ success: boolean; error?: string; data?: Booking }>;
   updateBookingStatus: (id: number, status: BookingStatus) => Promise<{ success: boolean; error?: string }>;
   updateBooking: (id: number, updates: Partial<Booking>) => Promise<{ success: boolean; error?: string }>;

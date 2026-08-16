@@ -1,9 +1,10 @@
 
-import React from 'react';
+import React, { useMemo } from 'react';
 import { Room, BookingStatus } from '../types';
 import { useTranslation } from '../hooks/useTranslation';
 import { useApp } from '../hooks/useApp';
 import { IconCheckCircle } from './Icon';
+import { getParsedRoomSpaces } from '../lib/roomNaming';
 
 interface RoomCardProps {
   room: Room;
@@ -12,13 +13,32 @@ interface RoomCardProps {
 
 const RoomCard: React.FC<RoomCardProps> = ({ room, isOccupied: propIsOccupied }) => {
   const t = useTranslation();
-  const { setPage, bookings } = useApp();
+  const { setPage, bookings, rooms } = useApp();
 
-  const activeBookings = (bookings || []).filter(b => b.room_id === room.id && b.status !== BookingStatus.CANCELLED && b.status !== BookingStatus.COMPLETED);
-  const occupiedSlots = activeBookings.length;
-  const capacity = room.capacity || 1;
-  const slotsLeft = Math.max(0, capacity - occupiedSlots);
-  const isOccupied = propIsOccupied !== undefined ? propIsOccupied : (slotsLeft === 0);
+  const { occupiedSlots, capacity, slotsLeft, isOccupied } = useMemo(() => {
+    const parsedSpaces = getParsedRoomSpaces(rooms, bookings);
+    // Find matching spaces for this room's category and type
+    const roomCat = (room.apartment_name || room.category || '').toLowerCase().replace(/\s+/g, '');
+    const isPrivate = (room.type || '').toLowerCase().includes('private');
+    
+    const matchingSpaces = parsedSpaces.filter(s => {
+      const sCat = s.category.toLowerCase().replace(/\s+/g, '');
+      const sType = s.type === 'Private';
+      return (sCat.includes(roomCat) || roomCat.includes(sCat) || (roomCat.includes('premium') && sCat.includes('premium'))) && sType === isPrivate;
+    });
+
+    const totalCap = matchingSpaces.length > 0 ? matchingSpaces.length : (room.capacity || 1);
+    const occupied = matchingSpaces.filter(s => s.isOccupied).length;
+    const remaining = Math.max(0, totalCap - occupied);
+    const full = propIsOccupied !== undefined ? propIsOccupied : (remaining === 0);
+
+    return {
+      occupiedSlots: occupied,
+      capacity: totalCap,
+      slotsLeft: remaining,
+      isOccupied: full
+    };
+  }, [rooms, bookings, room, propIsOccupied]);
 
   return (
     <div className={`bg-white dark:bg-gray-800 rounded-2xl shadow-xl overflow-hidden transition-all duration-500 ${isOccupied ? 'filter grayscale cursor-not-allowed' : 'transform hover:-translate-y-2 hover:shadow-2xl'}`}>

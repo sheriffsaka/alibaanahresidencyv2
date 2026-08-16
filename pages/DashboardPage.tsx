@@ -26,7 +26,7 @@ import { INITIAL_CMS } from '../contexts/AppContext';
 
 const DashboardPage: React.FC = () => {
   const t = useTranslation();
-  const { user, bookings, activities, setPage, cmsContent, addActivity, updateBooking, language, rooms, landlordDetails } = useApp();
+  const { user, bookings, effectiveOccupancyBookings, activities, setPage, cmsContent, addActivity, updateBooking, language, rooms, landlordDetails } = useApp();
   
   const [selectedInvoice, setSelectedInvoice] = useState<Booking | null>(null);
   const [viewingAgreement, setViewingAgreement] = useState<Booking | null>(null);
@@ -65,10 +65,10 @@ const DashboardPage: React.FC = () => {
     return rooms;
   }, [rooms, user]);
 
-  // Determine which rooms/beds are currently occupied based on all system bookings
+  // Determine which rooms/beds are currently occupied based on effective occupancy data
   const parsedAvailabilityData = useMemo(() => {
-    return getParsedRoomSpaces(rooms, bookings);
-  }, [bookings, rooms]);
+    return getParsedRoomSpaces(rooms, effectiveOccupancyBookings);
+  }, [effectiveOccupancyBookings, rooms]);
 
   const filteredAvailabilityData = useMemo(() => {
     if (selectedFilterCategory === 'All') return parsedAvailabilityData;

@@ -241,14 +241,21 @@ export const getParsedRoomSpaces = (rooms: any[], bookings: any[], bedSpaces?: a
     return s === 'CANCELLED' || s === 'COMPLETED' || s === 'REJECTED' || s === 'DISCONTINUED';
   };
 
-  // Active bookings include Pending Verification, Pending Payment, Pending Contract, Confirmed, Occupied
-  const activeBookings = (bookings || []).filter(b => !isCancelledOrCompleted(b.status));
+  // Active bookings include:
+  // 1) PublicOccupancy items where is_held is true
+  // 2) Full booking records where status is active (not Cancelled/Completed)
+  const activeBookings = (bookings || []).filter(b => {
+    if ('is_held' in b) {
+      return b.is_held === true;
+    }
+    return !isCancelledOrCompleted(b.status);
+  });
 
   // Map to hold space assignments: space.id -> booking
   const spaceBookingMap = new Map<string, any>();
   const unassignedBookings: { booking: any; details: LiveRoomDetails }[] = [];
 
-  // Pass 0: Direct bed_space_id matching if bed_space_id exists on booking
+  // Pass 0: Direct bed_space_id matching if bed_space_id exists on booking / public occupancy
   for (const b of activeBookings) {
     if (b.bed_space_id != null) {
       // Find space by bed_space_id
@@ -364,17 +371,18 @@ export const getLiveStudentRoomDetails = (booking: any, roomsList: any[] = []): 
     }
   }
 
-  // 1. Gather all potential specific space descriptors from the booking object
+  // 1. Gather all potential specific space descriptors from the booking object and database room
+  const dbRoom = roomsList.find(r => r.id === booking?.room_id);
+  const rawRoomObj = dbRoom || booking?.rooms;
+
   const candidates: string[] = [
+    typeof rawRoomObj?.room_number === 'string' ? rawRoomObj.room_number : '',
     typeof booking?.rooms?.room_number === 'string' ? booking.rooms.room_number : '',
     typeof booking?.room_number === 'string' ? booking.room_number : '',
     typeof booking?.preferred_accommodation === 'string' ? booking.preferred_accommodation : '',
     typeof booking?.assigned_space === 'string' ? booking.assigned_space : '',
     typeof booking?.assigned_space_id === 'string' ? booking.assigned_space_id : '',
   ].filter(Boolean);
-
-  const dbRoom = roomsList.find(r => r.id === booking?.room_id);
-  const rawRoomObj = dbRoom || booking?.rooms;
 
   // 2. Direct ID or Display Name match against ALL_ROOM_SPACES
   const matchedSpaceById = ALL_ROOM_SPACES.find(s => 
@@ -421,10 +429,10 @@ export const getLiveStudentRoomDetails = (booking: any, roomsList: any[] = []): 
   for (const str of candidates) {
     if (!str) continue;
 
-    // Check for "Room X" pattern
-    const roomMatch = str.match(/Room\s*(\d+)/i);
+    // Check for "Room X" or "P1-RX" or "STD-RX" pattern
+    const roomMatch = str.match(/(?:Room|R-?|R)(\d+)/i) || str.match(/(?:P1|P2|STD)-R(\d+)/i);
     if (roomMatch && !roomName) {
-      roomName = `Room ${roomMatch[1]}`;
+      roomName = `Room ${roomMatch[1] || roomMatch[2]}`;
     }
 
     // Check for Bed B first, then Bed A
