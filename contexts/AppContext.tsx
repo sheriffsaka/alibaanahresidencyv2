@@ -280,7 +280,16 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         }
 
         // If we reach here, we have a profile (either fetched or created)
-        const loggedInUser = { id: profile.id, email: session.user.email, full_name: profile.full_name, role: profile.role, gender: profile.gender };
+        const loggedInUser: User = { 
+          id: profile.id, 
+          email: session.user.email, 
+          full_name: profile.full_name, 
+          role: profile.role, 
+          gender: profile.gender,
+          phone_number: profile.phone_number,
+          passport_number: profile.passport_number,
+          nationality: profile.nationality
+        };
         setUser(loggedInUser);
 
         // Fetch all system bookings for global availability calculations
@@ -609,6 +618,26 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         };
         const updatedBookings = [mappedBooking, ...bookings];
         setBookings(updatedBookings);
+
+        // Auto-sync passport_number, phone_number, nationality to the student's profile
+        if (data.student_id) {
+            const profileUpdates: Record<string, any> = {};
+            if (data.full_name) profileUpdates.full_name = data.full_name;
+            if (data.phone_number) profileUpdates.phone_number = data.phone_number;
+            if (data.passport_number) profileUpdates.passport_number = data.passport_number;
+            if (data.nationality) profileUpdates.nationality = data.nationality;
+
+            if (Object.keys(profileUpdates).length > 0) {
+                const { error: profileSyncError } = await supabase
+                    .from('profiles')
+                    .update(profileUpdates)
+                    .eq('id', data.student_id);
+
+                if (!profileSyncError) {
+                    setUser(prev => prev && prev.id === data.student_id ? { ...prev, ...profileUpdates } : prev);
+                }
+            }
+        }
 
         // Recalculate room occupancy slots and availability in Supabase
         const room = rooms.find(r => r.id === data.room_id);
@@ -1028,20 +1057,27 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
   const updateUser = async (id: string, updates: Partial<User>) => {
     try {
+      const profileUpdates: Record<string, any> = {};
+      if (updates.full_name !== undefined) profileUpdates.full_name = updates.full_name;
+      if (updates.role !== undefined) profileUpdates.role = updates.role;
+      if (updates.gender !== undefined) profileUpdates.gender = updates.gender;
+      if (updates.phone_number !== undefined) profileUpdates.phone_number = updates.phone_number;
+      if (updates.passport_number !== undefined) profileUpdates.passport_number = updates.passport_number;
+      if (updates.nationality !== undefined) profileUpdates.nationality = updates.nationality;
+
       const { error } = await supabase
         .from('profiles')
-        .update({
-          full_name: updates.full_name,
-          role: updates.role,
-          gender: updates.gender
-        })
+        .update(profileUpdates)
         .eq('id', id);
 
       if (error) throw error;
       setUsers(prev => prev.map(u => u.id === id ? { ...u, ...updates } : u));
+      if (user && user.id === id) {
+        setUser(prev => prev ? { ...prev, ...updates } : null);
+      }
       return { success: true };
     } catch (err: any) {
-      console.error("Error updating user:", err.message);
+      console.error("Error updating user profile:", err.message);
       return { success: false, error: err.message };
     }
   };

@@ -58,6 +58,9 @@ CREATE TABLE profiles (
     full_name VARCHAR(255),
     role user_role NOT NULL DEFAULT 'student',
     gender TEXT CHECK (gender IN ('Male', 'Female')),
+    phone_number VARCHAR(50),
+    passport_number VARCHAR(100),
+    nationality VARCHAR(100),
     property_id UUID REFERENCES properties(id),
     language_preference VARCHAR(5) DEFAULT 'en',
     updated_at TIMESTAMPTZ DEFAULT now()

@@ -114,16 +114,20 @@ const MultiStepBookingForm: React.FC = () => {
     documentTitle: `Tenancy_Agreement_${formData.fullName.replace(/\s+/g, '_')}`,
   });
 
-  // Sync basic profile if available
+  // Sync basic profile & booking defaults if available
   useEffect(() => {
     if (user) {
+      const latestBooking = bookings && bookings.length > 0 ? bookings[0] : null;
       setFormData(prev => ({
         ...prev,
-        fullName: prev.fullName || user.full_name || '',
-        email: prev.email || user.email || '',
+        fullName: prev.fullName || user.full_name || latestBooking?.full_name || '',
+        email: prev.email || user.email || latestBooking?.email || '',
+        whatsappNumber: prev.whatsappNumber || user.phone_number || latestBooking?.phone_number || '',
+        passportNumber: prev.passportNumber || user.passport_number || latestBooking?.passport_number || '',
+        nationality: prev.nationality || user.nationality || latestBooking?.nationality || '',
       }));
     }
-  }, [user]);
+  }, [user, bookings]);
 
   // Sync Category change with preselecting room (pre-selecting first available)
   const handleCategoryChange = (cat: 'Standard' | 'Premium 1' | 'Premium 2') => {

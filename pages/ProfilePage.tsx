@@ -1,33 +1,50 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useApp } from '../hooks/useApp';
-import { IconUser, IconCheckCircle, IconCalendar, IconBuilding } from '../components/Icon';
+import { IconUser, IconCheckCircle } from '../components/Icon';
 import { supabase } from '../lib/supabaseClient';
 
 const ProfilePage: React.FC = () => {
-  const { user } = useApp();
+  const { user, bookings, updateUser } = useApp();
   const [isEditing, setIsEditing] = useState(false);
-  const [fullName, setFullName] = useState(user?.full_name || '');
-  const [phone, setPhone] = useState(user?.phone_number || '');
-  const [passportNumber, setPassportNumber] = useState(user?.passport_number || '');
-  const [nationality, setNationality] = useState(user?.nationality || '');
+
+  // Fallback to latest booking if profile field is empty
+  const latestBooking = bookings && bookings.length > 0 ? bookings[0] : null;
+
+  const displayFullName = user?.full_name || latestBooking?.full_name || '';
+  const displayPhone = user?.phone_number || latestBooking?.phone_number || '';
+  const displayPassport = user?.passport_number || latestBooking?.passport_number || '';
+  const displayNationality = user?.nationality || latestBooking?.nationality || '';
+
+  const [fullName, setFullName] = useState(displayFullName);
+  const [phone, setPhone] = useState(displayPhone);
+  const [passportNumber, setPassportNumber] = useState(displayPassport);
+  const [nationality, setNationality] = useState(displayNationality);
   const [saveStatus, setSaveStatus] = useState<string | null>(null);
+
+  // Sync state when user or bookings load
+  useEffect(() => {
+    setFullName(displayFullName);
+    setPhone(displayPhone);
+    setPassportNumber(displayPassport);
+    setNationality(displayNationality);
+  }, [user?.full_name, user?.phone_number, user?.passport_number, user?.nationality, latestBooking?.id]);
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user) return;
 
     try {
-      const { error } = await supabase
-        .from('users')
-        .update({
-          full_name: fullName,
-          phone_number: phone,
-          passport_number: passportNumber,
-          nationality: nationality
-        })
-        .eq('id', user.id);
+      const res = await updateUser(user.id, {
+        full_name: fullName,
+        phone_number: phone,
+        passport_number: passportNumber,
+        nationality: nationality
+      });
 
-      if (error) throw error;
+      if (!res.success) {
+        throw new Error(res.error || 'Failed to update profile');
+      }
+
       setSaveStatus('Profile information updated successfully!');
       setIsEditing(false);
       setTimeout(() => setSaveStatus(null), 4000);
@@ -68,10 +85,10 @@ const ProfilePage: React.FC = () => {
       <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 p-6 sm:p-8 shadow-sm space-y-6">
         <div className="flex items-center gap-4 pb-6 border-b border-gray-100 dark:border-gray-700">
           <div className="w-16 h-16 rounded-full bg-gradient-to-tr from-brand-600 to-indigo-500 text-white font-black text-xl flex items-center justify-center shadow-md">
-            {user?.full_name ? user.full_name.slice(0, 2).toUpperCase() : 'ST'}
+            {displayFullName ? displayFullName.slice(0, 2).toUpperCase() : 'ST'}
           </div>
           <div>
-            <h2 className="text-lg font-black text-gray-900 dark:text-white">{user?.full_name || 'Al-Ibaanah Student'}</h2>
+            <h2 className="text-lg font-black text-gray-900 dark:text-white">{displayFullName || 'Al-Ibaanah Student'}</h2>
             <p className="text-xs text-gray-500">{user?.email}</p>
             <span className="inline-block mt-1 px-2.5 py-0.5 text-[10px] font-black uppercase tracking-wider rounded-full bg-brand-50 dark:bg-brand-900/40 text-brand-600 dark:text-brand-400 border border-brand-200/40">
               {user?.role === 'staff' || user?.role === 'proprietor' ? 'Admin Staff' : 'Verified Student'}
@@ -144,7 +161,7 @@ const ProfilePage: React.FC = () => {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
             <div className="p-4 bg-gray-50 dark:bg-gray-750 rounded-xl">
               <span className="text-[10px] text-gray-400 font-bold uppercase block mb-1">Full Legal Name</span>
-              <span className="font-bold text-gray-900 dark:text-white">{user?.full_name || 'Not provided'}</span>
+              <span className="font-bold text-gray-900 dark:text-white">{displayFullName || 'Not provided'}</span>
             </div>
             <div className="p-4 bg-gray-50 dark:bg-gray-750 rounded-xl">
               <span className="text-[10px] text-gray-400 font-bold uppercase block mb-1">Email Address</span>
@@ -152,15 +169,15 @@ const ProfilePage: React.FC = () => {
             </div>
             <div className="p-4 bg-gray-50 dark:bg-gray-750 rounded-xl">
               <span className="text-[10px] text-gray-400 font-bold uppercase block mb-1">WhatsApp / Phone</span>
-              <span className="font-bold text-gray-900 dark:text-white">{user?.phone_number || 'Not provided'}</span>
+              <span className="font-bold text-gray-900 dark:text-white">{displayPhone || 'Not provided'}</span>
             </div>
             <div className="p-4 bg-gray-50 dark:bg-gray-750 rounded-xl">
               <span className="text-[10px] text-gray-400 font-bold uppercase block mb-1">Passport / ID Number</span>
-              <span className="font-bold text-gray-900 dark:text-white">{user?.passport_number || 'Not provided'}</span>
+              <span className="font-bold text-gray-900 dark:text-white">{displayPassport || 'Not provided'}</span>
             </div>
             <div className="p-4 bg-gray-50 dark:bg-gray-750 rounded-xl">
               <span className="text-[10px] text-gray-400 font-bold uppercase block mb-1">Nationality</span>
-              <span className="font-bold text-gray-900 dark:text-white">{user?.nationality || 'Not provided'}</span>
+              <span className="font-bold text-gray-900 dark:text-white">{displayNationality || 'Not provided'}</span>
             </div>
             <div className="p-4 bg-gray-50 dark:bg-gray-750 rounded-xl">
               <span className="text-[10px] text-gray-400 font-bold uppercase block mb-1">Account Role</span>
