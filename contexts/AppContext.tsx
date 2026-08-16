@@ -340,6 +340,16 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                 student_name: b.profiles?.full_name,
             }));
             setBookings(mappedBookings);
+
+            // If phone, passport, or nationality is missing on the active user, supplement from their latest booking
+            const studentBooking = mappedBookings.find((b: any) => b.student_id === profile.id);
+            if (studentBooking) {
+                loggedInUser.full_name = loggedInUser.full_name || studentBooking.full_name;
+                loggedInUser.phone_number = loggedInUser.phone_number || studentBooking.phone_number;
+                loggedInUser.passport_number = loggedInUser.passport_number || studentBooking.passport_number;
+                loggedInUser.nationality = loggedInUser.nationality || studentBooking.nationality;
+                setUser({ ...loggedInUser });
+            }
         }
       } catch (err) {
         console.warn("Notice in updateUserSession:", err);
@@ -1071,6 +1081,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         .eq('id', id);
 
       if (error) throw error;
+
       setUsers(prev => prev.map(u => u.id === id ? { ...u, ...updates } : u));
       if (user && user.id === id) {
         setUser(prev => prev ? { ...prev, ...updates } : null);
