@@ -9,7 +9,8 @@ import {
   IconInfo, 
   IconSignature, 
   IconVideo, 
-  IconCheckCircle 
+  IconCheckCircle,
+  IconAlertTriangle 
 } from './Icon';
 import SignaturePad from 'react-signature-canvas';
 import { useReactToPrint } from 'react-to-print';
@@ -113,9 +114,37 @@ const MultiStepBookingForm: React.FC = () => {
     documentTitle: `Tenancy_Agreement_${formData.fullName.replace(/\s+/g, '_')}`,
   });
 
+  const isExtension = Boolean(extendingBooking);
+  const todayStr = useMemo(() => new Date().toISOString().split('T')[0], []);
+  const currentLeaseExpiry = useMemo(() => extendingBooking?.end_date ? extendingBooking.end_date.split('T')[0] : null, [extendingBooking]);
+
+  // Validation function for extension date
+  const getExtensionDateError = (dateVal: string) => {
+    if (!dateVal) return "Please choose an extension start date.";
+    if (dateVal < todayStr) {
+      return "The extension date cannot be in the past. Please select a valid current or future date.";
+    }
+    if (currentLeaseExpiry && dateVal < currentLeaseExpiry) {
+      const formattedExpiry = new Date(currentLeaseExpiry).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+      return `The extension date cannot be before your current lease expiry date (${formattedExpiry}). Your extension must continue on or after your current lease ends.`;
+    }
+    return null;
+  };
+
   // Sync basic profile & booking defaults if available
   useEffect(() => {
-    if (user) {
+    if (extendingBooking) {
+      setFormData(prev => ({
+        ...prev,
+        fullName: extendingBooking.full_name || prev.fullName || user?.full_name || '',
+        email: extendingBooking.email || prev.email || user?.email || '',
+        whatsappNumber: extendingBooking.phone_number || prev.whatsappNumber || user?.phone_number || '',
+        passportNumber: extendingBooking.passport_number || prev.passportNumber || user?.passport_number || '',
+        nationality: extendingBooking.nationality || prev.nationality || user?.nationality || '',
+        homeAddress: extendingBooking.emergency_contact || extendingBooking.address_in_egypt || prev.homeAddress || '',
+        arrivalDate: extendingBooking.end_date ? extendingBooking.end_date.split('T')[0] : (prev.arrivalDate || todayStr),
+      }));
+    } else if (user) {
       const latestBooking = bookings && bookings.length > 0 ? bookings[0] : null;
       setFormData(prev => ({
         ...prev,
@@ -124,9 +153,10 @@ const MultiStepBookingForm: React.FC = () => {
         whatsappNumber: prev.whatsappNumber || user.phone_number || latestBooking?.phone_number || '',
         passportNumber: prev.passportNumber || user.passport_number || latestBooking?.passport_number || '',
         nationality: prev.nationality || user.nationality || latestBooking?.nationality || '',
+        homeAddress: prev.homeAddress || latestBooking?.emergency_contact || '',
       }));
     }
-  }, [user, bookings]);
+  }, [user, bookings, extendingBooking, todayStr]);
 
   // Sync Category change with preselecting room (pre-selecting first available)
   const handleCategoryChange = (cat: 'Standard' | 'Premium 1' | 'Premium 2') => {
@@ -248,14 +278,36 @@ const MultiStepBookingForm: React.FC = () => {
     }
   }, [extendingBooking, parsedAvailabilityData]);
 
-  // Navigation handlers
+  // Navigation handlers: seamlessly skip Step 3 if extending existing lease
   const nextStep = () => {
     setError(null);
-    setStep(prev => prev + 1);
+    if (step === 2 && isExtension) {
+      const dateErr = getExtensionDateError(formData.arrivalDate);
+      if (dateErr) {
+        setError(dateErr);
+        return;
+      }
+      // Skip personal details step (Step 3) directly to Review (Step 4)
+      setStep(4);
+    } else if (step === 3) {
+      if (formData.arrivalDate && formData.arrivalDate < todayStr) {
+        setError("Expected arrival date cannot be in the past.");
+        return;
+      }
+      setStep(4);
+    } else {
+      setStep(prev => prev + 1);
+    }
   };
+
   const prevStep = () => {
     setError(null);
-    setStep(prev => Math.max(1, prev - 1));
+    if (step === 4 && isExtension) {
+      // Return directly to Step 2 when navigating back in extension flow
+      setStep(2);
+    } else {
+      setStep(prev => Math.max(1, prev - 1));
+    }
   };
 
   // Find corresponding database room if available
@@ -289,7 +341,7 @@ const MultiStepBookingForm: React.FC = () => {
   }, [formData.category, formData.roomType, formData.duration]);
 
   // Dynamic start & calculated end date
-  const startDate = formData.arrivalDate || new Date().toISOString().split('T')[0];
+  const startDate = formData.arrivalDate || todayStr;
   const endDate = useMemo(() => {
     const d = new Date(startDate);
     d.setMonth(d.getMonth() + parseInt(formData.duration, 10));
@@ -299,7 +351,18 @@ const MultiStepBookingForm: React.FC = () => {
   // Submission handler
   const handleSubmit = async () => {
     if (!formData.fullName || !formData.nationality || !formData.passportNumber || !formData.arrivalDate || !formData.email) {
-      setError(t.step5_error_missing_details || 'Please fill out all student details on step 3 before submitting.');
+      setError(t.step5_error_missing_details || 'Please ensure all student credentials and dates are verified before submitting.');
+      return;
+    }
+
+    if (isExtension) {
+      const dateErr = getExtensionDateError(formData.arrivalDate);
+      if (dateErr) {
+        setError(dateErr);
+        return;
+      }
+    } else if (formData.arrivalDate && formData.arrivalDate < todayStr) {
+      setError('The selected arrival date cannot be in the past.');
       return;
     }
 
@@ -331,6 +394,7 @@ const MultiStepBookingForm: React.FC = () => {
         nationality: formData.nationality,
         passport_number: formData.passportNumber,
         phone_number: formData.whatsappNumber,
+        gender: 'Any' as any,
         preferred_accommodation: `${formData.category} - ${formData.roomType} (${formData.roomName}, ${formData.bedSpaceName})`,
         emergency_contact: formData.homeAddress,
         address_in_egypt: getAccommodationAddress(formData.category, accommodationAddresses),
@@ -704,6 +768,46 @@ const MultiStepBookingForm: React.FC = () => {
                     </div>
                   </div>
 
+                  {/* Extension Start Date (when extending lease) */}
+                  {isExtension && (
+                    <div className="space-y-3 pt-2 border-t border-gray-150 dark:border-gray-800">
+                      <div className="flex items-center justify-between">
+                        <label className="block text-xs font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
+                          Extension Commencement Date
+                        </label>
+                        {currentLeaseExpiry && (
+                          <span className="text-[10px] text-brand-600 dark:text-brand-400 font-semibold">
+                            Current lease ends: {new Date(currentLeaseExpiry).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
+                          </span>
+                        )}
+                      </div>
+                      <input 
+                        type="date"
+                        value={formData.arrivalDate}
+                        min={currentLeaseExpiry && currentLeaseExpiry > todayStr ? currentLeaseExpiry : todayStr}
+                        onChange={(e) => {
+                          setFormData(prev => ({ ...prev, arrivalDate: e.target.value }));
+                          setError(null);
+                        }}
+                        className={`w-full p-3 rounded-xl border text-xs font-medium bg-white dark:bg-gray-800 text-gray-900 dark:text-white transition-all ${
+                          getExtensionDateError(formData.arrivalDate)
+                            ? 'border-red-500 ring-2 ring-red-500/20'
+                            : 'border-gray-200 dark:border-gray-700 focus:ring-2 focus:ring-brand-500'
+                        }`}
+                      />
+                      {getExtensionDateError(formData.arrivalDate) ? (
+                        <div className="p-3 bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800/60 rounded-xl text-red-700 dark:text-red-300 text-xs flex items-start gap-2 animate-shake">
+                          <IconAlertTriangle className="w-4 h-4 text-red-600 flex-shrink-0 mt-0.5" />
+                          <p className="leading-snug text-[11px] font-medium">{getExtensionDateError(formData.arrivalDate)}</p>
+                        </div>
+                      ) : (
+                        <p className="text-[10px] text-gray-400">
+                          Your extension will begin on this date and run for {formData.duration} months until {endDate}.
+                        </p>
+                      )}
+                    </div>
+                  )}
+
                   {/* 3. Pricing Box */}
                   <div className="mt-6 p-4 bg-gray-50 dark:bg-gray-950 rounded-xl space-y-2 border border-gray-100 dark:border-gray-900 text-xs">
                     <div className="flex justify-between items-center">
@@ -731,9 +835,14 @@ const MultiStepBookingForm: React.FC = () => {
                 </button>
                 <button
                   onClick={nextStep}
-                  className="flex items-center gap-2 bg-brand-600 hover:bg-brand-700 text-white px-8 py-3.5 rounded-xl font-bold transition-all shadow-md active:scale-95"
+                  disabled={isExtension && !!getExtensionDateError(formData.arrivalDate)}
+                  className="flex items-center gap-2 bg-brand-600 disabled:opacity-50 hover:bg-brand-700 text-white px-8 py-3.5 rounded-xl font-bold transition-all shadow-md active:scale-95"
                 >
-                  <span>{t.step2_btn_continue || "Continue to Student's Information"}</span>
+                  <span>
+                    {isExtension 
+                      ? "Continue to Review (Details on file)" 
+                      : (t.step2_btn_continue || "Continue to Student's Information")}
+                  </span>
                   <IconChevronRight className="w-5 h-5 rtl:rotate-180" />
                 </button>
               </div>
@@ -786,6 +895,16 @@ const MultiStepBookingForm: React.FC = () => {
               <p className="text-gray-500 dark:text-gray-400 text-sm mt-1">{t.step4_sub || "Verify all parameters are correct and matches passport credentials prior to executing signing."}</p>
             </div>
 
+            {isExtension && (
+              <div className="p-4 bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800/60 rounded-2xl flex items-center gap-3">
+                <IconCheckCircle className="w-5 h-5 text-emerald-600 flex-shrink-0" />
+                <div className="text-xs">
+                  <p className="font-bold text-emerald-900 dark:text-emerald-300">Verified Student Credentials on File</p>
+                  <p className="text-emerald-700 dark:text-emerald-400">Personal details and identification loaded directly from your active tenancy records.</p>
+                </div>
+              </div>
+            )}
+
             <div className="bg-white dark:bg-gray-800 border dark:border-gray-700 rounded-2xl overflow-hidden shadow-sm">
               <div className="p-6 bg-gray-50 dark:bg-gray-900/50 border-b dark:border-gray-700">
                 <h3 className="font-black text-brand-800 dark:text-brand-300 uppercase tracking-wider text-xs">{t.step4_card_accommodation || "Accommodation Selection"}</h3>
@@ -807,7 +926,7 @@ const MultiStepBookingForm: React.FC = () => {
                   <SummaryItem label={t.step4_label_nationality || "Nationality"} value={formData.nationality} />
                   <SummaryItem label={t.step4_label_passport || "Passport #"} value={formData.passportNumber} />
                   <SummaryItem label={t.step4_label_phone || "WhatsApp Contact"} value={formData.whatsappNumber} />
-                  <SummaryItem label={t.step4_label_arrival || "Expected Move-in"} value={formData.arrivalDate} />
+                  <SummaryItem label={isExtension ? "Extension Start Date" : (t.step4_label_arrival || "Expected Move-in")} value={formData.arrivalDate} />
                   <SummaryItem label={t.step4_label_home_address || "Original Home Address"} value={formData.homeAddress} />
                 </div>
               </div>
@@ -826,7 +945,7 @@ const MultiStepBookingForm: React.FC = () => {
 
             <div className="flex justify-between pt-6 border-t border-gray-100 dark:border-gray-800">
               <button onClick={prevStep} className="flex items-center gap-1.5 text-gray-500 hover:text-gray-900 font-bold">
-                <IconChevronLeft className="w-4 h-4 rtl:rotate-180" /> <span>{t.step4_btn_back || "Back to details"}</span>
+                <IconChevronLeft className="w-4 h-4 rtl:rotate-180" /> <span>{isExtension ? "Back to stay options" : (t.step4_btn_back || "Back to details")}</span>
               </button>
               <button
                 onClick={nextStep}
@@ -1096,32 +1215,38 @@ const MultiStepBookingForm: React.FC = () => {
     }
   };
 
+  // Calculate display step number and total steps for UI
+  const displayStep = isExtension 
+    ? (step === 1 ? 1 : step === 2 ? 2 : step === 4 ? 3 : step === 5 ? 4 : step)
+    : step;
+  const totalSteps = isExtension ? 4 : 5;
+
   return (
     <div className="max-w-4xl mx-auto py-4">
       {/* Steps track header */}
       {step < 6 && (
         <div className="mb-8 text-center bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700">
           <div className="inline-block px-3 py-1 rounded-full bg-brand-100 dark:bg-brand-900/40 text-brand-600 dark:text-brand-300 text-[10px] font-black uppercase tracking-widest mb-2 border border-brand-200 dark:border-brand-800">
-            {t.wizard_badge || "residency application"}
+            {isExtension ? "Rent Extension Application" : (t.wizard_badge || "residency application")}
           </div>
           <h1 className="text-xl font-black text-gray-900 dark:text-white uppercase tracking-tight">
             {step === 1 && (t.step1_title || "1. Our Accommodations Selection")}
-            {step === 2 && (t.step2_title || "2. Features & Pricing")}
+            {step === 2 && (isExtension ? "2. Features, Duration & Extension Date" : (t.step2_title || "2. Features & Pricing"))}
             {step === 3 && (t.step3_title || "3. Student Information")}
-            {step === 4 && (t.step4_title || "4. Review Booking Summary")}
-            {step === 5 && (t.step5_title || "5. Sign Tenancy Agreement")}
+            {step === 4 && (isExtension ? "3. Review Booking Summary" : (t.step4_title || "4. Review Booking Summary"))}
+            {step === 5 && (isExtension ? "4. Sign Tenancy Agreement" : (t.step5_title || "5. Sign Tenancy Agreement"))}
           </h1>
           <div className="flex items-center justify-center gap-2 mt-4">
-            {[1, 2, 3, 4, 5].map((s) => (
+            {Array.from({ length: totalSteps }, (_, i) => i + 1).map((s) => (
               <div 
                 key={s} 
                 className={`h-1.5 rounded-full transition-all duration-500 ${
-                  s === step ? 'w-8 bg-brand-600' : s < step ? 'w-4 bg-brand-400' : 'w-4 bg-gray-200 dark:bg-gray-700'
+                  s === displayStep ? 'w-8 bg-brand-600' : s < displayStep ? 'w-4 bg-brand-400' : 'w-4 bg-gray-200 dark:bg-gray-700'
                 }`}
               />
             ))}
           </div>
-          <p className="mt-4 text-[10px] font-bold text-gray-400 uppercase tracking-widest">Step {step} of 5</p>
+          <p className="mt-4 text-[10px] font-bold text-gray-400 uppercase tracking-widest">Step {displayStep} of {totalSteps}</p>
         </div>
       )}
 

@@ -7,26 +7,17 @@ import InvoiceView from '../components/InvoiceView';
 import { 
   IconBuilding, 
   IconCheck, 
-  IconCheckCircle, 
-  IconCalendar, 
-  IconFile, 
-  IconMapPin, 
-  IconSofa, 
-  IconShieldCheck,
   IconChevronRight 
 } from '../components/Icon';
 import PaymentProofModal from '../components/PaymentProofModal';
 import { supabase } from '../lib/supabaseClient';
 import AgreementModal from '../components/AgreementModal';
 import { sendEmail, getAgreementSignedTemplate } from '../lib/email';
-import { ALL_ROOM_SPACES, getUnifiedRoomName, formatStoredRoomString, getParsedRoomSpaces, getAccommodationAddress } from '../lib/roomNaming';
-import RoomGallery from '../components/RoomGallery';
-import FAQ from '../components/FAQ';
-import { INITIAL_CMS } from '../contexts/AppContext';
+import { formatStoredRoomString, getParsedRoomSpaces, getAccommodationAddress } from '../lib/roomNaming';
 
 const DashboardPage: React.FC = () => {
   const t = useTranslation();
-  const { user, bookings, effectiveOccupancyBookings, activities, setPage, cmsContent, addActivity, updateBooking, language, rooms, landlordDetails, accommodationAddresses } = useApp();
+  const { user, bookings, effectiveOccupancyBookings, setPage, cmsContent, addActivity, updateBooking, language, rooms, landlordDetails, accommodationAddresses } = useApp();
   
   const [selectedInvoice, setSelectedInvoice] = useState<Booking | null>(null);
   const [viewingAgreement, setViewingAgreement] = useState<Booking | null>(null);
@@ -38,30 +29,6 @@ const DashboardPage: React.FC = () => {
   const userBookings = (bookings || []).filter(b => b.student_id === user?.id);
   const activeBooking = userBookings.find(b => b.status !== BookingStatus.CANCELLED && b.status !== BookingStatus.COMPLETED) || userBookings[0];
   const announcements = cmsContent.announcements?.[language] || cmsContent.announcements?.['en'] || [];
-
-  const currentFeatures = (cmsContent.features?.[language] && cmsContent.features[language]!.length > 0) 
-    ? cmsContent.features[language]! 
-    : (cmsContent.features?.['en'] && cmsContent.features['en']!.length > 0) 
-        ? cmsContent.features['en']! 
-        : INITIAL_CMS.features.en;
-        
-  const currentFaqs = (cmsContent.faqs?.[language] && cmsContent.faqs[language]!.length > 0) 
-    ? cmsContent.faqs[language]! 
-    : (cmsContent.faqs?.['en'] && cmsContent.faqs['en']!.length > 0) 
-        ? cmsContent.faqs['en']! 
-        : INITIAL_CMS.faqs.en;
-
-  // Visible rooms for gallery (filtered by student gender if set)
-  const visibleRooms = useMemo(() => {
-    if (user?.role === 'student' && user.gender) {
-      const userGender = user.gender.toLowerCase();
-      return rooms.filter(room => {
-        const roomGender = (room.gender_restriction || 'Any').toLowerCase();
-        return roomGender === 'any' || roomGender === userGender;
-      });
-    }
-    return rooms;
-  }, [rooms, user]);
 
   // Determine which rooms/beds are currently occupied based on effective occupancy data
   const parsedAvailabilityData = useMemo(() => {
@@ -354,83 +321,6 @@ const DashboardPage: React.FC = () => {
             </div>
           ))}
         </div>
-      </section>
-
-      {/* 4. Ratings & Key Residency Benefits */}
-      <section className="bg-white dark:bg-gray-800 py-8 px-6 rounded-3xl shadow-sm border border-gray-100 dark:border-gray-700">
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-6 text-center">
-          <div>
-            <p className="text-3xl font-black text-brand-600">4.9/5</p>
-            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mt-1">{t.dash_metric_cleanliness || "Cleanliness Rating"}</p>
-          </div>
-          <div>
-            <p className="text-3xl font-black text-brand-600">5.0/5</p>
-            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mt-1">{t.dash_metric_safety || "Safety Rating"}</p>
-          </div>
-          <div>
-            <p className="text-3xl font-black text-brand-600">5 mins</p>
-            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mt-1">{t.dash_metric_distance || "From Centre"}</p>
-          </div>
-          <div>
-            <p className="text-3xl font-black text-brand-600">100%</p>
-            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mt-1">{t.dash_metric_enrolment || "Enrolment Success"}</p>
-          </div>
-        </div>
-      </section>
-
-      {/* 5. Live Room Browsing & Gallery */}
-      <section className="space-y-4 text-start">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-          <div>
-            <h2 className="text-xl font-black text-gray-900 dark:text-white uppercase tracking-tight">
-              {t.dash_explore_title || "Explore Accommodations & Live Room Browsing"}
-            </h2>
-            <p className="text-xs text-gray-500">
-              {t.dash_explore_sub || "Browse photo galleries, amenities, floor plans, and pricing for all student rooms."}
-            </p>
-          </div>
-          <button
-            onClick={() => setPage('booking')}
-            className="self-start sm:self-center px-4 py-2 bg-brand-600 hover:bg-brand-700 text-white rounded-xl text-xs font-bold shadow transition-all flex items-center gap-1"
-          >
-            <span>{t.dash_btn_open_wizard || "Open Booking Wizard"}</span>
-            <IconChevronRight className="w-3.5 h-3.5 rtl:rotate-180" />
-          </button>
-        </div>
-
-        <div className="rounded-3xl overflow-hidden shadow-sm">
-          <RoomGallery rooms={visibleRooms} />
-        </div>
-      </section>
-
-      {/* 6. Why Students Choose Al-Ibaanah Features Section */}
-      <section className="space-y-8">
-        <div className="text-center space-y-1">
-          <h2 className="text-xl sm:text-2xl font-black uppercase tracking-tight text-gray-900 dark:text-white">
-            {t.dash_why_choose_title || "Why Students Choose Al-Ibaanah Residences"}
-          </h2>
-          <p className="text-xs text-gray-500 max-w-lg mx-auto">
-            {t.dash_why_choose_sub || "Convenient, fully furnished living designed specifically to support focused Arabic & Islamic studies."}
-          </p>
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-center">
-          {currentFeatures.map((feat, idx) => (
-            <div key={feat.id} className="flex flex-col items-center p-6 bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm">
-              <div className="flex items-center justify-center h-14 w-14 rounded-2xl bg-brand-50 dark:bg-brand-900/40 text-brand-600 dark:text-brand-300 mb-4">
-                {idx === 0 && <IconMapPin className="h-6 w-6" />}
-                {idx === 1 && <IconSofa className="h-6 w-6" />}
-                {idx === 2 && <IconShieldCheck className="h-6 w-6" />}
-              </div>
-              <h3 className="text-base font-black text-gray-900 dark:text-white">{feat.title}</h3>
-              <p className="mt-2 text-xs text-gray-500 dark:text-gray-400 leading-relaxed">{feat.desc}</p>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      {/* 7. Frequently Asked Questions (FAQ) */}
-      <section className="bg-white dark:bg-gray-800 p-6 sm:p-8 rounded-3xl border border-gray-100 dark:border-gray-700 shadow-sm text-start">
-        <FAQ faqs={currentFaqs} />
       </section>
 
       {/* Modals */}

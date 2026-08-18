@@ -1,7 +1,7 @@
 import React, { useMemo } from 'react';
 import { useTranslation } from '../hooks/useTranslation';
 import FAQ from '../components/FAQ';
-import { IconMapPin, IconShieldCheck, IconSofa } from '../components/Icon';
+import { IconMapPin, IconShieldCheck, IconSofa, IconStar, IconQuote } from '../components/Icon';
 import RoomGallery from '../components/RoomGallery';
 import { useApp } from '../hooks/useApp';
 import { INITIAL_CMS } from '../contexts/AppContext';
@@ -123,6 +123,42 @@ const HomePage: React.FC = () => {
                     <p className="mt-2 text-xs text-gray-500 dark:text-gray-400 leading-relaxed">{feat.desc}</p>
                 </div>
               ))}
+          </div>
+        </section>
+
+        {/* Student Testimonials & Experiences Section */}
+        <section className="space-y-8">
+          <div className="text-center space-y-2">
+            <h2 className="text-2xl font-black uppercase tracking-tight text-gray-900 dark:text-white sm:text-3xl">
+              Student Testimonials & Experiences
+            </h2>
+            <p className="text-sm text-gray-500 dark:text-gray-400 max-w-xl mx-auto">
+              Real reflections and experiences from international students pursuing Arabic and Islamic studies at Al-Ibaanah.
+            </p>
+          </div>
+
+          {/* Clean Placeholder / Empty State */}
+          <div className="bg-white dark:bg-gray-800 rounded-3xl p-8 sm:p-12 border border-gray-100 dark:border-gray-700 shadow-sm text-center max-w-3xl mx-auto space-y-6">
+            <div className="flex justify-center items-center gap-1 text-amber-400">
+              {[...Array(5)].map((_, i) => (
+                <IconStar key={i} className="w-5 h-5 fill-amber-400 text-amber-400" />
+              ))}
+            </div>
+
+            <div className="relative">
+              <IconQuote className="w-10 h-10 text-brand-200 dark:text-brand-900/60 mx-auto mb-2 opacity-80" />
+              <blockquote className="text-base sm:text-lg text-gray-700 dark:text-gray-300 font-medium italic leading-relaxed">
+                "Our upcoming graduating cohort reviews and student reflections are currently being verified for publication. Verified student feedback will be published here soon."
+              </blockquote>
+            </div>
+
+            <div className="pt-4 border-t border-gray-100 dark:border-gray-700/60 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-gray-400">
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-brand-50 dark:bg-brand-900/30 text-brand-700 dark:text-brand-300 font-semibold rounded-full">
+                <span className="w-2 h-2 rounded-full bg-brand-500 animate-pulse"></span>
+                Verified Cohort Reviews Incoming
+              </span>
+              <span>Al-Ibaanah Student Community &bull; Nasr City, Cairo</span>
+            </div>
           </div>
         </section>
 
