@@ -17,6 +17,7 @@ import { useReactToPrint } from 'react-to-print';
 import TenancyAgreementDocument from './TenancyAgreementDocument';
 import { sendEmail, getAgreementSignedTemplate } from '../lib/email';
 import { ALL_ROOM_SPACES, BED_SPACE_TO_ID_MAP, getUnifiedRoomName, getParsedRoomSpaces, getAccommodationAddress, findDatabaseRoomForSpace } from '../lib/roomNaming';
+import JoinWaitlistModal from './JoinWaitlistModal';
 
 // Predefined Accommodation Categories and Rooms based on exact user specification
 const ACCOMMODATIONS_SELECTION: Record<string, Array<{ id: string; room: string; space: string; type: 'Shared' | 'Private'; label: string }>> = {
@@ -105,6 +106,10 @@ const MultiStepBookingForm: React.FC = () => {
   const [bookingResult, setBookingResult] = useState<Booking | null>(null);
   const [signature, setSignature] = useState<string | null>(null);
   const [confirmPaymentTab, setConfirmPaymentTab] = useState<'bank' | 'remitly'>('bank');
+  const [isWaitlistModalOpen, setIsWaitlistModalOpen] = useState(false);
+  const [waitlistCategory, setWaitlistCategory] = useState<'Standard' | 'Premium 1' | 'Premium 2'>('Standard');
+  const [waitlistType, setWaitlistType] = useState<'Shared' | 'Private'>('Shared');
+  const [waitlistSpaceLabel, setWaitlistSpaceLabel] = useState<string | undefined>(undefined);
   
   const sigPadRef = React.useRef<SignaturePad>(null);
   const agreementRef = React.useRef<HTMLDivElement>(null);
@@ -545,12 +550,26 @@ const MultiStepBookingForm: React.FC = () => {
               </div>
 
               {areAllSpacesInSelectedCategoryOccupied && (
-                <div className="p-4 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800/60 rounded-xl text-amber-800 dark:text-amber-400 text-xs font-medium flex items-center gap-2.5">
-                  <IconInfo className="w-5 h-5 text-amber-600 flex-shrink-0" />
-                  <div className="text-start">
-                    <p className="font-bold uppercase tracking-wider text-[10px]">{t.step1_fully_booked_title || "Category Fully Booked"}</p>
-                    <p className="mt-0.5">{(t.step1_fully_booked_desc || "All bed spaces in the {category} category are currently reserved. Please explore our other beautiful accommodations.").replace('{category}', formData.category)}</p>
+                <div className="p-4 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800/60 rounded-xl text-amber-800 dark:text-amber-400 text-xs font-medium flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div className="flex items-center gap-2.5 text-start">
+                    <IconInfo className="w-5 h-5 text-amber-600 flex-shrink-0" />
+                    <div>
+                      <p className="font-bold uppercase tracking-wider text-[10px]">{t.step1_fully_booked_title || "Category Fully Booked"}</p>
+                      <p className="mt-0.5">{(t.step1_fully_booked_desc || "All bed spaces in the {category} category are currently reserved. You can join the waitlist to be notified first when a space opens.").replace('{category}', formData.category)}</p>
+                    </div>
                   </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setWaitlistCategory(formData.category);
+                      setWaitlistType('Shared');
+                      setWaitlistSpaceLabel(`${formData.category} Residency`);
+                      setIsWaitlistModalOpen(true);
+                    }}
+                    className="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs rounded-xl shadow-sm transition whitespace-nowrap self-start sm:self-auto flex items-center gap-1.5"
+                  >
+                    <span>⏳ Join {formData.category} Waitlist</span>
+                  </button>
                 </div>
               )}
               
@@ -563,46 +582,66 @@ const MultiStepBookingForm: React.FC = () => {
                   const finalAvailDate = spaceConfig?.nextAvailableDate || 'Available Now';
 
                   return (
-                    <button
+                    <div
                       key={item.id}
-                      onClick={() => handleRoomSelect(item.id)}
-                      disabled={isSpaceOccupied}
-                      className={`p-4 rounded-xl border text-start flex justify-between items-center transition-all ${
+                      onClick={() => !isSpaceOccupied && handleRoomSelect(item.id)}
+                      className={`p-4 rounded-xl border text-start flex flex-col justify-between transition-all ${
                         isSpaceOccupied
-                          ? 'border-gray-200 dark:border-gray-800 bg-gray-100/40 dark:bg-gray-950/40 opacity-60 cursor-not-allowed'
+                          ? 'border-gray-200 dark:border-gray-800 bg-gray-100/40 dark:bg-gray-950/40 opacity-90'
                           : formData.selectedRoomId === item.id
-                          ? 'border-brand-500 bg-brand-50/20 text-brand-700 dark:text-brand-400 font-bold'
+                          ? 'border-brand-500 bg-brand-50/20 text-brand-700 dark:text-brand-400 font-bold cursor-pointer'
                           : 'border-gray-100 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-900 text-gray-700 dark:text-gray-300 hover:border-brand-200 hover:bg-gray-50 dark:hover:bg-gray-800/80 cursor-pointer'
                       }`}
                     >
-                      <div>
-                        <span className="block font-bold text-sm text-gray-900 dark:text-white">{item.room}</span>
-                        <span className="text-xs text-gray-400 block mt-0.5 font-medium">{item.type} room ({item.space})</span>
-                        <div className="mt-2 flex items-center gap-1.5">
-                          <span className="text-[9px] uppercase font-bold text-gray-400">{t.step1_available_prefix || "Available:"}</span>
-                          <span className={`text-[9px] font-black uppercase px-1.5 py-0.5 rounded ${
-                            isSpaceOccupied
-                              ? 'bg-red-50 text-red-700 dark:bg-red-950/20 dark:text-red-400'
-                              : finalAvailDate === 'Available Now'
-                              ? 'bg-green-50 text-green-700 dark:bg-green-950/20 dark:text-green-400'
-                              : 'bg-amber-50 text-amber-700 dark:bg-amber-950/20 dark:text-amber-400'
-                          }`}>
-                            {isSpaceOccupied
-                              ? (finalAvailDate === 'Available Now' ? (t.step1_status_fully_booked || 'Fully Booked') : ((t.step1_status_fully_booked_next || 'Fully Booked (Next: {date})').replace('{date}', finalAvailDate)))
-                              : (finalAvailDate === 'Available Now' ? (t.step1_status_available_now || 'Available Now') : finalAvailDate)
-                            }
-                          </span>
+                      <div className="flex justify-between items-start">
+                        <div>
+                          <span className="block font-bold text-sm text-gray-900 dark:text-white">{item.room}</span>
+                          <span className="text-xs text-gray-400 block mt-0.5 font-medium">{item.type} room ({item.space})</span>
+                          <div className="mt-2 flex items-center gap-1.5">
+                            <span className="text-[9px] uppercase font-bold text-gray-400">{t.step1_available_prefix || "Available:"}</span>
+                            <span className={`text-[9px] font-black uppercase px-1.5 py-0.5 rounded ${
+                              isSpaceOccupied
+                                ? 'bg-red-50 text-red-700 dark:bg-red-950/20 dark:text-red-400'
+                                : finalAvailDate === 'Available Now'
+                                ? 'bg-green-50 text-green-700 dark:bg-green-950/20 dark:text-green-400'
+                                : 'bg-amber-50 text-amber-700 dark:bg-amber-950/20 dark:text-amber-400'
+                            }`}>
+                              {isSpaceOccupied
+                                ? (finalAvailDate === 'Available Now' ? (t.step1_status_fully_booked || 'Fully Booked') : ((t.step1_status_fully_booked_next || 'Fully Booked (Next: {date})').replace('{date}', finalAvailDate)))
+                                : (finalAvailDate === 'Available Now' ? (t.step1_status_available_now || 'Available Now') : finalAvailDate)
+                              }
+                            </span>
+                          </div>
                         </div>
+                        {formData.selectedRoomId === item.id && !isSpaceOccupied && (
+                          <div className="w-5 h-5 rounded-full bg-brand-600 text-white flex items-center justify-center flex-shrink-0">
+                            <IconCheck className="w-3.5 h-3.5" />
+                          </div>
+                        )}
+                        {isSpaceOccupied && (
+                          <span className="text-[10px] text-red-600 font-black uppercase tracking-wider">{t.step1_status_booked || "Booked"}</span>
+                        )}
                       </div>
-                      {formData.selectedRoomId === item.id && !isSpaceOccupied && (
-                        <div className="w-5 h-5 rounded-full bg-brand-600 text-white flex items-center justify-center flex-shrink-0">
-                          <IconCheck className="w-3.5 h-3.5" />
+
+                      {isSpaceOccupied && (
+                        <div className="mt-3 pt-2.5 border-t border-gray-200/60 dark:border-gray-800/60 flex justify-between items-center">
+                          <span className="text-[10px] text-gray-500 dark:text-gray-400 font-medium">Waitlist available</span>
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setWaitlistCategory(formData.category);
+                              setWaitlistType(item.type);
+                              setWaitlistSpaceLabel(`${formData.category} - ${item.room} (${item.space})`);
+                              setIsWaitlistModalOpen(true);
+                            }}
+                            className="text-[11px] font-bold text-amber-700 hover:text-amber-800 dark:text-amber-400 bg-amber-50 hover:bg-amber-100 dark:bg-amber-950/40 px-2.5 py-1 rounded-lg transition flex items-center gap-1"
+                          >
+                            <span>⏳ Join Waitlist</span>
+                          </button>
                         </div>
                       )}
-                      {isSpaceOccupied && (
-                        <span className="text-[10px] text-red-600 font-black uppercase tracking-wider">{t.step1_status_booked || "Booked"}</span>
-                      )}
-                    </button>
+                    </div>
                   );
                 })}
               </div>
@@ -1251,6 +1290,14 @@ const MultiStepBookingForm: React.FC = () => {
       )}
 
       {renderStepContent()}
+
+      <JoinWaitlistModal
+        isOpen={isWaitlistModalOpen}
+        onClose={() => setIsWaitlistModalOpen(false)}
+        initialCategory={waitlistCategory}
+        initialType={waitlistType}
+        initialSpaceLabel={waitlistSpaceLabel}
+      />
     </div>
   );
 };

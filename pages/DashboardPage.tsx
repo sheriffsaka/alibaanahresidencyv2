@@ -14,6 +14,7 @@ import { supabase } from '../lib/supabaseClient';
 import AgreementModal from '../components/AgreementModal';
 import { sendEmail, getAgreementSignedTemplate } from '../lib/email';
 import { formatStoredRoomString, getParsedRoomSpaces, getAccommodationAddress } from '../lib/roomNaming';
+import JoinWaitlistModal from '../components/JoinWaitlistModal';
 
 const DashboardPage: React.FC = () => {
   const t = useTranslation();
@@ -25,6 +26,16 @@ const DashboardPage: React.FC = () => {
   const [uploadingProofBooking, setUploadingProofBooking] = useState<Booking | null>(null);
   
   const [selectedFilterCategory, setSelectedFilterCategory] = useState<'All' | 'Standard' | 'Premium 1' | 'Premium 2'>('All');
+  const [waitlistModalConfig, setWaitlistModalConfig] = useState<{
+    isOpen: boolean;
+    category: 'Standard' | 'Premium 1' | 'Premium 2';
+    type: 'Shared' | 'Private';
+    spaceLabel?: string;
+  }>({
+    isOpen: false,
+    category: 'Standard',
+    type: 'Shared',
+  });
   
   const userBookings = (bookings || []).filter(b => b.student_id === user?.id);
   const activeBooking = userBookings.find(b => b.status !== BookingStatus.CANCELLED && b.status !== BookingStatus.COMPLETED) || userBookings[0];
@@ -300,21 +311,42 @@ const DashboardPage: React.FC = () => {
                   <span className="font-semibold text-gray-500">{t.dash_card_address || "Address:"}</span> {getAccommodationAddress(space.category, accommodationAddresses)}
                 </p>
                 {space.isOccupied ? (
-                  <div className="pt-2 border-t border-gray-200/50 dark:border-gray-700/60 space-y-0.5">
-                    {space.booking?.end_date && (
-                      <p className="text-red-600 dark:text-red-400 font-bold">
-                        <span>{t.dash_card_lease_expiry || "Lease Expiry:"}</span> {space.nextAvailableDate}
+                  <div className="pt-2 border-t border-gray-200/50 dark:border-gray-700/60 space-y-2">
+                    <div className="space-y-0.5">
+                      {space.booking?.end_date && (
+                        <p className="text-red-600 dark:text-red-400 font-bold">
+                          <span>{t.dash_card_lease_expiry || "Lease Expiry:"}</span> {space.nextAvailableDate}
+                        </p>
+                      )}
+                      <p className="text-brand-600 dark:text-brand-400 font-bold">
+                        <span>{t.dash_card_next_available || "Next Available:"}</span> {space.nextAvailableDate}
                       </p>
-                    )}
-                    <p className="text-brand-600 dark:text-brand-400 font-bold">
-                      <span>{t.dash_card_next_available || "Next Available:"}</span> {space.nextAvailableDate}
-                    </p>
+                    </div>
+                    <button
+                      onClick={() => {
+                        setWaitlistModalConfig({
+                          isOpen: true,
+                          category: space.category as any,
+                          type: space.type,
+                          spaceLabel: `${space.category} - ${space.roomName} (${space.bedSpaceName})`
+                        });
+                      }}
+                      className="w-full py-1.5 px-2.5 rounded-xl bg-amber-50 hover:bg-amber-100 dark:bg-amber-950/40 dark:hover:bg-amber-900/40 text-amber-700 dark:text-amber-400 font-bold text-[11px] transition-all flex items-center justify-center gap-1 border border-amber-200/60 dark:border-amber-800/40"
+                    >
+                      <span>⏳ {(t as any).dash_btn_join_waitlist || "Join Waitlist"}</span>
+                    </button>
                   </div>
                 ) : (
-                  <div className="pt-2 border-t border-emerald-100 dark:border-emerald-900/60">
+                  <div className="pt-2 border-t border-emerald-100 dark:border-emerald-900/60 space-y-2">
                     <p className="text-emerald-600 dark:text-emerald-400 font-bold flex items-center gap-1">
                       <IconCheck className="w-3.5 h-3.5" /> {t.dash_card_available_now || "Available Now"}
                     </p>
+                    <button
+                      onClick={() => setPage('booking')}
+                      className="w-full py-1.5 px-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[11px] transition-all flex items-center justify-center gap-1 shadow-sm"
+                    >
+                      <span>{(t as any).dash_btn_book_space || "Book Bed Space"}</span>
+                    </button>
                   </div>
                 )}
               </div>
@@ -324,6 +356,13 @@ const DashboardPage: React.FC = () => {
       </section>
 
       {/* Modals */}
+      <JoinWaitlistModal
+        isOpen={waitlistModalConfig.isOpen}
+        onClose={() => setWaitlistModalConfig(prev => ({ ...prev, isOpen: false }))}
+        initialCategory={waitlistModalConfig.category}
+        initialType={waitlistModalConfig.type}
+        initialSpaceLabel={waitlistModalConfig.spaceLabel}
+      />
       {selectedInvoice && (
         <InvoiceView 
           booking={selectedInvoice} 

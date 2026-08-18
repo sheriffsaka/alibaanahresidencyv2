@@ -116,6 +116,33 @@ export interface Booking {
   rooms?: Pick<Room, 'room_number' | 'type' | 'apartment_name' | 'category'>;
 }
 
+export type WaitlistStatus = 'Waiting' | 'Offered' | 'Fulfilled' | 'Cancelled';
+
+export interface WaitlistEntry {
+  id: number;
+  student_id?: string | null;
+  full_name?: string | null;
+  email?: string | null;
+  phone_number?: string | null;
+  category: 'Standard' | 'Premium 1' | 'Premium 2';
+  accommodation_type: 'Shared' | 'Private';
+  room_id?: number | null;
+  bed_space_id?: number | null;
+  desired_term?: string | null;
+  duration_months?: number | null;
+  status: WaitlistStatus;
+  notes?: string | null;
+  created_at: string;
+  updated_at?: string;
+  // Joined profile data if student_id is present
+  profiles?: {
+    full_name?: string;
+    email?: string;
+    phone_number?: string;
+    nationality?: string;
+  };
+}
+
 export interface Activity {
   id: number;
   user_id: string;
@@ -281,6 +308,10 @@ export interface AppContextType {
   academicTerms: AcademicTerm[];
   bookingPackages: BookingPackage[];
   landlordDetails: LandlordDetails;
+  waitlist: WaitlistEntry[];
+  addToWaitlist: (entry: Omit<WaitlistEntry, 'id' | 'created_at' | 'status'> & { status?: WaitlistStatus }) => Promise<{ success: boolean; error?: string; data?: WaitlistEntry }>;
+  updateWaitlistStatus: (id: number, status: WaitlistStatus) => Promise<{ success: boolean; error?: string }>;
+  updateWaitlistEntry: (id: number, updates: Partial<WaitlistEntry>) => Promise<{ success: boolean; error?: string }>;
 }
 
 export interface ChatMessage {

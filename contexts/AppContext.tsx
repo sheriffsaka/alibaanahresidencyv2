@@ -1,6 +1,6 @@
 
 import React, { createContext, useState, ReactNode, useCallback, useEffect, useRef, useMemo } from 'react';
-import { AppContextType, Language, Page, User, Room, BedSpace, Booking, BookingStatus, CmsContent, Activity, AcademicTerm, BookingPackage, AccommodationType, DEFAULT_CATEGORY_MEDIA, CategoryMediaConfig, PublicOccupancy, AccommodationAddresses, DEFAULT_ACCOMMODATION_ADDRESSES } from '../types';
+import { AppContextType, Language, Page, User, Room, BedSpace, Booking, BookingStatus, CmsContent, Activity, AcademicTerm, BookingPackage, AccommodationType, DEFAULT_CATEGORY_MEDIA, CategoryMediaConfig, PublicOccupancy, AccommodationAddresses, DEFAULT_ACCOMMODATION_ADDRESSES, WaitlistEntry, WaitlistStatus } from '../types';
 import { supabase } from '../lib/supabaseClient';
 import { Session } from '@supabase/supabase-js';
 
@@ -213,6 +213,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const [activities, setActivities] = useState<Activity[]>(MOCK_ACTIVITIES);
   const [students, setStudents] = useState<User[]>([]);
   const [users, setUsers] = useState<User[]>([]);
+  const [waitlist, setWaitlist] = useState<WaitlistEntry[]>([]);
   const bookingsSubscriptionRef = useRef<any>(null);
 
   const updateUserSession = useCallback(async (session: Session | null) => {
@@ -351,6 +352,25 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                 setUser({ ...loggedInUser });
             }
         }
+
+        // Fetch waitlist entries
+        try {
+            let waitlistQuery = supabase
+                .from('waitlist')
+                .select('*, profiles:student_id(full_name, email, phone_number, nationality)')
+                .order('created_at', { ascending: false });
+
+            if (profile.role === 'student') {
+                waitlistQuery = waitlistQuery.eq('student_id', profile.id);
+            }
+
+            const { data: waitlistData, error: waitlistError } = await waitlistQuery;
+            if (!waitlistError && waitlistData) {
+                setWaitlist(waitlistData);
+            }
+        } catch (wlErr) {
+            console.warn("Notice fetching waitlist:", wlErr);
+        }
       } catch (err) {
         console.warn("Notice in updateUserSession:", err);
         setUser(null);
@@ -359,6 +379,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     } else {
       setUser(null);
       setStudents([]);
+      setWaitlist([]);
     }
   }, []);
 
@@ -458,10 +479,42 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         })
         .subscribe();
 
+    // Real-time subscription for waitlist changes
+    const waitlistChannel = supabase
+        .channel('global-waitlist-changes')
+        .on('postgres_changes', {
+            event: '*',
+            schema: 'public',
+            table: 'waitlist'
+        }, async (payload) => {
+            console.log('Real-time waitlist update:', payload);
+            if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
+                const { data, error } = await supabase
+                    .from('waitlist')
+                    .select('*, profiles:student_id(full_name, email, phone_number, nationality)')
+                    .eq('id', payload.new.id)
+                    .maybeSingle();
+                
+                if (data && !error) {
+                    setWaitlist(prev => {
+                        const exists = prev.some(w => w.id === data.id);
+                        if (exists) {
+                            return prev.map(w => w.id === data.id ? data : w);
+                        }
+                        return [data, ...prev];
+                    });
+                }
+            } else if (payload.eventType === 'DELETE') {
+                setWaitlist(prev => prev.filter(w => w.id !== payload.old.id));
+            }
+        })
+        .subscribe();
+
     return () => {
         supabase.removeChannel(bookingsChannel);
         supabase.removeChannel(roomsChannel);
         supabase.removeChannel(bedSpacesChannel);
+        supabase.removeChannel(waitlistChannel);
     };
   }, []);
 
@@ -1250,6 +1303,94 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     }
   };
 
+  const addToWaitlist = async (entry: Omit<WaitlistEntry, 'id' | 'created_at' | 'status'> & { status?: WaitlistStatus }) => {
+    try {
+      const newEntryPayload: any = {
+        student_id: entry.student_id || user?.id || null,
+        full_name: entry.full_name || null,
+        email: entry.email || null,
+        phone_number: entry.phone_number || null,
+        category: entry.category,
+        accommodation_type: entry.accommodation_type,
+        room_id: entry.room_id || null,
+        bed_space_id: entry.bed_space_id || null,
+        desired_term: entry.desired_term || null,
+        duration_months: entry.duration_months || 6,
+        status: entry.status || 'Waiting',
+        notes: entry.notes || null,
+      };
+
+      const { data, error } = await supabase
+        .from('waitlist')
+        .insert([newEntryPayload])
+        .select('*, profiles:student_id(full_name, email, phone_number, nationality)')
+        .single();
+
+      if (error) {
+        console.warn("Supabase waitlist insert notice (fallback to local state):", error.message);
+        const fallbackEntry: WaitlistEntry = {
+          id: Date.now(),
+          ...newEntryPayload,
+          created_at: new Date().toISOString(),
+          profiles: user ? {
+            full_name: user.full_name,
+            email: user.email,
+            phone_number: user.phone_number,
+            nationality: user.nationality
+          } : undefined
+        };
+        setWaitlist(prev => [fallbackEntry, ...prev]);
+        return { success: true, data: fallbackEntry };
+      }
+
+      if (data) {
+        setWaitlist(prev => [data, ...prev.filter(w => w.id !== data.id)]);
+        return { success: true, data };
+      }
+      return { success: true };
+    } catch (err: any) {
+      console.error("Error adding to waitlist:", err.message);
+      return { success: false, error: err.message };
+    }
+  };
+
+  const updateWaitlistStatus = async (id: number, status: WaitlistStatus) => {
+    try {
+      const { error } = await supabase
+        .from('waitlist')
+        .update({ status, updated_at: new Date().toISOString() })
+        .eq('id', id);
+
+      if (error) {
+        console.warn("Supabase waitlist status update error:", error.message);
+      }
+      setWaitlist(prev => prev.map(w => w.id === id ? { ...w, status, updated_at: new Date().toISOString() } : w));
+      return { success: true };
+    } catch (err: any) {
+      console.error("Error updating waitlist status:", err.message);
+      return { success: false, error: err.message };
+    }
+  };
+
+  const updateWaitlistEntry = async (id: number, updates: Partial<WaitlistEntry>) => {
+    try {
+      const { profiles, ...dbUpdates } = updates as any;
+      const { error } = await supabase
+        .from('waitlist')
+        .update({ ...dbUpdates, updated_at: new Date().toISOString() })
+        .eq('id', id);
+
+      if (error) {
+        console.warn("Supabase waitlist update error:", error.message);
+      }
+      setWaitlist(prev => prev.map(w => w.id === id ? { ...w, ...updates, updated_at: new Date().toISOString() } : w));
+      return { success: true };
+    } catch (err: any) {
+      console.error("Error updating waitlist entry:", err.message);
+      return { success: false, error: err.message };
+    }
+  };
+
   // Role-based occupancy bookings calculation:
   // For Admin / Staff: uses the full `bookings` array with student names, passport numbers, audit data.
   // For Students / Anonymous visitors: uses strictly the anonymized `publicOccupancy` list from get_public_occupancy() RPC.
@@ -1294,6 +1435,10 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     deleteUser,
     academicTerms,
     bookingPackages,
+    waitlist,
+    addToWaitlist,
+    updateWaitlistStatus,
+    updateWaitlistEntry,
     loading,
     landlordDetails: cmsContent.landlordDetails || DEFAULT_LANDLORD_DETAILS,
     accommodationAddresses: cmsContent.accommodationAddresses || DEFAULT_ACCOMMODATION_ADDRESSES
