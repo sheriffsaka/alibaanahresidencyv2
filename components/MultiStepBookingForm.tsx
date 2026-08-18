@@ -260,8 +260,13 @@ const MultiStepBookingForm: React.FC = () => {
 
   // Find corresponding database room if available
   const selectedSupabaseRoom = useMemo(() => {
-    return findDatabaseRoomForSpace(rooms, formData.selectedRoomId);
-  }, [rooms, formData.selectedRoomId]);
+    return findDatabaseRoomForSpace(rooms, {
+      category: formData.category,
+      type: formData.roomType,
+      roomName: formData.roomName,
+      id: formData.selectedRoomId
+    });
+  }, [rooms, formData.category, formData.roomType, formData.roomName, formData.selectedRoomId]);
 
   // Calculated Pricing Engine
   const pricing = useMemo(() => {
@@ -321,6 +326,8 @@ const MultiStepBookingForm: React.FC = () => {
         status: BookingStatus.PENDING_PAYMENT,
         payment_method: 'bank_transfer',
         full_name: formData.fullName,
+        email: formData.email,
+        expected_arrival_date: formData.arrivalDate,
         nationality: formData.nationality,
         passport_number: formData.passportNumber,
         phone_number: formData.whatsappNumber,

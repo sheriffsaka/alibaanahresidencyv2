@@ -18,7 +18,6 @@ const RoomEditorModal: React.FC<RoomEditorModalProps> = ({ room, onClose, onSave
         category: 'Premium 1' as 'Premium 1' | 'Premium 2' | 'Standard',
         roomNumber: 'Room 1',
         roomType: 'Shared Room' as 'Shared Room' | 'Private Room',
-        bedSpace: 'Bed A',
       };
     }
 
@@ -42,20 +41,10 @@ const RoomEditorModal: React.FC<RoomEditorModalProps> = ({ room, onClose, onSave
     }
 
     // Determine room type
-    const isPrivate = room.type?.toLowerCase().includes('private');
+    const isPrivate = room.type?.toLowerCase().includes('private') || (room.capacity === 1 && !room.type?.toLowerCase().includes('shared'));
     const roomType = isPrivate ? 'Private Room' : 'Shared Room';
 
-    // Determine bed space
-    let bedSpace = 'Single';
-    if (!isPrivate) {
-      if (room.room_number?.toLowerCase().includes('b') || room.room_number?.toLowerCase().includes('bed b')) {
-        bedSpace = 'Bed B';
-      } else {
-        bedSpace = 'Bed A';
-      }
-    }
-
-    return { category, roomNumber, roomType, bedSpace };
+    return { category, roomNumber, roomType };
   };
 
   const initialParsed = getInitialValues();
@@ -63,16 +52,15 @@ const RoomEditorModal: React.FC<RoomEditorModalProps> = ({ room, onClose, onSave
   const [selectedCategory, setSelectedCategory] = useState<'Premium 1' | 'Premium 2' | 'Standard'>(initialParsed.category as 'Premium 1' | 'Premium 2' | 'Standard');
   const [selectedRoomNumber, setSelectedRoomNumber] = useState<string>(initialParsed.roomNumber);
   const [selectedRoomType, setSelectedRoomType] = useState<'Shared Room' | 'Private Room'>(initialParsed.roomType as 'Shared Room' | 'Private Room');
-  const [selectedBedSpace, setSelectedBedSpace] = useState<string>(initialParsed.bedSpace);
 
   const [formData, setFormData] = useState({
-    price_per_month: room?.price_per_month || (initialParsed.category === 'Standard' ? 150 : 175),
+    price_per_month: room?.price_per_month || (initialParsed.category === 'Standard' ? 175 : 350),
     gender_restriction: room?.gender_restriction || 'Any',
     capacity: room?.capacity || (initialParsed.roomType === 'Private Room' ? 1 : 2),
     next_available_date: (room as any)?.next_available_date || '',
   });
 
-  const [amenitiesStr, setAmenitiesStr] = useState(room?.amenities.join(', ') || 'High-Speed Wi-Fi, Air Conditioning, Study Desk, Fully Furnished Kitchen');
+  const [amenitiesStr, setAmenitiesStr] = useState(room?.amenities?.join(', ') || 'High-Speed Wi-Fi, Air Conditioning, Study Desk, Fully Furnished Kitchen');
   const [imageUrls, setImageUrls] = useState<string[]>(room?.image_urls || []);
   const [videoUrl, setVideoUrl] = useState<string>(room?.video_urls?.[0] || '');
   const [newFiles, setNewFiles] = useState<File[]>([]);
@@ -109,13 +97,8 @@ const RoomEditorModal: React.FC<RoomEditorModalProps> = ({ room, onClose, onSave
     setSelectedRoomType(type);
     setFormData(prev => ({
       ...prev,
-      capacity: type === 'Private Room' ? 1 : 2
+      capacity: type === 'Private Room' ? 1 : Math.max(2, prev.capacity || 2)
     }));
-    if (type === 'Private Room') {
-      setSelectedBedSpace('Single');
-    } else {
-      setSelectedBedSpace('Bed A');
-    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -135,7 +118,7 @@ const RoomEditorModal: React.FC<RoomEditorModalProps> = ({ room, onClose, onSave
 
       // Map back to database columns
       const dbCategory = selectedCategory.startsWith('Premium') ? 'Premium' : 'Standard';
-      const isPrivate = selectedRoomType === 'Private Room';
+      const isPrivate = selectedRoomType === 'Private Room' || formData.capacity === 1;
       
       let dbType = AccommodationType.STANDARD_SHARED;
       if (selectedCategory.startsWith('Premium')) {
@@ -144,18 +127,14 @@ const RoomEditorModal: React.FC<RoomEditorModalProps> = ({ room, onClose, onSave
         dbType = isPrivate ? AccommodationType.STANDARD_PRIVATE : AccommodationType.STANDARD_SHARED;
       }
 
-      const roomDigits = selectedRoomNumber.replace('Room', '').trim();
-      let dbRoomNumber = `Room ${roomDigits}`;
-      if (!isPrivate) {
-        const bedLetter = selectedBedSpace === 'Bed B' ? 'B' : 'A';
-        dbRoomNumber = `R${roomDigits}-${bedLetter}`; // fits beautifully in VARCHAR(10)
-      } else {
-        dbRoomNumber = `Room ${roomDigits}`;
-      }
+      const digitMatch = selectedRoomNumber.match(/\d+/);
+      const roomDigits = digitMatch ? digitMatch[0] : '1';
+      const dbRoomNumber = `Room ${roomDigits}`;
 
       const finalRoomData: Room = {
         ...(room || { id: 0, created_at: '', property_id: '', is_available: true, occupied_slots: 0 }),
         ...formData,
+        capacity: formData.capacity,
         category: dbCategory as any,
         apartment_name: selectedCategory,
         type: dbType,
@@ -271,7 +250,9 @@ const RoomEditorModal: React.FC<RoomEditorModalProps> = ({ room, onClose, onSave
                   <option value="Room 1">Room 1</option>
                   <option value="Room 2">Room 2</option>
                   <option value="Room 3">Room 3</option>
-                  {selectedCategory === 'Standard' && <option value="Room 4">Room 4</option>}
+                  <option value="Room 4">Room 4</option>
+                  <option value="Room 5">Room 5</option>
+                  <option value="Room 6">Room 6</option>
                 </select>
               </div>
             </div>
@@ -291,27 +272,18 @@ const RoomEditorModal: React.FC<RoomEditorModalProps> = ({ room, onClose, onSave
               </div>
 
               <div>
-                <label htmlFor="bed_space" className="block text-sm font-bold text-gray-700 dark:text-gray-300">Bed Space</label>
-                {selectedRoomType === 'Shared Room' ? (
-                  <select 
-                    id="bed_space" 
-                    value={selectedBedSpace} 
-                    onChange={(e) => setSelectedBedSpace(e.target.value)}
-                    required
-                    className="mt-1 block w-full p-3 border rounded-xl dark:bg-gray-700 dark:border-gray-600 font-medium border-brand-300 bg-brand-50/5 dark:bg-brand-950/5"
-                  >
-                    <option value="Bed A">Bed A (Mandatory)</option>
-                    <option value="Bed B">Bed B (Mandatory)</option>
-                  </select>
-                ) : (
-                  <input 
-                    type="text" 
-                    id="bed_space" 
-                    value="N/A (Private Room)" 
-                    disabled 
-                    className="mt-1 block w-full p-3 border rounded-xl bg-gray-100 dark:bg-gray-800 text-gray-500 font-medium cursor-not-allowed" 
-                  />
-                )}
+                <label className="block text-sm font-bold text-gray-700 dark:text-gray-300">Bed Spaces Managed</label>
+                <div className="mt-1 p-3 bg-brand-50/50 dark:bg-brand-950/20 border border-brand-200 dark:border-brand-800 rounded-xl text-xs text-brand-800 dark:text-brand-300">
+                  {selectedRoomType === 'Private Room' || formData.capacity === 1 ? (
+                    <span className="font-semibold">1 Single Bed Space (Private Occupancy)</span>
+                  ) : (
+                    <span className="font-semibold">
+                      {formData.capacity} Bed Spaces (
+                      {Array.from({ length: formData.capacity }, (_, i) => `Bed ${String.fromCharCode(65 + i)}`).join(', ')}
+                      )
+                    </span>
+                  )}
+                </div>
               </div>
             </div>
 
@@ -321,8 +293,18 @@ const RoomEditorModal: React.FC<RoomEditorModalProps> = ({ room, onClose, onSave
                 <input type="number" name="price_per_month" id="price_per_month" value={formData.price_per_month} onChange={handleInputChange} required className="mt-1 block w-full p-3 border rounded-xl dark:bg-gray-700 dark:border-gray-600 font-medium" />
               </div>
               <div>
-                <label htmlFor="capacity" className="block text-sm font-bold text-gray-700 dark:text-gray-300">Capacity (Students)</label>
-                <input type="number" name="capacity" id="capacity" value={formData.capacity} onChange={handleInputChange} required className="mt-1 block w-full p-3 border rounded-xl dark:bg-gray-700 dark:border-gray-600 font-medium bg-gray-50 dark:bg-gray-850" />
+                <label htmlFor="capacity" className="block text-sm font-bold text-gray-700 dark:text-gray-300">Capacity (Beds/Students)</label>
+                <input 
+                  type="number" 
+                  name="capacity" 
+                  id="capacity" 
+                  min={1} 
+                  max={6} 
+                  value={formData.capacity} 
+                  onChange={handleInputChange} 
+                  required 
+                  className="mt-1 block w-full p-3 border rounded-xl dark:bg-gray-700 dark:border-gray-600 font-medium bg-gray-50 dark:bg-gray-850" 
+                />
               </div>
               <div>
                 <label htmlFor="gender_restriction" className="block text-sm font-bold text-gray-700 dark:text-gray-300">Gender restriction</label>

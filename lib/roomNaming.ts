@@ -34,6 +34,8 @@ export interface RoomSpaceConfig {
   type: 'Shared' | 'Private';
   displayName: string; // e.g. "Premium 1 – Room 1 (Shared Room) – Bed A"
   apartmentName: string; // e.g. "Premium 1", "Premium 2", "Standard"
+  bedSpaceId?: number;
+  roomId?: number;
 }
 
 export const ALL_ROOM_SPACES: RoomSpaceConfig[] = [
@@ -49,13 +51,14 @@ export const ALL_ROOM_SPACES: RoomSpaceConfig[] = [
   { id: 'p2_r2', category: 'Premium 2', roomName: 'Room 2', bedSpaceName: 'Single', type: 'Private', displayName: 'Premium 2 – Room 2 (Private Room)', apartmentName: 'Premium 2' },
   { id: 'p2_r3', category: 'Premium 2', roomName: 'Room 3', bedSpaceName: 'Single', type: 'Private', displayName: 'Premium 2 – Room 3 (Private Room)', apartmentName: 'Premium 2' },
 
-  // Standard (6 beds total: 2 in Room 1, 2 in Room 2, 1 in Room 3, 1 in Room 4)
+  // Standard (7 beds total: 2 in Room 1, 2 in Room 2, 1 in Room 3, 2 in Room 4)
   { id: 'std_r1_a', category: 'Standard', roomName: 'Room 1', bedSpaceName: 'Bed A', type: 'Shared', displayName: 'Standard – Room 1 (Shared Room) – Bed A', apartmentName: 'Standard' },
   { id: 'std_r1_b', category: 'Standard', roomName: 'Room 1', bedSpaceName: 'Bed B', type: 'Shared', displayName: 'Standard – Room 1 (Shared Room) – Bed B', apartmentName: 'Standard' },
   { id: 'std_r2_a', category: 'Standard', roomName: 'Room 2', bedSpaceName: 'Bed A', type: 'Shared', displayName: 'Standard – Room 2 (Shared Room) – Bed A', apartmentName: 'Standard' },
   { id: 'std_r2_b', category: 'Standard', roomName: 'Room 2', bedSpaceName: 'Bed B', type: 'Shared', displayName: 'Standard – Room 2 (Shared Room) – Bed B', apartmentName: 'Standard' },
   { id: 'std_r3', category: 'Standard', roomName: 'Room 3', bedSpaceName: 'Single', type: 'Private', displayName: 'Standard – Room 3 (Private Room)', apartmentName: 'Standard' },
-  { id: 'std_r4', category: 'Standard', roomName: 'Room 4', bedSpaceName: 'Single', type: 'Private', displayName: 'Standard – Room 4 (Private Room)', apartmentName: 'Standard' }
+  { id: 'std_r4_a', category: 'Standard', roomName: 'Room 4', bedSpaceName: 'Bed A', type: 'Shared', displayName: 'Standard – Room 4 (Shared Room) – Bed A', apartmentName: 'Standard' },
+  { id: 'std_r4_b', category: 'Standard', roomName: 'Room 4', bedSpaceName: 'Bed B', type: 'Shared', displayName: 'Standard – Room 4 (Shared Room) – Bed B', apartmentName: 'Standard' }
 ];
 
 export const BED_SPACE_TO_ID_MAP: Record<string, number> = {
@@ -72,6 +75,8 @@ export const BED_SPACE_TO_ID_MAP: Record<string, number> = {
   'std_r2_a': 11,
   'std_r2_b': 12,
   'std_r3': 13,
+  'std_r4_a': 14,
+  'std_r4_b': 15,
   'std_r4': 14
 };
 
@@ -89,7 +94,8 @@ export const ID_TO_BED_SPACE_MAP: Record<number, string> = {
   11: 'std_r2_a',
   12: 'std_r2_b',
   13: 'std_r3',
-  14: 'std_r4'
+  14: 'std_r4_a',
+  15: 'std_r4_b'
 };
 
 export const getUnifiedRoomName = (category: string, roomName: string, bedSpaceName?: string): string => {
@@ -241,12 +247,112 @@ export interface ParsedRoomSpace extends RoomSpaceConfig {
   nextAvailableDate: string;
 }
 
+export const getDynamicRoomSpaces = (rooms: any[] = [], bedSpaces: any[] = []): RoomSpaceConfig[] => {
+  if (!rooms || rooms.length === 0) {
+    return ALL_ROOM_SPACES;
+  }
+
+  const validRooms = rooms.filter(r => r && r.id);
+  const categoryOrder: Record<string, number> = { 'Premium 1': 1, 'Premium 2': 2, 'Standard': 3 };
+  
+  const sortedRooms = [...validRooms].sort((a, b) => {
+    const catA = a.apartment_name || a.category || 'Standard';
+    const catB = b.apartment_name || b.category || 'Standard';
+    const ordA = categoryOrder[catA] || 99;
+    const ordB = categoryOrder[catB] || 99;
+    if (ordA !== ordB) return ordA - ordB;
+    return (a.id || 0) - (b.id || 0);
+  });
+
+  const generatedSpaces: RoomSpaceConfig[] = [];
+
+  for (const room of sortedRooms) {
+    const catRaw = (room.apartment_name || room.category || 'Standard').trim();
+    const category: 'Standard' | 'Premium 1' | 'Premium 2' = 
+      catRaw.toLowerCase().includes('premium 2') || catRaw === 'Apartment 3' ? 'Premium 2' :
+      catRaw.toLowerCase().includes('premium 1') || catRaw === 'Apartment 1' ? 'Premium 1' : 'Standard';
+    
+    const catPrefix = category === 'Premium 1' ? 'p1' : category === 'Premium 2' ? 'p2' : 'std';
+    
+    const rNumMatch = (room.room_number || '').match(/(\d+)/);
+    const roomDigit = rNumMatch ? rNumMatch[1] : String(room.id);
+    const roomName = `Room ${roomDigit}`;
+    
+    const isPrivate = (room.type || '').toLowerCase().includes('private') || (room.capacity || 1) === 1;
+    const roomType: 'Shared' | 'Private' = isPrivate ? 'Private' : 'Shared';
+    
+    const relatedBeds = (bedSpaces || []).filter(b => b.room_id === room.id).sort((a, b) => (a.id || 0) - (b.id || 0));
+
+    if (relatedBeds.length > 0) {
+      for (const b of relatedBeds) {
+        const bedLabel = b.label || (isPrivate ? 'Single' : 'Bed A');
+        const bedSuffix = bedLabel.toLowerCase().includes('bed b') || bedLabel.toLowerCase() === 'b' ? '_b' : 
+                         bedLabel.toLowerCase().includes('bed a') || bedLabel.toLowerCase() === 'a' ? '_a' : '';
+        const spaceId = `${catPrefix}_r${roomDigit}${bedSuffix}`;
+        generatedSpaces.push({
+          id: spaceId,
+          category,
+          roomName,
+          bedSpaceName: bedLabel,
+          type: isPrivate || bedLabel.toLowerCase() === 'single' ? 'Private' : 'Shared',
+          displayName: getUnifiedRoomName(category, roomName, bedLabel),
+          apartmentName: category,
+          bedSpaceId: b.id,
+          roomId: room.id,
+        });
+      }
+    } else {
+      const capacity = Math.max(1, room.capacity || (isPrivate ? 1 : 2));
+      if (isPrivate || capacity === 1) {
+        generatedSpaces.push({
+          id: `${catPrefix}_r${roomDigit}`,
+          category,
+          roomName,
+          bedSpaceName: 'Single',
+          type: 'Private',
+          displayName: getUnifiedRoomName(category, roomName, 'Single'),
+          apartmentName: category,
+          roomId: room.id,
+        });
+      } else {
+        for (let i = 0; i < capacity; i++) {
+          const letter = String.fromCharCode(65 + i);
+          const bedLabel = `Bed ${letter}`;
+          generatedSpaces.push({
+            id: `${catPrefix}_r${roomDigit}_${letter.toLowerCase()}`,
+            category,
+            roomName,
+            bedSpaceName: bedLabel,
+            type: 'Shared',
+            displayName: getUnifiedRoomName(category, roomName, bedLabel),
+            apartmentName: category,
+            roomId: room.id,
+          });
+        }
+      }
+    }
+  }
+
+  const seenIds = new Set<string>();
+  const uniqueSpaces: RoomSpaceConfig[] = [];
+  for (const s of generatedSpaces) {
+    if (!seenIds.has(s.id)) {
+      seenIds.add(s.id);
+      uniqueSpaces.push(s);
+    }
+  }
+
+  return uniqueSpaces.length > 0 ? uniqueSpaces : ALL_ROOM_SPACES;
+};
+
 export const getParsedRoomSpaces = (rooms: any[], bookings: any[], bedSpaces?: any[]): ParsedRoomSpace[] => {
   const isCancelledOrCompleted = (status?: string) => {
     if (!status) return false;
     const s = String(status).toUpperCase();
     return s === 'CANCELLED' || s === 'COMPLETED' || s === 'REJECTED' || s === 'DISCONTINUED';
   };
+
+  const spacesList = getDynamicRoomSpaces(rooms, bedSpaces);
 
   // Active bookings include:
   // 1) PublicOccupancy items where is_held is true
@@ -266,7 +372,8 @@ export const getParsedRoomSpaces = (rooms: any[], bookings: any[], bedSpaces?: a
   for (const b of activeBookings) {
     if (b.bed_space_id != null) {
       // Find space by bed_space_id
-      const matchedSpace = ALL_ROOM_SPACES.find(space => {
+      const matchedSpace = spacesList.find(space => {
+        if (space.bedSpaceId && space.bedSpaceId === b.bed_space_id) return true;
         const expectedBedId = BED_SPACE_TO_ID_MAP[space.id];
         return expectedBedId === b.bed_space_id;
       });
@@ -279,7 +386,7 @@ export const getParsedRoomSpaces = (rooms: any[], bookings: any[], bedSpaces?: a
     // Pass 1: Match bookings that specify their exact bed/room space
     const details = getLiveStudentRoomDetails(b, rooms || []);
     
-    const exactMatch = ALL_ROOM_SPACES.find(space => {
+    const exactMatch = spacesList.find(space => {
       const matchCat = space.category.toLowerCase().replace(/\s+/g, '') === details.category.toLowerCase().replace(/\s+/g, '');
       const matchRoom = space.roomName.toLowerCase().replace(/\s+/g, '') === details.roomName.toLowerCase().replace(/\s+/g, '');
       
@@ -300,13 +407,13 @@ export const getParsedRoomSpaces = (rooms: any[], bookings: any[], bedSpaces?: a
 
   // Pass 2: If there are unassigned bookings (e.g. only category was specified), assign them to the first available space in that category
   for (const { booking, details } of unassignedBookings) {
-    const availableSpace = ALL_ROOM_SPACES.find(space => {
+    const availableSpace = spacesList.find(space => {
       if (spaceBookingMap.has(space.id)) return false;
       const matchCat = space.category.toLowerCase().replace(/\s+/g, '') === details.category.toLowerCase().replace(/\s+/g, '');
       const isPrivateBooking = String(details.fullDisplay || booking.preferred_accommodation || '').toLowerCase().includes('private');
       const matchType = (space.type === 'Private') === isPrivateBooking;
       return matchCat && matchType;
-    }) || ALL_ROOM_SPACES.find(space => {
+    }) || spacesList.find(space => {
       if (spaceBookingMap.has(space.id)) return false;
       return space.category.toLowerCase().replace(/\s+/g, '') === details.category.toLowerCase().replace(/\s+/g, '');
     });
@@ -316,8 +423,8 @@ export const getParsedRoomSpaces = (rooms: any[], bookings: any[], bedSpaces?: a
     }
   }
 
-  return ALL_ROOM_SPACES.map(space => {
-    const dbRoom = findDatabaseRoomForSpace(rooms || [], space);
+  return spacesList.map(space => {
+    const dbRoom = space.roomId ? (rooms || []).find(r => r.id === space.roomId) : findDatabaseRoomForSpace(rooms || [], space);
     const assignedBooking = spaceBookingMap.get(space.id);
     const isOccupied = !!assignedBooking;
 
@@ -465,9 +572,11 @@ export const getLiveStudentRoomDetails = (booking: any, roomsList: any[] = [], c
   }
 
   // Determine if this room is private in this accommodation
-  const isPrivate = /private/i.test(fullText) || 
-    (category.startsWith('Premium') && (roomName === 'Room 2' || roomName === 'Room 3')) ||
-    (category === 'Standard' && (roomName === 'Room 3' || roomName === 'Room 4'));
+  const isPrivate = rawRoomObj?.type 
+    ? rawRoomObj.type.toLowerCase().includes('private')
+    : (/private/i.test(fullText) || 
+      (category.startsWith('Premium') && (roomName === 'Room 2' || roomName === 'Room 3')) ||
+      (category === 'Standard' && roomName === 'Room 3'));
 
   if (isPrivate) {
     bedSpaceName = 'Single';

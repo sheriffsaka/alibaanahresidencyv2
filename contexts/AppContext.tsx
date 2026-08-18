@@ -427,9 +427,41 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         })
         .subscribe();
 
+    // Real-time subscription for bed spaces changes
+    const bedSpacesChannel = supabase
+        .channel('global-bed-spaces-changes')
+        .on('postgres_changes', {
+            event: '*',
+            schema: 'public',
+            table: 'bed_spaces'
+        }, async (payload) => {
+            console.log('Real-time bed space update:', payload);
+            if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
+                const { data, error } = await supabase
+                    .from('bed_spaces')
+                    .select('*')
+                    .eq('id', payload.new.id)
+                    .maybeSingle();
+                
+                if (data && !error) {
+                    setBedSpaces(prev => {
+                        const exists = prev.some(b => b.id === data.id);
+                        if (exists) {
+                            return prev.map(b => b.id === data.id ? data : b);
+                        }
+                        return [...prev, data];
+                    });
+                }
+            } else if (payload.eventType === 'DELETE') {
+                setBedSpaces(prev => prev.filter(b => b.id !== payload.old.id));
+            }
+        })
+        .subscribe();
+
     return () => {
         supabase.removeChannel(bookingsChannel);
         supabase.removeChannel(roomsChannel);
+        supabase.removeChannel(bedSpacesChannel);
     };
   }, []);
 
@@ -876,6 +908,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             property_id: propData.id,
         };
 
+        let insertedRoom: any = null;
         const { data, error } = await supabase
             .from('rooms')
             .insert([roomToInsert])
@@ -894,17 +927,42 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                 if (fallbackRes.error) {
                     throw fallbackRes.error;
                 }
-                const insertedRoom = { ...fallbackRes.data, next_available_date: newRoom.next_available_date };
-                setRooms(prev => [...prev, insertedRoom]);
-                return { success: true };
+                insertedRoom = { ...fallbackRes.data, next_available_date: newRoom.next_available_date };
             } else {
                 throw error;
             }
+        } else {
+            insertedRoom = data;
         }
         
-        console.log("Room added successfully:", data);
-        setRooms(prev => [...prev, data]);
-        return { success: true };
+        console.log("Room added successfully:", insertedRoom);
+
+        // Auto-provision bed_spaces for the new room
+        if (insertedRoom && insertedRoom.id) {
+            const isPrivate = insertedRoom.type?.toLowerCase().includes('private') || insertedRoom.capacity === 1;
+            const targetLabels = isPrivate
+                ? ['Single']
+                : Array.from({ length: Math.max(1, insertedRoom.capacity || 2) }, (_, i) => `Bed ${String.fromCharCode(65 + i)}`);
+
+            const bedSpacesToInsert = targetLabels.map(label => ({
+                room_id: insertedRoom.id,
+                label
+            }));
+
+            const { data: insertedBeds, error: bedErr } = await supabase
+                .from('bed_spaces')
+                .insert(bedSpacesToInsert)
+                .select();
+
+            if (bedErr) {
+                console.warn("Error auto-inserting bed_spaces for new room:", bedErr.message);
+            } else if (insertedBeds) {
+                setBedSpaces(prev => [...prev, ...insertedBeds]);
+            }
+        }
+
+        setRooms(prev => [...prev, insertedRoom]);
+        return { success: true, data: insertedRoom };
     } catch (err: any) {
         console.error("Error adding room to Supabase:", err);
         // Fallback for demo state
@@ -949,6 +1007,77 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         }
         
         console.log("Room updated successfully:", data);
+
+        // Reconcile bed_spaces for this room
+        const isPrivate = updatedRoom.type?.toLowerCase().includes('private') || updatedRoom.capacity === 1;
+        const targetLabels = isPrivate
+            ? ['Single']
+            : Array.from({ length: Math.max(1, updatedRoom.capacity || 2) }, (_, i) => `Bed ${String.fromCharCode(65 + i)}`);
+
+        // Fetch current bed spaces for this room from DB
+        const { data: existingBeds } = await supabase
+            .from('bed_spaces')
+            .select('*')
+            .eq('room_id', updatedRoom.id)
+            .order('id', { ascending: true });
+
+        const currentBeds = existingBeds || [];
+
+        // 1. If transitioning from Single to Shared (e.g. ['Single'] -> ['Bed A', 'Bed B'])
+        if (currentBeds.length === 1 && currentBeds[0].label === 'Single' && !isPrivate) {
+            await supabase
+                .from('bed_spaces')
+                .update({ label: 'Bed A' })
+                .eq('id', currentBeds[0].id);
+
+            const extraBeds = targetLabels.slice(1).map(label => ({
+                room_id: updatedRoom.id,
+                label
+            }));
+            if (extraBeds.length > 0) {
+                await supabase.from('bed_spaces').insert(extraBeds);
+            }
+        } 
+        // 2. If transitioning from Shared to Private (e.g. ['Bed A', 'Bed B'] -> ['Single'])
+        else if (isPrivate && currentBeds.length > 0 && currentBeds[0].label !== 'Single') {
+            await supabase
+                .from('bed_spaces')
+                .update({ label: 'Single' })
+                .eq('id', currentBeds[0].id);
+
+            const extraBedIds = currentBeds.slice(1).map(b => b.id);
+            for (const bId of extraBedIds) {
+                await supabase.from('bed_spaces').delete().eq('id', bId);
+            }
+        } 
+        // 3. General alignment of labels & capacity
+        else {
+            const existingLabels = new Set(currentBeds.map(b => b.label));
+            const missingLabels = targetLabels.filter(lbl => !existingLabels.has(lbl));
+            if (missingLabels.length > 0) {
+                const newBedsToInsert = missingLabels.map(label => ({
+                    room_id: updatedRoom.id,
+                    label
+                }));
+                await supabase.from('bed_spaces').insert(newBedsToInsert);
+            }
+
+            const excessBeds = currentBeds.filter(b => !targetLabels.includes(b.label));
+            for (const excess of excessBeds) {
+                await supabase.from('bed_spaces').delete().eq('id', excess.id);
+            }
+        }
+
+        // Refresh bed spaces in local state
+        const { data: refreshedBeds } = await supabase
+            .from('bed_spaces')
+            .select('*')
+            .order('id', { ascending: true });
+
+        if (refreshedBeds) {
+            setBedSpaces(refreshedBeds);
+        }
+
         setRooms(prev => prev.map(r => r.id === updatedRoom.id ? { ...r, ...updateData } : r));
         return { success: true };
     } catch (err: any) {
@@ -970,6 +1099,17 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             };
         }
 
+        // 2. Delete child bed_spaces first (to satisfy foreign key constraints)
+        const { error: bedDeleteError } = await supabase
+            .from('bed_spaces')
+            .delete()
+            .eq('room_id', roomId);
+
+        if (bedDeleteError) {
+            console.warn("Notice deleting bed spaces for room:", bedDeleteError.message);
+        }
+
+        // 3. Delete room from rooms table
         const { error } = await supabase
             .from('rooms')
             .delete()
@@ -977,6 +1117,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
         if (error) throw error;
 
+        setBedSpaces(prev => prev.filter(b => b.room_id !== roomId));
         setRooms(prev => prev.filter(r => r.id !== roomId));
         return { success: true };
     } catch (err: any) {

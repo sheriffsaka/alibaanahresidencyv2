@@ -333,7 +333,7 @@ const SummaryCard: React.FC<SummaryCardProps> = ({ label, value, icon, trend, co
 
 const AdminDashboardPage: React.FC = () => {
   const t = useTranslation();
-  const { user, bookings, updateBookingStatus, deleteBooking, cmsContent, updateCmsContent, rooms, addRoom, updateRoom, deleteRoom, activities, addActivity, language, setPage, users, addUser, updateUser, deleteUser, students } = useApp();
+  const { user, bookings, updateBookingStatus, deleteBooking, cmsContent, updateCmsContent, rooms, bedSpaces, addRoom, updateRoom, deleteRoom, activities, addActivity, language, setPage, users, addUser, updateUser, deleteUser, students } = useApp();
   const [activeSection, setActiveSection] = useState<AdminNavSection>('dashboard');
   const [isActivityDrawerOpen, setIsActivityDrawerOpen] = useState(false);
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
@@ -1360,43 +1360,62 @@ const AdminDashboardPage: React.FC = () => {
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {rooms.map(room => (
-                  <div key={room.id} className="border dark:border-gray-700 rounded-2xl p-5 space-y-4 bg-gray-50/50 dark:bg-gray-900/30 hover:border-brand-500 transition-colors">
-                    <div className="flex justify-between items-start">
-                      <div>
-                        <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded bg-brand-100 text-brand-700 dark:bg-brand-950/40 dark:text-brand-300">
-                          {room.category || 'Standard'}
+                {rooms.map(room => {
+                  const roomBeds = (bedSpaces || []).filter(b => b.room_id === room.id);
+                  const formattedRoomTitle = room.room_number?.toLowerCase().startsWith('room')
+                    ? room.room_number
+                    : `Room ${room.room_number}`;
+
+                  return (
+                    <div key={room.id} className="border dark:border-gray-700 rounded-2xl p-5 space-y-4 bg-gray-50/50 dark:bg-gray-900/30 hover:border-brand-500 transition-colors">
+                      <div className="flex justify-between items-start">
+                        <div>
+                          <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded bg-brand-100 text-brand-700 dark:bg-brand-950/40 dark:text-brand-300">
+                            {room.category || 'Standard'}
+                          </span>
+                          <h3 className="text-lg font-bold text-gray-900 dark:text-white mt-1">{formattedRoomTitle}</h3>
+                        </div>
+                        <span className={`text-xs font-bold px-2 py-1 rounded-full ${room.is_available ? 'bg-emerald-100 text-emerald-800' : 'bg-red-100 text-red-800'}`}>
+                          {room.is_available ? 'Available' : 'Full / Maintenance'}
                         </span>
-                        <h3 className="text-lg font-bold text-gray-900 dark:text-white mt-1">Room {room.room_number}</h3>
                       </div>
-                      <span className={`text-xs font-bold px-2 py-1 rounded-full ${room.is_available ? 'bg-emerald-100 text-emerald-800' : 'bg-red-100 text-red-800'}`}>
-                        {room.is_available ? 'Available' : 'Full / Maintenance'}
-                      </span>
-                    </div>
 
-                    <div className="grid grid-cols-2 gap-2 text-xs text-gray-600 dark:text-gray-300">
-                      <div><span className="font-bold text-gray-400">Type:</span> {room.type}</div>
-                      <div><span className="font-bold text-gray-400">Bed Capacity:</span> {room.capacity}</div>
-                      <div><span className="font-bold text-gray-400">Price/Mo:</span> ${room.price_per_month}</div>
-                      <div><span className="font-bold text-gray-400">Gender:</span> {room.gender_restriction}</div>
-                    </div>
+                      <div className="grid grid-cols-2 gap-2 text-xs text-gray-600 dark:text-gray-300">
+                        <div><span className="font-bold text-gray-400">Type:</span> {room.type}</div>
+                        <div><span className="font-bold text-gray-400">Bed Capacity:</span> {room.capacity}</div>
+                        <div><span className="font-bold text-gray-400">Price/Mo:</span> ${room.price_per_month}</div>
+                        <div><span className="font-bold text-gray-400">Gender:</span> {room.gender_restriction}</div>
+                        <div className="col-span-2 pt-1 border-t border-gray-200/50 dark:border-gray-750">
+                          <span className="font-bold text-gray-400">Bed Spaces:</span>{' '}
+                          {roomBeds.length > 0 ? (
+                            <span className="font-semibold text-brand-600 dark:text-brand-400">
+                              {roomBeds.map(b => b.label).join(', ')}
+                            </span>
+                          ) : (
+                            <span className="text-gray-500 italic">
+                              {room.type?.toLowerCase().includes('private') ? 'Single' : `${room.capacity || 2} Beds`}
+                            </span>
+                          )}
+                        </div>
+                      </div>
 
-                    <div className="pt-3 border-t dark:border-gray-700 flex justify-end gap-2">
-                      <button
-                        onClick={() => handleOpenRoomModal(room)}
-                        className="bg-brand-50 text-brand-600 hover:bg-brand-100 px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1"
-                      >
-                        <IconEdit className="w-3.5 h-3.5" /> Edit
-                      </button>
-                      <button
-                        onClick={() => handleDeleteRoom(room.id, room.room_number)}
-                        className="bg-red-50 text-red-600 hover:bg-red-100 px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1"
-                      >
-                        <IconTrash className="w-3.5 h-3.5" /> Delete
-                      </button>
+                      <div className="pt-3 border-t dark:border-gray-700 flex justify-end gap-2">
+                        <button
+                          onClick={() => handleOpenRoomModal(room)}
+                          className="bg-brand-50 text-brand-600 hover:bg-brand-100 px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1"
+                        >
+                          <IconEdit className="w-3.5 h-3.5" /> Edit
+                        </button>
+                        <button
+                          onClick={() => handleDeleteRoom(room.id, room.room_number)}
+                          className="bg-red-50 text-red-600 hover:bg-red-100 px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1"
+                        >
+                          <IconTrash className="w-3.5 h-3.5" /> Delete
+                        </button>
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
           )}

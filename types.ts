@@ -60,25 +60,26 @@ export enum BookingStatus {
 
 export interface Booking {
   id: number;
-  student_id: string;
+  student_id?: string;
   room_id: number;
   bed_space_id?: number | null;
   start_date: string;
   end_date: string;
   status: BookingStatus;
-  booked_at: string;
+  booked_at?: string;
 
   // New detailed student information
   full_name: string; // As in passport
   nationality: string;
   passport_number: string;
-  passport_copy_url: string;
+  passport_copy_url?: string;
   email: string;
   phone_number: string; // WhatsApp active
-  expected_arrival_date: string;
+  expected_arrival_date?: string;
   duration_of_stay: string; // e.g., "6 months", "1 year"
-  preferred_accommodation: AccommodationType;
-  emergency_contact_details: string;
+  preferred_accommodation?: AccommodationType | string;
+  emergency_contact_details?: string;
+  emergency_contact?: string;
   
   // Home Address
   building_no?: string;
@@ -98,22 +99,27 @@ export interface Booking {
   user_id?: string;
   gender?: 'Male' | 'Female' | 'Any';
   academic_term_id?: number;
+  academic_term?: string;
+  package_months?: number;
   booking_package_id?: number;
   total_price?: number;
   payment_proof_url?: string;
+  payment_proof_uploaded_at?: string;
   transfer_proof_url?: string;
   payment_expiry_date?: string;
   parent_booking_id?: number;
-  payment_method?: 'Online' | 'Bank Transfer';
+  is_extended?: boolean;
+  previous_booking_id?: number;
+  payment_method?: 'Online' | 'Bank Transfer' | 'bank_transfer';
   checked_in_at?: string;
   checked_out_at?: string;
-  rooms: Pick<Room, 'room_number' | 'type' | 'apartment_name' | 'category'>;
+  rooms?: Pick<Room, 'room_number' | 'type' | 'apartment_name' | 'category'>;
 }
 
 export interface Activity {
   id: number;
   user_id: string;
-  type: 'booking' | 'payment' | 'system' | 'auth';
+  type: 'booking' | 'payment' | 'system' | 'auth' | 'contract';
   description: string;
   timestamp: string;
 }
@@ -254,7 +260,7 @@ export interface AppContextType {
   publicOccupancy: PublicOccupancy[];
   effectiveOccupancyBookings: any[];
   accommodationAddresses: AccommodationAddresses;
-  addBooking: (booking: Booking) => Promise<{ success: boolean; error?: string; data?: Booking }>;
+  addBooking: (booking: any) => Promise<{ success: boolean; error?: string; data?: Booking }>;
   updateBookingStatus: (id: number, status: BookingStatus) => Promise<{ success: boolean; error?: string }>;
   updateBooking: (id: number, updates: Partial<Booking>) => Promise<{ success: boolean; error?: string }>;
   deleteBooking: (id: number) => Promise<{ success: boolean; error?: string }>;
