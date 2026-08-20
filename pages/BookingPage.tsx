@@ -21,17 +21,15 @@ const BookingPage: React.FC = () => {
     return activeBookingsCount >= (selectedRoom.capacity || 1);
   }, [bookings, selectedRoom, extendingBooking]);
 
-  const isUnavailableForMaintenance = selectedRoom ? !selectedRoom.is_available : false;
+  const isUnavailable = selectedRoom ? !selectedRoom.is_available : false;
   
-  if (selectedRoom && (isUnavailableForMaintenance || isOccupied)) {
+  if (selectedRoom && (isUnavailable || isOccupied)) {
     return (
         <div className="text-center py-20 animate-fade-in">
             <IconBuilding className="w-16 h-16 text-red-500 mx-auto mb-4" />
             <h1 className="text-3xl font-bold text-red-600 dark:text-red-500">{t.roomUnavailableTitle}</h1>
             <p className="mt-4 text-lg text-gray-600 dark:text-gray-300 max-w-lg mx-auto">
-                {isUnavailableForMaintenance 
-                    ? t.roomMaintenanceMessage
-                    : t.roomBookedMessage}
+                {t.roomBookedMessage}
             </p>
             <button onClick={() => setPage('home')} className="mt-8 rounded-md bg-brand-600 px-5 py-3 text-base font-semibold text-white shadow-sm hover:bg-brand-500">
                 {t.backToRooms}

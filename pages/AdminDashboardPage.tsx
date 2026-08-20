@@ -1390,7 +1390,7 @@ const AdminDashboardPage: React.FC = () => {
                           <h3 className="text-lg font-bold text-gray-900 dark:text-white mt-1">{formattedRoomTitle}</h3>
                         </div>
                         <span className={`text-xs font-bold px-2 py-1 rounded-full ${room.is_available ? 'bg-emerald-100 text-emerald-800' : 'bg-red-100 text-red-800'}`}>
-                          {room.is_available ? 'Available' : 'Full / Maintenance'}
+                          {room.is_available ? 'Available' : 'Fully Booked'}
                         </span>
                       </div>
 
