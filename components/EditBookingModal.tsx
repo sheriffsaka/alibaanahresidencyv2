@@ -161,19 +161,32 @@ export const EditBookingModal: React.FC<EditBookingModalProps> = ({
         });
 
         // Send Approval Email to student
+        let emailSuccess = false;
+        let emailErrorMessage = '';
         try {
           const formattedRoom = getDisplayFromRoom(booking.rooms);
           const emailTemplate = getApprovalEmailTemplate(booking.full_name, booking.id, formattedRoom);
-          await sendEmail({
+          const emailRes = await sendEmail({
             to: booking.email,
             subject: emailTemplate.subject,
-            body: emailTemplate.body
+            body: emailTemplate.body,
+            templateName: emailTemplate.templateName,
+            metadata: { booking_id: booking.id, room_id: targetRoomId, bed_space_id: targetBedSpaceId }
           });
-        } catch (emailErr) {
+          emailSuccess = emailRes.success;
+          if (!emailRes.success) {
+            emailErrorMessage = emailRes.error || 'Delivery failed';
+          }
+        } catch (emailErr: any) {
+          emailErrorMessage = emailErr.message || 'Unknown email error';
           console.warn("Failed to send approval email notification:", emailErr);
         }
 
-        alert(`Booking BK${booking.id} successfully approved!`);
+        if (emailSuccess) {
+          alert(`Booking BK${booking.id} successfully approved and confirmation email delivered to ${booking.email}!`);
+        } else {
+          alert(`Booking BK${booking.id} approved, but email notification could not be delivered: ${emailErrorMessage}.\n\nPlease check the Email Delivery Logs in Admin panel.`);
+        }
         if (onBookingUpdated) {
           onBookingUpdated({ ...booking, ...updatePayload, status: BookingStatus.CONFIRMED });
         }

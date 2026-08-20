@@ -16,7 +16,7 @@ import MessagesPage from './pages/MessagesPage';
 import NotificationsPage from './pages/NotificationsPage';
 import ProfilePage from './pages/ProfilePage';
 import BillingPage from './pages/BillingPage';
-import { sendEmail } from './lib/email';
+import { sendEmail, getArrivalReminderTemplate, getRentReminderTemplate } from './lib/email';
 
 const DashboardLoadingFallback: React.FC<{ setPage: (page: any) => void }> = ({ setPage }) => {
   useEffect(() => {
@@ -67,23 +67,23 @@ const AppContent: React.FC = () => {
         const daysDiff = Math.ceil(timeDiff / (1000 * 3600 * 24));
 
         if (daysDiff === 1) {
+          const tpl = getArrivalReminderTemplate(
+            booking.full_name || 'Resident', 
+            booking.expected_arrival_date, 
+            landlordDetails?.phone || '+20 1030062440'
+          );
           sendEmail({
             to: booking.email,
-            subject: `⏰ Reminder: Your Arrival at Al-Ibaanah Student Residency is Tomorrow!`,
-            body: `Dear ${booking.full_name},
-
-This is a friendly reminder that your scheduled arrival at Al-Ibaanah Student Residency is tomorrow (${booking.expected_arrival_date})!
-
-Please make sure you have paid and uploaded the receipt of your "Deposit of one month (Due Now)" to your student dashboard. This security deposit is what secures and assigns your bed space officially.
-
-If you have any last-minute coordinates, please reach out to us at ${landlordDetails?.phone || '+20 1030062440'}.
-
-Safe travels, and we look forward to welcoming you!
-
-Warm regards,
-Al-Ibaanah Student Residency Team`
-          }).then(() => {
-            console.log(`[Auto Reminder] Scheduled arrival email sent to ${booking.email} (1 day before arrival)`);
+            subject: tpl.subject,
+            body: tpl.body,
+            templateName: tpl.templateName,
+            metadata: { booking_id: booking.id, reminder_type: 'arrival_1_day' }
+          }).then((res) => {
+            if (res.success) {
+              console.log(`[Auto Reminder] Scheduled arrival email delivered to ${booking.email}`);
+            } else {
+              console.warn(`[Auto Reminder] Failed to deliver arrival reminder to ${booking.email}:`, res.error);
+            }
           }).catch(err => console.error("Failed to send auto-arrival reminder:", err));
         }
       }
@@ -96,23 +96,23 @@ Al-Ibaanah Student Residency Team`
         const daysDiff = Math.ceil(timeDiff / (1000 * 3600 * 24));
 
         if (daysDiff === 7) {
+          const tpl = getRentReminderTemplate(
+            booking.full_name || 'Resident', 
+            booking.rooms?.room_number ? `Room ${booking.rooms.room_number}` : 'your residency room', 
+            booking.payment_expiry_date
+          );
           sendEmail({
             to: booking.email,
-            subject: `💰 Rent Reminder: Your Monthly Residency Payment is due in 1 week`,
-            body: `Dear ${booking.full_name},
-
-This is a timely reminder that your next monthly residency stay payment for Room ${booking.rooms?.room_number || 'your room'} is due in exactly 1 week on ${booking.payment_expiry_date}.
-
-Kindly prepare to make this monthly subscription payment via Bank Transfer or Remitly, and upload the proof of remittance onto your dashboard.
-
-Recipient Bank details & Remitly options are fully detailed inside your student dashboard.
-
-Thank you for your cooperation and for being a valued resident.
-
-Warm regards,
-Al-Ibaanah Student Residency Team`
-          }).then(() => {
-            console.log(`[Auto Reminder] Monthly rent subscription reminder sent to ${booking.email} (1 week prior to expiration)`);
+            subject: tpl.subject,
+            body: tpl.body,
+            templateName: tpl.templateName,
+            metadata: { booking_id: booking.id, reminder_type: 'rent_7_days' }
+          }).then((res) => {
+            if (res.success) {
+              console.log(`[Auto Reminder] Monthly rent reminder delivered to ${booking.email}`);
+            } else {
+              console.warn(`[Auto Reminder] Failed to deliver rent reminder to ${booking.email}:`, res.error);
+            }
           }).catch(err => console.error("Failed to send auto-rent reminder:", err));
         }
       }

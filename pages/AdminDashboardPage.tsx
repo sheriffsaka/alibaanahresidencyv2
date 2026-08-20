@@ -23,6 +23,7 @@ import PaymentsCreditsView from '../components/admin/PaymentsCreditsView';
 import MessagesInboxView from '../components/admin/MessagesInboxView';
 import ReviewsRatingsView from '../components/admin/ReviewsRatingsView';
 import AdminSettingsView from '../components/admin/AdminSettingsView';
+import { EmailLogsView } from '../components/admin/EmailLogsView';
 
 // A responsive, accessible SVG Bar Chart component for occupancy metrics
 const OccupancyChart = ({ data }: { data: { name: string; value: number }[] }) => {
@@ -592,21 +593,34 @@ const AdminDashboardPage: React.FC = () => {
     if (result.success) {
         addActivity({ user_id: user?.id || 'admin', type: 'payment', description: `Staff verified payment for BK${id}`, timestamp: new Date().toISOString() });
         
+        let emailSuccess = false;
+        let emailErrorMessage = '';
         if (booking) {
             const formattedRoom = getDisplayFromRoom(booking.rooms);
             const emailTemplate = getApprovalEmailTemplate(booking.full_name, booking.id, formattedRoom);
             try {
-                await sendEmail({
+                const emailRes = await sendEmail({
                     to: booking.email,
                     subject: emailTemplate.subject,
-                    body: emailTemplate.body
+                    body: emailTemplate.body,
+                    templateName: emailTemplate.templateName,
+                    metadata: { booking_id: booking.id }
                 });
-            } catch (err) {
+                emailSuccess = emailRes.success;
+                if (!emailRes.success) {
+                    emailErrorMessage = emailRes.error || 'Email dispatch failed';
+                }
+            } catch (err: any) {
+                emailErrorMessage = err.message || 'Unknown email error';
                 console.error("Failed to send approval email:", err);
             }
         }
 
-        alert("Booking approved successfully! Student has been notified via email.");
+        if (emailSuccess) {
+            alert(`Booking BK${id} approved successfully! Confirmation email delivered to student.`);
+        } else {
+            alert(`Booking BK${id} approved in database, but notification email could not be delivered: ${emailErrorMessage}.\n\nPlease check Email Delivery Logs.`);
+        }
     } else {
         alert(`Failed to approve booking: ${result.error}`);
     }
@@ -1317,6 +1331,11 @@ const AdminDashboardPage: React.FC = () => {
           {/* 5. WAITLIST VIEW */}
           {activeSection === 'waitlist' && (
             <WaitlistView rooms={rooms} />
+          )}
+
+          {/* EMAIL DELIVERY LOGS & AUDIT */}
+          {activeSection === 'email_logs' && (
+            <EmailLogsView />
           )}
 
           {/* 6. MAINTENANCE TICKETS VIEW */}

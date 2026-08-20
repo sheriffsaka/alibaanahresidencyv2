@@ -118,6 +118,18 @@ export interface Booking {
 
 export type WaitlistStatus = 'Waiting' | 'Offered' | 'Fulfilled' | 'Cancelled';
 
+export interface EmailLogEntry {
+  id: number;
+  recipient: string;
+  subject: string;
+  template_name?: string | null;
+  status: 'sent' | 'failed' | 'simulated';
+  error_message?: string | null;
+  delivery_attempts: number;
+  metadata?: Record<string, any> | null;
+  created_at: string;
+}
+
 export interface WaitlistEntry {
   id: number;
   student_id?: string | null;
@@ -312,6 +324,9 @@ export interface AppContextType {
   addToWaitlist: (entry: Omit<WaitlistEntry, 'id' | 'created_at' | 'status'> & { status?: WaitlistStatus }) => Promise<{ success: boolean; error?: string; data?: WaitlistEntry }>;
   updateWaitlistStatus: (id: number, status: WaitlistStatus) => Promise<{ success: boolean; error?: string }>;
   updateWaitlistEntry: (id: number, updates: Partial<WaitlistEntry>) => Promise<{ success: boolean; error?: string }>;
+  emailLogs: EmailLogEntry[];
+  refreshEmailLogs: () => Promise<void>;
+  retryEmailLog: (logId: number) => Promise<{ success: boolean; error?: string }>;
 }
 
 export interface ChatMessage {

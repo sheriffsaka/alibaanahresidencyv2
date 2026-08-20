@@ -117,13 +117,24 @@ export const WaitlistView: React.FC<WaitlistViewProps> = ({ rooms = [] }) => {
     const info = getStudentInfo(notifyingEntry);
     setIsSendingEmail(true);
     try {
-      await sendEmail({
+      const result = await sendEmail({
         to: info.email,
         subject: emailSubject,
-        body: emailBody
+        body: emailBody,
+        templateName: 'waitlist_offer',
+        metadata: { 
+          waitlist_id: notifyingEntry.id, 
+          category: notifyingEntry.category,
+          accommodation_type: notifyingEntry.accommodation_type,
+          student_id: notifyingEntry.student_id
+        }
       });
+      if (!result.success) {
+        alert('Failed to dispatch notification: ' + (result.error || 'Delivery failure'));
+        return;
+      }
       setEmailSentSuccess(true);
-      // Automatically advance status to 'Offered'
+      // Automatically advance status to 'Offered' only upon verified dispatch
       if (notifyingEntry.status === 'Waiting') {
         await updateWaitlistStatus(notifyingEntry.id, 'Offered');
       }

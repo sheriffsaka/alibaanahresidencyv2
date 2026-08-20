@@ -17,7 +17,6 @@ const AuthForm: React.FC<AuthFormProps> = ({ isLogin, setIsLogin }) => {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [name, setName] = useState('');
-    const [gender, setGender] = useState<'Male' | 'Female'>('Male');
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [isDuplicateEmail, setIsDuplicateEmail] = useState(false);
@@ -54,7 +53,6 @@ const AuthForm: React.FC<AuthFormProps> = ({ isLogin, setIsLogin }) => {
             options: {
                 data: {
                     full_name: name.trim(),
-                    gender: gender,
                 },
             },
         });
@@ -190,34 +188,19 @@ const AuthForm: React.FC<AuthFormProps> = ({ isLogin, setIsLogin }) => {
             <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
                 <div className="rounded-md shadow-sm -space-y-px">
                     {!isLogin && (
-                        <>
-                            <div>
-                                <label htmlFor="full-name" className="sr-only">{t.fullName}</label>
-                                <input
-                                    id="full-name"
-                                    name="name"
-                                    type="text"
-                                    required
-                                    value={name}
-                                    onChange={(e) => setName(e.target.value)}
-                                    className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-t-md focus:outline-none focus:ring-brand-500 focus:border-brand-500 focus:z-10 sm:text-sm dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white"
-                                    placeholder={t.fullName}
-                                />
-                            </div>
-                            <div className="p-3 border-x border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700">
-                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Gender</label>
-                                <div className="flex items-center space-x-4">
-                                    <label className="flex items-center">
-                                        <input type="radio" value="Male" checked={gender === 'Male'} onChange={() => setGender('Male')} name="gender" className="h-4 w-4 text-brand-600 border-gray-300 focus:ring-brand-500" />
-                                        <span className="ml-2 text-sm text-gray-900 dark:text-white">Male</span>
-                                    </label>
-                                    <label className="flex items-center">
-                                        <input type="radio" value="Female" checked={gender === 'Female'} onChange={() => setGender('Female')} name="gender" className="h-4 w-4 text-brand-600 border-gray-300 focus:ring-brand-500" />
-                                        <span className="ml-2 text-sm text-gray-900 dark:text-white">Female</span>
-                                    </label>
-                                </div>
-                            </div>
-                        </>
+                        <div>
+                            <label htmlFor="full-name" className="sr-only">{t.fullName}</label>
+                            <input
+                                id="full-name"
+                                name="name"
+                                type="text"
+                                required
+                                value={name}
+                                onChange={(e) => setName(e.target.value)}
+                                className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-t-md focus:outline-none focus:ring-brand-500 focus:border-brand-500 focus:z-10 sm:text-sm dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white"
+                                placeholder={t.fullName}
+                            />
+                        </div>
                     )}
                     <div>
                         <label htmlFor="email-address" className="sr-only">{t.email}</label>

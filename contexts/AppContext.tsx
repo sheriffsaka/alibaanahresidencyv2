@@ -1,8 +1,9 @@
 
 import React, { createContext, useState, ReactNode, useCallback, useEffect, useRef, useMemo } from 'react';
-import { AppContextType, Language, Page, User, Room, BedSpace, Booking, BookingStatus, CmsContent, Activity, AcademicTerm, BookingPackage, AccommodationType, DEFAULT_CATEGORY_MEDIA, CategoryMediaConfig, PublicOccupancy, AccommodationAddresses, DEFAULT_ACCOMMODATION_ADDRESSES, WaitlistEntry, WaitlistStatus } from '../types';
+import { AppContextType, Language, Page, User, Room, BedSpace, Booking, BookingStatus, CmsContent, Activity, AcademicTerm, BookingPackage, AccommodationType, DEFAULT_CATEGORY_MEDIA, CategoryMediaConfig, PublicOccupancy, AccommodationAddresses, DEFAULT_ACCOMMODATION_ADDRESSES, WaitlistEntry, WaitlistStatus, EmailLogEntry } from '../types';
 import { supabase } from '../lib/supabaseClient';
 import { Session } from '@supabase/supabase-js';
+import { sendEmail, fetchRecentEmailLogs } from '../lib/email';
 
 export const AppContext = createContext<AppContextType | undefined>(undefined);
 
@@ -214,6 +215,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const [students, setStudents] = useState<User[]>([]);
   const [users, setUsers] = useState<User[]>([]);
   const [waitlist, setWaitlist] = useState<WaitlistEntry[]>([]);
+  const [emailLogs, setEmailLogs] = useState<EmailLogEntry[]>([]);
   const bookingsSubscriptionRef = useRef<any>(null);
 
   const updateUserSession = useCallback(async (session: Session | null) => {
@@ -371,15 +373,27 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         } catch (wlErr) {
             console.warn("Notice fetching waitlist:", wlErr);
         }
+
+        // Fetch email delivery logs if staff or proprietor
+        if (profile.role === 'staff' || profile.role === 'proprietor') {
+            try {
+                const logs = await fetchRecentEmailLogs();
+                setEmailLogs(logs);
+            } catch (logErr) {
+                console.warn("Notice fetching email logs:", logErr);
+            }
+        }
       } catch (err) {
         console.warn("Notice in updateUserSession:", err);
         setUser(null);
         setStudents([]);
+        setEmailLogs([]);
       }
     } else {
       setUser(null);
       setStudents([]);
       setWaitlist([]);
+      setEmailLogs([]);
     }
   }, []);
 
@@ -510,11 +524,29 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         })
         .subscribe();
 
+    // Real-time subscription for email delivery logs
+    const emailLogsChannel = supabase
+        .channel('global-email-logs-changes')
+        .on('postgres_changes', { 
+            event: '*', 
+            schema: 'public', 
+            table: 'email_logs' 
+        }, async () => {
+            try {
+                const freshLogs = await fetchRecentEmailLogs();
+                setEmailLogs(freshLogs);
+            } catch (err) {
+                console.warn("Notice updating real-time email logs:", err);
+            }
+        })
+        .subscribe();
+
     return () => {
         supabase.removeChannel(bookingsChannel);
         supabase.removeChannel(roomsChannel);
         supabase.removeChannel(bedSpacesChannel);
         supabase.removeChannel(waitlistChannel);
+        supabase.removeChannel(emailLogsChannel);
     };
   }, []);
 
@@ -1391,6 +1423,31 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     }
   };
 
+  const refreshEmailLogs = useCallback(async () => {
+    try {
+      const logs = await fetchRecentEmailLogs();
+      setEmailLogs(logs);
+    } catch (err) {
+      console.warn("Error refreshing email logs:", err);
+    }
+  }, []);
+
+  const retryEmailLog = async (logId: number): Promise<{ success: boolean; error?: string }> => {
+    const target = emailLogs.find(l => l.id === logId);
+    if (!target) return { success: false, error: 'Email log entry not found.' };
+
+    const res = await sendEmail({
+      to: target.recipient,
+      subject: target.subject,
+      body: `[Retry of automated residency notification]\n\n${target.subject}\n\nPlease contact residency management if you have any questions.`,
+      templateName: target.template_name || 'manual_retry',
+      metadata: { ...target.metadata, retried_from_log_id: logId }
+    });
+
+    await refreshEmailLogs();
+    return res;
+  };
+
   // Role-based occupancy bookings calculation:
   // For Admin / Staff: uses the full `bookings` array with student names, passport numbers, audit data.
   // For Students / Anonymous visitors: uses strictly the anonymized `publicOccupancy` list from get_public_occupancy() RPC.
@@ -1439,6 +1496,9 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     addToWaitlist,
     updateWaitlistStatus,
     updateWaitlistEntry,
+    emailLogs,
+    refreshEmailLogs,
+    retryEmailLog,
     loading,
     landlordDetails: cmsContent.landlordDetails || DEFAULT_LANDLORD_DETAILS,
     accommodationAddresses: cmsContent.accommodationAddresses || DEFAULT_ACCOMMODATION_ADDRESSES

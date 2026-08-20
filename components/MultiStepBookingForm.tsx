@@ -421,22 +421,32 @@ const MultiStepBookingForm: React.FC = () => {
       
       // 1. Send Booking Confirmation / Tenancy Agreement Signed Email
       try {
-        await sendEmail({
+        const emailRes = await sendEmail({
           to: formData.email,
           subject: emailTemplate.subject,
-          body: emailTemplate.body
+          body: emailTemplate.body,
+          templateName: emailTemplate.templateName,
+          metadata: { booking_id: createdBooking.id, type: 'agreement_signed' }
         });
+        if (!emailRes.success) {
+          console.warn("[Booking Dispatch] Booking confirmation email delivery issue:", emailRes.error);
+        }
       } catch (err) {
         console.error("Failed to send booking confirmation email:", err);
       }
       
-      // 2. Send Landlord bank details via simulated contact email to student
+      // 2. Send Landlord bank details / payment instructions email to student
       try {
-        await sendEmail({
+        const payEmailRes = await sendEmail({
           to: formData.email,
           subject: `Booking Agreement BK${createdBooking.id} & Landlord Payment Instructions`,
-          body: `Dear ${formData.fullName},\n\nWe have received your officially signed tenancy agreement for your stay at Al-Ibaanah Student Residency!\n\nDeposit Due Now: $${pricing.monthlyRate} USD.\nRoom: ${unifiedRoomName}`
+          body: `Dear ${formData.fullName},\n\nWe have received your officially signed tenancy agreement for your stay at Al-Ibaanah Student Residency!\n\nDeposit Due Now: $${pricing.monthlyRate} USD.\nRoom: ${unifiedRoomName}\n\nPlease proceed to upload your payment receipt to your student dashboard.`,
+          templateName: 'payment_instructions',
+          metadata: { booking_id: createdBooking.id, type: 'payment_instructions' }
         });
+        if (!payEmailRes.success) {
+          console.warn("[Booking Dispatch] Payment instructions email delivery issue:", payEmailRes.error);
+        }
       } catch (err) {
         console.error("Failed to send payment instructions email:", err);
       }

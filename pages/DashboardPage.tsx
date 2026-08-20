@@ -12,7 +12,7 @@ import {
 import PaymentProofModal from '../components/PaymentProofModal';
 import { supabase } from '../lib/supabaseClient';
 import AgreementModal from '../components/AgreementModal';
-import { sendEmail, getAgreementSignedTemplate } from '../lib/email';
+import { sendEmail, getAgreementSignedTemplate, getPaymentProofUploadedAdminTemplate } from '../lib/email';
 import { formatStoredRoomString, getParsedRoomSpaces, getAccommodationAddress } from '../lib/roomNaming';
 import JoinWaitlistModal from '../components/JoinWaitlistModal';
 
@@ -81,7 +81,13 @@ const DashboardPage: React.FC = () => {
       sendEmail({
         to: user?.email || signingBooking.email || '',
         subject: template.subject,
-        body: template.body
+        body: template.body,
+        templateName: template.templateName,
+        metadata: { booking_id: signingBooking.id, type: 'contract_signed' }
+      }).then(res => {
+        if (!res.success) {
+          console.warn("[Dashboard Email] Signed contract email notification:", res.error);
+        }
       }).catch(err => console.error("Failed to send signed contract email:", err));
 
       addActivity({
@@ -119,10 +125,17 @@ const DashboardPage: React.FC = () => {
         status: BookingStatus.PENDING_PAYMENT
       });
 
+      const adminTpl = getPaymentProofUploadedAdminTemplate(user?.full_name || 'Student', uploadingProofBooking.id, url);
       sendEmail({
         to: landlordDetails?.adminEmail || 'sheriffdeenalade@gmail.com',
-        subject: `[Admin Alert] Receipt Uploaded for BK${uploadingProofBooking.id}`,
-        body: `Dear Admin,\n\nStudent ${user?.full_name || 'Student'} has uploaded a payment proof for booking BK${uploadingProofBooking.id}.\n\nPlease review the upload in the Admin panel.\nReceipt URL: ${url}`
+        subject: adminTpl.subject,
+        body: adminTpl.body,
+        templateName: adminTpl.templateName,
+        metadata: { booking_id: uploadingProofBooking.id, proof_url: url }
+      }).then(res => {
+        if (!res.success) {
+          console.warn("[Dashboard Email] Payment proof admin alert delivery:", res.error);
+        }
       }).catch(err => console.error("Failed to notify admin of payment proof:", err));
 
       addActivity({
@@ -189,6 +202,18 @@ const DashboardPage: React.FC = () => {
                 >
                   {t.dash_btn_view_agreement || "View Agreement"}
                 </button>
+
+                {(activeBooking.status === BookingStatus.CONFIRMED || activeBooking.status === BookingStatus.OCCUPIED || activeBooking.status === BookingStatus.PENDING_PAYMENT || activeBooking.status === BookingStatus.PENDING_VERIFICATION) && (
+                  <button
+                    onClick={() => {
+                      const room = rooms.find(r => r.id === activeBooking.room_id);
+                      if (room) setPage('booking', room, activeBooking);
+                    }}
+                    className="px-3.5 py-1.5 rounded-xl bg-indigo-600/80 hover:bg-indigo-600 text-white text-xs font-bold transition-all border border-indigo-400/40 shadow-sm"
+                  >
+                    Extend Stay
+                  </button>
+                )}
 
                 <button
                   onClick={() => setPage('my-bookings')}

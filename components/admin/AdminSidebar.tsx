@@ -7,6 +7,7 @@ export type AdminNavSection =
   | 'students'
   | 'rooms_inventory'
   | 'waitlist'
+  | 'email_logs'
   | 'maintenance'
   | 'transactions'
   | 'payments_credits'
@@ -102,6 +103,7 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
     {
       label: 'ADMINISTRATION',
       items: [
+        { id: 'email_logs', label: 'Email Delivery Logs', icon: '✉️' },
         { id: 'admin_users', label: 'Admin Users', icon: '👥' },
         { id: 'settings', label: 'Settings', icon: '⚙️' }
       ]
