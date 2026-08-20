@@ -1197,12 +1197,7 @@ const AdminDashboardPage: React.FC = () => {
                                                     Book Space
                                                  </button>
                                               )}
-                                              <button 
-                                                 onClick={() => handleOpenRoomModal(space.dbRoom)} 
-                                                 className="bg-gray-100 hover:bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-300 text-xs font-bold px-3 py-1.5 rounded-lg"
-                                              >
-                                                 {space.booking ? 'Room Specs' : 'Edit Room'}
-                                              </button>
+
                                            </div>
                                         </td>
                                      </tr>
