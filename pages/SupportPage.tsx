@@ -24,7 +24,7 @@ const SupportPage: React.FC = () => {
             <div>
               <h3 className="font-semibold text-gray-500 dark:text-gray-400 text-sm uppercase tracking-wider">{t.contactEmail}</h3>
               <a href="mailto:support@alibaanah.com" className="text-brand-600 dark:text-brand-400 text-lg hover:underline">
-                support@alibaanah.com
+                al.ibaanah.housing4brothers@gmail.com
               </a>
             </div>
             <div>
