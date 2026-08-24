@@ -35,7 +35,7 @@ serve(async (req) => {
   }
 
   // Sender email can optionally be set via environment variable or default to a standard verified sender/onboarding sender
-  const fromEmail = Deno.env.get("RESEND_FROM_EMAIL") || Deno.env.get("FROM_EMAIL") || "Al-Ibaanah Student Residency <onboarding@resend.dev>";
+  const fromEmail = Deno.env.get("RESEND_FROM_EMAIL") || Deno.env.get("FROM_EMAIL") || "Al-Ibaanah Student Residency <noreply@sharedhousing.ibaanah.com>";
 
   try {
     const { to, subject, text, html, from } = await req.json();
