@@ -143,20 +143,66 @@ export const sendEmail = async (options: EmailOptions): Promise<EmailSendResult>
   while (attempt < maxAttempts) {
     attempt++;
     try {
-      console.log(`[Email Dispatch] Contacting Edge Function (Attempt ${attempt}/${maxAttempts}) for ${cleanRecipient}...`);
+      console.log(`[Email Dispatch] Transmitting email (Attempt ${attempt}/${maxAttempts}) for ${cleanRecipient}...`);
       
-      // Preferred Supabase Edge Function invocation
-      const { data: invokeData, error: invokeError } = await supabase.functions.invoke('send-resend-email', {
-        body: {
-          to: cleanRecipient,
-          subject: options.subject,
-          text: options.body,
-          html: options.html
-        }
-      });
+      let resData: any = null;
+      let isSuccess = false;
 
-      if (!invokeError && invokeData && invokeData.success !== false) {
-        console.log(`[Email Success] Successfully dispatched email to ${cleanRecipient}. Resend ID: ${invokeData.id || 'ok'}`);
+      // 1. Try the local Node/Express backend /api/send-email endpoint first
+      try {
+        const localServerResponse = await fetch('/api/send-email', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            to: cleanRecipient,
+            subject: options.subject,
+            text: options.body,
+            html: options.html
+          })
+        });
+
+        if (localServerResponse.ok) {
+          resData = await localServerResponse.json().catch(() => null);
+          if (resData && resData.success !== false) {
+            isSuccess = true;
+          }
+        } else {
+          const errBody = await localServerResponse.json().catch(() => null);
+          if (errBody?.error) {
+            lastError = errBody.error;
+            // If missing API key error, don't keep retrying
+            if (lastError.includes('RESEND_API_KEY')) {
+              break;
+            }
+          }
+        }
+      } catch (localErr: any) {
+        console.warn(`[Email API] Local server endpoint failed (${localErr.message}), trying Supabase Edge Function...`);
+      }
+
+      // 2. If local server didn't succeed and didn't fail with fatal config error, try Supabase Edge Function
+      if (!isSuccess && !lastError.includes('RESEND_API_KEY')) {
+        const { data: invokeData, error: invokeError } = await supabase.functions.invoke('send-resend-email', {
+          body: {
+            to: cleanRecipient,
+            subject: options.subject,
+            text: options.body,
+            html: options.html
+          }
+        });
+
+        if (!invokeError && invokeData && invokeData.success !== false) {
+          resData = invokeData;
+          isSuccess = true;
+        } else if (invokeError) {
+          lastError = invokeError.message || (invokeData?.error) || 'Failed to dispatch email';
+        } else if (invokeData?.error) {
+          lastError = invokeData.error;
+        }
+      }
+
+      if (isSuccess) {
+        console.log(`[Email Success] Successfully dispatched email to ${cleanRecipient}. Resend ID: ${resData?.id || 'ok'}`);
         
         const logId = await recordEmailLog({
           recipient: cleanRecipient,
@@ -165,32 +211,20 @@ export const sendEmail = async (options: EmailOptions): Promise<EmailSendResult>
           status: 'sent',
           error_message: null,
           delivery_attempts: attempt,
-          metadata: { ...options.metadata, resend_id: invokeData.id }
+          metadata: { ...options.metadata, resend_id: resData?.id }
         });
 
         return {
           success: true,
-          id: invokeData.id,
+          id: resData?.id,
           attempts: attempt,
           logId
         };
       }
 
-      // If invoke returned an error object
-      if (invokeError) {
-        const errorMsg = invokeError.message || (invokeData?.error) || 'Failed to call Edge Function';
-        lastError = errorMsg;
-        console.warn(`[Email Edge Function Error] Attempt ${attempt}: ${errorMsg}`);
-
-        // If it's a configuration error from Resend or Edge Function
-        if (errorMsg.includes('RESEND_API_KEY') || errorMsg.includes('Missing required email')) {
-          break;
-        }
-      } else if (invokeData && invokeData.success === false) {
-        lastError = invokeData.error || 'Resend delivery failed';
-        if (lastError.includes('RESEND_API_KEY')) {
-          break;
-        }
+      // Configuration / validation errors - stop retrying
+      if (lastError.includes('RESEND_API_KEY') || lastError.includes('Missing required email')) {
+        break;
       }
 
       // Transient error retry backoff
@@ -201,17 +235,8 @@ export const sendEmail = async (options: EmailOptions): Promise<EmailSendResult>
 
     } catch (fetchErr: any) {
       const rawMsg = fetchErr.message || 'Failed to fetch';
-      if (rawMsg.toLowerCase().includes('failed to fetch') || rawMsg.toLowerCase().includes('network')) {
-        lastError = "Edge Function 'send-resend-email' is not reachable or not yet deployed to your Supabase project. Deploy it using 'supabase functions deploy send-resend-email' and set 'RESEND_API_KEY'.";
-      } else {
-        lastError = rawMsg;
-      }
+      lastError = rawMsg;
       console.warn(`[Email Network Error] Attempt ${attempt} failed: ${lastError}`);
-      
-      // Stop retrying if the edge function is not deployed
-      if (lastError.includes('not yet deployed')) {
-        break;
-      }
 
       if (attempt < maxAttempts) {
         const backoffDelay = attempt * 1200;

@@ -4,8 +4,9 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
-    "build": "vite build",
+    "dev": "tsx server.ts",
+    "build": "vite build && esbuild server.ts --bundle --platform=node --format=cjs --packages=external --sourcemap --outfile=dist/server.cjs",
+    "start": "node dist/server.cjs",
     "preview": "vite preview",
     "lint": "tsc --noEmit"
   },
@@ -13,13 +14,17 @@
     "@docuseal/react": "^1.0.71",
     "@google/genai": "latest",
     "@supabase/supabase-js": "2",
+    "@types/express": "^5.0.6",
     "@types/react-signature-canvas": "^1.0.7",
+    "esbuild": "^0.28.2",
+    "express": "^5.2.1",
     "get-image-colors": "^4.0.1",
     "node-fetch": "^2.7.0",
     "react": "^19.2.4",
     "react-dom": "^19.2.4",
     "react-signature-canvas": "^1.1.0-alpha.2",
-    "react-to-print": "^3.3.0"
+    "react-to-print": "^3.3.0",
+    "tsx": "^4.23.12"
   },
   "devDependencies": {
     "@types/node": "^22.14.0",
