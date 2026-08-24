@@ -145,33 +145,18 @@ export const sendEmail = async (options: EmailOptions): Promise<EmailSendResult>
     try {
       console.log(`[Email Dispatch] Contacting Edge Function (Attempt ${attempt}/${maxAttempts}) for ${cleanRecipient}...`);
       
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 12000); // 12-second timeout per attempt
-
-      const response = await fetch(`${SUPABASE_URL}/functions/v1/send-resend-email`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
-        },
-        body: JSON.stringify({
+      // Preferred Supabase Edge Function invocation
+      const { data: invokeData, error: invokeError } = await supabase.functions.invoke('send-resend-email', {
+        body: {
           to: cleanRecipient,
           subject: options.subject,
           text: options.body,
           html: options.html
-        }),
-        signal: controller.signal
+        }
       });
 
-      clearTimeout(timeoutId);
-
-      const resData = await response.json().catch(async () => {
-        const txt = await response.text().catch(() => '');
-        return { error: txt || `HTTP status ${response.status}` };
-      });
-
-      if (response.ok && resData.success !== false) {
-        console.log(`[Email Success] Successfully dispatched email to ${cleanRecipient}. Resend ID: ${resData.id || 'ok'}`);
+      if (!invokeError && invokeData && invokeData.success !== false) {
+        console.log(`[Email Success] Successfully dispatched email to ${cleanRecipient}. Resend ID: ${invokeData.id || 'ok'}`);
         
         const logId = await recordEmailLog({
           recipient: cleanRecipient,
@@ -180,45 +165,54 @@ export const sendEmail = async (options: EmailOptions): Promise<EmailSendResult>
           status: 'sent',
           error_message: null,
           delivery_attempts: attempt,
-          metadata: { ...options.metadata, resend_id: resData.id }
+          metadata: { ...options.metadata, resend_id: invokeData.id }
         });
 
         return {
           success: true,
-          id: resData.id,
+          id: invokeData.id,
           attempts: attempt,
           logId
         };
       }
 
-      // If we received an error from the server
-      const errorMsg = resData.error || resData.message || `Server responded with status ${response.status}`;
-      lastError = errorMsg;
+      // If invoke returned an error object
+      if (invokeError) {
+        const errorMsg = invokeError.message || (invokeData?.error) || 'Failed to call Edge Function';
+        lastError = errorMsg;
+        console.warn(`[Email Edge Function Error] Attempt ${attempt}: ${errorMsg}`);
 
-      // Check if the error is unrecoverable (e.g. invalid email format, auth error, missing API key on backend)
-      const isFatalConfigError = 
-        response.status === 400 && (
-          errorMsg.includes('RESEND_API_KEY') || 
-          errorMsg.includes('Missing required email') ||
-          errorMsg.includes('invalid_email')
-        );
-
-      if (isFatalConfigError) {
-        console.warn(`[Email Fatal] Configuration or validation error encountered, stopping retries: ${errorMsg}`);
-        break;
+        // If it's a configuration error from Resend or Edge Function
+        if (errorMsg.includes('RESEND_API_KEY') || errorMsg.includes('Missing required email')) {
+          break;
+        }
+      } else if (invokeData && invokeData.success === false) {
+        lastError = invokeData.error || 'Resend delivery failed';
+        if (lastError.includes('RESEND_API_KEY')) {
+          break;
+        }
       }
 
-      // For transient errors (status 429, 500, 502, 503, 504), retry with backoff
+      // Transient error retry backoff
       if (attempt < maxAttempts) {
-        const backoffDelay = attempt * 1200; // 1.2s, 2.4s
-        console.warn(`[Email Retry] Transient error (${errorMsg}). Retrying in ${backoffDelay}ms...`);
+        const backoffDelay = attempt * 1200;
         await new Promise(r => setTimeout(r, backoffDelay));
       }
 
     } catch (fetchErr: any) {
-      lastError = fetchErr.name === 'AbortError' ? 'Network timeout after 12s' : (fetchErr.message || 'Network connection failed');
+      const rawMsg = fetchErr.message || 'Failed to fetch';
+      if (rawMsg.toLowerCase().includes('failed to fetch') || rawMsg.toLowerCase().includes('network')) {
+        lastError = "Edge Function 'send-resend-email' is not reachable or not yet deployed to your Supabase project. Deploy it using 'supabase functions deploy send-resend-email' and set 'RESEND_API_KEY'.";
+      } else {
+        lastError = rawMsg;
+      }
       console.warn(`[Email Network Error] Attempt ${attempt} failed: ${lastError}`);
       
+      // Stop retrying if the edge function is not deployed
+      if (lastError.includes('not yet deployed')) {
+        break;
+      }
+
       if (attempt < maxAttempts) {
         const backoffDelay = attempt * 1200;
         await new Promise(r => setTimeout(r, backoffDelay));
@@ -231,7 +225,9 @@ export const sendEmail = async (options: EmailOptions): Promise<EmailSendResult>
   const finalStatus = isMissingKey ? 'simulated' : 'failed';
   const finalErrorMessage = isMissingKey 
     ? `Email service not configured on backend: ${lastError}` 
-    : `Delivery failed after ${attempt} attempt(s): ${lastError}`;
+    : lastError.includes('not yet deployed')
+      ? lastError
+      : `Delivery failed after ${attempt} attempt(s): ${lastError}`;
 
   console.error(`[Email Delivery Failure] ${finalErrorMessage}`);
 
