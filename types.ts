@@ -316,6 +316,22 @@ export interface AppContextType {
   users: User[];
   addUser: (userData: Partial<User>) => Promise<{ success: boolean; error?: string }>;
   updateUser: (id: string, updates: Partial<User>) => Promise<{ success: boolean; error?: string }>;
+  updateStudentProfile: (studentId: string, updates: {
+    full_name?: string;
+    email?: string;
+    phone_number?: string;
+    gender?: 'Male' | 'Female';
+    nationality?: string;
+    passport_number?: string;
+    emergency_contact?: string;
+    emergency_contact_details?: string;
+    address_in_egypt?: string;
+    building_no?: string;
+    flat_no?: string;
+    street_name?: string;
+    district_name?: string;
+    state?: string;
+  }) => Promise<{ success: boolean; error?: string; updatedStudent?: User }>;
   deleteUser: (id: string) => Promise<{ success: boolean; error?: string }>;
   academicTerms: AcademicTerm[];
   bookingPackages: BookingPackage[];

@@ -311,10 +311,14 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             if (studentsData) {
                 setStudents(studentsData.map((p: any) => ({
                     id: p.id,
-                    email: '', // Email is not in profiles
+                    email: p.email || '',
                     full_name: p.full_name,
                     role: p.role,
-                    gender: p.gender
+                    gender: p.gender,
+                    phone_number: p.phone_number,
+                    passport_number: p.passport_number,
+                    nationality: p.nationality,
+                    created_at: p.created_at
                 })));
             }
 
@@ -1335,6 +1339,153 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     }
   };
 
+  const updateStudentProfile = async (studentId: string, profileUpdates: {
+    full_name?: string;
+    email?: string;
+    phone_number?: string;
+    gender?: 'Male' | 'Female';
+    nationality?: string;
+    passport_number?: string;
+    emergency_contact?: string;
+    emergency_contact_details?: string;
+    address_in_egypt?: string;
+    building_no?: string;
+    flat_no?: string;
+    street_name?: string;
+    district_name?: string;
+    state?: string;
+  }): Promise<{ success: boolean; error?: string; updatedStudent?: User }> => {
+    try {
+      const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(studentId);
+
+      // 1. Direct Supabase updates to 'profiles' table if studentId is UUID
+      if (isUUID) {
+        const dbProfileUpdates: Record<string, any> = {};
+        if (profileUpdates.full_name !== undefined) dbProfileUpdates.full_name = profileUpdates.full_name;
+        if (profileUpdates.phone_number !== undefined) dbProfileUpdates.phone_number = profileUpdates.phone_number;
+        if (profileUpdates.gender !== undefined) dbProfileUpdates.gender = profileUpdates.gender;
+        if (profileUpdates.nationality !== undefined) dbProfileUpdates.nationality = profileUpdates.nationality;
+        if (profileUpdates.passport_number !== undefined) dbProfileUpdates.passport_number = profileUpdates.passport_number;
+
+        const { error: profileError } = await supabase
+          .from('profiles')
+          .update(dbProfileUpdates)
+          .eq('id', studentId);
+
+        if (profileError) {
+          console.warn("Supabase profiles update notice:", profileError.message);
+        }
+      }
+
+      // 2. Direct Supabase updates to 'bookings' table for this student to sync all contract & occupancy data
+      const dbBookingUpdates: Record<string, any> = {};
+      if (profileUpdates.full_name !== undefined) dbBookingUpdates.full_name = profileUpdates.full_name;
+      if (profileUpdates.email !== undefined) dbBookingUpdates.email = profileUpdates.email;
+      if (profileUpdates.phone_number !== undefined) dbBookingUpdates.phone_number = profileUpdates.phone_number;
+      if (profileUpdates.nationality !== undefined) dbBookingUpdates.nationality = profileUpdates.nationality;
+      if (profileUpdates.passport_number !== undefined) dbBookingUpdates.passport_number = profileUpdates.passport_number;
+      if (profileUpdates.gender !== undefined) dbBookingUpdates.gender = profileUpdates.gender;
+      if (profileUpdates.emergency_contact_details !== undefined) dbBookingUpdates.emergency_contact_details = profileUpdates.emergency_contact_details;
+      if (profileUpdates.emergency_contact !== undefined) dbBookingUpdates.emergency_contact = profileUpdates.emergency_contact;
+      if (profileUpdates.address_in_egypt !== undefined) dbBookingUpdates.address_in_egypt = profileUpdates.address_in_egypt;
+      if (profileUpdates.building_no !== undefined) dbBookingUpdates.building_no = profileUpdates.building_no;
+      if (profileUpdates.flat_no !== undefined) dbBookingUpdates.flat_no = profileUpdates.flat_no;
+      if (profileUpdates.street_name !== undefined) dbBookingUpdates.street_name = profileUpdates.street_name;
+      if (profileUpdates.district_name !== undefined) dbBookingUpdates.district_name = profileUpdates.district_name;
+      if (profileUpdates.state !== undefined) dbBookingUpdates.state = profileUpdates.state;
+
+      if (Object.keys(dbBookingUpdates).length > 0) {
+        if (isUUID) {
+          const { error: bookingUpdateErr } = await supabase
+            .from('bookings')
+            .update(dbBookingUpdates)
+            .or(`student_id.eq.${studentId},user_id.eq.${studentId}`);
+          
+          if (bookingUpdateErr) {
+            console.warn("Supabase bookings update notice:", bookingUpdateErr.message);
+          }
+        } else if (profileUpdates.email) {
+          await supabase
+            .from('bookings')
+            .update(dbBookingUpdates)
+            .eq('email', profileUpdates.email);
+        }
+      }
+
+      // 3. Update React AppContext state
+      setStudents(prev => {
+        const found = prev.some(st => st.id === studentId);
+        if (found) {
+          return prev.map(st => st.id === studentId ? { ...st, ...profileUpdates } : st);
+        }
+        // If not present in students array, create or update
+        return [{
+          id: studentId,
+          full_name: profileUpdates.full_name || '',
+          email: profileUpdates.email || '',
+          phone_number: profileUpdates.phone_number,
+          gender: profileUpdates.gender || 'Male',
+          nationality: profileUpdates.nationality,
+          passport_number: profileUpdates.passport_number,
+          role: 'student' as const,
+          created_at: new Date().toISOString()
+        }, ...prev];
+      });
+
+      setUsers(prev => prev.map(u => (u.id === studentId || (u.email && profileUpdates.email && u.email.toLowerCase() === profileUpdates.email.toLowerCase())) ? { ...u, ...profileUpdates } : u));
+
+      setBookings(prev => prev.map(b => {
+        if (b.student_id === studentId || b.user_id === studentId || (b.email && profileUpdates.email && b.email.toLowerCase() === profileUpdates.email.toLowerCase())) {
+          return {
+            ...b,
+            ...dbBookingUpdates
+          };
+        }
+        return b;
+      }));
+
+      // 4. Fetch fresh profile from Supabase to verify
+      let updatedUserObj: User = {
+        id: studentId,
+        full_name: profileUpdates.full_name || '',
+        email: profileUpdates.email || '',
+        phone_number: profileUpdates.phone_number,
+        gender: profileUpdates.gender || 'Male',
+        nationality: profileUpdates.nationality,
+        passport_number: profileUpdates.passport_number,
+        role: 'student',
+        created_at: new Date().toISOString()
+      };
+
+      if (isUUID) {
+        const { data: freshProfile } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', studentId)
+          .maybeSingle();
+
+        if (freshProfile) {
+          updatedUserObj = {
+            id: freshProfile.id,
+            email: profileUpdates.email || '',
+            full_name: freshProfile.full_name,
+            role: freshProfile.role,
+            gender: freshProfile.gender,
+            phone_number: freshProfile.phone_number,
+            passport_number: freshProfile.passport_number,
+            nationality: freshProfile.nationality,
+            created_at: freshProfile.created_at
+          };
+        }
+      }
+
+      return { success: true, updatedStudent: updatedUserObj };
+    } catch (err: any) {
+      console.error("Error updating student profile in Supabase:", err);
+      return { success: false, error: err.message || "Failed to update student profile." };
+    }
+  };
+
   const addToWaitlist = async (entry: Omit<WaitlistEntry, 'id' | 'created_at' | 'status'> & { status?: WaitlistStatus }) => {
     try {
       const newEntryPayload: any = {
@@ -1489,6 +1640,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     users,
     addUser,
     updateUser,
+    updateStudentProfile,
     deleteUser,
     academicTerms,
     bookingPackages,

@@ -399,45 +399,66 @@ const AdminDashboardPage: React.FC = () => {
 
   // Unique Registered Students list for the Students tab
   const uniqueStudentRecords = useMemo(() => {
-    // Collect from users where role === 'student' or fallback to students list
-    const registeredStudentUsers = (users || []).filter(u => u.role === 'student');
-    
-    // Map each unique student with their live room/accommodation info
-    if (registeredStudentUsers.length > 0) {
-      return registeredStudentUsers.map(st => {
-        const studentBookings = bookings.filter(b => b.user_id === st.id || b.email.toLowerCase() === st.email.toLowerCase());
+    const studentMap = new Map<string, { student: User; activeBooking: Booking | null; allBookings: Booking[]; liveDetails: any }>();
+
+    // 1. Process all students registered in `students` (from profiles)
+    (students || []).forEach(st => {
+      const studentBookings = bookings.filter(b => b.student_id === st.id || b.user_id === st.id || (b.email && st.email && b.email.toLowerCase() === st.email.toLowerCase()));
+      const activeBooking = studentBookings.find(b => b.status === BookingStatus.CONFIRMED || b.status === BookingStatus.OCCUPIED) || studentBookings[0] || null;
+      const liveDetails = activeBooking ? getLiveStudentRoomDetails(activeBooking, rooms) : null;
+      
+      const enrichedStudent: User = {
+        ...st,
+        email: st.email || activeBooking?.email || '',
+        phone_number: st.phone_number || activeBooking?.phone_number,
+        nationality: st.nationality || activeBooking?.nationality,
+        passport_number: st.passport_number || activeBooking?.passport_number,
+        gender: st.gender || (activeBooking?.gender as any) || 'Male'
+      };
+
+      studentMap.set(st.id, {
+        student: enrichedStudent,
+        activeBooking,
+        allBookings: studentBookings,
+        liveDetails
+      });
+    });
+
+    // 2. Process all users where role === 'student'
+    (users || []).filter(u => u.role === 'student').forEach(st => {
+      if (!studentMap.has(st.id)) {
+        const studentBookings = bookings.filter(b => b.student_id === st.id || b.user_id === st.id || (b.email && st.email && b.email.toLowerCase() === st.email.toLowerCase()));
         const activeBooking = studentBookings.find(b => b.status === BookingStatus.CONFIRMED || b.status === BookingStatus.OCCUPIED) || studentBookings[0] || null;
         const liveDetails = activeBooking ? getLiveStudentRoomDetails(activeBooking, rooms) : null;
-        return {
+        
+        studentMap.set(st.id, {
           student: st,
           activeBooking,
           allBookings: studentBookings,
           liveDetails
-        };
-      });
-    }
+        });
+      }
+    });
 
-    // Fallback: group bookings by student email/user_id if user records aren't loaded
-    const seen = new Set<string>();
-    const list: { student: User; activeBooking: Booking | null; allBookings: Booking[]; liveDetails: any }[] = [];
+    // 3. Process any students from bookings who may not have a profiles entry yet
     bookings.forEach(b => {
-      const key = b.user_id || b.email.toLowerCase();
-      if (!seen.has(key)) {
-        seen.add(key);
-        const studentBookings = bookings.filter(bk => (bk.user_id && bk.user_id === b.user_id) || bk.email.toLowerCase() === b.email.toLowerCase());
+      const key = b.student_id || b.user_id || b.email?.toLowerCase();
+      if (key && !studentMap.has(key) && !Array.from(studentMap.values()).some(item => item.student.email?.toLowerCase() === b.email?.toLowerCase())) {
+        const studentBookings = bookings.filter(bk => (b.student_id && bk.student_id === b.student_id) || (b.user_id && bk.user_id === b.user_id) || (b.email && bk.email && bk.email.toLowerCase() === b.email.toLowerCase()));
         const activeBooking = studentBookings.find(bk => bk.status === BookingStatus.CONFIRMED || bk.status === BookingStatus.OCCUPIED) || b;
         const liveDetails = getLiveStudentRoomDetails(activeBooking, rooms);
         const studentObj: User = {
-          id: b.user_id || `user_${b.id}`,
+          id: b.student_id || b.user_id || `user_${b.id}`,
           email: b.email,
           full_name: b.full_name,
           role: 'student',
           phone_number: b.phone_number,
           nationality: b.nationality,
           passport_number: b.passport_number,
-          created_at: b.booked_at
+          created_at: b.booked_at,
+          gender: (b.gender as any) || 'Male'
         };
-        list.push({
+        studentMap.set(key, {
           student: studentObj,
           activeBooking,
           allBookings: studentBookings,
@@ -445,8 +466,9 @@ const AdminDashboardPage: React.FC = () => {
         });
       }
     });
-    return list;
-  }, [users, bookings, rooms]);
+
+    return Array.from(studentMap.values());
+  }, [students, users, bookings, rooms]);
 
   const exportToCSV = () => {
     const headers = ['ID', 'Student Name', 'Email', 'Nationality', 'Accommodation', 'Room Name/Number', 'Bed Space', 'Arrival Date', 'Expiry Date', 'Status', 'Booked At'];
@@ -1298,9 +1320,9 @@ const AdminDashboardPage: React.FC = () => {
                                     setSelectedStudentForDetails(student);
                                     setIsStudentDetailsModalOpen(true);
                                   }} 
-                                  className="bg-brand-600 hover:bg-brand-700 text-white text-xs font-bold px-3 py-1.5 rounded-lg shadow-sm"
+                                  className="bg-brand-600 hover:bg-brand-700 text-white text-xs font-bold px-3 py-1.5 rounded-lg shadow-sm flex items-center gap-1"
                                 >
-                                  View Profile
+                                  View / Edit
                                 </button>
 
                                 {activeBooking && (
@@ -1736,6 +1758,9 @@ const AdminDashboardPage: React.FC = () => {
             setSelectedStudentForDetails(null);
           }}
           student={selectedStudentForDetails}
+          onStudentUpdated={(updatedStudent) => {
+            setSelectedStudentForDetails(updatedStudent);
+          }}
         />
       )}
 
