@@ -1398,18 +1398,16 @@ const AdminDashboardPage: React.FC = () => {
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {rooms.map(room => {
                   const roomBeds = (bedSpaces || []).filter(b => b.room_id === room.id);
-                  const formattedRoomTitle = room.room_number?.toLowerCase().startsWith('room')
-                    ? room.room_number
-                    : `Room ${room.room_number}`;
+                  const formattedRoomTitle = getDisplayFromRoom(room);
 
                   return (
                     <div key={room.id} className="border dark:border-gray-700 rounded-2xl p-5 space-y-4 bg-gray-50/50 dark:bg-gray-900/30 hover:border-brand-500 transition-colors">
                       <div className="flex justify-between items-start">
                         <div>
                           <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded bg-brand-100 text-brand-700 dark:bg-brand-950/40 dark:text-brand-300">
-                            {room.category || 'Standard'}
+                            {room.apartment_name || room.category || 'Standard'}
                           </span>
-                          <h3 className="text-lg font-bold text-gray-900 dark:text-white mt-1">{formattedRoomTitle}</h3>
+                          <h3 className="text-base font-bold text-gray-900 dark:text-white mt-1">{formattedRoomTitle}</h3>
                         </div>
                         <span className={`text-xs font-bold px-2 py-1 rounded-full ${room.is_available ? 'bg-emerald-100 text-emerald-800' : 'bg-red-100 text-red-800'}`}>
                           {room.is_available ? 'Available' : 'Fully Booked'}
@@ -1417,6 +1415,7 @@ const AdminDashboardPage: React.FC = () => {
                       </div>
 
                       <div className="grid grid-cols-2 gap-2 text-xs text-gray-600 dark:text-gray-300">
+                        <div><span className="font-bold text-gray-400">Unit Code:</span> <span className="font-mono text-[11px] font-semibold">{room.room_number}</span></div>
                         <div><span className="font-bold text-gray-400">Type:</span> {room.type}</div>
                         <div><span className="font-bold text-gray-400">Bed Capacity:</span> {room.capacity}</div>
                         <div><span className="font-bold text-gray-400">Price/Mo:</span> ${room.price_per_month}</div>

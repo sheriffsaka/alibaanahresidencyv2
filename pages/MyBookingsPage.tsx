@@ -9,7 +9,7 @@ import PaymentProofModal from '../components/PaymentProofModal';
 import { supabase } from '../lib/supabaseClient';
 import AgreementModal from '../components/AgreementModal';
 import { sendEmail, getAgreementSignedTemplate, getPaymentProofUploadedAdminTemplate } from '../lib/email';
-import { formatStoredRoomString } from '../lib/roomNaming';
+import { formatStoredRoomString, getDisplayFromRoom } from '../lib/roomNaming';
 
 const MyBookingsPage: React.FC = () => {
   const t = useTranslation();
@@ -197,11 +197,10 @@ const MyBookingsPage: React.FC = () => {
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="text-xs font-bold text-gray-900 dark:text-white">
-                            {booking.rooms?.type || 'Standard Room'}
+                            {getDisplayFromRoom(booking.rooms) || booking.preferred_accommodation || booking.rooms?.type || 'Standard Room'}
                           </div>
                           <div className="text-[11px] text-gray-500 dark:text-gray-400">
-                            {booking.rooms?.apartment_name ? `${booking.rooms.apartment_name} – ` : ''}
-                            {formatStoredRoomString(booking.rooms?.room_number)}
+                            {booking.rooms?.apartment_name || 'Al-Azhar Accommodation'}
                           </div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-xs text-gray-700 dark:text-gray-300 font-medium">

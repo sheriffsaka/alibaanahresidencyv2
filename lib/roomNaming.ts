@@ -40,25 +40,25 @@ export interface RoomSpaceConfig {
 
 export const ALL_ROOM_SPACES: RoomSpaceConfig[] = [
   // Premium 1 (4 beds total: 2 in Room 1, 1 in Room 2, 1 in Room 3)
-  { id: 'p1_r1_a', category: 'Premium 1', roomName: 'Room 1', bedSpaceName: 'Bed A', type: 'Shared', displayName: 'Premium 1 – Room 1 (Shared Room) – Bed A', apartmentName: 'Premium 1' },
-  { id: 'p1_r1_b', category: 'Premium 1', roomName: 'Room 1', bedSpaceName: 'Bed B', type: 'Shared', displayName: 'Premium 1 – Room 1 (Shared Room) – Bed B', apartmentName: 'Premium 1' },
-  { id: 'p1_r2', category: 'Premium 1', roomName: 'Room 2', bedSpaceName: 'Single', type: 'Private', displayName: 'Premium 1 – Room 2 (Private Room)', apartmentName: 'Premium 1' },
-  { id: 'p1_r3', category: 'Premium 1', roomName: 'Room 3', bedSpaceName: 'Single', type: 'Private', displayName: 'Premium 1 – Room 3 (Private Room)', apartmentName: 'Premium 1' },
+  { id: 'p1_r1_a', category: 'Premium 1', roomName: 'Room 1', bedSpaceName: 'Bed A', type: 'Shared', displayName: 'Premium 1, Room 1, Bed Space: Bed A', apartmentName: 'Premium 1' },
+  { id: 'p1_r1_b', category: 'Premium 1', roomName: 'Room 1', bedSpaceName: 'Bed B', type: 'Shared', displayName: 'Premium 1, Room 1, Bed Space: Bed B', apartmentName: 'Premium 1' },
+  { id: 'p1_r2', category: 'Premium 1', roomName: 'Room 2', bedSpaceName: 'Single', type: 'Private', displayName: 'Premium 1, Room 2 (Private)', apartmentName: 'Premium 1' },
+  { id: 'p1_r3', category: 'Premium 1', roomName: 'Room 3', bedSpaceName: 'Single', type: 'Private', displayName: 'Premium 1, Room 3 (Private)', apartmentName: 'Premium 1' },
 
   // Premium 2 (4 beds total: 2 in Room 1, 1 in Room 2, 1 in Room 3)
-  { id: 'p2_r1_a', category: 'Premium 2', roomName: 'Room 1', bedSpaceName: 'Bed A', type: 'Shared', displayName: 'Premium 2 – Room 1 (Shared Room) – Bed A', apartmentName: 'Premium 2' },
-  { id: 'p2_r1_b', category: 'Premium 2', roomName: 'Room 1', bedSpaceName: 'Bed B', type: 'Shared', displayName: 'Premium 2 – Room 1 (Shared Room) – Bed B', apartmentName: 'Premium 2' },
-  { id: 'p2_r2', category: 'Premium 2', roomName: 'Room 2', bedSpaceName: 'Single', type: 'Private', displayName: 'Premium 2 – Room 2 (Private Room)', apartmentName: 'Premium 2' },
-  { id: 'p2_r3', category: 'Premium 2', roomName: 'Room 3', bedSpaceName: 'Single', type: 'Private', displayName: 'Premium 2 – Room 3 (Private Room)', apartmentName: 'Premium 2' },
+  { id: 'p2_r1_a', category: 'Premium 2', roomName: 'Room 1', bedSpaceName: 'Bed A', type: 'Shared', displayName: 'Premium 2, Room 1, Bed Space: Bed A', apartmentName: 'Premium 2' },
+  { id: 'p2_r1_b', category: 'Premium 2', roomName: 'Room 1', bedSpaceName: 'Bed B', type: 'Shared', displayName: 'Premium 2, Room 1, Bed Space: Bed B', apartmentName: 'Premium 2' },
+  { id: 'p2_r2', category: 'Premium 2', roomName: 'Room 2', bedSpaceName: 'Single', type: 'Private', displayName: 'Premium 2, Room 2 (Private)', apartmentName: 'Premium 2' },
+  { id: 'p2_r3', category: 'Premium 2', roomName: 'Room 3', bedSpaceName: 'Single', type: 'Private', displayName: 'Premium 2, Room 3 (Private)', apartmentName: 'Premium 2' },
 
   // Standard (7 beds total: 2 in Room 1, 2 in Room 2, 1 in Room 3, 2 in Room 4)
-  { id: 'std_r1_a', category: 'Standard', roomName: 'Room 1', bedSpaceName: 'Bed A', type: 'Shared', displayName: 'Standard – Room 1 (Shared Room) – Bed A', apartmentName: 'Standard' },
-  { id: 'std_r1_b', category: 'Standard', roomName: 'Room 1', bedSpaceName: 'Bed B', type: 'Shared', displayName: 'Standard – Room 1 (Shared Room) – Bed B', apartmentName: 'Standard' },
-  { id: 'std_r2_a', category: 'Standard', roomName: 'Room 2', bedSpaceName: 'Bed A', type: 'Shared', displayName: 'Standard – Room 2 (Shared Room) – Bed A', apartmentName: 'Standard' },
-  { id: 'std_r2_b', category: 'Standard', roomName: 'Room 2', bedSpaceName: 'Bed B', type: 'Shared', displayName: 'Standard – Room 2 (Shared Room) – Bed B', apartmentName: 'Standard' },
-  { id: 'std_r3', category: 'Standard', roomName: 'Room 3', bedSpaceName: 'Single', type: 'Private', displayName: 'Standard – Room 3 (Private Room)', apartmentName: 'Standard' },
-  { id: 'std_r4_a', category: 'Standard', roomName: 'Room 4', bedSpaceName: 'Bed A', type: 'Shared', displayName: 'Standard – Room 4 (Shared Room) – Bed A', apartmentName: 'Standard' },
-  { id: 'std_r4_b', category: 'Standard', roomName: 'Room 4', bedSpaceName: 'Bed B', type: 'Shared', displayName: 'Standard – Room 4 (Shared Room) – Bed B', apartmentName: 'Standard' }
+  { id: 'std_r1_a', category: 'Standard', roomName: 'Room 1', bedSpaceName: 'Bed A', type: 'Shared', displayName: 'Standard, Room 1, Bed Space: Bed A', apartmentName: 'Standard' },
+  { id: 'std_r1_b', category: 'Standard', roomName: 'Room 1', bedSpaceName: 'Bed B', type: 'Shared', displayName: 'Standard, Room 1, Bed Space: Bed B', apartmentName: 'Standard' },
+  { id: 'std_r2_a', category: 'Standard', roomName: 'Room 2', bedSpaceName: 'Bed A', type: 'Shared', displayName: 'Standard, Room 2, Bed Space: Bed A', apartmentName: 'Standard' },
+  { id: 'std_r2_b', category: 'Standard', roomName: 'Room 2', bedSpaceName: 'Bed B', type: 'Shared', displayName: 'Standard, Room 2, Bed Space: Bed B', apartmentName: 'Standard' },
+  { id: 'std_r3', category: 'Standard', roomName: 'Room 3', bedSpaceName: 'Single', type: 'Private', displayName: 'Standard, Room 3 (Private)', apartmentName: 'Standard' },
+  { id: 'std_r4_a', category: 'Standard', roomName: 'Room 4', bedSpaceName: 'Bed A', type: 'Shared', displayName: 'Standard, Room 4, Bed Space: Bed A', apartmentName: 'Standard' },
+  { id: 'std_r4_b', category: 'Standard', roomName: 'Room 4', bedSpaceName: 'Bed B', type: 'Shared', displayName: 'Standard, Room 4, Bed Space: Bed B', apartmentName: 'Standard' }
 ];
 
 export const BED_SPACE_TO_ID_MAP: Record<string, number> = {
@@ -98,15 +98,44 @@ export const ID_TO_BED_SPACE_MAP: Record<number, string> = {
   15: 'std_r4_b'
 };
 
-export const getUnifiedRoomName = (category: string, roomName: string, bedSpaceName?: string): string => {
-  if (!category) return roomName;
+export const extractRoomNumber = (code?: string | null): string => {
+  if (!code) return '1';
+  const str = String(code).trim();
   
-  // Clean inputs
-  const cat = category.replace('Apartment', '').trim(); // e.g. "Premium 1"
-  let rNum = roomName.trim();
-  if (rNum && !rNum.toLowerCase().startsWith('room')) {
-    rNum = `Room ${rNum}`;
+  // 1. Specific match for R followed by digits (e.g. P1-R3, STD-R2, R4-A, Room 2)
+  const rMatch = str.match(/(?:R|Room)[-_ ]?(\d+)/i);
+  if (rMatch) return rMatch[1];
+  
+  // 2. Fallback: match last digit sequence if no explicit R-prefix
+  const lastDigitsMatch = str.match(/(\d+)(?!.*\d)/);
+  if (lastDigitsMatch) return lastDigitsMatch[1];
+  
+  return str;
+};
+
+export const normalizeCategory = (apartmentName?: string, category?: string, roomNumber?: string): 'Standard' | 'Premium 1' | 'Premium 2' => {
+  const norm = (str?: string) => (str || '').trim().toLowerCase();
+  const apt = norm(apartmentName);
+  const cat = norm(category);
+  const rCode = norm(roomNumber);
+  
+  if (apt.includes('premium 1') || rCode.startsWith('p1') || (cat.includes('premium') && !apt.includes('premium 2') && !rCode.startsWith('p2') && !apt.includes('standard'))) {
+    if (apt.includes('premium 2') || rCode.startsWith('p2')) return 'Premium 2';
+    return 'Premium 1';
   }
+  if (apt.includes('premium 2') || rCode.startsWith('p2')) {
+    return 'Premium 2';
+  }
+  if (apt.includes('standard') || cat.includes('standard') || rCode.startsWith('std')) {
+    return 'Standard';
+  }
+  return 'Standard';
+};
+
+export const getUnifiedRoomName = (category: string, roomNameOrNumber: string, bedSpaceName?: string): string => {
+  const catClean = normalizeCategory(category, category);
+  const roomDigit = extractRoomNumber(roomNameOrNumber);
+  const roomName = `Room ${roomDigit}`;
   
   const isPrivate = bedSpaceName && (
     bedSpaceName.toLowerCase().includes('single') || 
@@ -114,81 +143,67 @@ export const getUnifiedRoomName = (category: string, roomName: string, bedSpaceN
     bedSpaceName.toLowerCase() === 'n/a'
   );
   
-  const typeStr = isPrivate ? 'Private Room' : 'Shared Room';
-  
   if (isPrivate) {
-    return `${cat} – ${rNum} (${typeStr})`;
+    return `${catClean}, ${roomName} (Private)`;
   } else {
     const bed = bedSpaceName && bedSpaceName.trim() && 
                 bedSpaceName.toLowerCase() !== 'n/a' && 
                 bedSpaceName.toLowerCase() !== 'single'
-      ? bedSpaceName.trim() 
+      ? (bedSpaceName.trim().toLowerCase().startsWith('bed') ? bedSpaceName.trim() : `Bed ${bedSpaceName.trim()}`)
       : 'Bed A';
-    return `${cat} – ${rNum} (${typeStr}) – ${bed}`;
+    return `${catClean}, ${roomName}, Bed Space: ${bed}`;
   }
 };
 
 // Converts a database Room record into the standardized display format
-export const getDisplayFromRoom = (room: any): string => {
+export const getDisplayFromRoom = (room: any, bedSpaceLabel?: string): string => {
   if (!room) return '';
-  const apartment = room.apartment_name || ''; // e.g. "Premium 1"
-  const roomNum = room.room_number || ''; // e.g. "Room 1 A" or "101"
+  const category = normalizeCategory(room.apartment_name, room.category, room.room_number);
+  const roomDigit = extractRoomNumber(room.room_number || room.roomName || room.name);
+  const roomName = `Room ${roomDigit}`;
+  const isPrivate = room.type?.toLowerCase().includes('private') || (room.capacity || 1) === 1;
   
-  if (roomNum.includes('–')) {
-    return roomNum;
+  if (isPrivate || bedSpaceLabel?.toLowerCase() === 'single') {
+    return `${category}, ${roomName} (Private)`;
   }
   
-  let category = apartment;
-  if (category.startsWith('Apartment ')) {
-    category = category.replace('Apartment ', '').trim();
+  if (bedSpaceLabel) {
+    const bed = bedSpaceLabel.toLowerCase().startsWith('bed') ? bedSpaceLabel : `Bed ${bedSpaceLabel}`;
+    return `${category}, ${roomName}, Bed Space: ${bed}`;
   }
   
-  let roomName = 'Room 1';
-  let bedSpaceName = '';
-  
-  const numClean = roomNum.replace('Room', '').trim(); // e.g. "1 A" or "1"
-  if (numClean.includes('A') || numClean.includes('a')) {
-    const r = numClean.replace(/[Aa]/g, '').replace(/[-_ ]/g, '').trim();
-    roomName = `Room ${r}`;
-    bedSpaceName = 'Bed A';
-  } else if (numClean.includes('B') || numClean.includes('b')) {
-    const r = numClean.replace(/[Bb]/g, '').replace(/[-_ ]/g, '').trim();
-    roomName = `Room ${r}`;
-    bedSpaceName = 'Bed B';
-  } else {
-    roomName = `Room ${numClean || '1'}`;
-    bedSpaceName = 'Single';
-  }
-  
-  const isPrivate = room.type?.toLowerCase().includes('private');
-  return getUnifiedRoomName(category, roomName, isPrivate ? 'Single' : bedSpaceName);
+  return `${category}, ${roomName} (Shared)`;
 };
 
 // Help extract components if a stored room string needs to be formatted or parsed
 export const formatStoredRoomString = (storedStr: string): string => {
   if (!storedStr) return '';
   
-  // Already unified? e.g., contains '–'
-  if (storedStr.includes('–')) {
+  // If already formatted in standard style, return directly
+  if (storedStr.includes(', Room ') || storedStr.includes('–')) {
     return storedStr;
   }
   
-  // Format is likely: "Premium 1 - Room 1 (Bed A)" or similar
-  const parts = storedStr.split('-');
-  if (parts.length >= 2) {
-    const category = parts[0].trim();
-    const remaining = parts.slice(1).join('-').trim();
-    
-    // Parse room number & bed space, e.g. "Room 1 (Bed A)"
-    const match = remaining.match(/(Room\s+\d+|Room\d+)\s*\(([^)]+)\)/i);
-    if (match) {
-      const roomName = match[1].trim();
-      const bedSpaceName = match[2].trim();
-      return getUnifiedRoomName(category, roomName, bedSpaceName);
+  // Format is likely: "Premium 1 - Room 1 (Bed A)" or "P1-R1" or similar
+  if (storedStr.includes('-')) {
+    const parts = storedStr.split('-');
+    if (parts.length >= 2) {
+      const category = parts[0].trim();
+      const remaining = parts.slice(1).join('-').trim();
+      
+      const match = remaining.match(/(Room\s+\d+|Room\d+|R\d+)\s*\(([^)]+)\)/i);
+      if (match) {
+        const roomName = match[1].trim();
+        const bedSpaceName = match[2].trim();
+        return getUnifiedRoomName(category, roomName, bedSpaceName);
+      }
     }
   }
-  
-  return storedStr;
+
+  // If code like P1-R1, STD-R2
+  const rDigit = extractRoomNumber(storedStr);
+  const cat = normalizeCategory('', '', storedStr);
+  return `${cat}, Room ${rDigit}`;
 };
 
 export const findDatabaseRoomForSpace = (rooms: any[], space: { category: string; type: 'Shared' | 'Private'; roomName?: string; id?: string }) => {
@@ -256,26 +271,24 @@ export const getDynamicRoomSpaces = (rooms: any[] = [], bedSpaces: any[] = []): 
   const categoryOrder: Record<string, number> = { 'Premium 1': 1, 'Premium 2': 2, 'Standard': 3 };
   
   const sortedRooms = [...validRooms].sort((a, b) => {
-    const catA = a.apartment_name || a.category || 'Standard';
-    const catB = b.apartment_name || b.category || 'Standard';
+    const catA = normalizeCategory(a.apartment_name, a.category, a.room_number);
+    const catB = normalizeCategory(b.apartment_name, b.category, b.room_number);
     const ordA = categoryOrder[catA] || 99;
     const ordB = categoryOrder[catB] || 99;
     if (ordA !== ordB) return ordA - ordB;
+    const rNumA = parseInt(extractRoomNumber(a.room_number || String(a.id)), 10) || 0;
+    const rNumB = parseInt(extractRoomNumber(b.room_number || String(b.id)), 10) || 0;
+    if (rNumA !== rNumB) return rNumA - rNumB;
     return (a.id || 0) - (b.id || 0);
   });
 
   const generatedSpaces: RoomSpaceConfig[] = [];
 
   for (const room of sortedRooms) {
-    const catRaw = (room.apartment_name || room.category || 'Standard').trim();
-    const category: 'Standard' | 'Premium 1' | 'Premium 2' = 
-      catRaw.toLowerCase().includes('premium 2') || catRaw === 'Apartment 3' ? 'Premium 2' :
-      catRaw.toLowerCase().includes('premium 1') || catRaw === 'Apartment 1' ? 'Premium 1' : 'Standard';
-    
+    const category = normalizeCategory(room.apartment_name, room.category, room.room_number);
     const catPrefix = category === 'Premium 1' ? 'p1' : category === 'Premium 2' ? 'p2' : 'std';
     
-    const rNumMatch = (room.room_number || '').match(/(\d+)/);
-    const roomDigit = rNumMatch ? rNumMatch[1] : String(room.id);
+    const roomDigit = extractRoomNumber(room.room_number || String(room.id));
     const roomName = `Room ${roomDigit}`;
     
     const isPrivate = (room.type || '').toLowerCase().includes('private') || (room.capacity || 1) === 1;
@@ -520,7 +533,7 @@ export const getLiveStudentRoomDetails = (booking: any, roomsList: any[] = [], c
   }
 
   // 3. Category Detection
-  let category = 'Standard';
+  let category = normalizeCategory(rawRoomObj?.apartment_name, rawRoomObj?.category, rawRoomObj?.room_number);
   const fullText = [
     ...candidates,
     rawRoomObj?.apartment_name || '',
@@ -530,9 +543,9 @@ export const getLiveStudentRoomDetails = (booking: any, roomsList: any[] = [], c
 
   if (fullText.includes('premium 2') || fullText.includes('apartment 3') || fullText.includes('apt 3') || fullText.includes('p2_') || fullText.includes('p2-')) {
     category = 'Premium 2';
-  } else if (fullText.includes('premium 1') || fullText.includes('apartment 1') || fullText.includes('apt 1') || fullText.includes('p1_') || fullText.includes('p1-') || fullText.includes('premium')) {
+  } else if (fullText.includes('premium 1') || fullText.includes('apartment 1') || fullText.includes('apt 1') || fullText.includes('p1_') || fullText.includes('p1-')) {
     category = 'Premium 1';
-  } else {
+  } else if (fullText.includes('standard') || fullText.includes('apartment 2') || fullText.includes('std')) {
     category = 'Standard';
   }
 
@@ -543,8 +556,8 @@ export const getLiveStudentRoomDetails = (booking: any, roomsList: any[] = [], c
   for (const str of candidates) {
     if (!str) continue;
 
-    // Check for "Room X" or "P1-RX" or "STD-RX" pattern
-    const roomMatch = str.match(/(?:Room|R-?|R)(\d+)/i) || str.match(/(?:P1|P2|STD)-R(\d+)/i);
+    // Check for room number pattern
+    const roomMatch = str.match(/(?:Room|R)[-_ ]?(\d+)/i) || str.match(/(?:P1|P2|STD)-R(\d+)/i);
     if (roomMatch && !roomName) {
       roomName = `Room ${roomMatch[1] || roomMatch[2]}`;
     }
@@ -561,10 +574,8 @@ export const getLiveStudentRoomDetails = (booking: any, roomsList: any[] = [], c
 
   // Fallback to roomObj room_number if candidate didn't have room number
   if (!roomName && rawRoomObj?.room_number) {
-    const rMatch = String(rawRoomObj.room_number).match(/Room\s*(\d+)/i);
-    if (rMatch) {
-      roomName = `Room ${rMatch[1]}`;
-    }
+    const rDigit = extractRoomNumber(rawRoomObj.room_number);
+    roomName = `Room ${rDigit}`;
   }
 
   if (!roomName) {

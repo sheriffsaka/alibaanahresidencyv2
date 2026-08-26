@@ -90,7 +90,7 @@ const TenancyAgreementDocument: React.ForwardRefRenderFunction<HTMLDivElement, T
               {formData.category && formData.roomName && (
                 <p className="mt-2 text-xs">
                   <span className="font-bold text-gray-600">Assigned Unit Space:</span>{' '}
-                  <strong className="text-brand-800 text-sm">{formData.category} – {getUnifiedRoomName(formData.category, formData.roomName, formData.bedSpaceName)}</strong>
+                  <strong className="text-brand-800 text-sm">{getUnifiedRoomName(formData.category, formData.roomName, formData.bedSpaceName)}</strong>
                 </p>
               )}
             </div>
