@@ -240,6 +240,28 @@ export const DEFAULT_CATEGORY_MEDIA: CategoryMediaConfig = {
   }
 };
 
+export interface SupportPageContent {
+  title?: string;
+  subtitle?: string;
+  contactEmail?: string;
+  contactPhone?: string;
+  whatsappNumber?: string;
+  officeHours?: string;
+  locationAddress?: string;
+  faqDescription?: string;
+}
+
+export const DEFAULT_SUPPORT_CONTENT: SupportPageContent = {
+  title: 'Al-Ibaanah Student Support & Help Desk',
+  subtitle: 'We are here to assist with your student residency, inquiries, tenancy agreements, and stay in Cairo.',
+  contactEmail: 'al.ibaanah.housing4brothers@gmail.com',
+  contactPhone: '+20 1030072440',
+  whatsappNumber: '+20 1030072440',
+  officeHours: 'Sunday – Thursday: 9:00 AM – 6:00 PM (Cairo Time)',
+  locationAddress: 'Nasr City, Cairo, Egypt',
+  faqDescription: 'Have questions about reservations, security deposits, contracts, or amenities? Check our comprehensive knowledge base.'
+};
+
 export interface CmsContent {
   logoUrl: string;
   hero: {
@@ -282,6 +304,7 @@ export interface CmsContent {
   landlordDetails?: LandlordDetails;
   categoryMedia?: CategoryMediaConfig;
   accommodationAddresses?: AccommodationAddresses;
+  supportContent?: SupportPageContent;
 }
 
 export interface AppContextType {

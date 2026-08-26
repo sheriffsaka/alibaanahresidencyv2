@@ -6,12 +6,20 @@ import { IconCheckCircle, IconClose, IconInfo } from '../Icon';
 
 interface WaitlistViewProps {
   rooms?: Room[];
+  initialCategoryFilter?: string;
+  onClearCategoryFilter?: () => void;
 }
 
-export const WaitlistView: React.FC<WaitlistViewProps> = ({ rooms = [] }) => {
+export const WaitlistView: React.FC<WaitlistViewProps> = ({ 
+  rooms = [],
+  initialCategoryFilter = 'All',
+  onClearCategoryFilter
+}) => {
   const { waitlist, addToWaitlist, updateWaitlistStatus, students } = useApp();
   
   const [statusFilter, setStatusFilter] = useState<'All' | WaitlistStatus>('All');
+  const [categoryFilter, setCategoryFilter] = useState<string>(initialCategoryFilter || 'All');
+  const [sortBy, setSortBy] = useState<'date-desc' | 'date-asc' | 'name-asc' | 'name-desc' | 'category-asc' | 'category-desc'>('date-desc');
   const [searchQuery, setSearchQuery] = useState('');
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [notifyingEntry, setNotifyingEntry] = useState<WaitlistEntry | null>(null);
@@ -19,6 +27,13 @@ export const WaitlistView: React.FC<WaitlistViewProps> = ({ rooms = [] }) => {
   const [emailBody, setEmailBody] = useState('');
   const [isSendingEmail, setIsSendingEmail] = useState(false);
   const [emailSentSuccess, setEmailSentSuccess] = useState(false);
+
+  // Sync category filter if prop changes
+  React.useEffect(() => {
+    if (initialCategoryFilter) {
+      setCategoryFilter(initialCategoryFilter);
+    }
+  }, [initialCategoryFilter]);
 
   const [newEntry, setNewEntry] = useState({
     full_name: '',
@@ -50,20 +65,68 @@ export const WaitlistView: React.FC<WaitlistViewProps> = ({ rooms = [] }) => {
     };
   };
 
-  const filteredWaitlist = (waitlist || []).filter(item => {
-    if (statusFilter !== 'All' && item.status !== statusFilter) return false;
-    const info = getStudentInfo(item);
-    if (searchQuery.trim()) {
-      const q = searchQuery.toLowerCase();
-      return (
-        info.name.toLowerCase().includes(q) ||
-        info.email.toLowerCase().includes(q) ||
-        item.category.toLowerCase().includes(q) ||
-        (item.desired_term && item.desired_term.toLowerCase().includes(q))
-      );
-    }
-    return true;
-  });
+  const getCategoryRank = (cat?: string): number => {
+    const c = (cat || '').toLowerCase();
+    if (c.includes('premium 1')) return 1;
+    if (c.includes('premium 2')) return 2;
+    if (c.includes('standard')) return 3;
+    return 4;
+  };
+
+  const filteredAndSortedWaitlist = (waitlist || [])
+    .filter(item => {
+      if (statusFilter !== 'All' && item.status !== statusFilter) return false;
+      if (categoryFilter !== 'All') {
+        const itemCat = (item.category || '').toLowerCase();
+        const filterCat = categoryFilter.toLowerCase();
+        if (!itemCat.includes(filterCat) && !filterCat.includes(itemCat)) {
+          return false;
+        }
+      }
+      const info = getStudentInfo(item);
+      if (searchQuery.trim()) {
+        const q = searchQuery.toLowerCase();
+        return (
+          info.name.toLowerCase().includes(q) ||
+          info.email.toLowerCase().includes(q) ||
+          item.category.toLowerCase().includes(q) ||
+          (item.desired_term && item.desired_term.toLowerCase().includes(q))
+        );
+      }
+      return true;
+    })
+    .sort((a, b) => {
+      const infoA = getStudentInfo(a);
+      const infoB = getStudentInfo(b);
+
+      if (sortBy === 'name-asc') {
+        return infoA.name.localeCompare(infoB.name);
+      }
+      if (sortBy === 'name-desc') {
+        return infoB.name.localeCompare(infoA.name);
+      }
+      if (sortBy === 'date-asc') {
+        const timeA = a.created_at ? new Date(a.created_at).getTime() : 0;
+        const timeB = b.created_at ? new Date(b.created_at).getTime() : 0;
+        return timeA - timeB;
+      }
+      if (sortBy === 'date-desc') {
+        const timeA = a.created_at ? new Date(a.created_at).getTime() : 0;
+        const timeB = b.created_at ? new Date(b.created_at).getTime() : 0;
+        return timeB - timeA;
+      }
+      if (sortBy === 'category-asc') {
+        const rankA = getCategoryRank(a.category);
+        const rankB = getCategoryRank(b.category);
+        return rankA - rankB || infoA.name.localeCompare(infoB.name);
+      }
+      if (sortBy === 'category-desc') {
+        const rankA = getCategoryRank(a.category);
+        const rankB = getCategoryRank(b.category);
+        return rankB - rankA || infoA.name.localeCompare(infoB.name);
+      }
+      return 0;
+    });
 
   const handleAddWaitlist = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -187,15 +250,42 @@ export const WaitlistView: React.FC<WaitlistViewProps> = ({ rooms = [] }) => {
             </p>
           </div>
 
-          <div className="flex flex-wrap items-center gap-3 w-full md:w-auto">
+          <div className="flex flex-wrap items-center gap-2.5 w-full md:w-auto">
             <input
               type="text"
               placeholder="Search student or category..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="px-3 py-2 text-xs border rounded-xl dark:bg-gray-700 dark:border-gray-600 font-medium flex-1 md:w-56"
+              className="px-3 py-2 text-xs border rounded-xl dark:bg-gray-700 dark:border-gray-600 font-medium flex-1 md:w-48"
             />
 
+            {/* Room Category Filter */}
+            <select
+              value={categoryFilter}
+              onChange={(e) => setCategoryFilter(e.target.value)}
+              className="px-3 py-2 text-xs font-bold border rounded-xl bg-gray-50 dark:bg-gray-700 dark:border-gray-600"
+            >
+              <option value="All">All Categories</option>
+              <option value="Premium 1">Premium 1</option>
+              <option value="Premium 2">Premium 2</option>
+              <option value="Standard">Standard</option>
+            </select>
+
+            {/* Sorting Controls */}
+            <select
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value as any)}
+              className="px-3 py-2 text-xs font-bold border rounded-xl bg-gray-50 dark:bg-gray-700 dark:border-gray-600 text-brand-600 dark:text-brand-400"
+            >
+              <option value="date-desc">📅 Date Joined (Newest)</option>
+              <option value="date-asc">📅 Date Joined (Oldest)</option>
+              <option value="name-asc">👤 Name (A → Z)</option>
+              <option value="name-desc">👤 Name (Z → A)</option>
+              <option value="category-asc">🛏️ Category (P1 → P2 → Std)</option>
+              <option value="category-desc">🛏️ Category (Std → P2 → P1)</option>
+            </select>
+
+            {/* Status Filter */}
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value as any)}
@@ -217,14 +307,42 @@ export const WaitlistView: React.FC<WaitlistViewProps> = ({ rooms = [] }) => {
           </div>
         </div>
 
+        {/* Filter badge if filtered by specific category */}
+        {categoryFilter !== 'All' && (
+          <div className="bg-brand-50/70 dark:bg-brand-950/40 px-6 py-2 border-b border-brand-100 dark:border-brand-900/40 flex items-center justify-between text-xs">
+            <span className="text-brand-800 dark:text-brand-300 font-medium">
+              Filtered to category: <strong className="font-bold">{categoryFilter}</strong> ({filteredAndSortedWaitlist.length} student{filteredAndSortedWaitlist.length === 1 ? '' : 's'})
+            </span>
+            <button
+              onClick={() => {
+                setCategoryFilter('All');
+                if (onClearCategoryFilter) onClearCategoryFilter();
+              }}
+              className="text-xs font-bold text-brand-600 hover:text-brand-800 dark:text-brand-400 dark:hover:text-brand-200 underline"
+            >
+              Clear Category Filter
+            </button>
+          </div>
+        )}
+
         {/* Table / Empty State */}
-        {filteredWaitlist.length === 0 ? (
+        {filteredAndSortedWaitlist.length === 0 ? (
           <div className="text-center py-16 px-4 space-y-3">
             <span className="text-4xl block">📋</span>
             <h3 className="text-base font-bold text-gray-800 dark:text-gray-200">No Waitlist Entries Found</h3>
             <p className="text-xs text-gray-500 max-w-sm mx-auto">
-              Students who join the waitlist from the booking wizard or student dashboard will automatically populate here in real-time.
+              {categoryFilter !== 'All' 
+                ? `No students currently on the waitlist for ${categoryFilter}.`
+                : 'Students who join the waitlist from the booking wizard or student dashboard will automatically populate here in real-time.'}
             </p>
+            {categoryFilter !== 'All' && (
+              <button 
+                onClick={() => setCategoryFilter('All')}
+                className="mt-2 text-xs font-bold text-brand-600 hover:underline"
+              >
+                Show all categories
+              </button>
+            )}
           </div>
         ) : (
           <div className="overflow-x-auto">
@@ -240,7 +358,7 @@ export const WaitlistView: React.FC<WaitlistViewProps> = ({ rooms = [] }) => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
-                {filteredWaitlist.map((item) => {
+                {filteredAndSortedWaitlist.map((item) => {
                   const info = getStudentInfo(item);
                   return (
                     <tr key={item.id} className="hover:bg-gray-50 dark:hover:bg-gray-750 transition-colors">

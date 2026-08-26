@@ -1,6 +1,6 @@
 
 import React, { createContext, useState, ReactNode, useCallback, useEffect, useRef, useMemo } from 'react';
-import { AppContextType, Language, Page, User, Room, BedSpace, Booking, BookingStatus, CmsContent, Activity, AcademicTerm, BookingPackage, AccommodationType, DEFAULT_CATEGORY_MEDIA, CategoryMediaConfig, PublicOccupancy, AccommodationAddresses, DEFAULT_ACCOMMODATION_ADDRESSES, WaitlistEntry, WaitlistStatus, EmailLogEntry } from '../types';
+import { AppContextType, Language, Page, User, Room, BedSpace, Booking, BookingStatus, CmsContent, Activity, AcademicTerm, BookingPackage, AccommodationType, DEFAULT_CATEGORY_MEDIA, CategoryMediaConfig, PublicOccupancy, AccommodationAddresses, DEFAULT_ACCOMMODATION_ADDRESSES, DEFAULT_SUPPORT_CONTENT, WaitlistEntry, WaitlistStatus, EmailLogEntry } from '../types';
 import { supabase } from '../lib/supabaseClient';
 import { Session } from '@supabase/supabase-js';
 import { sendEmail, fetchRecentEmailLogs } from '../lib/email';
@@ -183,7 +183,8 @@ export const INITIAL_CMS: CmsContent = {
       { id: 1, title: 'مرحباً بكم في الإبانة', content: 'نحن سعداء بوجودكم هنا. يرجى إكمال التسجيل والدفع لتأمين غرفتك.', date: new Date().toISOString() }
     ]
   },
-  accommodationAddresses: DEFAULT_ACCOMMODATION_ADDRESSES
+  accommodationAddresses: DEFAULT_ACCOMMODATION_ADDRESSES,
+  supportContent: DEFAULT_SUPPORT_CONTENT
 };
 
 const MOCK_ACTIVITIES: Activity[] = [
@@ -658,7 +659,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                 categoryMedia: (dbCms.how_to_videos || dbCms.howToVideos)?.categoryMedia || DEFAULT_CATEGORY_MEDIA,
                 announcements: normalizeCmsData((dbCms.how_to_videos || dbCms.howToVideos)?.announcements || dbCms.announcements, INITIAL_CMS.announcements),
                 landlordDetails: (dbCms.how_to_videos || dbCms.howToVideos)?.landlordDetails || DEFAULT_LANDLORD_DETAILS,
-                accommodationAddresses: (dbCms.how_to_videos || dbCms.howToVideos)?.accommodationAddresses || dbCms.accommodationAddresses || DEFAULT_ACCOMMODATION_ADDRESSES
+                accommodationAddresses: (dbCms.how_to_videos || dbCms.howToVideos)?.accommodationAddresses || dbCms.accommodationAddresses || DEFAULT_ACCOMMODATION_ADDRESSES,
+                supportContent: (dbCms.how_to_videos || dbCms.howToVideos)?.supportContent || dbCms.supportContent || dbCms.support_content || DEFAULT_SUPPORT_CONTENT
               });
             }
         } catch (err) {

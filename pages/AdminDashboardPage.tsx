@@ -369,6 +369,30 @@ const AdminDashboardPage: React.FC = () => {
   // Transactions tab search & filter
   const [trxSearchQuery, setTrxSearchQuery] = useState('');
   const [trxStatusFilter, setTrxStatusFilter] = useState<'all' | 'pending_verification' | 'pending_payment' | 'confirmed' | 'cancelled'>('all');
+  
+  // Waitlist cross-navigation category filter
+  const [waitlistCategoryFilter, setWaitlistCategoryFilter] = useState<string>('All');
+
+  // Sorted inventory rooms (Premium 1, Premium 2, Standard, then room number)
+  const sortedInventoryRooms = useMemo(() => {
+    const getRank = (r: Room) => {
+      const cat = (r.apartment_name || r.category || '').toLowerCase();
+      if (cat.includes('premium 1')) return 1;
+      if (cat.includes('premium 2')) return 2;
+      if (cat.includes('standard')) return 3;
+      return 4;
+    };
+
+    return [...rooms].sort((a, b) => {
+      const rankA = getRank(a);
+      const rankB = getRank(b);
+      if (rankA !== rankB) return rankA - rankB;
+
+      const numA = a.room_number || '';
+      const numB = b.room_number || '';
+      return numA.localeCompare(numB, undefined, { numeric: true, sensitivity: 'base' });
+    });
+  }, [rooms]);
 
   const handleCmsFileUpload = async (e: ChangeEvent<HTMLInputElement>, field: 'logoUrl' | 'heroImageUrl') => {
     if (e.target.files && e.target.files[0]) {
@@ -1353,7 +1377,11 @@ const AdminDashboardPage: React.FC = () => {
 
           {/* 5. WAITLIST VIEW */}
           {activeSection === 'waitlist' && (
-            <WaitlistView rooms={rooms} />
+            <WaitlistView 
+              rooms={rooms} 
+              initialCategoryFilter={waitlistCategoryFilter}
+              onClearCategoryFilter={() => setWaitlistCategoryFilter('All')}
+            />
           )}
 
           {/* EMAIL DELIVERY LOGS & AUDIT */}
@@ -1391,7 +1419,7 @@ const AdminDashboardPage: React.FC = () => {
               <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b dark:border-gray-700 pb-4">
                 <div>
                   <h2 className="text-xl font-bold text-gray-900 dark:text-white">Rooms & Bed Spaces Database</h2>
-                  <p className="text-xs text-gray-500 mt-0.5">Manage building rooms, bed capacities, category pricing, and availability</p>
+                  <p className="text-xs text-gray-500 mt-0.5">Sorted by Category (Premium 1 → Premium 2 → Standard) and Room Number</p>
                 </div>
                 <button
                   onClick={() => handleOpenRoomModal(null)}
@@ -1402,57 +1430,78 @@ const AdminDashboardPage: React.FC = () => {
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {rooms.map(room => {
+                {sortedInventoryRooms.map(room => {
                   const roomBeds = (bedSpaces || []).filter(b => b.room_id === room.id);
                   const formattedRoomTitle = getDisplayFromRoom(room);
+                  const roomCatName = room.apartment_name || room.category || 'Standard';
+                  const canonicalCat = roomCatName.includes('Premium 1') 
+                    ? 'Premium 1' 
+                    : roomCatName.includes('Premium 2') 
+                    ? 'Premium 2' 
+                    : 'Standard';
 
                   return (
-                    <div key={room.id} className="border dark:border-gray-700 rounded-2xl p-5 space-y-4 bg-gray-50/50 dark:bg-gray-900/30 hover:border-brand-500 transition-colors">
-                      <div className="flex justify-between items-start">
-                        <div>
-                          <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded bg-brand-100 text-brand-700 dark:bg-brand-950/40 dark:text-brand-300">
-                            {room.apartment_name || room.category || 'Standard'}
+                    <div key={room.id} className="border dark:border-gray-700 rounded-2xl p-5 space-y-4 bg-gray-50/50 dark:bg-gray-900/30 hover:border-brand-500 transition-colors flex flex-col justify-between">
+                      <div className="space-y-4">
+                        <div className="flex justify-between items-start">
+                          <div>
+                            <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded bg-brand-100 text-brand-700 dark:bg-brand-950/40 dark:text-brand-300">
+                              {canonicalCat}
+                            </span>
+                            <h3 className="text-base font-bold text-gray-900 dark:text-white mt-1">{formattedRoomTitle}</h3>
+                          </div>
+                          <span className={`text-xs font-bold px-2 py-1 rounded-full ${room.is_available ? 'bg-emerald-100 text-emerald-800' : 'bg-red-100 text-red-800'}`}>
+                            {room.is_available ? 'Available' : 'Fully Booked'}
                           </span>
-                          <h3 className="text-base font-bold text-gray-900 dark:text-white mt-1">{formattedRoomTitle}</h3>
                         </div>
-                        <span className={`text-xs font-bold px-2 py-1 rounded-full ${room.is_available ? 'bg-emerald-100 text-emerald-800' : 'bg-red-100 text-red-800'}`}>
-                          {room.is_available ? 'Available' : 'Fully Booked'}
-                        </span>
-                      </div>
 
-                      <div className="grid grid-cols-2 gap-2 text-xs text-gray-600 dark:text-gray-300">
-                        <div><span className="font-bold text-gray-400">Unit Code:</span> <span className="font-mono text-[11px] font-semibold">{room.room_number}</span></div>
-                        <div><span className="font-bold text-gray-400">Type:</span> {room.type}</div>
-                        <div><span className="font-bold text-gray-400">Bed Capacity:</span> {room.capacity}</div>
-                        <div><span className="font-bold text-gray-400">Price/Mo:</span> ${room.price_per_month}</div>
-                        <div><span className="font-bold text-gray-400">Gender:</span> {room.gender_restriction}</div>
-                        <div className="col-span-2 pt-1 border-t border-gray-200/50 dark:border-gray-750">
-                          <span className="font-bold text-gray-400">Bed Spaces:</span>{' '}
-                          {roomBeds.length > 0 ? (
-                            <span className="font-semibold text-brand-600 dark:text-brand-400">
-                              {roomBeds.map(b => b.label).join(', ')}
-                            </span>
-                          ) : (
-                            <span className="text-gray-500 italic">
-                              {room.type?.toLowerCase().includes('private') ? 'Single' : `${room.capacity || 2} Beds`}
-                            </span>
-                          )}
+                        <div className="grid grid-cols-2 gap-2 text-xs text-gray-600 dark:text-gray-300">
+                          <div><span className="font-bold text-gray-400">Unit Code:</span> <span className="font-mono text-[11px] font-semibold">{room.room_number}</span></div>
+                          <div><span className="font-bold text-gray-400">Type:</span> {room.type}</div>
+                          <div><span className="font-bold text-gray-400">Bed Capacity:</span> {room.capacity}</div>
+                          <div><span className="font-bold text-gray-400">Price/Mo:</span> ${room.price_per_month}</div>
+                          <div><span className="font-bold text-gray-400">Gender:</span> {room.gender_restriction}</div>
+                          <div className="col-span-2 pt-1 border-t border-gray-200/50 dark:border-gray-750">
+                            <span className="font-bold text-gray-400">Bed Spaces:</span>{' '}
+                            {roomBeds.length > 0 ? (
+                              <span className="font-semibold text-brand-600 dark:text-brand-400">
+                                {roomBeds.map(b => b.label).join(', ')}
+                              </span>
+                            ) : (
+                              <span className="text-gray-500 italic">
+                                {room.type?.toLowerCase().includes('private') ? 'Single' : `${room.capacity || 2} Beds`}
+                              </span>
+                            )}
+                          </div>
                         </div>
                       </div>
 
-                      <div className="pt-3 border-t dark:border-gray-700 flex justify-end gap-2">
+                      <div className="pt-3 border-t dark:border-gray-700 flex items-center justify-between gap-2">
                         <button
-                          onClick={() => handleOpenRoomModal(room)}
-                          className="bg-brand-50 text-brand-600 hover:bg-brand-100 px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1"
+                          onClick={() => {
+                            setWaitlistCategoryFilter(canonicalCat);
+                            setActiveSection('waitlist');
+                          }}
+                          className="text-amber-700 dark:text-amber-300 hover:text-amber-800 dark:hover:text-amber-200 text-xs font-bold hover:underline flex items-center gap-1"
+                          title={`View waitlist for ${canonicalCat}`}
                         >
-                          <IconEdit className="w-3.5 h-3.5" /> Edit
+                          <span>⏳</span> View Waitlist
                         </button>
-                        <button
-                          onClick={() => handleDeleteRoom(room.id, room.room_number)}
-                          className="bg-red-50 text-red-600 hover:bg-red-100 px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1"
-                        >
-                          <IconTrash className="w-3.5 h-3.5" /> Delete
-                        </button>
+
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => handleOpenRoomModal(room)}
+                            className="bg-brand-50 text-brand-600 hover:bg-brand-100 dark:bg-brand-950/40 dark:text-brand-300 px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1"
+                          >
+                            <IconEdit className="w-3.5 h-3.5" /> Edit
+                          </button>
+                          <button
+                            onClick={() => handleDeleteRoom(room.id, room.room_number)}
+                            className="bg-red-50 text-red-600 hover:bg-red-100 dark:bg-red-950/40 dark:text-red-300 px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1"
+                          >
+                            <IconTrash className="w-3.5 h-3.5" /> Delete
+                          </button>
+                        </div>
                       </div>
                     </div>
                   );

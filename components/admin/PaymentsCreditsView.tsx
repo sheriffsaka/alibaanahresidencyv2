@@ -8,7 +8,7 @@ interface CreditRecord {
   deposit_amount: number;
   credit_balance: number;
   originating_booking_id: number;
-  term_held: string;
+  booking_reference: string;
   status: 'Active Credit' | 'Applied to Renewal' | 'Forfeited';
   last_updated: string;
   notes: string;
@@ -22,10 +22,10 @@ const INITIAL_CREDITS: CreditRecord[] = [
     deposit_amount: 100,
     credit_balance: 100,
     originating_booking_id: 101,
-    term_held: 'Spring Term 2026',
+    booking_reference: 'BK-101',
     status: 'Active Credit',
     last_updated: new Date().toISOString(),
-    notes: 'Security deposit held as credit toward Autumn 2026 session renewal.'
+    notes: 'Security deposit held as credit toward session renewal.'
   },
   {
     id: 'CR-902',
@@ -34,7 +34,7 @@ const INITIAL_CREDITS: CreditRecord[] = [
     deposit_amount: 100,
     credit_balance: 100,
     originating_booking_id: 104,
-    term_held: 'Spring Term 2026',
+    booking_reference: 'BK-104',
     status: 'Active Credit',
     last_updated: new Date().toISOString(),
     notes: 'Non-refundable deposit held on account.'
@@ -55,7 +55,6 @@ export const PaymentsCreditsView: React.FC<PaymentsCreditsViewProps> = ({
   const [activeSubTab, setActiveSubTab] = useState<'credits' | 'rollover' | 'policy' | 'audit'>('credits');
   const [credits, setCredits] = useState<CreditRecord[]>(INITIAL_CREDITS);
   const [selectedCreditForRollover, setSelectedCreditForRollover] = useState<CreditRecord | null>(null);
-  const [targetTerm, setTargetTerm] = useState('Autumn Term 2026');
   const [rolloverNotes, setRolloverNotes] = useState('');
   const [isSuccessNotification, setIsSuccessNotification] = useState<string | null>(null);
 
@@ -76,7 +75,7 @@ export const PaymentsCreditsView: React.FC<PaymentsCreditsViewProps> = ({
           ? {
               ...c,
               status: 'Applied to Renewal',
-              notes: `${c.notes} | Rolled over to ${targetTerm} by ${adminUser?.full_name || 'Admin'}. ${rolloverNotes}`,
+              notes: `${c.notes} | Rolled over to renewal invoice by ${adminUser?.full_name || 'Admin'}. ${rolloverNotes}`.trim(),
               last_updated: new Date().toISOString()
             }
           : c
@@ -87,12 +86,12 @@ export const PaymentsCreditsView: React.FC<PaymentsCreditsViewProps> = ({
       onAddActivity({
         user_id: adminUser.id,
         type: 'payment',
-        description: `Rolled over $${selectedCreditForRollover.credit_balance} deposit credit for ${selectedCreditForRollover.student_name} to ${targetTerm}.`,
+        description: `Rolled over $${selectedCreditForRollover.credit_balance} deposit credit for ${selectedCreditForRollover.student_name} to tenancy renewal.`,
         timestamp: new Date().toISOString()
       });
     }
 
-    setIsSuccessNotification(`Successfully rolled over $${selectedCreditForRollover.credit_balance} credit for ${selectedCreditForRollover.student_name} to ${targetTerm}.`);
+    setIsSuccessNotification(`Successfully rolled over $${selectedCreditForRollover.credit_balance} credit for ${selectedCreditForRollover.student_name} to tenancy renewal.`);
     setSelectedCreditForRollover(null);
     setRolloverNotes('');
   };
@@ -196,7 +195,7 @@ export const PaymentsCreditsView: React.FC<PaymentsCreditsViewProps> = ({
                   <th className="px-6 py-3.5 text-left text-xs font-bold text-gray-500 uppercase">Credit ID</th>
                   <th className="px-6 py-3.5 text-left text-xs font-bold text-gray-500 uppercase">Student</th>
                   <th className="px-6 py-3.5 text-left text-xs font-bold text-gray-500 uppercase">Deposit Amount</th>
-                  <th className="px-6 py-3.5 text-left text-xs font-bold text-gray-500 uppercase">Term Originated</th>
+                  <th className="px-6 py-3.5 text-left text-xs font-bold text-gray-500 uppercase">Originating Booking</th>
                   <th className="px-6 py-3.5 text-left text-xs font-bold text-gray-500 uppercase">Status</th>
                   <th className="px-6 py-3.5 text-left text-xs font-bold text-gray-500 uppercase">Actions</th>
                 </tr>
@@ -216,8 +215,8 @@ export const PaymentsCreditsView: React.FC<PaymentsCreditsViewProps> = ({
                         ${c.credit_balance} USD
                       </span>
                     </td>
-                    <td className="px-6 py-4 text-xs text-gray-600 dark:text-gray-300">
-                      {c.term_held}
+                    <td className="px-6 py-4 text-xs text-gray-600 dark:text-gray-300 font-mono">
+                      {c.booking_reference || `BK-${c.originating_booking_id}`}
                     </td>
                     <td className="px-6 py-4">
                       <span
@@ -274,26 +273,13 @@ export const PaymentsCreditsView: React.FC<PaymentsCreditsViewProps> = ({
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Target Academic Term</label>
-                <select
-                  value={targetTerm}
-                  onChange={(e) => setTargetTerm(e.target.value)}
-                  className="w-full text-xs p-2.5 border rounded-xl dark:bg-gray-700 dark:border-gray-600 font-medium"
-                >
-                  <option value="Autumn Term 2026">Autumn Term 2026</option>
-                  <option value="Spring Term 2027">Spring Term 2027</option>
-                  <option value="Summer Intensive 2027">Summer Intensive 2027</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Administrative Notes</label>
+                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Administrative & Rollover Notes</label>
                 <textarea
                   value={rolloverNotes}
                   onChange={(e) => setRolloverNotes(e.target.value)}
                   rows={3}
                   className="w-full text-xs p-2.5 border rounded-xl dark:bg-gray-700 dark:border-gray-600"
-                  placeholder="Record justification, room transfer request, or renewal confirmation number..."
+                  placeholder="Record justification, renewal invoice reference, or room transfer confirmation details..."
                 />
               </div>
 

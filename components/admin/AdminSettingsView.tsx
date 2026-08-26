@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useApp } from '../../hooks/useApp';
-import { DEFAULT_ACCOMMODATION_ADDRESSES } from '../../types';
+import { DEFAULT_ACCOMMODATION_ADDRESSES, DEFAULT_SUPPORT_CONTENT } from '../../types';
 
 export const AdminSettingsView: React.FC = () => {
   const { cmsContent, updateCmsContent } = useApp();
@@ -20,6 +20,14 @@ export const AdminSettingsView: React.FC = () => {
     premium1Address: cmsContent?.accommodationAddresses?.['Premium 1'] || DEFAULT_ACCOMMODATION_ADDRESSES['Premium 1'],
     premium2Address: cmsContent?.accommodationAddresses?.['Premium 2'] || DEFAULT_ACCOMMODATION_ADDRESSES['Premium 2'],
     standardAddress: cmsContent?.accommodationAddresses?.['Standard'] || DEFAULT_ACCOMMODATION_ADDRESSES['Standard'],
+    supportTitle: cmsContent?.supportContent?.title || DEFAULT_SUPPORT_CONTENT.title || 'Al-Ibaanah Student Support & Help Desk',
+    supportSubtitle: cmsContent?.supportContent?.subtitle || DEFAULT_SUPPORT_CONTENT.subtitle || 'We are here to assist with your student residency, inquiries, tenancy agreements, and stay in Cairo.',
+    supportEmail: cmsContent?.supportContent?.contactEmail || DEFAULT_SUPPORT_CONTENT.contactEmail || 'al.ibaanah.housing4brothers@gmail.com',
+    supportPhone: cmsContent?.supportContent?.contactPhone || DEFAULT_SUPPORT_CONTENT.contactPhone || '+20 1030072440',
+    supportWhatsapp: cmsContent?.supportContent?.whatsappNumber || DEFAULT_SUPPORT_CONTENT.whatsappNumber || '+20 1030072440',
+    supportOfficeHours: cmsContent?.supportContent?.officeHours || DEFAULT_SUPPORT_CONTENT.officeHours || 'Sunday – Thursday: 9:00 AM – 6:00 PM (Cairo Time)',
+    supportLocation: cmsContent?.supportContent?.locationAddress || DEFAULT_SUPPORT_CONTENT.locationAddress || 'Nasr City, Cairo, Egypt',
+    supportFaqDesc: cmsContent?.supportContent?.faqDescription || DEFAULT_SUPPORT_CONTENT.faqDescription || 'Have questions about reservations, security deposits, contracts, or amenities? Check our comprehensive knowledge base.',
   });
 
   const handleSave = (e: React.FormEvent) => {
@@ -39,6 +47,16 @@ export const AdminSettingsView: React.FC = () => {
           'Premium 1': settingsForm.premium1Address,
           'Premium 2': settingsForm.premium2Address,
           'Standard': settingsForm.standardAddress,
+        },
+        supportContent: {
+          title: settingsForm.supportTitle,
+          subtitle: settingsForm.supportSubtitle,
+          contactEmail: settingsForm.supportEmail,
+          contactPhone: settingsForm.supportPhone,
+          whatsappNumber: settingsForm.supportWhatsapp,
+          officeHours: settingsForm.supportOfficeHours,
+          locationAddress: settingsForm.supportLocation,
+          faqDescription: settingsForm.supportFaqDesc,
         }
       });
     }
@@ -207,6 +225,106 @@ export const AdminSettingsView: React.FC = () => {
                   value={settingsForm.standardAddress}
                   onChange={(e) => setSettingsForm(prev => ({ ...prev, standardAddress: e.target.value }))}
                   className="w-full text-xs p-2.5 border rounded-xl dark:bg-gray-700 dark:border-gray-600 font-medium"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Manage Support Page Content */}
+          <div className="space-y-4 pt-4 border-t border-gray-100 dark:border-gray-700">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-sm font-bold text-brand-600 uppercase tracking-wider">🛠️ Manage Support Page Content</h3>
+                <p className="text-xs text-gray-500 mt-0.5">Customize support desk contact information, office hours, location address, and help messaging shown to students.</p>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="md:col-span-2">
+                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Support Page Title</label>
+                <input
+                  type="text"
+                  value={settingsForm.supportTitle}
+                  onChange={(e) => setSettingsForm(prev => ({ ...prev, supportTitle: e.target.value }))}
+                  className="w-full text-xs p-2.5 border rounded-xl dark:bg-gray-700 dark:border-gray-600 font-bold"
+                  placeholder="e.g. Al-Ibaanah Student Support & Help Desk"
+                />
+              </div>
+
+              <div className="md:col-span-2">
+                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Support Page Subtitle</label>
+                <textarea
+                  value={settingsForm.supportSubtitle}
+                  onChange={(e) => setSettingsForm(prev => ({ ...prev, supportSubtitle: e.target.value }))}
+                  rows={2}
+                  className="w-full text-xs p-2.5 border rounded-xl dark:bg-gray-700 dark:border-gray-600 font-medium"
+                  placeholder="e.g. We are here to assist with your student residency, inquiries, tenancy agreements, and stay in Cairo."
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Primary Support Email</label>
+                <input
+                  type="email"
+                  value={settingsForm.supportEmail}
+                  onChange={(e) => setSettingsForm(prev => ({ ...prev, supportEmail: e.target.value }))}
+                  className="w-full text-xs p-2.5 border rounded-xl dark:bg-gray-700 dark:border-gray-600 font-mono"
+                  placeholder="support@alibaanah.com"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Support Phone Number</label>
+                <input
+                  type="text"
+                  value={settingsForm.supportPhone}
+                  onChange={(e) => setSettingsForm(prev => ({ ...prev, supportPhone: e.target.value }))}
+                  className="w-full text-xs p-2.5 border rounded-xl dark:bg-gray-700 dark:border-gray-600 font-mono"
+                  placeholder="+20 1030072440"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Official WhatsApp Support Line</label>
+                <input
+                  type="text"
+                  value={settingsForm.supportWhatsapp}
+                  onChange={(e) => setSettingsForm(prev => ({ ...prev, supportWhatsapp: e.target.value }))}
+                  className="w-full text-xs p-2.5 border rounded-xl dark:bg-gray-700 dark:border-gray-600 font-mono"
+                  placeholder="+20 1030072440"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Residency Help Desk Location</label>
+                <input
+                  type="text"
+                  value={settingsForm.supportLocation}
+                  onChange={(e) => setSettingsForm(prev => ({ ...prev, supportLocation: e.target.value }))}
+                  className="w-full text-xs p-2.5 border rounded-xl dark:bg-gray-700 dark:border-gray-600 font-medium"
+                  placeholder="Nasr City, Cairo, Egypt"
+                />
+              </div>
+
+              <div className="md:col-span-2">
+                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Office / Working Hours</label>
+                <input
+                  type="text"
+                  value={settingsForm.supportOfficeHours}
+                  onChange={(e) => setSettingsForm(prev => ({ ...prev, supportOfficeHours: e.target.value }))}
+                  className="w-full text-xs p-2.5 border rounded-xl dark:bg-gray-700 dark:border-gray-600 font-medium"
+                  placeholder="Sunday – Thursday: 9:00 AM – 6:00 PM (Cairo Time)"
+                />
+              </div>
+
+              <div className="md:col-span-2">
+                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">FAQ Section Card Description</label>
+                <textarea
+                  value={settingsForm.supportFaqDesc}
+                  onChange={(e) => setSettingsForm(prev => ({ ...prev, supportFaqDesc: e.target.value }))}
+                  rows={2}
+                  className="w-full text-xs p-2.5 border rounded-xl dark:bg-gray-700 dark:border-gray-600 font-medium"
+                  placeholder="Have questions about reservations, security deposits, contracts, or amenities? Check our comprehensive knowledge base."
                 />
               </div>
             </div>
