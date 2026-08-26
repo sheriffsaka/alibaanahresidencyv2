@@ -13,10 +13,10 @@ interface RoomCardProps {
 
 const RoomCard: React.FC<RoomCardProps> = ({ room, isOccupied: propIsOccupied }) => {
   const t = useTranslation();
-  const { setPage, bookings, rooms } = useApp();
+  const { setPage, bookings, rooms, bedSpaces } = useApp();
 
   const { occupiedSlots, capacity, slotsLeft, isOccupied } = useMemo(() => {
-    const parsedSpaces = getParsedRoomSpaces(rooms, bookings);
+    const parsedSpaces = getParsedRoomSpaces(rooms, bookings, bedSpaces);
     // Find matching spaces for this room's category and type
     const roomCat = (room.apartment_name || room.category || '').toLowerCase().replace(/\s+/g, '');
     const isPrivate = (room.type || '').toLowerCase().includes('private');
@@ -38,7 +38,7 @@ const RoomCard: React.FC<RoomCardProps> = ({ room, isOccupied: propIsOccupied })
       slotsLeft: remaining,
       isOccupied: full
     };
-  }, [rooms, bookings, room, propIsOccupied]);
+  }, [rooms, bookings, bedSpaces, room, propIsOccupied]);
 
   return (
     <div className={`bg-white dark:bg-gray-800 rounded-2xl shadow-xl overflow-hidden transition-all duration-500 ${isOccupied ? 'filter grayscale cursor-not-allowed' : 'transform hover:-translate-y-2 hover:shadow-2xl'}`}>

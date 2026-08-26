@@ -514,7 +514,13 @@ const AdminDashboardPage: React.FC = () => {
       b => b.status !== BookingStatus.CANCELLED && b.status !== BookingStatus.COMPLETED
     );
 
-    const totalCapacity = 14; // Fixed 14 physical bed spaces across 3 apartments (P1: 4, P2: 4, Std: 6)
+    // Live physical bed spaces count dynamically derived from bed_spaces table (or room capacity sum)
+    const dynamicSpaces = getParsedRoomSpaces(rooms, safeBookings, bedSpaces);
+    const totalCapacity = (bedSpaces && bedSpaces.length > 0)
+      ? bedSpaces.length
+      : (rooms && rooms.length > 0)
+        ? rooms.reduce((sum, r) => sum + (Number(r.capacity) || 1), 0)
+        : dynamicSpaces.length || 15;
     
     // Occupancy metrics source strictly from Confirmed/Occupied bookings
     const confirmedCount = confirmedOrOccupiedBookings.length;
@@ -556,7 +562,7 @@ const AdminDashboardPage: React.FC = () => {
       totalRooms: totalCapacity,
       availableRooms: availableBedSpaces
     };
-  }, [bookings, rooms]);
+  }, [bookings, rooms, bedSpaces]);
 
   const filteredTransactions = useMemo(() => {
     return bookings.filter(b => {
@@ -581,8 +587,8 @@ const AdminDashboardPage: React.FC = () => {
   }, [bookings, trxStatusFilter, trxSearchQuery, rooms]);
 
   const parsedRoomSpaces = useMemo(() => {
-    return getParsedRoomSpaces(rooms, bookings);
-  }, [rooms, bookings]);
+    return getParsedRoomSpaces(rooms, bookings, bedSpaces);
+  }, [rooms, bookings, bedSpaces]);
 
   const filteredRoomSpaces = useMemo(() => {
     return parsedRoomSpaces.filter(space => {
@@ -1357,7 +1363,7 @@ const AdminDashboardPage: React.FC = () => {
 
           {/* 6. MAINTENANCE TICKETS VIEW */}
           {activeSection === 'maintenance' && (
-            <MaintenanceView rooms={rooms} />
+            <MaintenanceView rooms={rooms} bedSpaces={bedSpaces} />
           )}
 
           {/* 7. PAYMENTS & CREDITS LEDGER VIEW */}

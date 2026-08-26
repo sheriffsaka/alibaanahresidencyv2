@@ -11,7 +11,8 @@ import {
   getUnifiedRoomName, 
   getAccommodationAddress, 
   getDisplayFromRoom,
-  findDatabaseRoomForSpace
+  findDatabaseRoomForSpace,
+  getDynamicRoomSpaces
 } from '../lib/roomNaming';
 import { sendEmail, getApprovalEmailTemplate } from '../lib/email';
 import AgreementModal from './AgreementModal';
@@ -29,7 +30,11 @@ export const EditBookingModal: React.FC<EditBookingModalProps> = ({
   onClose,
   onBookingUpdated
 }) => {
-  const { user, rooms, updateBooking, deleteBooking, addActivity, accommodationAddresses } = useApp();
+  const { user, rooms, bedSpaces, updateBooking, deleteBooking, addActivity, accommodationAddresses } = useApp();
+
+  const dynamicSpaces = useMemo(() => {
+    return getDynamicRoomSpaces(rooms, bedSpaces);
+  }, [rooms, bedSpaces]);
 
   const [activeTab, setActiveTab] = useState<'overview' | 'edit' | 'documents'>('overview');
   const [isProcessing, setIsProcessing] = useState(false);
@@ -67,13 +72,13 @@ export const EditBookingModal: React.FC<EditBookingModalProps> = ({
       
       const currentCat = (details.category === 'Premium 2' ? 'Premium 2' : details.category === 'Premium 1' ? 'Premium 1' : 'Standard');
       
-      const matchingSpace = ALL_ROOM_SPACES.find(s => {
+      const matchingSpace = dynamicSpaces.find(s => {
         const matchCat = s.category === currentCat;
         const matchRoom = s.roomName.toLowerCase().replace(/\s+/g, '') === details.roomName.toLowerCase().replace(/\s+/g, '');
         if (s.type === 'Private') return matchCat && matchRoom;
         const matchBed = s.bedSpaceName.toLowerCase().replace(/\s+/g, '') === details.bedSpaceName.toLowerCase().replace(/\s+/g, '');
         return matchCat && matchRoom && matchBed;
-      }) || ALL_ROOM_SPACES.find(s => s.category === currentCat) || ALL_ROOM_SPACES[0];
+      }) || dynamicSpaces.find(s => s.category === currentCat) || dynamicSpaces[0] || ALL_ROOM_SPACES[0];
 
       setEditFormData({
         full_name: booking.full_name || '',
@@ -95,13 +100,13 @@ export const EditBookingModal: React.FC<EditBookingModalProps> = ({
       });
       setActiveTab('overview');
     }
-  }, [booking, rooms]);
+  }, [booking, rooms, dynamicSpaces]);
 
   if (!isOpen || !booking || !liveDetails) return null;
 
   // Handle Space selection change in Edit mode
   const handleSpaceChange = (spaceId: string) => {
-    const space = ALL_ROOM_SPACES.find(s => s.id === spaceId);
+    const space = dynamicSpaces.find(s => s.id === spaceId) || ALL_ROOM_SPACES.find(s => s.id === spaceId);
     if (space) {
       setEditFormData(prev => ({
         ...prev,
@@ -122,7 +127,7 @@ export const EditBookingModal: React.FC<EditBookingModalProps> = ({
 
     if (!targetBedSpaceId) {
       // Find matching space from liveDetails or edit form
-      const matchingSpace = ALL_ROOM_SPACES.find(s => s.id === editFormData.selectedSpaceId) || ALL_ROOM_SPACES[0];
+      const matchingSpace = dynamicSpaces.find(s => s.id === editFormData.selectedSpaceId) || dynamicSpaces[0] || ALL_ROOM_SPACES[0];
       const proposedBedSpaceId = BED_SPACE_TO_ID_MAP[matchingSpace.id];
       const dbRoom = findDatabaseRoomForSpace(rooms, {
         category: matchingSpace.category,
@@ -613,7 +618,7 @@ export const EditBookingModal: React.FC<EditBookingModalProps> = ({
                       onChange={(e) => handleSpaceChange(e.target.value)}
                       className="w-full px-3.5 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 font-bold focus:ring-2 focus:ring-brand-500"
                     >
-                      {ALL_ROOM_SPACES.map(space => (
+                      {dynamicSpaces.map(space => (
                         <option key={space.id} value={space.id}>
                           {space.displayName} ({space.category} • {getAccommodationAddress(space.category, accommodationAddresses)})
                         </option>

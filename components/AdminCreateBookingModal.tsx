@@ -26,7 +26,7 @@ export const calculateExpiryDate = (arrivalDateStr: string, months: number): str
 };
 
 export const AdminCreateBookingModal: React.FC<AdminCreateBookingModalProps> = ({ isOpen, onClose, onSuccess }) => {
-  const { students, rooms, bookings, addBooking } = useApp();
+  const { students, rooms, bedSpaces, bookings, addBooking } = useApp();
 
   const [selectedStudentId, setSelectedStudentId] = useState<string>('new');
   
@@ -79,8 +79,8 @@ export const AdminCreateBookingModal: React.FC<AdminCreateBookingModalProps> = (
 
   // Compute available bed spaces for selected category based on current Supabase bookings
   const parsedSpaces = useMemo(() => {
-    return getParsedRoomSpaces(rooms, bookings);
-  }, [rooms, bookings]);
+    return getParsedRoomSpaces(rooms, bookings, bedSpaces);
+  }, [rooms, bookings, bedSpaces]);
 
   const categoryBedSpaces = parsedSpaces.filter(space => space.category === selectedCategory);
 
@@ -123,7 +123,7 @@ export const AdminCreateBookingModal: React.FC<AdminCreateBookingModalProps> = (
       return;
     }
 
-    const selectedSpaceObj = ALL_ROOM_SPACES.find(s => s.id === selectedBedSpaceId);
+    const selectedSpaceObj = parsedSpaces.find(s => s.id === selectedBedSpaceId) || ALL_ROOM_SPACES.find(s => s.id === selectedBedSpaceId);
     if (!selectedSpaceObj) {
       setErrorMessage('Invalid room selection.');
       return;

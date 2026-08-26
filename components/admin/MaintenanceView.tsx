@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Room } from '../../types';
-import { ALL_ROOM_SPACES, getAccommodationAddress } from '../../lib/roomNaming';
+import { getDynamicRoomSpaces, getAccommodationAddress } from '../../lib/roomNaming';
 
 interface MaintenanceTicket {
   id: number;
@@ -47,15 +47,20 @@ const INITIAL_TICKETS: MaintenanceTicket[] = [
 
 interface MaintenanceViewProps {
   rooms: Room[];
+  bedSpaces?: any[];
 }
 
-export const MaintenanceView: React.FC<MaintenanceViewProps> = ({ rooms = [] }) => {
+export const MaintenanceView: React.FC<MaintenanceViewProps> = ({ rooms = [], bedSpaces = [] }) => {
+  const dynamicSpaces = useMemo(() => {
+    return getDynamicRoomSpaces(rooms, bedSpaces);
+  }, [rooms, bedSpaces]);
+
   const [tickets, setTickets] = useState<MaintenanceTicket[]>(INITIAL_TICKETS);
   const [statusFilter, setStatusFilter] = useState<'All' | 'Open' | 'In Progress' | 'Resolved'>('All');
   const [searchQuery, setSearchQuery] = useState('');
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [newTicket, setNewTicket] = useState({
-    room_number: rooms[0]?.room_number || '101',
+    room_number: dynamicSpaces[0]?.displayName || rooms[0]?.room_number || 'Standard, Room 1, Bed Space: Bed A',
     category: 'Air Conditioning' as MaintenanceTicket['category'],
     title: '',
     description: '',
@@ -301,9 +306,9 @@ export const MaintenanceView: React.FC<MaintenanceViewProps> = ({ rooms = [] }) 
                     onChange={(e) => setNewTicket(prev => ({ ...prev, room_number: e.target.value }))}
                     className="w-full text-xs p-2.5 border rounded-xl dark:bg-gray-700 dark:border-gray-600 font-medium"
                   >
-                    {ALL_ROOM_SPACES.map(space => (
-                      <option key={space.id} value={`${space.category} – ${space.roomName} (${space.bedSpaceName})`}>
-                        {space.category} – {space.roomName} ({space.bedSpaceName})
+                    {dynamicSpaces.map(space => (
+                      <option key={space.id} value={space.displayName}>
+                        {space.displayName}
                       </option>
                     ))}
                   </select>
