@@ -171,7 +171,9 @@ const Header: React.FC = () => {
                   >
                     <IconBell className="w-5 h-5" />
                     {pendingActionsCount > 0 && (
-                      <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full ring-2 ring-white dark:ring-gray-800 animate-pulse"></span>
+                      <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] px-1 bg-red-500 text-white text-[10px] font-black rounded-full flex items-center justify-center ring-2 ring-white dark:ring-gray-800 shadow-xs animate-pulse">
+                        {pendingActionsCount > 9 ? '9+' : pendingActionsCount}
+                      </span>
                     )}
                   </button>
                 </>
@@ -320,7 +322,14 @@ const Header: React.FC = () => {
                     <button onClick={() => navigate('my-bookings')} className="block w-full text-left px-3 py-2 rounded-lg text-sm font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700">My Bookings</button>
                     <button onClick={() => navigate('documents')} className="block w-full text-left px-3 py-2 rounded-lg text-sm font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700">Documents</button>
                     <button onClick={() => navigate('messages')} className="block w-full text-left px-3 py-2 rounded-lg text-sm font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700">Messages</button>
-                    <button onClick={() => navigate('notifications')} className="block w-full text-left px-3 py-2 rounded-lg text-sm font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700">Notifications</button>
+                    <button onClick={() => navigate('notifications')} className="flex items-center justify-between w-full px-3 py-2 rounded-lg text-sm font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700">
+                      <span>Notifications</span>
+                      {pendingActionsCount > 0 && (
+                        <span className="px-2 py-0.5 text-xs font-bold bg-red-500 text-white rounded-full">
+                          {pendingActionsCount}
+                        </span>
+                      )}
+                    </button>
                     <button onClick={() => navigate('profile')} className="block w-full text-left px-3 py-2 rounded-lg text-sm font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700">My Profile</button>
                     <button onClick={() => navigate('billing')} className="block w-full text-left px-3 py-2 rounded-lg text-sm font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700">Payment & Billing</button>
                   </>

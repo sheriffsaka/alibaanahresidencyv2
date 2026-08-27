@@ -377,6 +377,14 @@ const AdminDashboardPage: React.FC = () => {
   // Transactions tab search & filter
   const [trxSearchQuery, setTrxSearchQuery] = useState('');
   const [trxStatusFilter, setTrxStatusFilter] = useState<'all' | 'pending_verification' | 'pending_payment' | 'confirmed' | 'cancelled'>('all');
+
+  // Computed unread notices count for Admin Bell
+  const unreadAdminNotificationCount = useMemo(() => {
+    const pendingVerifs = (bookings || []).filter(b => b.status === BookingStatus.PENDING_VERIFICATION).length;
+    const waitingWaitlist = (waitlist || []).filter(w => w.status === 'Waiting').length;
+    const pendingContracts = (bookings || []).filter(b => b.status === BookingStatus.PENDING_CONTRACT).length;
+    return pendingVerifs + waitingWaitlist + pendingContracts;
+  }, [bookings, waitlist]);
   
   // Waitlist cross-navigation category filter
   const [waitlistCategoryFilter, setWaitlistCategoryFilter] = useState<string>('All');
@@ -694,6 +702,28 @@ const AdminDashboardPage: React.FC = () => {
     }
   };
 
+  const handleReject = async (id: number) => {
+    const booking = bookings.find(b => b.id === id);
+    const reason = prompt(
+      `Please enter a rejection reason for transaction BK${id} (optional):`, 
+      "Payment verification could not be completed."
+    );
+    if (reason === null) return; // cancelled prompt
+
+    const result = await updateBookingStatus(id, BookingStatus.CANCELLED);
+    if (result.success) {
+      addActivity({
+        user_id: user?.id || 'admin',
+        type: 'system',
+        description: `Staff rejected transaction BK${id}${booking ? ` for ${booking.full_name}` : ''}. Reason: ${reason}. Bed space released to vacant.`,
+        timestamp: new Date().toISOString()
+      });
+      alert(`Transaction BK${id} has been rejected and marked as Cancelled. Bed space has been released.`);
+    } else {
+      alert(`Failed to reject transaction: ${result.error}`);
+    }
+  };
+
   const handleSaveRoom = async (roomData: Room) => {
     let result;
     if (roomData.id && rooms.some(r => r.id === roomData.id)) {
@@ -943,12 +973,16 @@ const AdminDashboardPage: React.FC = () => {
               id="admin-notification-bell"
               onClick={() => setIsActivityDrawerOpen(true)}
               className="relative p-2 rounded-xl text-gray-500 hover:text-brand-600 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
-              title="Open Activity & Notifications Log"
+              title="Open Operations & Notifications Drawer"
             >
               <span className="text-xl">🔔</span>
-              {(activities?.length || 0) > 0 && (
+              {unreadAdminNotificationCount > 0 ? (
+                <span className="absolute -top-1 -right-1 min-w-[19px] h-[19px] px-1 bg-amber-500 text-white text-[10px] font-black rounded-full flex items-center justify-center ring-2 ring-white dark:ring-gray-900 shadow-xs animate-pulse">
+                  {unreadAdminNotificationCount > 99 ? '99+' : unreadAdminNotificationCount}
+                </span>
+              ) : (activities?.length || 0) > 0 ? (
                 <span className="absolute top-1 right-1 w-2.5 h-2.5 bg-emerald-500 rounded-full ring-2 ring-white dark:ring-gray-900" />
-              )}
+              ) : null}
             </button>
 
             {/* User Avatar */}
@@ -1146,19 +1180,49 @@ const AdminDashboardPage: React.FC = () => {
                               </td>
                               <td className="px-6 py-4">
                                 <div className="flex items-center gap-2">
-                                  <button
-                                    onClick={() => setSelectedBooking(trx)}
-                                    className="bg-brand-600 hover:bg-brand-700 text-white text-xs font-bold px-3 py-1.5 rounded-lg shadow-sm flex items-center gap-1.5"
-                                  >
-                                    <IconEdit className="w-3.5 h-3.5" /> Edit Booking
-                                  </button>
-                                  {trx.status === BookingStatus.PENDING_VERIFICATION && (
-                                    <button
-                                      onClick={() => handleApprove(trx.id)}
-                                      className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold px-3 py-1.5 rounded-lg shadow-sm"
-                                    >
-                                      Approve
-                                    </button>
+                                  {trx.status === BookingStatus.CONFIRMED || trx.status === BookingStatus.OCCUPIED ? (
+                                    <>
+                                      <span className="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-bold bg-green-50 text-green-700 dark:bg-green-900/30 dark:text-green-300 border border-green-200 dark:border-green-800">
+                                        ✓ Approved
+                                      </span>
+                                      <button
+                                        onClick={() => handleReject(trx.id)}
+                                        className="bg-red-50 hover:bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-300 hover:text-red-700 text-xs font-bold px-2.5 py-1 rounded-lg transition-colors border border-red-200 dark:border-red-800 shadow-2xs"
+                                        title="Reject / Cancel Transaction"
+                                      >
+                                        Reject
+                                      </button>
+                                    </>
+                                  ) : trx.status === BookingStatus.CANCELLED ? (
+                                    <>
+                                      <span className="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-bold bg-red-50 text-red-700 dark:bg-red-900/30 dark:text-red-300 border border-red-200 dark:border-red-800">
+                                        ✕ Rejected
+                                      </span>
+                                      <button
+                                        onClick={() => handleApprove(trx.id)}
+                                        className="bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-300 hover:text-emerald-700 text-xs font-bold px-2.5 py-1 rounded-lg transition-colors border border-emerald-200 dark:border-emerald-800 shadow-2xs"
+                                        title="Approve / Reinstate Transaction"
+                                      >
+                                        Approve
+                                      </button>
+                                    </>
+                                  ) : (
+                                    <>
+                                      <button
+                                        onClick={() => handleApprove(trx.id)}
+                                        className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold px-3 py-1.5 rounded-lg shadow-xs transition-colors flex items-center gap-1"
+                                        title="Approve transaction and verify payment"
+                                      >
+                                        ✓ Approve
+                                      </button>
+                                      <button
+                                        onClick={() => handleReject(trx.id)}
+                                        className="bg-red-600 hover:bg-red-700 text-white text-xs font-bold px-3 py-1.5 rounded-lg shadow-xs transition-colors flex items-center gap-1"
+                                        title="Reject transaction and cancel booking"
+                                      >
+                                        ✕ Reject
+                                      </button>
+                                    </>
                                   )}
                                 </div>
                               </td>
@@ -1851,6 +1915,9 @@ const AdminDashboardPage: React.FC = () => {
         isOpen={isActivityDrawerOpen}
         onClose={() => setIsActivityDrawerOpen(false)}
         activities={activities || []}
+        bookings={bookings || []}
+        waitlist={waitlist || []}
+        onNavigateSection={(section) => setActiveSection(section)}
       />
 
       {/* MODALS */}
