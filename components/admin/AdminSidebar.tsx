@@ -24,6 +24,7 @@ interface AdminSidebarProps {
   onSelectSection: (section: AdminNavSection) => void;
   pendingVerificationsCount?: number;
   totalStudentsCount?: number;
+  pendingWaitlistCount?: number;
   isMobileOpen?: boolean;
   onCloseMobile?: () => void;
 }
@@ -44,6 +45,7 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
   onSelectSection,
   pendingVerificationsCount = 0,
   totalStudentsCount = 0,
+  pendingWaitlistCount = 0,
   isMobileOpen = false,
   onCloseMobile
 }) => {
@@ -68,7 +70,13 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
           badgeColor: 'bg-brand-100 text-brand-700 dark:bg-brand-900/40 dark:text-brand-300'
         },
         { id: 'rooms_inventory', label: 'Rooms & Inventory', icon: '🚪' },
-        { id: 'waitlist', label: 'Waitlist', icon: '⏳' }
+        { 
+          id: 'waitlist', 
+          label: 'Waitlist', 
+          icon: '⏳',
+          badge: pendingWaitlistCount > 0 ? pendingWaitlistCount : undefined,
+          badgeColor: 'bg-amber-500 text-white'
+        }
       ]
     },
     {

@@ -316,10 +316,16 @@ interface SummaryCardProps {
     icon: string;
     trend?: string;
     colorClass: string;
+    onClick?: () => void;
+    actionLabel?: string;
 }
 
-const SummaryCard: React.FC<SummaryCardProps> = ({ label, value, icon, trend, colorClass }) => (
-    <div className="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 flex items-center gap-4 hover:shadow-xl transition-shadow">
+const SummaryCard: React.FC<SummaryCardProps> = ({ label, value, icon, trend, colorClass, onClick, actionLabel }) => (
+    <div 
+      onClick={onClick}
+      className={`bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 flex items-center justify-between gap-4 hover:shadow-xl transition-all ${onClick ? 'cursor-pointer hover:border-brand-300 dark:hover:border-brand-600' : ''}`}
+    >
+      <div className="flex items-center gap-4">
         <div className={`p-3 rounded-xl ${colorClass}`}>
             <span className="text-2xl">{icon}</span>
         </div>
@@ -327,14 +333,16 @@ const SummaryCard: React.FC<SummaryCardProps> = ({ label, value, icon, trend, co
             <p className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">{label}</p>
             <h3 className="text-2xl font-black text-gray-900 dark:text-white mt-1">{value}</h3>
             {trend && <p className="text-[10px] font-bold text-green-600 mt-1">↑ {trend}</p>}
+            {actionLabel && <p className="text-[11px] font-bold text-brand-600 dark:text-brand-400 mt-0.5">{actionLabel} →</p>}
         </div>
+      </div>
     </div>
 );
 
 
 const AdminDashboardPage: React.FC = () => {
   const t = useTranslation();
-  const { user, bookings, updateBookingStatus, deleteBooking, cmsContent, updateCmsContent, rooms, bedSpaces, addRoom, updateRoom, deleteRoom, activities, addActivity, language, setPage, users, addUser, updateUser, deleteUser, students } = useApp();
+  const { user, bookings, updateBookingStatus, deleteBooking, cmsContent, updateCmsContent, rooms, bedSpaces, addRoom, updateRoom, deleteRoom, activities, addActivity, language, setPage, users, addUser, updateUser, deleteUser, students, waitlist, refreshWaitlist } = useApp();
   const [activeSection, setActiveSection] = useState<AdminNavSection>('dashboard');
   const [isActivityDrawerOpen, setIsActivityDrawerOpen] = useState(false);
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
@@ -372,6 +380,14 @@ const AdminDashboardPage: React.FC = () => {
   
   // Waitlist cross-navigation category filter
   const [waitlistCategoryFilter, setWaitlistCategoryFilter] = useState<string>('All');
+
+  const waitingWaitlistCount = useMemo(() => {
+    return (waitlist || []).filter(w => w.status === 'Waiting').length;
+  }, [waitlist]);
+
+  const totalActiveWaitlist = useMemo(() => {
+    return (waitlist || []).filter(w => w.status === 'Waiting' || w.status === 'Offered').length;
+  }, [waitlist]);
 
   // Sorted inventory rooms (Premium 1, Premium 2, Standard, then room number)
   const sortedInventoryRooms = useMemo(() => {
@@ -886,6 +902,7 @@ const AdminDashboardPage: React.FC = () => {
         onSelectSection={(sec) => setActiveSection(sec)}
         pendingVerificationsCount={analytics.pendingVerifications.length}
         totalStudentsCount={uniqueStudentRecords.length}
+        pendingWaitlistCount={waitingWaitlistCount}
         isMobileOpen={isMobileSidebarOpen}
         onCloseMobile={() => setIsMobileSidebarOpen(false)}
       />
@@ -952,7 +969,35 @@ const AdminDashboardPage: React.FC = () => {
           {/* 1. OVERVIEW: Dashboard Analytics */}
           {activeSection === 'dashboard' && (
             <>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              {/* Active Waitlist Priority Attention Banner */}
+              {waitingWaitlistCount > 0 && (
+                <div className="bg-gradient-to-r from-amber-500/10 via-amber-500/5 to-transparent border border-amber-300 dark:border-amber-700/60 rounded-2xl p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-sm animate-fade-in">
+                  <div className="flex items-center gap-3.5">
+                    <div className="w-11 h-11 rounded-xl bg-amber-500 text-white flex items-center justify-center text-xl shrink-0 shadow-sm">
+                      ⏳
+                    </div>
+                    <div>
+                      <h4 className="text-sm font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                        {waitingWaitlistCount} Student Applicant{waitingWaitlistCount === 1 ? '' : 's'} Waiting in Waitlist Queue
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-black uppercase bg-amber-500 text-white animate-pulse">
+                          Pending Placement
+                        </span>
+                      </h4>
+                      <p className="text-xs text-gray-600 dark:text-gray-300 mt-0.5">
+                        Students have joined the residency waitlist for currently unavailable room spaces and are awaiting accommodation offers.
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => setActiveSection('waitlist')}
+                    className="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs rounded-xl shadow-sm transition-all whitespace-nowrap self-start sm:self-center"
+                  >
+                    View & Attend to Waitlist →
+                  </button>
+                </div>
+              )}
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
                   <SummaryCard 
                     label="Total Revenue" 
                     value={`$${analytics.totalRevenue.toLocaleString()}`} 
@@ -976,8 +1021,18 @@ const AdminDashboardPage: React.FC = () => {
                   <SummaryCard 
                     label="Pending Verif." 
                     value={analytics.pendingVerifications.length} 
-                    icon="⏳" 
+                    icon="📋" 
                     colorClass="bg-accent-100 dark:bg-accent-900/30 text-accent-600"
+                    onClick={() => setActiveSection('transactions')}
+                    actionLabel={analytics.pendingVerifications.length > 0 ? "Review transactions" : undefined}
+                  />
+                  <SummaryCard 
+                    label="Waitlist Queue" 
+                    value={waitingWaitlistCount} 
+                    icon="⏳" 
+                    colorClass="bg-amber-100 dark:bg-amber-900/30 text-amber-600"
+                    onClick={() => setActiveSection('waitlist')}
+                    actionLabel={waitingWaitlistCount > 0 ? "Attend to queue" : "View waitlist"}
                   />
               </div>
 
@@ -1484,16 +1539,30 @@ const AdminDashboardPage: React.FC = () => {
                       </div>
 
                       <div className="pt-3 border-t dark:border-gray-700 flex items-center justify-between gap-2">
-                        <button
-                          onClick={() => {
-                            setWaitlistCategoryFilter(canonicalCat);
-                            setActiveSection('waitlist');
-                          }}
-                          className="text-amber-700 dark:text-amber-300 hover:text-amber-800 dark:hover:text-amber-200 text-xs font-bold hover:underline flex items-center gap-1"
-                          title={`View waitlist for ${canonicalCat}`}
-                        >
-                          <span>⏳</span> View Waitlist
-                        </button>
+                        {(() => {
+                          const roomCategoryWaiting = (waitlist || []).filter(w => 
+                            w.status === 'Waiting' && 
+                            (w.category?.toLowerCase() === canonicalCat.toLowerCase() || (w.room_id && w.room_id === room.id))
+                          ).length;
+
+                          return (
+                            <button
+                              onClick={() => {
+                                setWaitlistCategoryFilter(canonicalCat);
+                                setActiveSection('waitlist');
+                              }}
+                              className="text-amber-700 dark:text-amber-300 hover:text-amber-800 dark:hover:text-amber-200 text-xs font-bold hover:underline flex items-center gap-1.5"
+                              title={`View waitlist for ${canonicalCat}`}
+                            >
+                              <span>⏳</span> Waitlist
+                              {roomCategoryWaiting > 0 && (
+                                <span className="px-1.5 py-0.5 rounded-full text-[10px] bg-amber-500 text-white font-black">
+                                  {roomCategoryWaiting}
+                                </span>
+                              )}
+                            </button>
+                          );
+                        })()}
 
                         <div className="flex gap-2">
                           <button

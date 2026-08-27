@@ -15,7 +15,7 @@ export const WaitlistView: React.FC<WaitlistViewProps> = ({
   initialCategoryFilter = 'All',
   onClearCategoryFilter
 }) => {
-  const { waitlist, addToWaitlist, updateWaitlistStatus, students } = useApp();
+  const { waitlist, addToWaitlist, updateWaitlistStatus, refreshWaitlist, students } = useApp();
   
   const [statusFilter, setStatusFilter] = useState<'All' | WaitlistStatus>('All');
   const [categoryFilter, setCategoryFilter] = useState<string>(initialCategoryFilter || 'All');
@@ -27,6 +27,18 @@ export const WaitlistView: React.FC<WaitlistViewProps> = ({
   const [emailBody, setEmailBody] = useState('');
   const [isSendingEmail, setIsSendingEmail] = useState(false);
   const [emailSentSuccess, setEmailSentSuccess] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    try {
+      if (refreshWaitlist) {
+        await refreshWaitlist();
+      }
+    } finally {
+      setTimeout(() => setIsRefreshing(false), 400);
+    }
+  };
 
   // Sync category filter if prop changes
   React.useEffect(() => {
@@ -293,6 +305,16 @@ export const WaitlistView: React.FC<WaitlistViewProps> = ({
               <option value="Fulfilled">Fulfilled</option>
               <option value="Cancelled">Cancelled</option>
             </select>
+
+            <button
+              onClick={handleRefresh}
+              disabled={isRefreshing}
+              className="px-3 py-2 text-xs font-bold border rounded-xl bg-gray-50 hover:bg-gray-100 dark:bg-gray-700 dark:hover:bg-gray-600 dark:border-gray-600 text-gray-700 dark:text-gray-200 flex items-center gap-1.5 transition-colors"
+              title="Refresh waitlist queue"
+            >
+              <span className={`inline-block ${isRefreshing ? 'animate-spin' : ''}`}>🔄</span>
+              <span>{isRefreshing ? 'Syncing...' : 'Refresh'}</span>
+            </button>
 
             <button
               onClick={() => setIsAddModalOpen(true)}

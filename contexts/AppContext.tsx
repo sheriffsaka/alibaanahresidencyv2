@@ -510,20 +510,28 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         }, async (payload) => {
             console.log('Real-time waitlist update:', payload);
             if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
-                const { data, error } = await supabase
-                    .from('waitlist')
-                    .select('*, profiles:student_id(full_name, phone_number, nationality)')
-                    .eq('id', payload.new.id)
-                    .maybeSingle();
-                
-                if (data && !error) {
-                    setWaitlist(prev => {
-                        const exists = prev.some(w => w.id === data.id);
-                        if (exists) {
-                            return prev.map(w => w.id === data.id ? data : w);
-                        }
-                        return [data, ...prev];
-                    });
+                try {
+                    const { data, error } = await supabase
+                        .from('waitlist')
+                        .select('*, profiles:student_id(full_name, phone_number, nationality)')
+                        .eq('id', payload.new.id)
+                        .maybeSingle();
+                    
+                    const itemToUse = ((!error && data) ? data : payload.new) as WaitlistEntry;
+                    if (itemToUse && itemToUse.id) {
+                        setWaitlist(prev => {
+                            const exists = prev.some(w => w.id === itemToUse.id);
+                            if (exists) {
+                                return prev.map(w => w.id === itemToUse.id ? itemToUse : w);
+                            }
+                            return [itemToUse, ...prev];
+                        });
+                    }
+                } catch (e) {
+                    if (payload.new && (payload.new as any).id) {
+                        const fallbackItem = payload.new as WaitlistEntry;
+                        setWaitlist(prev => [fallbackItem, ...prev.filter(w => w.id !== fallbackItem.id)]);
+                    }
                 }
             } else if (payload.eventType === 'DELETE') {
                 setWaitlist(prev => prev.filter(w => w.id !== payload.old.id));
@@ -568,7 +576,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const fetchPublicData = useCallback(async () => {
         try {
             console.log("Fetching public data...");
-            const [roomsRes, bedSpacesRes, bookingsRes, termsRes, packagesRes, cmsRes, activitiesRes, publicOccupancyRes] = await Promise.all([
+            const [roomsRes, bedSpacesRes, bookingsRes, termsRes, packagesRes, cmsRes, activitiesRes, publicOccupancyRes, waitlistRes] = await Promise.all([
                 safeFetch(supabase.from('rooms').select('*')),
                 safeFetch(supabase.from('bed_spaces').select('*').order('id', { ascending: true })),
                 safeFetch(supabase.from('bookings').select('*, rooms(room_number, type, apartment_name, category), profiles:student_id(full_name)').order('booked_at', { ascending: false })),
@@ -576,8 +584,13 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                 safeFetch(supabase.from('booking_packages').select('*').eq('is_active', true)),
                 safeFetch(supabase.from('cms_content').select('*').limit(1).maybeSingle()),
                 safeFetch(supabase.from('admin_audit_log').select('*').order('created_at', { ascending: false }).limit(20)),
-                safeFetch(supabase.rpc('get_public_occupancy'))
+                safeFetch(supabase.rpc('get_public_occupancy')),
+                safeFetch(supabase.from('waitlist').select('*, profiles:student_id(full_name, phone_number, nationality)').order('created_at', { ascending: false }))
             ]);
+            
+            if (waitlistRes && !waitlistRes.error && waitlistRes.data) {
+                setWaitlist(waitlistRes.data);
+            }
             
             if (roomsRes && !roomsRes.error && roomsRes.data && roomsRes.data.length > 0) {
                 setRooms(roomsRes.data);
@@ -1491,9 +1504,9 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     try {
       const newEntryPayload: any = {
         student_id: entry.student_id || user?.id || null,
-        full_name: entry.full_name || null,
-        email: entry.email || null,
-        phone_number: entry.phone_number || null,
+        full_name: entry.full_name || user?.full_name || null,
+        email: entry.email || user?.email || null,
+        phone_number: entry.phone_number || user?.phone_number || null,
         category: entry.category,
         accommodation_type: entry.accommodation_type,
         room_id: entry.room_id || null,
@@ -1513,27 +1526,81 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
           .select('*, profiles:student_id(full_name, phone_number, nationality)')
           .maybeSingle();
 
-        if (error) throw error;
-        insertedData = data;
+        if (error) {
+          console.warn("Notice: select with profile join failed, attempting plain insert:", error.message);
+          const { error: plainErr } = await supabase
+            .from('waitlist')
+            .insert([newEntryPayload]);
+          if (plainErr) throw plainErr;
+        } else {
+          insertedData = data;
+        }
       } else {
         // Unauthenticated guest applicant
-        const { data, error } = await supabase
+        const { error } = await supabase
           .from('waitlist')
           .insert([newEntryPayload]);
 
         if (error) throw error;
       }
 
+      // Log system audit activity so bell and notifications log it
+      try {
+        const applicantName = newEntryPayload.full_name || user?.full_name || 'Applicant';
+        addActivity({
+          user_id: user?.id || 'guest',
+          type: 'system',
+          description: `Waitlist application: ${applicantName} registered for ${newEntryPayload.category} (${newEntryPayload.accommodation_type})`,
+          timestamp: new Date().toISOString()
+        });
+      } catch (actErr) {
+        console.warn("Notice logging waitlist activity:", actErr);
+      }
+
       if (insertedData) {
         setWaitlist(prev => [insertedData, ...prev.filter(w => w.id !== insertedData.id)]);
         return { success: true, data: insertedData };
       }
-      return { success: true };
+
+      // Optimistic local update
+      const optimisticEntry: WaitlistEntry = {
+        id: Date.now(),
+        student_id: newEntryPayload.student_id,
+        full_name: newEntryPayload.full_name,
+        email: newEntryPayload.email,
+        phone_number: newEntryPayload.phone_number,
+        category: newEntryPayload.category,
+        accommodation_type: newEntryPayload.accommodation_type,
+        room_id: newEntryPayload.room_id,
+        bed_space_id: newEntryPayload.bed_space_id,
+        duration_months: newEntryPayload.duration_months,
+        status: newEntryPayload.status,
+        notes: newEntryPayload.notes,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      };
+      setWaitlist(prev => [optimisticEntry, ...prev]);
+      return { success: true, data: optimisticEntry };
     } catch (err: any) {
       console.error("Error adding to waitlist:", err.message);
       return { success: false, error: err.message || "Failed to join waitlist. Please try again." };
     }
   };
+
+  const refreshWaitlist = useCallback(async () => {
+    try {
+      const { data, error } = await supabase
+        .from('waitlist')
+        .select('*, profiles:student_id(full_name, phone_number, nationality)')
+        .order('created_at', { ascending: false });
+
+      if (!error && data) {
+        setWaitlist(data);
+      }
+    } catch (err) {
+      console.warn("Notice refreshing waitlist:", err);
+    }
+  }, []);
 
   const updateWaitlistStatus = async (id: number, status: WaitlistStatus) => {
     try {
@@ -1642,6 +1709,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     addToWaitlist,
     updateWaitlistStatus,
     updateWaitlistEntry,
+    refreshWaitlist,
     emailLogs,
     refreshEmailLogs,
     retryEmailLog,

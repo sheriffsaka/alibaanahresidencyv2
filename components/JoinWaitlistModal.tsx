@@ -72,11 +72,15 @@ export const JoinWaitlistModal: React.FC<JoinWaitlistModalProps> = ({
 
     setIsSubmitting(true);
     try {
+      const studentName = user?.full_name || fullName.trim();
+      const studentEmail = user?.email || email.trim().toLowerCase();
+      const studentPhone = user?.phone_number || phoneNumber.trim();
+
       const payload: Omit<WaitlistEntry, 'id' | 'created_at' | 'status'> = {
         student_id: user ? user.id : null,
-        full_name: user ? null : fullName.trim(),
-        email: user ? null : email.trim().toLowerCase(),
-        phone_number: user ? null : phoneNumber.trim(),
+        full_name: studentName || null,
+        email: studentEmail || null,
+        phone_number: studentPhone || null,
         category,
         accommodation_type: accommodationType,
         room_id: initialRoomId || null,

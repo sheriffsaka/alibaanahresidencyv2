@@ -361,6 +361,7 @@ export interface AppContextType {
   addToWaitlist: (entry: Omit<WaitlistEntry, 'id' | 'created_at' | 'status'> & { status?: WaitlistStatus }) => Promise<{ success: boolean; error?: string; data?: WaitlistEntry }>;
   updateWaitlistStatus: (id: number, status: WaitlistStatus) => Promise<{ success: boolean; error?: string }>;
   updateWaitlistEntry: (id: number, updates: Partial<WaitlistEntry>) => Promise<{ success: boolean; error?: string }>;
+  refreshWaitlist: () => Promise<void>;
   emailLogs: EmailLogEntry[];
   refreshEmailLogs: () => Promise<void>;
   retryEmailLog: (logId: number) => Promise<{ success: boolean; error?: string }>;
