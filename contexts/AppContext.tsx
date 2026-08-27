@@ -364,7 +364,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         try {
             let waitlistQuery = supabase
                 .from('waitlist')
-                .select('*, profiles:student_id(full_name, email, phone_number, nationality)')
+                .select('*, profiles:student_id(full_name, phone_number, nationality)')
                 .order('created_at', { ascending: false });
 
             if (profile.role === 'student') {
@@ -372,11 +372,13 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             }
 
             const { data: waitlistData, error: waitlistError } = await waitlistQuery;
-            if (!waitlistError && waitlistData) {
+            if (waitlistError) {
+                console.error("Error fetching waitlist:", waitlistError.message);
+            } else if (waitlistData) {
                 setWaitlist(waitlistData);
             }
-        } catch (wlErr) {
-            console.warn("Notice fetching waitlist:", wlErr);
+        } catch (wlErr: any) {
+            console.error("Error fetching waitlist:", wlErr.message);
         }
 
         // Fetch email delivery logs if staff or proprietor
@@ -510,7 +512,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
                 const { data, error } = await supabase
                     .from('waitlist')
-                    .select('*, profiles:student_id(full_name, email, phone_number, nationality)')
+                    .select('*, profiles:student_id(full_name, phone_number, nationality)')
                     .eq('id', payload.new.id)
                     .maybeSingle();
                 
@@ -1056,15 +1058,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         return { success: true, data: insertedRoom };
     } catch (err: any) {
         console.error("Error adding room to Supabase:", err);
-        // Fallback for demo state
-        const fallbackLocalRoom = { 
-          ...newRoom, 
-          id: Date.now(), 
-          created_at: new Date().toISOString(),
-          property_id: 'local_fallback_id'
-        };
-        setRooms(prev => [...prev, fallbackLocalRoom]);
-        return { success: true };
+        return { success: false, error: err.message || "Failed to create room in database." };
     }
   };
 
@@ -1173,9 +1167,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         return { success: true };
     } catch (err: any) {
         console.error("Error updating room in Supabase:", err);
-        // Fallback for demo state
-        setRooms(prev => prev.map(r => r.id === updatedRoom.id ? { ...r, ...updatedRoom } : r));
-        return { success: true };
+        return { success: false, error: err.message || "Failed to update room in database." };
     }
   };
 
@@ -1375,7 +1367,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
           .eq('id', studentId);
 
         if (profileError) {
-          console.warn("Supabase profiles update notice:", profileError.message);
+          console.error("Supabase profiles update error:", profileError.message);
+          throw profileError;
         }
       }
 
@@ -1404,13 +1397,19 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             .or(`student_id.eq.${studentId},user_id.eq.${studentId}`);
           
           if (bookingUpdateErr) {
-            console.warn("Supabase bookings update notice:", bookingUpdateErr.message);
+            console.error("Supabase bookings update error:", bookingUpdateErr.message);
+            throw bookingUpdateErr;
           }
         } else if (profileUpdates.email) {
-          await supabase
+          const { error: emailBookingErr } = await supabase
             .from('bookings')
             .update(dbBookingUpdates)
             .eq('email', profileUpdates.email);
+
+          if (emailBookingErr) {
+            console.error("Supabase bookings email update error:", emailBookingErr.message);
+            throw emailBookingErr;
+          }
         }
       }
 
@@ -1499,43 +1498,40 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         accommodation_type: entry.accommodation_type,
         room_id: entry.room_id || null,
         bed_space_id: entry.bed_space_id || null,
-        desired_term: entry.desired_term || null,
         duration_months: entry.duration_months || 6,
         status: entry.status || 'Waiting',
         notes: entry.notes || null,
       };
 
-      const { data, error } = await supabase
-        .from('waitlist')
-        .insert([newEntryPayload])
-        .select('*, profiles:student_id(full_name, email, phone_number, nationality)')
-        .single();
+      let insertedData: any = null;
 
-      if (error) {
-        console.warn("Supabase waitlist insert notice (fallback to local state):", error.message);
-        const fallbackEntry: WaitlistEntry = {
-          id: Date.now(),
-          ...newEntryPayload,
-          created_at: new Date().toISOString(),
-          profiles: user ? {
-            full_name: user.full_name,
-            email: user.email,
-            phone_number: user.phone_number,
-            nationality: user.nationality
-          } : undefined
-        };
-        setWaitlist(prev => [fallbackEntry, ...prev]);
-        return { success: true, data: fallbackEntry };
+      if (user) {
+        // Authenticated student or admin/staff
+        const { data, error } = await supabase
+          .from('waitlist')
+          .insert([newEntryPayload])
+          .select('*, profiles:student_id(full_name, phone_number, nationality)')
+          .maybeSingle();
+
+        if (error) throw error;
+        insertedData = data;
+      } else {
+        // Unauthenticated guest applicant
+        const { data, error } = await supabase
+          .from('waitlist')
+          .insert([newEntryPayload]);
+
+        if (error) throw error;
       }
 
-      if (data) {
-        setWaitlist(prev => [data, ...prev.filter(w => w.id !== data.id)]);
-        return { success: true, data };
+      if (insertedData) {
+        setWaitlist(prev => [insertedData, ...prev.filter(w => w.id !== insertedData.id)]);
+        return { success: true, data: insertedData };
       }
       return { success: true };
     } catch (err: any) {
       console.error("Error adding to waitlist:", err.message);
-      return { success: false, error: err.message };
+      return { success: false, error: err.message || "Failed to join waitlist. Please try again." };
     }
   };
 
@@ -1546,14 +1542,12 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         .update({ status, updated_at: new Date().toISOString() })
         .eq('id', id);
 
-      if (error) {
-        console.warn("Supabase waitlist status update error:", error.message);
-      }
+      if (error) throw error;
       setWaitlist(prev => prev.map(w => w.id === id ? { ...w, status, updated_at: new Date().toISOString() } : w));
       return { success: true };
     } catch (err: any) {
       console.error("Error updating waitlist status:", err.message);
-      return { success: false, error: err.message };
+      return { success: false, error: err.message || "Failed to update waitlist status." };
     }
   };
 
@@ -1565,14 +1559,12 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         .update({ ...dbUpdates, updated_at: new Date().toISOString() })
         .eq('id', id);
 
-      if (error) {
-        console.warn("Supabase waitlist update error:", error.message);
-      }
+      if (error) throw error;
       setWaitlist(prev => prev.map(w => w.id === id ? { ...w, ...updates, updated_at: new Date().toISOString() } : w));
       return { success: true };
     } catch (err: any) {
       console.error("Error updating waitlist entry:", err.message);
-      return { success: false, error: err.message };
+      return { success: false, error: err.message || "Failed to update waitlist entry." };
     }
   };
 

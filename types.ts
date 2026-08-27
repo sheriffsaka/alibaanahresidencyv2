@@ -140,7 +140,6 @@ export interface WaitlistEntry {
   accommodation_type: 'Shared' | 'Private';
   room_id?: number | null;
   bed_space_id?: number | null;
-  desired_term?: string | null;
   duration_months?: number | null;
   status: WaitlistStatus;
   notes?: string | null;
@@ -149,7 +148,6 @@ export interface WaitlistEntry {
   // Joined profile data if student_id is present
   profiles?: {
     full_name?: string;
-    email?: string;
     phone_number?: string;
     nationality?: string;
   };

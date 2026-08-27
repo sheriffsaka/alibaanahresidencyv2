@@ -28,7 +28,6 @@ export const JoinWaitlistModal: React.FC<JoinWaitlistModalProps> = ({
 
   const [category, setCategory] = useState<'Standard' | 'Premium 1' | 'Premium 2'>(initialCategory);
   const [accommodationType, setAccommodationType] = useState<'Shared' | 'Private'>(initialType);
-  const [desiredTerm, setDesiredTerm] = useState<string>('Autumn Term 2026');
   const [durationMonths, setDurationMonths] = useState<number>(6);
   const [fullName, setFullName] = useState<string>('');
   const [email, setEmail] = useState<string>('');
@@ -82,7 +81,6 @@ export const JoinWaitlistModal: React.FC<JoinWaitlistModalProps> = ({
         accommodation_type: accommodationType,
         room_id: initialRoomId || null,
         bed_space_id: initialBedSpaceId || null,
-        desired_term: desiredTerm,
         duration_months: durationMonths,
         notes: notes.trim() || null,
       };
@@ -185,42 +183,20 @@ export const JoinWaitlistModal: React.FC<JoinWaitlistModalProps> = ({
                 </div>
               </div>
 
-              {/* Term & Duration */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wider mb-1.5">
-                    Desired Term / Intake
-                  </label>
-                  <select
-                    value={desiredTerm}
-                    onChange={(e) => setDesiredTerm(e.target.value)}
-                    className="w-full px-3 py-2.5 text-sm font-semibold border rounded-xl bg-gray-50 dark:bg-gray-700 dark:border-gray-600 text-gray-900 dark:text-white focus:ring-2 focus:ring-brand-500"
-                  >
-                    <option value="Next Available Vacancy">Next Available Vacancy</option>
-                    <option value="Autumn Term 2026">Autumn Term 2026</option>
-                    <option value="Winter Term 2027">Winter Term 2027</option>
-                    <option value="Spring Term 2027">Spring Term 2027</option>
-                    <option value="Summer Term 2027">Summer Term 2027</option>
-                    {academicTerms?.map(t => (
-                      <option key={t.id} value={t.term_name}>{t.term_name}</option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wider mb-1.5">
-                    Duration of Stay
-                  </label>
-                  <select
-                    value={durationMonths}
-                    onChange={(e) => setDurationMonths(Number(e.target.value))}
-                    className="w-full px-3 py-2.5 text-sm font-semibold border rounded-xl bg-gray-50 dark:bg-gray-700 dark:border-gray-600 text-gray-900 dark:text-white focus:ring-2 focus:ring-brand-500"
-                  >
-                    <option value={3}>3 Months</option>
-                    <option value={6}>6 Months</option>
-                    <option value={12}>12 Months (Full Academic Year)</option>
-                  </select>
-                </div>
+              {/* Stay Duration */}
+              <div>
+                <label className="block text-xs font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wider mb-1.5">
+                  Duration of Stay
+                </label>
+                <select
+                  value={durationMonths}
+                  onChange={(e) => setDurationMonths(Number(e.target.value))}
+                  className="w-full px-3 py-2.5 text-sm font-semibold border rounded-xl bg-gray-50 dark:bg-gray-700 dark:border-gray-600 text-gray-900 dark:text-white focus:ring-2 focus:ring-brand-500"
+                >
+                  <option value={3}>3 Months</option>
+                  <option value={6}>6 Months</option>
+                  <option value={12}>12 Months (Full Academic Year)</option>
+                </select>
               </div>
 
               {/* Student Contact Information */}

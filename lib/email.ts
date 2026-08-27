@@ -397,14 +397,14 @@ Al-Ibaanah Student Residency Team
   };
 };
 
-export const getWaitlistOfferTemplate = (studentName: string, category: string, type: string, term: string) => {
+export const getWaitlistOfferTemplate = (studentName: string, category: string, type: string, durationMonths?: number) => {
   return {
     templateName: 'waitlist_offer',
     subject: `Accommodation Vacancy Update: ${category} (${type})`,
     body: `
 Dear ${studentName},
 
-We are pleased to inform you that a residency bed space matching your waitlist preference (${category} - ${type}) is now becoming available for ${term || 'the upcoming academic term'}.
+We are pleased to inform you that a residency bed space matching your waitlist preference (${category} - ${type}) is now becoming available${durationMonths ? ` for ${durationMonths} months stay` : ''}.
 
 Please reply directly to this notification or log into your residency account within 48 hours to confirm your placement and finalize your booking agreement.
 

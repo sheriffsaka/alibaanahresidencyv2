@@ -5,25 +5,38 @@ import { useTranslation } from '../hooks/useTranslation';
 import MultiStepBookingForm from '../components/MultiStepBookingForm';
 import { useApp } from '../hooks/useApp';
 import { IconBuilding } from '../components/Icon';
+import { getParsedRoomSpaces } from '../lib/roomNaming';
 
 const BookingPage: React.FC = () => {
   const t = useTranslation();
-  const { bookings, setPage, selectedRoom, extendingBooking } = useApp();
+  const { effectiveOccupancyBookings, setPage, selectedRoom, extendingBooking, rooms, bedSpaces } = useApp();
 
   const isOccupied = useMemo(() => {
     if (!selectedRoom) return false;
-    const occupiedStatuses = [BookingStatus.CONFIRMED, BookingStatus.OCCUPIED];
     // If extending, we allow booking even if it's currently occupied (by the same user)
     if (extendingBooking && extendingBooking.room_id === selectedRoom.id) {
-        return false;
+      return false;
     }
-    const activeBookingsCount = bookings.filter(b => b.room_id === selectedRoom.id && occupiedStatuses.includes(b.status)).length;
-    return activeBookingsCount >= (selectedRoom.capacity || 1);
-  }, [bookings, selectedRoom, extendingBooking]);
+    const parsedSpaces = getParsedRoomSpaces(rooms, effectiveOccupancyBookings, bedSpaces);
+    const roomCat = (selectedRoom.apartment_name || selectedRoom.category || '').toLowerCase().replace(/\s+/g, '');
+    const isPrivate = (selectedRoom.type || '').toLowerCase().includes('private');
+    
+    const matchingSpaces = parsedSpaces.filter(s => {
+      const sCat = s.category.toLowerCase().replace(/\s+/g, '');
+      const sType = s.type === 'Private';
+      return (sCat.includes(roomCat) || roomCat.includes(sCat) || (roomCat.includes('premium') && sCat.includes('premium'))) && sType === isPrivate;
+    });
 
-  const isUnavailable = selectedRoom ? !selectedRoom.is_available : false;
+    if (matchingSpaces.length > 0) {
+      return matchingSpaces.every(s => s.isOccupied);
+    }
+
+    return !selectedRoom.is_available;
+  }, [rooms, effectiveOccupancyBookings, bedSpaces, selectedRoom, extendingBooking]);
+
+  const isUnavailable = selectedRoom ? isOccupied : false;
   
-  if (selectedRoom && (isUnavailable || isOccupied)) {
+  if (selectedRoom && isUnavailable) {
     return (
         <div className="text-center py-20 animate-fade-in">
             <IconBuilding className="w-16 h-16 text-red-500 mx-auto mb-4" />

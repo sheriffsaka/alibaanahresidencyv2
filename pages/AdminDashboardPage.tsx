@@ -1440,6 +1440,13 @@ const AdminDashboardPage: React.FC = () => {
                     ? 'Premium 2' 
                     : 'Standard';
 
+                  const isRoomAvailable = roomBeds.length > 0
+                    ? roomBeds.some(b => {
+                        const space = parsedRoomSpaces.find(s => s.bedSpaceId === b.id);
+                        return space ? !space.isOccupied : true;
+                      })
+                    : ((room.occupied_slots || 0) < (room.capacity || 1));
+
                   return (
                     <div key={room.id} className="border dark:border-gray-700 rounded-2xl p-5 space-y-4 bg-gray-50/50 dark:bg-gray-900/30 hover:border-brand-500 transition-colors flex flex-col justify-between">
                       <div className="space-y-4">
@@ -1450,8 +1457,8 @@ const AdminDashboardPage: React.FC = () => {
                             </span>
                             <h3 className="text-base font-bold text-gray-900 dark:text-white mt-1">{formattedRoomTitle}</h3>
                           </div>
-                          <span className={`text-xs font-bold px-2 py-1 rounded-full ${room.is_available ? 'bg-emerald-100 text-emerald-800' : 'bg-red-100 text-red-800'}`}>
-                            {room.is_available ? 'Available' : 'Fully Booked'}
+                          <span className={`text-xs font-bold px-2 py-1 rounded-full ${isRoomAvailable ? 'bg-emerald-100 text-emerald-800' : 'bg-red-100 text-red-800'}`}>
+                            {isRoomAvailable ? 'Available' : 'Fully Booked'}
                           </span>
                         </div>
 

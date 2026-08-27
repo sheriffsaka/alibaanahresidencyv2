@@ -41,7 +41,6 @@ export const WaitlistView: React.FC<WaitlistViewProps> = ({
     phone_number: '',
     category: 'Premium 1' as 'Standard' | 'Premium 1' | 'Premium 2',
     accommodation_type: 'Private' as 'Shared' | 'Private',
-    desired_term: 'Autumn Term 2026',
     duration_months: 6,
     notes: ''
   });
@@ -49,11 +48,11 @@ export const WaitlistView: React.FC<WaitlistViewProps> = ({
   // Helper to extract student contact details
   const getStudentInfo = (item: WaitlistEntry) => {
     if (item.student_id) {
-      const studentProfile = item.profiles || students.find(s => s.id === item.student_id);
+      const studentObj = students.find(s => s.id === item.student_id);
       return {
-        name: studentProfile?.full_name || 'Registered Student',
-        email: studentProfile?.email || 'N/A',
-        phone: studentProfile?.phone_number || 'N/A',
+        name: item.profiles?.full_name || studentObj?.full_name || 'Registered Student',
+        email: item.email || studentObj?.email || 'N/A',
+        phone: item.profiles?.phone_number || studentObj?.phone_number || item.phone_number || 'N/A',
         isRegistered: true,
       };
     }
@@ -89,8 +88,7 @@ export const WaitlistView: React.FC<WaitlistViewProps> = ({
         return (
           info.name.toLowerCase().includes(q) ||
           info.email.toLowerCase().includes(q) ||
-          item.category.toLowerCase().includes(q) ||
-          (item.desired_term && item.desired_term.toLowerCase().includes(q))
+          item.category.toLowerCase().includes(q)
         );
       }
       return true;
@@ -142,7 +140,6 @@ export const WaitlistView: React.FC<WaitlistViewProps> = ({
       phone_number: newEntry.phone_number.trim() || null,
       category: newEntry.category,
       accommodation_type: newEntry.accommodation_type,
-      desired_term: newEntry.desired_term,
       duration_months: newEntry.duration_months,
       notes: newEntry.notes.trim() || null,
       status: 'Waiting',
@@ -156,7 +153,6 @@ export const WaitlistView: React.FC<WaitlistViewProps> = ({
         phone_number: '',
         category: 'Premium 1',
         accommodation_type: 'Private',
-        desired_term: 'Autumn Term 2026',
         duration_months: 6,
         notes: ''
       });
@@ -171,7 +167,7 @@ export const WaitlistView: React.FC<WaitlistViewProps> = ({
     setEmailSentSuccess(false);
     setEmailSubject(`Accommodation Vacancy Update: ${item.category} (${item.accommodation_type})`);
     setEmailBody(
-      `Dear ${info.name},\n\nWe are pleased to inform you that a residency bed space matching your waitlist preference (${item.category} - ${item.accommodation_type}) is now becoming available for ${item.desired_term || 'the upcoming academic term'}.\n\nPlease reply directly to this notification or contact our administration office within 48 hours to confirm your placement and finalize your booking agreement.\n\nBest regards,\nAl-Ibaanah Student Residency Management`
+      `Dear ${info.name},\n\nWe are pleased to inform you that a residency bed space matching your waitlist preference (${item.category} - ${item.accommodation_type}) is now becoming available for your requested stay duration (${item.duration_months || 6} months).\n\nPlease reply directly to this notification or contact our administration office within 48 hours to confirm your placement and finalize your booking agreement.\n\nBest regards,\nAl-Ibaanah Student Residency Management`
     );
   };
 
@@ -352,7 +348,7 @@ export const WaitlistView: React.FC<WaitlistViewProps> = ({
                   <th className="px-6 py-3.5 text-left text-xs font-bold text-gray-500 uppercase">Student</th>
                   <th className="px-6 py-3.5 text-left text-xs font-bold text-gray-500 uppercase">Contact</th>
                   <th className="px-6 py-3.5 text-left text-xs font-bold text-gray-500 uppercase">Requested Space</th>
-                  <th className="px-6 py-3.5 text-left text-xs font-bold text-gray-500 uppercase">Term & Duration</th>
+                  <th className="px-6 py-3.5 text-left text-xs font-bold text-gray-500 uppercase">Stay Duration</th>
                   <th className="px-6 py-3.5 text-left text-xs font-bold text-gray-500 uppercase">Status</th>
                   <th className="px-6 py-3.5 text-left text-xs font-bold text-gray-500 uppercase">Actions</th>
                 </tr>
@@ -386,8 +382,7 @@ export const WaitlistView: React.FC<WaitlistViewProps> = ({
                         {item.notes && <p className="text-[10px] text-gray-400 mt-0.5 italic max-w-xs">{item.notes}</p>}
                       </td>
                       <td className="px-6 py-4 text-xs font-medium text-gray-700 dark:text-gray-300">
-                        <p className="font-bold">{item.desired_term || 'Next Available'}</p>
-                        <p className="text-gray-400 text-[11px]">{item.duration_months} Months stay</p>
+                        <p className="font-bold">{item.duration_months ? `${item.duration_months} Months stay` : 'Standard stay'}</p>
                       </td>
                       <td className="px-6 py-4">
                         <span
@@ -530,29 +525,17 @@ export const WaitlistView: React.FC<WaitlistViewProps> = ({
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Desired Term</label>
-                  <input
-                    type="text"
-                    value={newEntry.desired_term}
-                    onChange={(e) => setNewEntry(prev => ({ ...prev, desired_term: e.target.value }))}
-                    className="w-full text-xs p-2.5 border rounded-xl dark:bg-gray-700 dark:border-gray-600 text-gray-900 dark:text-white"
-                    placeholder="e.g. Autumn Term 2026"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Stay Duration</label>
-                  <select
-                    value={newEntry.duration_months}
-                    onChange={(e) => setNewEntry(prev => ({ ...prev, duration_months: Number(e.target.value) }))}
-                    className="w-full text-xs p-2.5 border rounded-xl dark:bg-gray-700 dark:border-gray-600 text-gray-900 dark:text-white"
-                  >
-                    <option value={3}>3 Months</option>
-                    <option value={6}>6 Months</option>
-                    <option value={12}>12 Months</option>
-                  </select>
-                </div>
+              <div>
+                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Stay Duration</label>
+                <select
+                  value={newEntry.duration_months}
+                  onChange={(e) => setNewEntry(prev => ({ ...prev, duration_months: Number(e.target.value) }))}
+                  className="w-full text-xs p-2.5 border rounded-xl dark:bg-gray-700 dark:border-gray-600 text-gray-900 dark:text-white"
+                >
+                  <option value={3}>3 Months</option>
+                  <option value={6}>6 Months</option>
+                  <option value={12}>12 Months</option>
+                </select>
               </div>
 
               <div>

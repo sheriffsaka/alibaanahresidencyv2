@@ -19,7 +19,6 @@ CREATE TABLE IF NOT EXISTS public.waitlist (
     bed_space_id INT NULL REFERENCES public.bed_spaces(id) ON DELETE SET NULL,
     
     -- Term & Duration details
-    desired_term TEXT NULL,
     duration_months INT NULL DEFAULT 6,
     
     -- Status lifecycle
