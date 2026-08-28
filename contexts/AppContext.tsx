@@ -1,6 +1,6 @@
 
 import React, { createContext, useState, ReactNode, useCallback, useEffect, useRef, useMemo } from 'react';
-import { AppContextType, Language, Page, User, Room, BedSpace, Booking, BookingStatus, CmsContent, Activity, AcademicTerm, BookingPackage, AccommodationType, DEFAULT_CATEGORY_MEDIA, CategoryMediaConfig, PublicOccupancy, AccommodationAddresses, DEFAULT_ACCOMMODATION_ADDRESSES, DEFAULT_SUPPORT_CONTENT, WaitlistEntry, WaitlistStatus, EmailLogEntry } from '../types';
+import { AppContextType, Language, Page, User, Room, BedSpace, Booking, BookingStatus, CmsContent, Activity, AcademicTerm, BookingPackage, AccommodationType, DEFAULT_CATEGORY_MEDIA, CategoryMediaConfig, PublicOccupancy, AccommodationAddresses, DEFAULT_ACCOMMODATION_ADDRESSES, DEFAULT_SUPPORT_CONTENT, WaitlistEntry, WaitlistStatus, EmailLogEntry, AccommodationCategory, DEFAULT_ACCOMMODATION_CATEGORIES } from '../types';
 import { supabase } from '../lib/supabaseClient';
 import { Session } from '@supabase/supabase-js';
 import { sendEmail, fetchRecentEmailLogs } from '../lib/email';
@@ -218,6 +218,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const [academicTerms, setAcademicTerms] = useState<AcademicTerm[]>(DEFAULT_ACADEMIC_TERMS);
   const [bookingPackages, setBookingPackages] = useState<BookingPackage[]>(DEFAULT_BOOKING_PACKAGES);
   const [cmsContent, setCmsContent] = useState<CmsContent>(INITIAL_CMS);
+  const [accommodationCategories, setAccommodationCategories] = useState<AccommodationCategory[]>(DEFAULT_ACCOMMODATION_CATEGORIES);
   const [activities, setActivities] = useState<Activity[]>(MOCK_ACTIVITIES);
   const [students, setStudents] = useState<User[]>([]);
   const [users, setUsers] = useState<User[]>([]);
@@ -698,8 +699,14 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                 announcements: normalizeCmsData((dbCms.how_to_videos || dbCms.howToVideos)?.announcements || dbCms.announcements, INITIAL_CMS.announcements),
                 landlordDetails: (dbCms.how_to_videos || dbCms.howToVideos)?.landlordDetails || DEFAULT_LANDLORD_DETAILS,
                 accommodationAddresses: (dbCms.how_to_videos || dbCms.howToVideos)?.accommodationAddresses || dbCms.accommodationAddresses || DEFAULT_ACCOMMODATION_ADDRESSES,
+                accommodationCategories: (dbCms.how_to_videos || dbCms.howToVideos)?.accommodationCategories || dbCms.accommodation_categories || dbCms.accommodationCategories || DEFAULT_ACCOMMODATION_CATEGORIES,
                 supportContent: (dbCms.how_to_videos || dbCms.howToVideos)?.supportContent || dbCms.supportContent || dbCms.support_content || DEFAULT_SUPPORT_CONTENT
               });
+
+              const dbCategories = (dbCms.how_to_videos || dbCms.howToVideos)?.accommodationCategories || dbCms.accommodation_categories || dbCms.accommodationCategories;
+              if (Array.isArray(dbCategories) && dbCategories.length > 0) {
+                setAccommodationCategories(dbCategories);
+              }
             }
         } catch (err) {
             console.error('Unexpected error fetching public data:', err);
@@ -980,6 +987,9 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     try {
         const updatedCms = { ...cmsContent, ...content };
         setCmsContent(updatedCms);
+        if (content.accommodationCategories) {
+          setAccommodationCategories(content.accommodationCategories);
+        }
 
         // Get the property ID (assume the first one for now)
         const { data: propData } = await supabase.from('properties').select('id').limit(1).single();
@@ -999,7 +1009,10 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                 ...updatedCms.howToVideos,
                 categoryMedia: updatedCms.categoryMedia,
                 landlordDetails: updatedCms.landlordDetails,
-                announcements: updatedCms.announcements
+                announcements: updatedCms.announcements,
+                accommodationAddresses: updatedCms.accommodationAddresses,
+                accommodationCategories: updatedCms.accommodationCategories || accommodationCategories,
+                supportContent: updatedCms.supportContent
             },
             updated_at: new Date().toISOString()
         };
@@ -1013,6 +1026,157 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     } catch (err: any) {
         console.error("Error updating CMS content in Supabase:", err.message);
         return { success: false, error: err.message };
+    }
+  };
+
+  const refreshAccommodationCategories = async (): Promise<AccommodationCategory[]> => {
+    try {
+      const { data: dbCms, error } = await supabase
+        .from('cms_content')
+        .select('*')
+        .limit(1)
+        .single();
+
+      if (error) throw error;
+      if (dbCms) {
+        const dbCategories = (dbCms.how_to_videos || dbCms.howToVideos)?.accommodationCategories || dbCms.accommodation_categories || dbCms.accommodationCategories;
+        const categoriesList: AccommodationCategory[] = Array.isArray(dbCategories) && dbCategories.length > 0
+          ? dbCategories
+          : DEFAULT_ACCOMMODATION_CATEGORIES;
+        setAccommodationCategories(categoriesList);
+        return categoriesList;
+      }
+      return accommodationCategories;
+    } catch (err: any) {
+      console.error('Error refreshing accommodation categories from Supabase:', err.message);
+      return accommodationCategories;
+    }
+  };
+
+  const addAccommodationCategory = async (categoryInput: Omit<AccommodationCategory, 'id' | 'created_at'> | string) => {
+    try {
+      const rawName = typeof categoryInput === 'string' ? categoryInput : categoryInput.name;
+      const trimmedName = (rawName || '').trim();
+
+      if (!trimmedName) {
+        return { success: false, error: 'Category name cannot be empty.' };
+      }
+
+      // Check for duplicate name (case-insensitive)
+      const exists = accommodationCategories.some(c => c.name.trim().toLowerCase() === trimmedName.toLowerCase());
+      if (exists) {
+        return { success: false, error: `Category "${trimmedName}" already exists. Please choose a unique name.` };
+      }
+
+      const slug = trimmedName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') || `cat-${Date.now()}`;
+      const newCategory: AccommodationCategory = {
+        id: typeof categoryInput === 'object' && (categoryInput as any).id ? (categoryInput as any).id : slug,
+        name: trimmedName,
+        description: typeof categoryInput === 'object' ? categoryInput.description : '',
+        address: typeof categoryInput === 'object' ? categoryInput.address : '',
+        defaultPrice: typeof categoryInput === 'object' ? categoryInput.defaultPrice : undefined,
+        status: typeof categoryInput === 'object' && categoryInput.status ? categoryInput.status : 'Active',
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      };
+
+      const updatedCategories = [...accommodationCategories, newCategory];
+      
+      const updatedAddresses = {
+        ...cmsContent.accommodationAddresses,
+        ...(newCategory.address ? { [trimmedName]: newCategory.address } : {})
+      };
+
+      const res = await updateCmsContent({
+        accommodationCategories: updatedCategories,
+        accommodationAddresses: updatedAddresses
+      });
+
+      if (!res.success) {
+        throw new Error(res.error || 'Failed to save category to Supabase');
+      }
+
+      setAccommodationCategories(updatedCategories);
+      await refreshAccommodationCategories();
+
+      return { success: true, category: newCategory };
+    } catch (err: any) {
+      console.error('Error adding accommodation category:', err.message);
+      return { success: false, error: err.message || 'Failed to add accommodation category' };
+    }
+  };
+
+  const updateAccommodationCategory = async (id: string, updates: Partial<AccommodationCategory>) => {
+    try {
+      const index = accommodationCategories.findIndex(c => c.id === id);
+      if (index === -1) {
+        return { success: false, error: 'Category not found.' };
+      }
+
+      if (updates.name !== undefined) {
+        const trimmedName = updates.name.trim();
+        if (!trimmedName) {
+          return { success: false, error: 'Category name cannot be empty.' };
+        }
+        const duplicate = accommodationCategories.some(c => c.id !== id && c.name.trim().toLowerCase() === trimmedName.toLowerCase());
+        if (duplicate) {
+          return { success: false, error: `Category "${trimmedName}" already exists. Please choose a unique name.` };
+        }
+        updates.name = trimmedName;
+      }
+
+      const updatedCategory = {
+        ...accommodationCategories[index],
+        ...updates,
+        updated_at: new Date().toISOString()
+      };
+
+      const updatedCategories = [...accommodationCategories];
+      updatedCategories[index] = updatedCategory;
+
+      const updatedAddresses = { ...cmsContent.accommodationAddresses };
+      const oldName = accommodationCategories[index].name;
+      if (updates.name && updates.name !== oldName && updatedAddresses[oldName]) {
+        updatedAddresses[updates.name] = updatedCategory.address || updatedAddresses[oldName];
+        delete updatedAddresses[oldName];
+      } else if (updatedCategory.address) {
+        updatedAddresses[updatedCategory.name] = updatedCategory.address;
+      }
+
+      const res = await updateCmsContent({
+        accommodationCategories: updatedCategories,
+        accommodationAddresses: updatedAddresses
+      });
+
+      if (!res.success) {
+        throw new Error(res.error || 'Failed to save updated category to Supabase');
+      }
+
+      setAccommodationCategories(updatedCategories);
+      await refreshAccommodationCategories();
+
+      return { success: true };
+    } catch (err: any) {
+      console.error('Error updating accommodation category:', err.message);
+      return { success: false, error: err.message || 'Failed to update accommodation category' };
+    }
+  };
+
+  const deleteAccommodationCategory = async (id: string) => {
+    try {
+      const updatedCategories = accommodationCategories.filter(c => c.id !== id);
+      const res = await updateCmsContent({
+        accommodationCategories: updatedCategories
+      });
+      if (!res.success) {
+        throw new Error(res.error || 'Failed to delete category from Supabase');
+      }
+      setAccommodationCategories(updatedCategories);
+      await refreshAccommodationCategories();
+      return { success: true };
+    } catch (err: any) {
+      console.error('Error deleting accommodation category:', err.message);
+      return { success: false, error: err.message || 'Failed to delete accommodation category' };
     }
   };
 
@@ -1785,7 +1949,12 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     retryEmailLog,
     loading,
     landlordDetails: cmsContent.landlordDetails || DEFAULT_LANDLORD_DETAILS,
-    accommodationAddresses: cmsContent.accommodationAddresses || DEFAULT_ACCOMMODATION_ADDRESSES
+    accommodationAddresses: cmsContent.accommodationAddresses || DEFAULT_ACCOMMODATION_ADDRESSES,
+    accommodationCategories,
+    addAccommodationCategory,
+    updateAccommodationCategory,
+    deleteAccommodationCategory,
+    refreshAccommodationCategories
   };
 
   return (

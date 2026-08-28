@@ -178,10 +178,49 @@ export interface User {
   created_at?: string;
 }
 
+export interface AccommodationCategory {
+  id: string;
+  name: string; // e.g. "Premium 1", "Premium 2", "Premium 3", "Standard", "Standard 2"
+  description?: string;
+  address?: string;
+  defaultPrice?: number;
+  status: 'Active' | 'Inactive';
+  created_at?: string;
+  updated_at?: string;
+}
+
+export const DEFAULT_ACCOMMODATION_CATEGORIES: AccommodationCategory[] = [
+  {
+    id: 'premium-1',
+    name: 'Premium 1',
+    description: 'Luxury student suites with premium furnishings and study areas.',
+    address: '11, Samir Moursey Street, Nasr City, Cairo.',
+    defaultPrice: 350,
+    status: 'Active',
+    created_at: '2026-01-01T00:00:00.000Z'
+  },
+  {
+    id: 'premium-2',
+    name: 'Premium 2',
+    description: 'High-end shared and private suites with modern kitchen and resident lounge.',
+    address: '2 Ezzat Salamat Street, Off Kaabool, Makram Ebeid, Nasr City, Cairo.',
+    defaultPrice: 350,
+    status: 'Active',
+    created_at: '2026-01-01T00:00:00.000Z'
+  },
+  {
+    id: 'standard',
+    name: 'Standard',
+    description: 'Comfortable, budget-friendly student housing near the Arabic center.',
+    address: '24 Saqaliyyah Street, Off Kaabool, Makram Ebeid, Nasr City, Cairo.',
+    defaultPrice: 175,
+    status: 'Active',
+    created_at: '2026-01-01T00:00:00.000Z'
+  }
+];
+
 export interface AccommodationAddresses {
-  'Premium 1': string;
-  'Premium 2': string;
-  'Standard': string;
+  [key: string]: string;
 }
 
 export const DEFAULT_ACCOMMODATION_ADDRESSES: AccommodationAddresses = {
@@ -212,7 +251,7 @@ export interface CategoryMediaItem {
   features: string[];
 }
 
-export type CategoryMediaConfig = Record<'Standard' | 'Premium 1' | 'Premium 2', CategoryMediaItem>;
+export type CategoryMediaConfig = Record<string, CategoryMediaItem>;
 
 export const DEFAULT_CATEGORY_MEDIA: CategoryMediaConfig = {
   'Premium 1': {
@@ -305,6 +344,7 @@ export interface CmsContent {
   landlordDetails?: LandlordDetails;
   categoryMedia?: CategoryMediaConfig;
   accommodationAddresses?: AccommodationAddresses;
+  accommodationCategories?: AccommodationCategory[];
   supportContent?: SupportPageContent;
 }
 
@@ -323,6 +363,11 @@ export interface AppContextType {
   publicOccupancy: PublicOccupancy[];
   effectiveOccupancyBookings: any[];
   accommodationAddresses: AccommodationAddresses;
+  accommodationCategories: AccommodationCategory[];
+  addAccommodationCategory: (category: Omit<AccommodationCategory, 'id' | 'created_at'> | string) => Promise<{ success: boolean; error?: string; category?: AccommodationCategory }>;
+  updateAccommodationCategory: (id: string, updates: Partial<AccommodationCategory>) => Promise<{ success: boolean; error?: string }>;
+  deleteAccommodationCategory: (id: string) => Promise<{ success: boolean; error?: string }>;
+  refreshAccommodationCategories: () => Promise<AccommodationCategory[]>;
   addBooking: (booking: any) => Promise<{ success: boolean; error?: string; data?: Booking }>;
   updateBookingStatus: (id: number, status: BookingStatus) => Promise<{ success: boolean; error?: string }>;
   updateBooking: (id: number, updates: Partial<Booking>) => Promise<{ success: boolean; error?: string }>;

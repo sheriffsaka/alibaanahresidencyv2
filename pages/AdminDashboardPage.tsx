@@ -24,6 +24,8 @@ import MessagesInboxView from '../components/admin/MessagesInboxView';
 import ReviewsRatingsView from '../components/admin/ReviewsRatingsView';
 import AdminSettingsView from '../components/admin/AdminSettingsView';
 import { EmailLogsView } from '../components/admin/EmailLogsView';
+import { ManageCategoryModal } from '../components/admin/ManageCategoryModal';
+import { Layers } from 'lucide-react';
 
 // A responsive, accessible SVG Bar Chart component for occupancy metrics
 const OccupancyChart = ({ data }: { data: { name: string; value: number }[] }) => {
@@ -136,7 +138,7 @@ const OccupancyChart = ({ data }: { data: { name: string; value: number }[] }) =
 };
 
 interface CategoryMediaEditorProps {
-  category: 'Standard' | 'Premium 1' | 'Premium 2';
+  category: string;
   cmsContent: any;
   updateCmsContent: (content: any) => Promise<{ success: boolean; error?: string }>;
 }
@@ -342,7 +344,7 @@ const SummaryCard: React.FC<SummaryCardProps> = ({ label, value, icon, trend, co
 
 const AdminDashboardPage: React.FC = () => {
   const t = useTranslation();
-  const { user, bookings, updateBookingStatus, deleteBooking, cmsContent, updateCmsContent, rooms, bedSpaces, addRoom, updateRoom, toggleRoomStatus, deleteRoom, activities, addActivity, language, setPage, users, addUser, updateUser, deleteUser, students, waitlist, refreshWaitlist } = useApp();
+  const { user, bookings, updateBookingStatus, deleteBooking, cmsContent, updateCmsContent, rooms, bedSpaces, addRoom, updateRoom, toggleRoomStatus, deleteRoom, activities, addActivity, language, setPage, users, addUser, updateUser, deleteUser, students, waitlist, refreshWaitlist, accommodationCategories } = useApp();
   const [activeSection, setActiveSection] = useState<AdminNavSection>('dashboard');
   const [isActivityDrawerOpen, setIsActivityDrawerOpen] = useState(false);
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
@@ -352,7 +354,7 @@ const AdminDashboardPage: React.FC = () => {
   const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
   const [selectedProof, setSelectedProof] = useState<string | null>(null);
   const [roomFilter, setRoomFilter] = useState<'all' | 'occupied' | 'available'>('all');
-  const [roomCategoryFilter, setRoomCategoryFilter] = useState<'all' | 'Premium 1' | 'Premium 2' | 'Standard'>('all');
+  const [roomCategoryFilter, setRoomCategoryFilter] = useState<string>('all');
   const [roomSearchQuery, setRoomSearchQuery] = useState('');
   
   const [studentSort, setStudentSort] = useState<{ field: keyof Booking; direction: 'asc' | 'desc' }>({ field: 'full_name', direction: 'asc' });
@@ -362,6 +364,7 @@ const AdminDashboardPage: React.FC = () => {
   const [selectedRoomForEdit, setSelectedRoomForEdit] = useState<Room | null>(null);
   
   const [isAdminBookingModalOpen, setIsAdminBookingModalOpen] = useState(false);
+  const [isManageCategoryModalOpen, setIsManageCategoryModalOpen] = useState(false);
 
   const [isUserModalOpen, setIsUserModalOpen] = useState(false);
   const [selectedUserForEdit, setSelectedUserForEdit] = useState<User | null>(null);
@@ -373,7 +376,7 @@ const AdminDashboardPage: React.FC = () => {
 
   const [editingContract, setEditingContract] = useState<{ roomType: AccommodationType; lang: Language } | null>(null);
   const [isUploadingCms, setIsUploadingCms] = useState(false);
-  const [activeCategoryConfig, setActiveCategoryConfig] = useState<'Standard' | 'Premium 1' | 'Premium 2'>('Standard');
+  const [activeCategoryConfig, setActiveCategoryConfig] = useState<string>('Standard');
 
   // Transactions tab search & filter
   const [trxSearchQuery, setTrxSearchQuery] = useState('');
@@ -1303,13 +1306,13 @@ const AdminDashboardPage: React.FC = () => {
 
                          <select
                             value={roomCategoryFilter}
-                            onChange={(e) => setRoomCategoryFilter(e.target.value as any)}
+                            onChange={(e) => setRoomCategoryFilter(e.target.value)}
                             className="px-3 py-2 text-xs font-bold border rounded-xl bg-gray-50 dark:bg-gray-700 dark:border-gray-600"
                          >
                             <option value="all">All Accommodations</option>
-                            <option value="Premium 1">Premium 1</option>
-                            <option value="Premium 2">Premium 2</option>
-                            <option value="Standard">Standard</option>
+                            {(accommodationCategories || []).map(cat => (
+                              <option key={cat.id} value={cat.name}>{cat.name}</option>
+                            ))}
                          </select>
 
                          <div className="flex bg-gray-100 dark:bg-gray-700 rounded-xl p-1">
@@ -1570,12 +1573,22 @@ const AdminDashboardPage: React.FC = () => {
                   <h2 className="text-xl font-bold text-gray-900 dark:text-white">Rooms & Bed Spaces Database</h2>
                   <p className="text-xs text-gray-500 mt-0.5">Sorted by Category (Premium 1 → Premium 2 → Standard) and Room Number</p>
                 </div>
-                <button
-                  onClick={() => handleOpenRoomModal(null)}
-                  className="bg-brand-600 hover:bg-brand-700 text-white px-5 py-2.5 rounded-xl text-xs font-bold flex items-center gap-2 shadow-md transition-all"
-                >
-                  <IconPlus className="w-4 h-4" /> Add New Room
-                </button>
+                <div className="flex items-center gap-3">
+                  <button
+                    id="manage-categories-btn-rooms"
+                    type="button"
+                    onClick={() => setIsManageCategoryModalOpen(true)}
+                    className="bg-brand-50 hover:bg-brand-100 text-brand-700 dark:bg-brand-950/40 dark:text-brand-300 px-4 py-2.5 rounded-xl text-xs font-bold flex items-center gap-2 border border-brand-200/60 dark:border-brand-800 transition-all shadow-xs"
+                  >
+                    <Layers className="w-4 h-4 text-brand-600 dark:text-brand-400" /> Manage Categories
+                  </button>
+                  <button
+                    onClick={() => handleOpenRoomModal(null)}
+                    className="bg-brand-600 hover:bg-brand-700 text-white px-5 py-2.5 rounded-xl text-xs font-bold flex items-center gap-2 shadow-md transition-all"
+                  >
+                    <IconPlus className="w-4 h-4" /> Add New Room
+                  </button>
+                </div>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -1770,27 +1783,37 @@ const AdminDashboardPage: React.FC = () => {
 
               {/* Accommodation Media & Category Perks */}
               <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 overflow-hidden">
-                <div className="p-6 border-b dark:border-gray-700">
-                  <h2 className="text-xl font-bold text-gray-900 dark:text-white">Accommodation Categories & Media Perks</h2>
-                  <p className="text-xs text-gray-500 mt-0.5">Customize display titles, photos gallery, floor plans, and included perks per category</p>
+                <div className="p-6 border-b dark:border-gray-700 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                  <div>
+                    <h2 className="text-xl font-bold text-gray-900 dark:text-white">Accommodation Categories & Media Perks</h2>
+                    <p className="text-xs text-gray-500 mt-0.5">Customize display titles, photos gallery, floor plans, and included perks per category</p>
+                  </div>
+                  <button
+                    id="manage-categories-btn-cms"
+                    type="button"
+                    onClick={() => setIsManageCategoryModalOpen(true)}
+                    className="bg-brand-50 hover:bg-brand-100 text-brand-700 dark:bg-brand-950/40 dark:text-brand-300 px-4 py-2.5 rounded-xl text-xs font-bold flex items-center gap-2 border border-brand-200/60 dark:border-brand-800 transition-all shadow-xs shrink-0"
+                  >
+                    <Layers className="w-4 h-4 text-brand-600 dark:text-brand-400" /> Manage Categories
+                  </button>
                 </div>
 
                 <div className="border border-gray-150 dark:border-gray-750 rounded-xl overflow-hidden m-6">
-                  <div className="flex border-b border-gray-200 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-900/50">
-                    {(['Standard', 'Premium 1', 'Premium 2'] as const).map(cat => {
-                      const isActive = activeCategoryConfig === cat;
+                  <div className="flex border-b border-gray-200 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-900/50 overflow-x-auto">
+                    {(accommodationCategories || []).map(cat => {
+                      const isActive = activeCategoryConfig === cat.name;
                       return (
                         <button
-                          key={cat}
+                          key={cat.id}
                           type="button"
-                          onClick={() => setActiveCategoryConfig(cat)}
-                          className={`flex-1 py-3 text-xs font-black uppercase tracking-wider transition-all border-b-2 ${
+                          onClick={() => setActiveCategoryConfig(cat.name)}
+                          className={`flex-1 min-w-[120px] py-3 px-4 text-xs font-black uppercase tracking-wider transition-all border-b-2 whitespace-nowrap ${
                             isActive
                               ? 'border-brand-600 bg-white dark:bg-gray-800 text-brand-600 border-b-brand-600'
-                              : 'border-transparent text-gray-500 hover:text-gray-800'
+                              : 'border-transparent text-gray-500 hover:text-gray-800 dark:hover:text-gray-200'
                           }`}
                         >
-                          {cat} Config
+                          {cat.name} Config
                         </button>
                       );
                     })}
@@ -1798,7 +1821,7 @@ const AdminDashboardPage: React.FC = () => {
 
                   <div className="p-6 bg-white dark:bg-gray-800">
                     <CategoryMediaEditor 
-                      category={activeCategoryConfig} 
+                      category={activeCategoryConfig || (accommodationCategories[0]?.name || 'Standard')} 
                       cmsContent={cmsContent} 
                       updateCmsContent={updateCmsContent} 
                     />
@@ -2054,6 +2077,14 @@ const AdminDashboardPage: React.FC = () => {
 
       {isRoomModalOpen && (
         <RoomEditorModal room={selectedRoomForEdit} onClose={() => setIsRoomModalOpen(false)} onSave={handleSaveRoom} />
+      )}
+
+      {/* Manage Accommodation Categories Modal */}
+      {isManageCategoryModalOpen && (
+        <ManageCategoryModal
+          isOpen={isManageCategoryModalOpen}
+          onClose={() => setIsManageCategoryModalOpen(false)}
+        />
       )}
 
       {isUserModalOpen && (
