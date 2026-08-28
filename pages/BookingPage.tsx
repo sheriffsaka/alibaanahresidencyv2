@@ -13,11 +13,14 @@ const BookingPage: React.FC = () => {
 
   const isOccupied = useMemo(() => {
     if (!selectedRoom) return false;
+    // Inactive rooms cannot be booked
+    if (selectedRoom.status === 'Inactive') return true;
+
     // If extending, we allow booking even if it's currently occupied (by the same user)
     if (extendingBooking && extendingBooking.room_id === selectedRoom.id) {
       return false;
     }
-    const parsedSpaces = getParsedRoomSpaces(rooms, effectiveOccupancyBookings, bedSpaces);
+    const parsedSpaces = getParsedRoomSpaces(rooms, effectiveOccupancyBookings, bedSpaces, { includeInactive: false });
     const roomCat = (selectedRoom.apartment_name || selectedRoom.category || '').toLowerCase().replace(/\s+/g, '');
     const isPrivate = (selectedRoom.type || '').toLowerCase().includes('private');
     

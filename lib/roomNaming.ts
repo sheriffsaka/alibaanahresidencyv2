@@ -262,12 +262,22 @@ export interface ParsedRoomSpace extends RoomSpaceConfig {
   nextAvailableDate: string;
 }
 
-export const getDynamicRoomSpaces = (rooms: any[] = [], bedSpaces: any[] = []): RoomSpaceConfig[] => {
+export const getDynamicRoomSpaces = (
+  rooms: any[] = [], 
+  bedSpaces: any[] = [], 
+  options?: { includeInactive?: boolean }
+): RoomSpaceConfig[] => {
   if (!rooms || rooms.length === 0) {
     return ALL_ROOM_SPACES;
   }
 
-  const validRooms = rooms.filter(r => r && r.id);
+  const validRooms = rooms.filter(r => {
+    if (!r || !r.id) return false;
+    if (options?.includeInactive === false && r.status === 'Inactive') {
+      return false;
+    }
+    return true;
+  });
   const categoryOrder: Record<string, number> = { 'Premium 1': 1, 'Premium 2': 2, 'Standard': 3 };
   
   const sortedRooms = [...validRooms].sort((a, b) => {
@@ -358,14 +368,19 @@ export const getDynamicRoomSpaces = (rooms: any[] = [], bedSpaces: any[] = []): 
   return uniqueSpaces.length > 0 ? uniqueSpaces : ALL_ROOM_SPACES;
 };
 
-export const getParsedRoomSpaces = (rooms: any[], bookings: any[], bedSpaces?: any[]): ParsedRoomSpace[] => {
+export const getParsedRoomSpaces = (
+  rooms: any[], 
+  bookings: any[], 
+  bedSpaces?: any[],
+  options?: { includeInactive?: boolean }
+): ParsedRoomSpace[] => {
   const isCancelledOrCompleted = (status?: string) => {
     if (!status) return false;
     const s = String(status).toUpperCase();
     return s === 'CANCELLED' || s === 'COMPLETED' || s === 'REJECTED' || s === 'DISCONTINUED';
   };
 
-  const spacesList = getDynamicRoomSpaces(rooms, bedSpaces);
+  const spacesList = getDynamicRoomSpaces(rooms, bedSpaces, options);
 
   // Active bookings include:
   // 1) PublicOccupancy items where is_held is true

@@ -30,12 +30,13 @@ const RoomCard: React.FC<RoomCardProps> = ({ room, isOccupied: propIsOccupied })
     const totalCap = matchingSpaces.length > 0 ? matchingSpaces.length : (room.capacity || 1);
     const occupied = matchingSpaces.filter(s => s.isOccupied).length;
     const remaining = Math.max(0, totalCap - occupied);
-    const full = propIsOccupied !== undefined ? propIsOccupied : (remaining === 0);
+    const isInactive = room.status === 'Inactive';
+    const full = propIsOccupied !== undefined ? propIsOccupied : (remaining === 0 || isInactive);
 
     return {
       occupiedSlots: occupied,
       capacity: totalCap,
-      slotsLeft: remaining,
+      slotsLeft: isInactive ? 0 : remaining,
       isOccupied: full
     };
   }, [rooms, effectiveOccupancyBookings, bedSpaces, room, propIsOccupied]);

@@ -57,6 +57,7 @@ const RoomEditorModal: React.FC<RoomEditorModalProps> = ({ room, onClose, onSave
     price_per_month: room?.price_per_month || (initialParsed.category === 'Standard' ? 175 : 350),
     gender_restriction: room?.gender_restriction || 'Any',
     capacity: room?.capacity || (initialParsed.roomType === 'Private Room' ? 1 : 2),
+    status: (room?.status || 'Active') as 'Active' | 'Inactive',
     next_available_date: (room as any)?.next_available_date || '',
   });
 
@@ -287,13 +288,13 @@ const RoomEditorModal: React.FC<RoomEditorModalProps> = ({ room, onClose, onSave
               </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
               <div>
                 <label htmlFor="price_per_month" className="block text-sm font-bold text-gray-700 dark:text-gray-300">Price per Month ($)</label>
                 <input type="number" name="price_per_month" id="price_per_month" value={formData.price_per_month} onChange={handleInputChange} required className="mt-1 block w-full p-3 border rounded-xl dark:bg-gray-700 dark:border-gray-600 font-medium" />
               </div>
               <div>
-                <label htmlFor="capacity" className="block text-sm font-bold text-gray-700 dark:text-gray-300">Capacity (Beds/Students)</label>
+                <label htmlFor="capacity" className="block text-sm font-bold text-gray-700 dark:text-gray-300">Capacity (Beds)</label>
                 <input 
                   type="number" 
                   name="capacity" 
@@ -307,11 +308,30 @@ const RoomEditorModal: React.FC<RoomEditorModalProps> = ({ room, onClose, onSave
                 />
               </div>
               <div>
-                <label htmlFor="gender_restriction" className="block text-sm font-bold text-gray-700 dark:text-gray-300">Gender restriction</label>
+                <label htmlFor="gender_restriction" className="block text-sm font-bold text-gray-700 dark:text-gray-300">Gender</label>
                 <select name="gender_restriction" id="gender_restriction" value={formData.gender_restriction} onChange={handleInputChange} className="mt-1 block w-full p-3 border rounded-xl dark:bg-gray-700 dark:border-gray-600 font-medium">
                   <option value="Any">Any</option>
                   <option value="Male">Male</option>
                   <option value="Female">Female</option>
+                </select>
+              </div>
+              <div>
+                <label htmlFor="room_status" className="block text-sm font-bold text-gray-700 dark:text-gray-300">
+                  Status
+                </label>
+                <select 
+                  name="status" 
+                  id="room_status" 
+                  value={formData.status} 
+                  onChange={handleInputChange} 
+                  className={`mt-1 block w-full p-3 border rounded-xl font-bold ${
+                    formData.status === 'Active' 
+                      ? 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border-emerald-300 dark:border-emerald-700' 
+                      : 'bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border-amber-300 dark:border-amber-700'
+                  }`}
+                >
+                  <option value="Active">Active</option>
+                  <option value="Inactive">Inactive</option>
                 </select>
               </div>
             </div>

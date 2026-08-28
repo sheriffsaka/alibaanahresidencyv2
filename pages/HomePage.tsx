@@ -25,14 +25,16 @@ const HomePage: React.FC = () => {
         : INITIAL_CMS.faqs.en;
 
   const visibleRooms = useMemo(() => {
+    // Only active rooms are visible to students / public visitors
+    const activeRooms = rooms.filter(room => room.status !== 'Inactive');
     if (user?.role === 'student' && user.gender) {
       const userGender = user.gender.toLowerCase();
-      return rooms.filter(room => {
+      return activeRooms.filter(room => {
         const roomGender = (room.gender_restriction || 'Any').toLowerCase();
         return roomGender === 'any' || roomGender === userGender;
       });
     }
-    return rooms;
+    return activeRooms;
   }, [rooms, user]);
 
   if (loading) {

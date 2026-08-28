@@ -342,11 +342,12 @@ const SummaryCard: React.FC<SummaryCardProps> = ({ label, value, icon, trend, co
 
 const AdminDashboardPage: React.FC = () => {
   const t = useTranslation();
-  const { user, bookings, updateBookingStatus, deleteBooking, cmsContent, updateCmsContent, rooms, bedSpaces, addRoom, updateRoom, deleteRoom, activities, addActivity, language, setPage, users, addUser, updateUser, deleteUser, students, waitlist, refreshWaitlist } = useApp();
+  const { user, bookings, updateBookingStatus, deleteBooking, cmsContent, updateCmsContent, rooms, bedSpaces, addRoom, updateRoom, toggleRoomStatus, deleteRoom, activities, addActivity, language, setPage, users, addUser, updateUser, deleteUser, students, waitlist, refreshWaitlist } = useApp();
   const [activeSection, setActiveSection] = useState<AdminNavSection>('dashboard');
   const [isActivityDrawerOpen, setIsActivityDrawerOpen] = useState(false);
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
   const [cmsSubTab, setCmsSubTab] = useState<'rooms' | 'branding' | 'media' | 'contracts' | 'faqs'>('rooms');
+  const [togglingRoomId, setTogglingRoomId] = useState<number | null>(null);
 
   const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
   const [selectedProof, setSelectedProof] = useState<string | null>(null);
@@ -743,6 +744,35 @@ const AdminDashboardPage: React.FC = () => {
         setIsRoomModalOpen(false);
     } else {
         alert(`Failed to save room: ${result?.error || 'Unknown error'}`);
+    }
+  };
+
+  const handleToggleRoomStatus = async (roomId: number, newStatus: 'Active' | 'Inactive') => {
+    if (user?.role !== 'staff' && user?.role !== 'proprietor') {
+      alert("Unauthorized: Only administrators can change room status.");
+      return;
+    }
+
+    const room = rooms.find(r => r.id === roomId);
+    const roomName = room ? `${room.apartment_name || room.category} - ${room.room_number}` : `Room #${roomId}`;
+
+    setTogglingRoomId(roomId);
+    try {
+      const res = await toggleRoomStatus(roomId, newStatus);
+      if (res.success) {
+        addActivity({
+          user_id: user.id,
+          type: 'system',
+          description: `${newStatus === 'Active' ? 'Activated' : 'Deactivated'} ${roomName}. Room is now ${newStatus === 'Active' ? 'visible and bookable' : 'hidden from student listings'}.`,
+          timestamp: new Date().toISOString()
+        });
+      } else {
+        alert(`Failed to ${newStatus.toLowerCase()} room: ${res.error}`);
+      }
+    } catch (err: any) {
+      alert(`Error updating room status: ${err.message}`);
+    } finally {
+      setTogglingRoomId(null);
     }
   };
 
@@ -1559,6 +1589,8 @@ const AdminDashboardPage: React.FC = () => {
                     ? 'Premium 2' 
                     : 'Standard';
 
+                  const isRoomActive = room.status !== 'Inactive';
+
                   const isRoomAvailable = roomBeds.length > 0
                     ? roomBeds.some(b => {
                         const space = parsedRoomSpaces.find(s => s.bedSpaceId === b.id);
@@ -1567,19 +1599,45 @@ const AdminDashboardPage: React.FC = () => {
                     : ((room.occupied_slots || 0) < (room.capacity || 1));
 
                   return (
-                    <div key={room.id} className="border dark:border-gray-700 rounded-2xl p-5 space-y-4 bg-gray-50/50 dark:bg-gray-900/30 hover:border-brand-500 transition-colors flex flex-col justify-between">
+                    <div 
+                      key={room.id} 
+                      className={`border rounded-2xl p-5 space-y-4 transition-all flex flex-col justify-between ${
+                        isRoomActive
+                          ? 'bg-white dark:bg-gray-850 border-gray-200 dark:border-gray-700 hover:border-brand-500 shadow-sm'
+                          : 'bg-gray-50/80 dark:bg-gray-900/50 border-dashed border-gray-300 dark:border-gray-700 opacity-90'
+                      }`}
+                    >
                       <div className="space-y-4">
-                        <div className="flex justify-between items-start">
+                        <div className="flex justify-between items-start gap-2">
                           <div>
-                            <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded bg-brand-100 text-brand-700 dark:bg-brand-950/40 dark:text-brand-300">
-                              {canonicalCat}
-                            </span>
+                            <div className="flex items-center gap-2">
+                              <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded bg-brand-100 text-brand-700 dark:bg-brand-950/40 dark:text-brand-300">
+                                {canonicalCat}
+                              </span>
+                              <span 
+                                className={`text-[10px] font-black uppercase px-2 py-0.5 rounded-full flex items-center gap-1 ${
+                                  isRoomActive
+                                    ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-700'
+                                    : 'bg-amber-100 text-amber-800 dark:bg-amber-950/40 dark:text-amber-300 border border-amber-300 dark:border-amber-700'
+                                }`}
+                              >
+                                <span className={`w-1.5 h-1.5 rounded-full ${isRoomActive ? 'bg-emerald-500 animate-pulse' : 'bg-amber-500'}`} />
+                                {isRoomActive ? 'Active' : 'Inactive'}
+                              </span>
+                            </div>
                             <h3 className="text-base font-bold text-gray-900 dark:text-white mt-1">{formattedRoomTitle}</h3>
                           </div>
-                          <span className={`text-xs font-bold px-2 py-1 rounded-full ${isRoomAvailable ? 'bg-emerald-100 text-emerald-800' : 'bg-red-100 text-red-800'}`}>
+                          <span className={`text-xs font-bold px-2 py-1 rounded-full whitespace-nowrap ${isRoomAvailable ? 'bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-950/30 dark:text-emerald-300 dark:border-emerald-800' : 'bg-red-50 text-red-700 border border-red-200 dark:bg-red-950/30 dark:text-red-300 dark:border-red-800'}`}>
                             {isRoomAvailable ? 'Available' : 'Fully Booked'}
                           </span>
                         </div>
+
+                        {!isRoomActive && (
+                          <div className="bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900/40 rounded-xl px-3 py-1.5 text-[11px] text-amber-800 dark:text-amber-300 flex items-center gap-1.5">
+                            <span>⚠️</span>
+                            <span>Hidden from student listings & booking flow</span>
+                          </div>
+                        )}
 
                         <div className="grid grid-cols-2 gap-2 text-xs text-gray-600 dark:text-gray-300">
                           <div><span className="font-bold text-gray-400">Unit Code:</span> <span className="font-mono text-[11px] font-semibold">{room.room_number}</span></div>
@@ -1587,6 +1645,12 @@ const AdminDashboardPage: React.FC = () => {
                           <div><span className="font-bold text-gray-400">Bed Capacity:</span> {room.capacity}</div>
                           <div><span className="font-bold text-gray-400">Price/Mo:</span> ${room.price_per_month}</div>
                           <div><span className="font-bold text-gray-400">Gender:</span> {room.gender_restriction}</div>
+                          <div>
+                            <span className="font-bold text-gray-400">Status:</span>{' '}
+                            <span className={`font-semibold ${isRoomActive ? 'text-emerald-600 dark:text-emerald-400' : 'text-amber-600 dark:text-amber-400'}`}>
+                              {room.status || 'Active'}
+                            </span>
+                          </div>
                           <div className="col-span-2 pt-1 border-t border-gray-200/50 dark:border-gray-750">
                             <span className="font-bold text-gray-400">Bed Spaces:</span>{' '}
                             {roomBeds.length > 0 ? (
@@ -1602,7 +1666,7 @@ const AdminDashboardPage: React.FC = () => {
                         </div>
                       </div>
 
-                      <div className="pt-3 border-t dark:border-gray-700 flex items-center justify-between gap-2">
+                      <div className="pt-3 border-t dark:border-gray-700 flex flex-wrap items-center justify-between gap-2">
                         {(() => {
                           const roomCategoryWaiting = (waitlist || []).filter(w => 
                             w.status === 'Waiting' && 
@@ -1628,16 +1692,34 @@ const AdminDashboardPage: React.FC = () => {
                           );
                         })()}
 
-                        <div className="flex gap-2">
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={() => handleToggleRoomStatus(room.id, isRoomActive ? 'Inactive' : 'Active')}
+                            disabled={togglingRoomId === room.id}
+                            className={`px-2.5 py-1.5 rounded-lg text-xs font-bold transition-colors flex items-center gap-1 ${
+                              isRoomActive
+                                ? 'bg-amber-50 text-amber-700 hover:bg-amber-100 dark:bg-amber-950/40 dark:text-amber-300 border border-amber-200 dark:border-amber-800'
+                                : 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100 dark:bg-emerald-950/40 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800'
+                            }`}
+                            title={isRoomActive ? "Deactivate room to hide it from student listings and booking" : "Activate room to make it bookable for students"}
+                          >
+                            {togglingRoomId === room.id ? (
+                              <span className="animate-spin text-xs">⌛</span>
+                            ) : isRoomActive ? (
+                              <span>⏸️ Deactivate</span>
+                            ) : (
+                              <span>▶️ Activate</span>
+                            )}
+                          </button>
                           <button
                             onClick={() => handleOpenRoomModal(room)}
-                            className="bg-brand-50 text-brand-600 hover:bg-brand-100 dark:bg-brand-950/40 dark:text-brand-300 px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1"
+                            className="bg-brand-50 text-brand-600 hover:bg-brand-100 dark:bg-brand-950/40 dark:text-brand-300 px-2.5 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1"
                           >
                             <IconEdit className="w-3.5 h-3.5" /> Edit
                           </button>
                           <button
                             onClick={() => handleDeleteRoom(room.id, room.room_number)}
-                            className="bg-red-50 text-red-600 hover:bg-red-100 dark:bg-red-950/40 dark:text-red-300 px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1"
+                            className="bg-red-50 text-red-600 hover:bg-red-100 dark:bg-red-950/40 dark:text-red-300 px-2.5 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1"
                           >
                             <IconTrash className="w-3.5 h-3.5" /> Delete
                           </button>

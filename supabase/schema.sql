@@ -48,6 +48,7 @@ CREATE TABLE rooms (
     capacity INT NOT NULL DEFAULT 1,
     occupied_slots INT NOT NULL DEFAULT 0,
     gender_restriction TEXT NOT NULL DEFAULT 'Any' CHECK (gender_restriction IN ('Male', 'Female', 'Any')),
+    status VARCHAR(20) DEFAULT 'Active' CHECK (status IN ('Active', 'Inactive')),
     created_at TIMESTAMPTZ DEFAULT now(),
     UNIQUE(property_id, room_number)
 );

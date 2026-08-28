@@ -56,7 +56,8 @@ const MultiStepBookingForm: React.FC = () => {
   const { user, setPage, addBooking, addActivity, rooms, bedSpaces, bookings, effectiveOccupancyBookings, extendingBooking, landlordDetails, cmsContent, accommodationAddresses } = useApp();
 
   const parsedAvailabilityData = useMemo(() => {
-    return getParsedRoomSpaces(rooms, effectiveOccupancyBookings, bedSpaces);
+    // Exclude inactive rooms from student booking options
+    return getParsedRoomSpaces(rooms, effectiveOccupancyBookings, bedSpaces, { includeInactive: false });
   }, [effectiveOccupancyBookings, rooms, bedSpaces]);
 
   const accommodationsSelection = useMemo(() => {

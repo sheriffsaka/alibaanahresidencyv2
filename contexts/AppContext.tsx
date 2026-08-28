@@ -21,6 +21,7 @@ export const DEFAULT_ROOMS: Room[] = [
     amenities: ['High-speed Wi-Fi', 'Air Conditioning', 'Study Desk'],
     image_urls: ['https://res.cloudinary.com/di7okmjsx/image/upload/v1770388212/shared_bathroom1_hlxjdg.jpg'],
     is_available: true,
+    status: 'Active',
     created_at: new Date().toISOString(),
     gender_restriction: 'Male'
   },
@@ -37,6 +38,7 @@ export const DEFAULT_ROOMS: Room[] = [
     amenities: ['High-speed Wi-Fi', 'Air Conditioning', 'Private Desk'],
     image_urls: ['https://res.cloudinary.com/di7okmjsx/image/upload/v1770388212/single_room2_zhd9uo.jpg'],
     is_available: true,
+    status: 'Active',
     created_at: new Date().toISOString(),
     gender_restriction: 'Male'
   },
@@ -53,6 +55,7 @@ export const DEFAULT_ROOMS: Room[] = [
     amenities: ['High-speed Wi-Fi', 'Air Conditioning', 'En-suite Bathroom'],
     image_urls: ['https://res.cloudinary.com/di7okmjsx/image/upload/v1770388212/Suite2_q62y4w.jpg'],
     is_available: true,
+    status: 'Active',
     created_at: new Date().toISOString(),
     gender_restriction: 'Male'
   },
@@ -69,6 +72,7 @@ export const DEFAULT_ROOMS: Room[] = [
     amenities: ['High-speed Wi-Fi', 'Air Conditioning', 'Private Balcony'],
     image_urls: ['https://res.cloudinary.com/di7okmjsx/image/upload/v1770388212/Suite1_t4dczv.jpg'],
     is_available: true,
+    status: 'Active',
     created_at: new Date().toISOString(),
     gender_restriction: 'Female'
   },
@@ -85,6 +89,7 @@ export const DEFAULT_ROOMS: Room[] = [
     amenities: ['High-speed Wi-Fi', 'In-room AC', 'Modern Kitchenette'],
     image_urls: ['https://res.cloudinary.com/di7okmjsx/image/upload/v1770388212/Suite2_q62y4w.jpg'],
     is_available: true,
+    status: 'Active',
     created_at: new Date().toISOString(),
     gender_restriction: 'Female'
   },
@@ -101,6 +106,7 @@ export const DEFAULT_ROOMS: Room[] = [
     amenities: ['High-speed Wi-Fi', 'In-room AC', 'Resident Lounge Access'],
     image_urls: ['https://res.cloudinary.com/di7okmjsx/image/upload/v1770388212/Suite1_t4dczv.jpg'],
     is_available: true,
+    status: 'Active',
     created_at: new Date().toISOString(),
     gender_restriction: 'Any'
   }
@@ -455,12 +461,16 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                     .maybeSingle();
                 
                 if (data && !error) {
+                    const roomWithStatus: Room = {
+                        ...data,
+                        status: (data.status || 'Active') as 'Active' | 'Inactive'
+                    };
                     setRooms(prev => {
-                        const exists = prev.some(r => r.id === data.id);
+                        const exists = prev.some(r => r.id === roomWithStatus.id);
                         if (exists) {
-                            return prev.map(r => r.id === data.id ? data : r);
+                            return prev.map(r => r.id === roomWithStatus.id ? roomWithStatus : r);
                         }
-                        return [...prev, data];
+                        return [...prev, roomWithStatus];
                     });
                 }
             } else if (payload.eventType === 'DELETE') {
@@ -592,10 +602,23 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                 setWaitlist(waitlistRes.data);
             }
             
+            const dbCmsData = cmsRes?.data;
+            const roomStatusOverrides = (dbCmsData?.how_to_videos || dbCmsData?.howToVideos)?.room_status_overrides || {};
+
             if (roomsRes && !roomsRes.error && roomsRes.data && roomsRes.data.length > 0) {
-                setRooms(roomsRes.data);
+                const mappedRooms = roomsRes.data.map((r: any) => ({
+                    ...r,
+                    status: (r.status || roomStatusOverrides[r.id] || 'Active') as 'Active' | 'Inactive'
+                }));
+                setRooms(mappedRooms);
             } else {
-                setRooms(prev => prev && prev.length > 0 ? prev : DEFAULT_ROOMS);
+                setRooms(prev => {
+                    const base = prev && prev.length > 0 ? prev : DEFAULT_ROOMS;
+                    return base.map(r => ({
+                        ...r,
+                        status: (r.status || roomStatusOverrides[r.id] || 'Active') as 'Active' | 'Inactive'
+                    }));
+                });
             }
 
             if (bedSpacesRes && !bedSpacesRes.error && bedSpacesRes.data && bedSpacesRes.data.length > 0) {
@@ -1011,6 +1034,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         
         const roomToInsert = {
             ...roomData,
+            status: newRoom.status || 'Active',
             property_id: propData.id,
         };
 
@@ -1022,9 +1046,9 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             .single();
 
         if (error) {
-            console.warn("Supabase insert error (trying fallback omitting next_available_date):", error);
-            if (error.message?.includes('next_available_date') || error.code === 'P0002' || error.message?.includes('column')) {
-                const { next_available_date, ...fallbackData } = roomToInsert;
+            console.warn("Supabase insert error (trying fallback omitting next_available_date and status):", error);
+            if (error.message?.includes('next_available_date') || error.message?.includes('status') || error.code === 'P0002' || error.message?.includes('column')) {
+                const { next_available_date, status, ...fallbackData } = roomToInsert;
                 const fallbackRes = await supabase
                     .from('rooms')
                     .insert([fallbackData])
@@ -1033,7 +1057,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                 if (fallbackRes.error) {
                     throw fallbackRes.error;
                 }
-                insertedRoom = { ...fallbackRes.data, next_available_date: newRoom.next_available_date };
+                insertedRoom = { ...fallbackRes.data, next_available_date: newRoom.next_available_date, status: newRoom.status || 'Active' };
             } else {
                 throw error;
             }
@@ -1067,8 +1091,13 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             }
         }
 
-        setRooms(prev => [...prev, insertedRoom]);
-        return { success: true, data: insertedRoom };
+        const finalRoom: Room = {
+            ...insertedRoom,
+            status: (insertedRoom.status || newRoom.status || 'Active') as 'Active' | 'Inactive'
+        };
+
+        setRooms(prev => [...prev, finalRoom]);
+        return { success: true, data: finalRoom };
     } catch (err: any) {
         console.error("Error adding room to Supabase:", err);
         return { success: false, error: err.message || "Failed to create room in database." };
@@ -1087,24 +1116,52 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             .select();
 
         if (error) {
-            console.warn("Supabase update error (trying fallback omitting next_available_date):", error);
-            if (error.message?.includes('next_available_date') || error.code === 'P0002' || error.message?.includes('column')) {
-                const { next_available_date, ...fallbackData } = updateData;
-                const fallbackRes = await supabase
-                    .from('rooms')
-                    .update(fallbackData)
-                    .eq('id', updatedRoom.id)
-                    .select();
-                
-                if (fallbackRes.error) {
-                    throw fallbackRes.error;
+            console.warn("Supabase update error (trying fallback omitting next_available_date/status):", error);
+            const { next_available_date, status, ...fallbackData } = updateData;
+            const fallbackRes = await supabase
+                .from('rooms')
+                .update(fallbackData)
+                .eq('id', updatedRoom.id)
+                .select();
+            
+            if (fallbackRes.error) {
+                throw fallbackRes.error;
+            }
+
+            // Sync room status override to Supabase cms_content to ensure persistence in Supabase
+            if (updatedRoom.status) {
+                try {
+                    const { data: currentCms } = await supabase.from('cms_content').select('*').limit(1).maybeSingle();
+                    if (currentCms) {
+                        const currentVideos = currentCms.how_to_videos || {};
+                        const currentOverrides = currentVideos.room_status_overrides || {};
+                        const updatedOverrides = { ...currentOverrides, [updatedRoom.id]: updatedRoom.status };
+                        await supabase.from('cms_content').update({
+                            how_to_videos: { ...currentVideos, room_status_overrides: updatedOverrides }
+                        }).eq('id', currentCms.id);
+                    }
+                } catch (cmsErr) {
+                    console.warn("Notice syncing room status to Supabase cms_content:", cmsErr);
                 }
-            } else {
-                throw error;
+            }
+        } else if (updatedRoom.status) {
+            // Keep Supabase cms_content status backup in sync as well
+            try {
+                const { data: currentCms } = await supabase.from('cms_content').select('*').limit(1).maybeSingle();
+                if (currentCms) {
+                    const currentVideos = currentCms.how_to_videos || {};
+                    const currentOverrides = currentVideos.room_status_overrides || {};
+                    const updatedOverrides = { ...currentOverrides, [updatedRoom.id]: updatedRoom.status };
+                    await supabase.from('cms_content').update({
+                        how_to_videos: { ...currentVideos, room_status_overrides: updatedOverrides }
+                    }).eq('id', currentCms.id);
+                }
+            } catch (cmsErr) {
+                console.warn("Notice syncing room status override:", cmsErr);
             }
         }
         
-        console.log("Room updated successfully:", data);
+        console.log("Room updated successfully in Supabase:", updatedRoom.id);
 
         // Reconcile bed_spaces for this room
         const isPrivate = updatedRoom.type?.toLowerCase().includes('private') || updatedRoom.capacity === 1;
@@ -1176,11 +1233,23 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             setBedSpaces(refreshedBeds);
         }
 
-        setRooms(prev => prev.map(r => r.id === updatedRoom.id ? { ...r, ...updateData } : r));
+        setRooms(prev => prev.map(r => r.id === updatedRoom.id ? { ...r, ...updatedRoom } : r));
         return { success: true };
     } catch (err: any) {
         console.error("Error updating room in Supabase:", err);
         return { success: false, error: err.message || "Failed to update room in database." };
+    }
+  };
+
+  const toggleRoomStatus = async (roomId: number, newStatus: 'Active' | 'Inactive') => {
+    try {
+        const room = rooms.find(r => r.id === roomId);
+        if (!room) throw new Error("Room not found");
+        const updated = { ...room, status: newStatus };
+        return await updateRoom(updated);
+    } catch (err: any) {
+        console.error("Error toggling room status:", err);
+        return { success: false, error: err.message || "Failed to toggle room status" };
     }
   };
 
@@ -1694,6 +1763,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     bedSpaces,
     addRoom,
     updateRoom,
+    toggleRoomStatus,
     deleteRoom,
     activities,
     addActivity,

@@ -10,6 +10,8 @@ export enum AccommodationType {
   PREMIUM_PRIVATE = 'Premium Private',
 }
 
+export type RoomStatus = 'Active' | 'Inactive';
+
 export interface Room {
   id: number;
   property_id: string;
@@ -24,6 +26,7 @@ export interface Room {
   image_urls: string[];
   video_urls?: string[];
   is_available: boolean;
+  status?: 'Active' | 'Inactive';
   created_at: string;
   gender_restriction: 'Male' | 'Female' | 'Any';
   next_available_date?: string;
@@ -330,6 +333,7 @@ export interface AppContextType {
   bedSpaces: BedSpace[];
   addRoom: (room: Room) => Promise<{ success: boolean; error?: string }>;
   updateRoom: (room: Room) => Promise<{ success: boolean; error?: string }>;
+  toggleRoomStatus: (roomId: number, status: RoomStatus) => Promise<{ success: boolean; error?: string }>;
   deleteRoom: (id: number) => Promise<{ success: boolean; error?: string }>;
   activities: Activity[];
   addActivity: (activity: Omit<Activity, 'id'>) => void;
