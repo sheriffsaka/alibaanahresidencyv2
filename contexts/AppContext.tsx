@@ -224,190 +224,111 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const [users, setUsers] = useState<User[]>([]);
   const [waitlist, setWaitlist] = useState<WaitlistEntry[]>([]);
   const [emailLogs, setEmailLogs] = useState<EmailLogEntry[]>([]);
-  const bookingsSubscriptionRef = useRef<any>(null);
+  const isUpdatingSessionRef = useRef(false);
 
   const updateUserSession = useCallback(async (session: Session | null) => {
     setSession(session);
 
-    if (session?.user) {
-      try {
-        // Retry logic for profile fetching (useful right after registration)
-        let profile = null;
-        let profileError = null;
-        let attempts = 0;
-        const maxAttempts = 3;
-
-        while (attempts < maxAttempts) {
-            const { data, error } = await supabase
-                .from('profiles')
-                .select('*')
-                .eq('id', session.user.id)
-                .maybeSingle();
-            
-            if (data) {
-                profile = data;
-                break;
-            }
-            
-            profileError = error;
-            attempts++;
-            if (attempts < maxAttempts) {
-                await new Promise(resolve => setTimeout(resolve, 500 * attempts));
-            }
-        }
-
-        if (!profile) {
-            console.warn("Could not fetch user profile after retries, attempting to create one...");
-            
-            // Try to create the profile if it's missing (self-healing)
-            const { data: newProfile, error: insertError } = await supabase
-                .from('profiles')
-                .insert({
-                    id: session.user.id,
-                    full_name: session.user.user_metadata?.full_name || 'User',
-                    role: (session.user.user_metadata?.role as any) || 'student',
-                    gender: session.user.user_metadata?.gender
-                })
-                .select()
-                .maybeSingle();
-
-            if (newProfile) {
-                console.log("Profile created successfully via self-healing.");
-                profile = newProfile;
-            } else {
-                console.error("Failed to create profile via self-healing:", insertError?.message);
-                // Fallback: Create a temporary user object so the app doesn't stay stuck on the loader
-                const fallbackUser = { 
-                    id: session.user.id, 
-                    email: session.user.email, 
-                    full_name: session.user.user_metadata?.full_name || 'Student', 
-                    role: 'student' as const, 
-                    gender: session.user.user_metadata?.gender as any
-                };
-                setUser(fallbackUser);
-                setBookings([]);
-                return; // Exit early as we don't have a real profile to fetch bookings for
-            }
-        }
-
-        // If we reach here, we have a profile (either fetched or created)
-        const loggedInUser: User = { 
-          id: profile.id, 
-          email: session.user.email, 
-          full_name: profile.full_name, 
-          role: profile.role, 
-          gender: profile.gender,
-          phone_number: profile.phone_number,
-          passport_number: profile.passport_number,
-          nationality: profile.nationality
-        };
-        setUser(loggedInUser);
-
-        // Fetch all system bookings for global availability calculations
-        const { data: bookingsData, error: bookingsError } = await supabase
-            .from('bookings')
-            .select('*, rooms(room_number, type, apartment_name, category), profiles:student_id(full_name)')
-            .order('booked_at', { ascending: false });
-
-        if (profile.role !== 'student') {
-            // If admin, fetch all students for the booking form
-            const { data: studentsData } = await supabase
-                .from('profiles')
-                .select('*')
-                .eq('role', 'student');
-            
-            if (studentsData) {
-                setStudents(studentsData.map((p: any) => ({
-                    id: p.id,
-                    email: p.email || '',
-                    full_name: p.full_name,
-                    role: p.role,
-                    gender: p.gender,
-                    phone_number: p.phone_number,
-                    passport_number: p.passport_number,
-                    nationality: p.nationality,
-                    created_at: p.created_at
-                })));
-            }
-
-            // Fetch all staff and proprietors for management
-            const { data: adminUsers } = await supabase
-                .from('profiles')
-                .select('*')
-                .in('role', ['staff', 'proprietor']);
-            
-            if (adminUsers) {
-                setUsers(adminUsers.map((p: any) => ({
-                    id: p.id,
-                    email: p.email || '',
-                    full_name: p.full_name,
-                    role: p.role,
-                    gender: p.gender
-                })));
-            }
-        }
-
-        if (bookingsError) {
-            console.warn("Notice fetching bookings:", bookingsError.message);
-        } else if (bookingsData) {
-            const mappedBookings = bookingsData.map((b: any) => ({
-                ...b,
-                student_name: b.profiles?.full_name,
-            }));
-            setBookings(mappedBookings);
-
-            // If phone, passport, or nationality is missing on the active user, supplement from their latest booking
-            const studentBooking = mappedBookings.find((b: any) => b.student_id === profile.id);
-            if (studentBooking) {
-                loggedInUser.full_name = loggedInUser.full_name || studentBooking.full_name;
-                loggedInUser.phone_number = loggedInUser.phone_number || studentBooking.phone_number;
-                loggedInUser.passport_number = loggedInUser.passport_number || studentBooking.passport_number;
-                loggedInUser.nationality = loggedInUser.nationality || studentBooking.nationality;
-                setUser({ ...loggedInUser });
-            }
-        }
-
-        // Fetch waitlist entries
-        try {
-            let waitlistQuery = supabase
-                .from('waitlist')
-                .select('*, profiles:student_id(full_name, phone_number, nationality)')
-                .order('created_at', { ascending: false });
-
-            if (profile.role === 'student') {
-                waitlistQuery = waitlistQuery.eq('student_id', profile.id);
-            }
-
-            const { data: waitlistData, error: waitlistError } = await waitlistQuery;
-            if (waitlistError) {
-                console.error("Error fetching waitlist:", waitlistError.message);
-            } else if (waitlistData) {
-                setWaitlist(waitlistData);
-            }
-        } catch (wlErr: any) {
-            console.error("Error fetching waitlist:", wlErr.message);
-        }
-
-        // Fetch email delivery logs if staff or proprietor
-        if (profile.role === 'staff' || profile.role === 'proprietor') {
-            try {
-                const logs = await fetchRecentEmailLogs();
-                setEmailLogs(logs);
-            } catch (logErr) {
-                console.warn("Notice fetching email logs:", logErr);
-            }
-        }
-      } catch (err) {
-        console.warn("Notice in updateUserSession:", err);
-        setUser(null);
-        setStudents([]);
-        setEmailLogs([]);
-      }
-    } else {
+    if (!session?.user) {
       setUser(null);
       setStudents([]);
-      setWaitlist([]);
+      setUsers([]);
       setEmailLogs([]);
+      return;
+    }
+
+    if (isUpdatingSessionRef.current) return;
+    isUpdatingSessionRef.current = true;
+
+    try {
+      // 1. Fetch user profile fast
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', session.user.id)
+        .maybeSingle();
+
+      let activeProfile = profile;
+      if (!activeProfile) {
+        // Self-heal profile if missing
+        const { data: newProfile } = await supabase
+          .from('profiles')
+          .insert({
+            id: session.user.id,
+            full_name: session.user.user_metadata?.full_name || 'User',
+            role: (session.user.user_metadata?.role as any) || 'student',
+            gender: session.user.user_metadata?.gender
+          })
+          .select()
+          .maybeSingle();
+        activeProfile = newProfile;
+      }
+
+      if (!activeProfile) {
+        const fallbackUser = {
+          id: session.user.id,
+          email: session.user.email,
+          full_name: session.user.user_metadata?.full_name || 'Student',
+          role: 'student' as const,
+          gender: session.user.user_metadata?.gender as any
+        };
+        setUser(fallbackUser);
+        return;
+      }
+
+      const loggedInUser: User = {
+        id: activeProfile.id,
+        email: session.user.email,
+        full_name: activeProfile.full_name,
+        role: activeProfile.role,
+        gender: activeProfile.gender,
+        phone_number: activeProfile.phone_number,
+        passport_number: activeProfile.passport_number,
+        nationality: activeProfile.nationality
+      };
+      setUser(loggedInUser);
+
+      // 2. Fetch role-dependent data in parallel
+      const isStaffOrAdmin = activeProfile.role === 'staff' || activeProfile.role === 'proprietor';
+      if (isStaffOrAdmin) {
+        const [studentsRes, staffRes, emailLogsRes] = await Promise.all([
+          safeFetch(supabase.from('profiles').select('*').eq('role', 'student')),
+          safeFetch(supabase.from('profiles').select('*').in('role', ['staff', 'proprietor'])),
+          safeFetch(fetchRecentEmailLogs())
+        ]);
+
+        if (studentsRes?.data) {
+          setStudents(studentsRes.data.map((p: any) => ({
+            id: p.id,
+            email: p.email || '',
+            full_name: p.full_name,
+            role: p.role,
+            gender: p.gender,
+            phone_number: p.phone_number,
+            passport_number: p.passport_number,
+            nationality: p.nationality,
+            created_at: p.created_at
+          })));
+        }
+
+        if (staffRes?.data) {
+          setUsers(staffRes.data.map((p: any) => ({
+            id: p.id,
+            email: p.email || '',
+            full_name: p.full_name,
+            role: p.role,
+            gender: p.gender
+          })));
+        }
+
+        if (Array.isArray(emailLogsRes)) {
+          setEmailLogs(emailLogsRes);
+        }
+      }
+    } catch (err) {
+      console.warn("Notice in updateUserSession:", err);
+    } finally {
+      isUpdatingSessionRef.current = false;
     }
   }, []);
 
@@ -567,12 +488,49 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         })
         .subscribe();
 
+    // Real-time subscription for accommodation categories changes
+    const categoriesChannel = supabase
+        .channel('global-categories-changes')
+        .on('postgres_changes', {
+            event: '*',
+            schema: 'public',
+            table: 'accommodation_categories'
+        }, async (payload) => {
+            console.log('Real-time category update:', payload);
+            if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
+                const raw = payload.new as any;
+                if (raw && raw.id) {
+                    const mapped: AccommodationCategory = {
+                        id: raw.id,
+                        name: raw.name,
+                        description: raw.description || '',
+                        address: raw.address || '',
+                        defaultPrice: raw.default_price !== null && raw.default_price !== undefined ? Number(raw.default_price) : undefined,
+                        status: (raw.status || 'Active') as 'Active' | 'Inactive',
+                        created_at: raw.created_at,
+                        updated_at: raw.updated_at
+                    };
+                    setAccommodationCategories(prev => {
+                        const exists = prev.some(c => c.id === mapped.id || c.name.toLowerCase() === mapped.name.toLowerCase());
+                        if (exists) {
+                            return prev.map(c => (c.id === mapped.id || c.name.toLowerCase() === mapped.name.toLowerCase()) ? mapped : c);
+                        }
+                        return [...prev, mapped];
+                    });
+                }
+            } else if (payload.eventType === 'DELETE') {
+                setAccommodationCategories(prev => prev.filter(c => c.id !== payload.old.id));
+            }
+        })
+        .subscribe();
+
     return () => {
         supabase.removeChannel(bookingsChannel);
         supabase.removeChannel(roomsChannel);
         supabase.removeChannel(bedSpacesChannel);
         supabase.removeChannel(waitlistChannel);
         supabase.removeChannel(emailLogsChannel);
+        supabase.removeChannel(categoriesChannel);
     };
   }, []);
 
@@ -587,7 +545,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const fetchPublicData = useCallback(async () => {
         try {
             console.log("Fetching public data...");
-            const [roomsRes, bedSpacesRes, bookingsRes, termsRes, packagesRes, cmsRes, activitiesRes, publicOccupancyRes, waitlistRes] = await Promise.all([
+            const [roomsRes, bedSpacesRes, bookingsRes, termsRes, packagesRes, cmsRes, activitiesRes, publicOccupancyRes, waitlistRes, categoriesRes] = await Promise.all([
                 safeFetch(supabase.from('rooms').select('*')),
                 safeFetch(supabase.from('bed_spaces').select('*').order('id', { ascending: true })),
                 safeFetch(supabase.from('bookings').select('*, rooms(room_number, type, apartment_name, category), profiles:student_id(full_name)').order('booked_at', { ascending: false })),
@@ -596,9 +554,27 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                 safeFetch(supabase.from('cms_content').select('*').limit(1).maybeSingle()),
                 safeFetch(supabase.from('admin_audit_log').select('*').order('created_at', { ascending: false }).limit(20)),
                 safeFetch(supabase.rpc('get_public_occupancy')),
-                safeFetch(supabase.from('waitlist').select('*, profiles:student_id(full_name, phone_number, nationality)').order('created_at', { ascending: false }))
+                safeFetch(supabase.from('waitlist').select('*, profiles:student_id(full_name, phone_number, nationality)').order('created_at', { ascending: false })),
+                safeFetch(supabase.from('accommodation_categories').select('*').order('display_order', { ascending: true }))
             ]);
             
+            // Accommodation categories table data takes precedence
+            let hasLoadedCategories = false;
+            if (categoriesRes && !categoriesRes.error && Array.isArray(categoriesRes.data) && categoriesRes.data.length > 0) {
+                const mappedCategories: AccommodationCategory[] = categoriesRes.data.map((c: any) => ({
+                    id: c.id,
+                    name: c.name,
+                    description: c.description || '',
+                    address: c.address || '',
+                    defaultPrice: c.default_price !== null && c.default_price !== undefined ? Number(c.default_price) : undefined,
+                    status: (c.status || 'Active') as 'Active' | 'Inactive',
+                    created_at: c.created_at,
+                    updated_at: c.updated_at
+                }));
+                setAccommodationCategories(mappedCategories);
+                hasLoadedCategories = true;
+            }
+
             if (waitlistRes && !waitlistRes.error && waitlistRes.data) {
                 setWaitlist(waitlistRes.data);
             }
@@ -661,13 +637,15 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                 setActivities(mappedActivities);
             }
             
-            if (cmsRes.data) {
+            if (cmsRes?.data) {
               const dbCms = cmsRes.data;
               const normalizeCmsData = (data: any, fallback: any) => {
                 if (!hasData(data)) return fallback;
                 if (Array.isArray(data)) return { ...fallback, en: data };
                 return { ...fallback, ...data };
               };
+
+              const cmsCategories = (dbCms.how_to_videos || dbCms.howToVideos)?.accommodationCategories || dbCms.accommodation_categories || dbCms.accommodationCategories;
 
               setCmsContent({
                 ...INITIAL_CMS,
@@ -699,13 +677,12 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                 announcements: normalizeCmsData((dbCms.how_to_videos || dbCms.howToVideos)?.announcements || dbCms.announcements, INITIAL_CMS.announcements),
                 landlordDetails: (dbCms.how_to_videos || dbCms.howToVideos)?.landlordDetails || DEFAULT_LANDLORD_DETAILS,
                 accommodationAddresses: (dbCms.how_to_videos || dbCms.howToVideos)?.accommodationAddresses || dbCms.accommodationAddresses || DEFAULT_ACCOMMODATION_ADDRESSES,
-                accommodationCategories: (dbCms.how_to_videos || dbCms.howToVideos)?.accommodationCategories || dbCms.accommodation_categories || dbCms.accommodationCategories || DEFAULT_ACCOMMODATION_CATEGORIES,
+                accommodationCategories: Array.isArray(cmsCategories) && cmsCategories.length > 0 ? cmsCategories : DEFAULT_ACCOMMODATION_CATEGORIES,
                 supportContent: (dbCms.how_to_videos || dbCms.howToVideos)?.supportContent || dbCms.supportContent || dbCms.support_content || DEFAULT_SUPPORT_CONTENT
               });
 
-              const dbCategories = (dbCms.how_to_videos || dbCms.howToVideos)?.accommodationCategories || dbCms.accommodation_categories || dbCms.accommodationCategories;
-              if (Array.isArray(dbCategories) && dbCategories.length > 0) {
-                setAccommodationCategories(dbCategories);
+              if (!hasLoadedCategories && Array.isArray(cmsCategories) && cmsCategories.length > 0) {
+                setAccommodationCategories(cmsCategories);
               }
             }
         } catch (err) {
@@ -715,21 +692,13 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
   const initializeApp = useCallback(async () => {
         try {
-            // 1. Fetch public data
-            await fetchPublicData();
+            // Run public data fetch and session check in parallel for maximum speed
+            const [, sessionRes] = await Promise.all([
+                fetchPublicData(),
+                supabase.auth.getSession()
+            ]);
             
-            // 2. Check session
-            const { data: { session }, error: authError } = await supabase.auth.getSession();
-            
-            if (authError) {
-                console.error("Auth session error:", authError.message);
-                // If the refresh token is invalid or not found, clear the local session
-                if (authError.message.toLowerCase().includes('refresh token') || authError.message.includes('refresh_token_not_found')) {
-                    console.warn("Stale refresh token detected. Clearing session...");
-                    await supabase.auth.signOut();
-                }
-            }
-
+            const session = sessionRes?.data?.session;
             if (session) {
                 await updateUserSession(session);
             }
@@ -1031,21 +1000,41 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
   const refreshAccommodationCategories = async (): Promise<AccommodationCategory[]> => {
     try {
-      const { data: dbCms, error } = await supabase
+      const { data: dbCategories, error } = await supabase
+        .from('accommodation_categories')
+        .select('*')
+        .order('display_order', { ascending: true });
+
+      if (!error && dbCategories && dbCategories.length > 0) {
+        const mapped: AccommodationCategory[] = dbCategories.map((c: any) => ({
+          id: c.id,
+          name: c.name,
+          description: c.description || '',
+          address: c.address || '',
+          defaultPrice: c.default_price !== null && c.default_price !== undefined ? Number(c.default_price) : undefined,
+          status: (c.status || 'Active') as 'Active' | 'Inactive',
+          created_at: c.created_at,
+          updated_at: c.updated_at
+        }));
+        setAccommodationCategories(mapped);
+        return mapped;
+      }
+
+      // Fallback to cms_content
+      const { data: dbCms } = await supabase
         .from('cms_content')
         .select('*')
         .limit(1)
-        .single();
+        .maybeSingle();
 
-      if (error) throw error;
       if (dbCms) {
-        const dbCategories = (dbCms.how_to_videos || dbCms.howToVideos)?.accommodationCategories || dbCms.accommodation_categories || dbCms.accommodationCategories;
-        const categoriesList: AccommodationCategory[] = Array.isArray(dbCategories) && dbCategories.length > 0
-          ? dbCategories
-          : DEFAULT_ACCOMMODATION_CATEGORIES;
-        setAccommodationCategories(categoriesList);
-        return categoriesList;
+        const cmsCategories = (dbCms.how_to_videos || dbCms.howToVideos)?.accommodationCategories || dbCms.accommodation_categories || dbCms.accommodationCategories;
+        if (Array.isArray(cmsCategories) && cmsCategories.length > 0) {
+          setAccommodationCategories(cmsCategories);
+          return cmsCategories;
+        }
       }
+
       return accommodationCategories;
     } catch (err: any) {
       console.error('Error refreshing accommodation categories from Supabase:', err.message);
@@ -1068,36 +1057,58 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         return { success: false, error: `Category "${trimmedName}" already exists. Please choose a unique name.` };
       }
 
-      const slug = trimmedName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') || `cat-${Date.now()}`;
+      const slug = (typeof categoryInput === 'object' && (categoryInput as any).id)
+        ? (categoryInput as any).id
+        : trimmedName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') || `cat-${Date.now()}`;
+
       const newCategory: AccommodationCategory = {
-        id: typeof categoryInput === 'object' && (categoryInput as any).id ? (categoryInput as any).id : slug,
+        id: slug,
         name: trimmedName,
         description: typeof categoryInput === 'object' ? categoryInput.description : '',
         address: typeof categoryInput === 'object' ? categoryInput.address : '',
-        defaultPrice: typeof categoryInput === 'object' ? categoryInput.defaultPrice : undefined,
+        defaultPrice: typeof categoryInput === 'object' && categoryInput.defaultPrice !== undefined ? Number(categoryInput.defaultPrice) : undefined,
         status: typeof categoryInput === 'object' && categoryInput.status ? categoryInput.status : 'Active',
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString()
       };
 
-      const updatedCategories = [...accommodationCategories, newCategory];
-      
+      // 1. Optimistic UI update
+      setAccommodationCategories(prev => {
+        const filtered = prev.filter(c => c.id !== slug && c.name.toLowerCase() !== trimmedName.toLowerCase());
+        return [...filtered, newCategory];
+      });
+
+      // 2. Persist directly to accommodation_categories table in Supabase
+      const dbPayload = {
+        id: newCategory.id,
+        name: newCategory.name,
+        description: newCategory.description || '',
+        address: newCategory.address || '',
+        default_price: newCategory.defaultPrice !== undefined && newCategory.defaultPrice !== null ? newCategory.defaultPrice : null,
+        status: newCategory.status || 'Active',
+        display_order: accommodationCategories.length + 1,
+        updated_at: new Date().toISOString()
+      };
+
+      const { error: dbError } = await supabase
+        .from('accommodation_categories')
+        .upsert([dbPayload], { onConflict: 'name' });
+
+      if (dbError) {
+        console.warn("Notice saving to accommodation_categories table:", dbError.message);
+      }
+
+      // 3. Keep cmsContent in sync
+      const updatedCategories = [...accommodationCategories.filter(c => c.id !== slug), newCategory];
       const updatedAddresses = {
         ...cmsContent.accommodationAddresses,
         ...(newCategory.address ? { [trimmedName]: newCategory.address } : {})
       };
 
-      const res = await updateCmsContent({
+      await updateCmsContent({
         accommodationCategories: updatedCategories,
         accommodationAddresses: updatedAddresses
       });
-
-      if (!res.success) {
-        throw new Error(res.error || 'Failed to save category to Supabase');
-      }
-
-      setAccommodationCategories(updatedCategories);
-      await refreshAccommodationCategories();
 
       return { success: true, category: newCategory };
     } catch (err: any) {
@@ -1108,8 +1119,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
   const updateAccommodationCategory = async (id: string, updates: Partial<AccommodationCategory>) => {
     try {
-      const index = accommodationCategories.findIndex(c => c.id === id);
-      if (index === -1) {
+      const existing = accommodationCategories.find(c => c.id === id);
+      if (!existing) {
         return { success: false, error: 'Category not found.' };
       }
 
@@ -1125,17 +1136,36 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         updates.name = trimmedName;
       }
 
-      const updatedCategory = {
-        ...accommodationCategories[index],
+      const updatedCategory: AccommodationCategory = {
+        ...existing,
         ...updates,
         updated_at: new Date().toISOString()
       };
 
-      const updatedCategories = [...accommodationCategories];
-      updatedCategories[index] = updatedCategory;
+      // 1. Optimistic UI update
+      setAccommodationCategories(prev => prev.map(c => c.id === id ? updatedCategory : c));
 
+      // 2. Persist to accommodation_categories table in Supabase
+      const dbUpdates: any = { updated_at: new Date().toISOString() };
+      if (updates.name !== undefined) dbUpdates.name = updates.name.trim();
+      if (updates.description !== undefined) dbUpdates.description = updates.description;
+      if (updates.address !== undefined) dbUpdates.address = updates.address;
+      if (updates.defaultPrice !== undefined) dbUpdates.default_price = updates.defaultPrice !== null ? Number(updates.defaultPrice) : null;
+      if (updates.status !== undefined) dbUpdates.status = updates.status;
+
+      const { error: dbError } = await supabase
+        .from('accommodation_categories')
+        .update(dbUpdates)
+        .eq('id', id);
+
+      if (dbError) {
+        console.warn("Notice updating accommodation_categories table:", dbError.message);
+      }
+
+      // 3. Keep cmsContent in sync
+      const nextList = accommodationCategories.map(c => c.id === id ? updatedCategory : c);
       const updatedAddresses = { ...cmsContent.accommodationAddresses };
-      const oldName = accommodationCategories[index].name;
+      const oldName = existing.name;
       if (updates.name && updates.name !== oldName && updatedAddresses[oldName]) {
         updatedAddresses[updates.name] = updatedCategory.address || updatedAddresses[oldName];
         delete updatedAddresses[oldName];
@@ -1143,17 +1173,10 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         updatedAddresses[updatedCategory.name] = updatedCategory.address;
       }
 
-      const res = await updateCmsContent({
-        accommodationCategories: updatedCategories,
+      await updateCmsContent({
+        accommodationCategories: nextList,
         accommodationAddresses: updatedAddresses
       });
-
-      if (!res.success) {
-        throw new Error(res.error || 'Failed to save updated category to Supabase');
-      }
-
-      setAccommodationCategories(updatedCategories);
-      await refreshAccommodationCategories();
 
       return { success: true };
     } catch (err: any) {
@@ -1164,15 +1187,22 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
   const deleteAccommodationCategory = async (id: string) => {
     try {
-      const updatedCategories = accommodationCategories.filter(c => c.id !== id);
-      const res = await updateCmsContent({
-        accommodationCategories: updatedCategories
-      });
-      if (!res.success) {
-        throw new Error(res.error || 'Failed to delete category from Supabase');
+      const nextList = accommodationCategories.filter(c => c.id !== id);
+      setAccommodationCategories(nextList);
+
+      const { error } = await supabase
+        .from('accommodation_categories')
+        .delete()
+        .eq('id', id);
+
+      if (error) {
+        console.warn("Notice deleting from accommodation_categories table:", error.message);
       }
-      setAccommodationCategories(updatedCategories);
-      await refreshAccommodationCategories();
+
+      await updateCmsContent({
+        accommodationCategories: nextList
+      });
+
       return { success: true };
     } catch (err: any) {
       console.error('Error deleting accommodation category:', err.message);
@@ -1230,6 +1260,25 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         }
         
         console.log("Room added successfully:", insertedRoom);
+
+        // Auto-ensure category is registered in accommodation_categories table
+        if (insertedRoom && insertedRoom.apartment_name) {
+            const catName = insertedRoom.apartment_name.trim();
+            const catExists = accommodationCategories.some(c => c.name.toLowerCase() === catName.toLowerCase());
+            if (!catExists && catName) {
+                const slug = catName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') || `cat-${Date.now()}`;
+                const autoCategory: AccommodationCategory = {
+                    id: slug,
+                    name: catName,
+                    description: `${catName} student residence.`,
+                    defaultPrice: insertedRoom.price_per_month || 175,
+                    status: 'Active',
+                    created_at: new Date().toISOString(),
+                    updated_at: new Date().toISOString()
+                };
+                addAccommodationCategory(autoCategory).catch(e => console.warn("Notice auto-persisting category:", e));
+            }
+        }
 
         // Auto-provision bed_spaces for the new room
         if (insertedRoom && insertedRoom.id) {
