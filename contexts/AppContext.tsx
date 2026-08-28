@@ -1194,7 +1194,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         const { data: propData } = await supabase.from('properties').select('id').limit(1).single();
         if (!propData) throw new Error("No property found");
 
-        const { id, created_at, ...roomData } = newRoom as any;
+        const { id, created_at, bedLabels, ...roomData } = newRoom as any;
         
         const roomToInsert = {
             ...roomData,
@@ -1274,7 +1274,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const updateRoom = async (updatedRoom: Room) => {
     try {
         console.log("Updating room in Supabase:", updatedRoom.id, updatedRoom);
-        const { id, created_at, property_id, ...updateData } = updatedRoom as any;
+        const { id, created_at, property_id, bedLabels, ...updateData } = updatedRoom as any;
 
         const { error, data } = await supabase
             .from('rooms')
