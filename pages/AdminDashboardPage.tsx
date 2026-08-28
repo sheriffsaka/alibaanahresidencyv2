@@ -1573,22 +1573,12 @@ const AdminDashboardPage: React.FC = () => {
                   <h2 className="text-xl font-bold text-gray-900 dark:text-white">Rooms & Bed Spaces Database</h2>
                   <p className="text-xs text-gray-500 mt-0.5">Sorted by Category (Premium 1 → Premium 2 → Standard) and Room Number</p>
                 </div>
-                <div className="flex items-center gap-3">
-                  <button
-                    id="manage-categories-btn-rooms"
-                    type="button"
-                    onClick={() => setIsManageCategoryModalOpen(true)}
-                    className="bg-brand-50 hover:bg-brand-100 text-brand-700 dark:bg-brand-950/40 dark:text-brand-300 px-4 py-2.5 rounded-xl text-xs font-bold flex items-center gap-2 border border-brand-200/60 dark:border-brand-800 transition-all shadow-xs"
-                  >
-                    <Layers className="w-4 h-4 text-brand-600 dark:text-brand-400" /> Manage Categories
-                  </button>
-                  <button
-                    onClick={() => handleOpenRoomModal(null)}
-                    className="bg-brand-600 hover:bg-brand-700 text-white px-5 py-2.5 rounded-xl text-xs font-bold flex items-center gap-2 shadow-md transition-all"
-                  >
-                    <IconPlus className="w-4 h-4" /> Add New Room
-                  </button>
-                </div>
+                <button
+                  onClick={() => handleOpenRoomModal(null)}
+                  className="bg-brand-600 hover:bg-brand-700 text-white px-5 py-2.5 rounded-xl text-xs font-bold flex items-center gap-2 shadow-md transition-all"
+                >
+                  <IconPlus className="w-4 h-4" /> Add New Room
+                </button>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">

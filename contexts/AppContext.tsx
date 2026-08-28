@@ -1234,11 +1234,14 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         // Auto-provision bed_spaces for the new room
         if (insertedRoom && insertedRoom.id) {
             const isPrivate = insertedRoom.type?.toLowerCase().includes('private') || insertedRoom.capacity === 1;
-            const targetLabels = isPrivate
-                ? ['Single']
-                : Array.from({ length: Math.max(1, insertedRoom.capacity || 2) }, (_, i) => `Bed ${String.fromCharCode(65 + i)}`);
+            const customBedLabels = (newRoom as any).bedLabels;
+            const targetLabels = (Array.isArray(customBedLabels) && customBedLabels.length > 0)
+                ? customBedLabels
+                : (isPrivate
+                    ? ['Single']
+                    : Array.from({ length: Math.max(1, insertedRoom.capacity || 2) }, (_, i) => `Bed ${String.fromCharCode(65 + i)}`));
 
-            const bedSpacesToInsert = targetLabels.map(label => ({
+            const bedSpacesToInsert = targetLabels.map((label: string) => ({
                 room_id: insertedRoom.id,
                 label
             }));
@@ -1329,9 +1332,12 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
         // Reconcile bed_spaces for this room
         const isPrivate = updatedRoom.type?.toLowerCase().includes('private') || updatedRoom.capacity === 1;
-        const targetLabels = isPrivate
-            ? ['Single']
-            : Array.from({ length: Math.max(1, updatedRoom.capacity || 2) }, (_, i) => `Bed ${String.fromCharCode(65 + i)}`);
+        const customBedLabels = (updatedRoom as any).bedLabels;
+        const targetLabels: string[] = (Array.isArray(customBedLabels) && customBedLabels.length > 0)
+            ? customBedLabels
+            : (isPrivate
+                ? ['Single']
+                : Array.from({ length: Math.max(1, updatedRoom.capacity || 2) }, (_, i) => `Bed ${String.fromCharCode(65 + i)}`));
 
         // Fetch current bed spaces for this room from DB
         const { data: existingBeds } = await supabase
