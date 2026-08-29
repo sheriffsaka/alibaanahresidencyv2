@@ -1133,7 +1133,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     }
   };
 
-  const addAccommodationCategory = async (categoryInput: Omit<AccommodationCategory, 'id' | 'created_at'> | string) => {
+  const addAccommodationCategory = async (categoryInput: Omit<AccommodationCategory, 'id' | 'created_at'> | string | (Omit<AccommodationCategory, 'created_at'> & { id?: string })) => {
     try {
       const rawName = typeof categoryInput === 'string' ? categoryInput : categoryInput.name;
       const trimmedName = (rawName || '').trim();
@@ -1148,9 +1148,16 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         return { success: false, error: `Category "${trimmedName}" already exists. Please choose a unique name.` };
       }
 
-      const slug = (typeof categoryInput === 'object' && (categoryInput as any).id)
-        ? (categoryInput as any).id
+      let slug = (typeof categoryInput === 'object' && (categoryInput as any).id && (categoryInput as any).id.trim())
+        ? (categoryInput as any).id.trim().toLowerCase().replace(/[^a-z0-9_-]/g, '-').replace(/(^-|-$)/g, '')
         : trimmedName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') || `cat-${Date.now()}`;
+
+      if (!slug) slug = `cat-${Date.now()}`;
+
+      const duplicateSlug = accommodationCategories.some(c => c.id.toLowerCase() === slug.toLowerCase());
+      if (duplicateSlug) {
+        slug = `${slug}-${Date.now().toString().slice(-4)}`;
+      }
 
       const newCategory: AccommodationCategory = {
         id: slug,
@@ -1216,6 +1223,21 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       }
 
       const oldName = existing.name;
+      const oldId = existing.id;
+      let targetId = oldId;
+
+      if (updates.id !== undefined && updates.id.trim() !== '') {
+        const cleanId = updates.id.trim().toLowerCase().replace(/[^a-z0-9_-]/g, '-').replace(/(^-|-$)/g, '');
+        if (!cleanId) {
+          return { success: false, error: 'Category ID cannot be empty.' };
+        }
+        const duplicateId = accommodationCategories.some(c => c.id !== id && c.id.toLowerCase() === cleanId.toLowerCase());
+        if (duplicateId) {
+          return { success: false, error: `Category ID "${cleanId}" is already taken by another category.` };
+        }
+        targetId = cleanId;
+      }
+
       if (updates.name !== undefined) {
         const trimmedName = updates.name.trim();
         if (!trimmedName) {
@@ -1231,14 +1253,16 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       const updatedCategory: AccommodationCategory = {
         ...existing,
         ...updates,
+        id: targetId,
         updated_at: new Date().toISOString()
       };
 
       // 1. Optimistic UI update
-      setAccommodationCategories(prev => prev.map(c => c.id === id ? updatedCategory : c));
+      setAccommodationCategories(prev => prev.map(c => c.id === oldId ? updatedCategory : c));
 
       // 2. Persist to accommodation_categories table in Supabase
       const dbUpdates: any = { updated_at: new Date().toISOString() };
+      if (targetId !== oldId) dbUpdates.id = targetId;
       if (updates.name !== undefined) dbUpdates.name = updates.name.trim();
       if (updates.description !== undefined) dbUpdates.description = updates.description;
       if (updates.address !== undefined) dbUpdates.address = updates.address;
@@ -1248,7 +1272,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       const { error: dbError } = await supabase
         .from('accommodation_categories')
         .update(dbUpdates)
-        .eq('id', id);
+        .eq('id', oldId);
 
       if (dbError) {
         console.warn("Notice updating accommodation_categories table:", dbError.message);
@@ -1275,7 +1299,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       }
 
       // 4. Keep cmsContent in sync
-      const nextList = accommodationCategories.map(c => c.id === id ? updatedCategory : c);
+      const nextList = accommodationCategories.map(c => c.id === oldId ? updatedCategory : c);
       const updatedAddresses = { ...cmsContent.accommodationAddresses };
       if (updates.name && updates.name !== oldName && updatedAddresses[oldName]) {
         updatedAddresses[updates.name] = updatedCategory.address || updatedAddresses[oldName];

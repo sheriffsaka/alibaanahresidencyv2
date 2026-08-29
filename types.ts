@@ -406,7 +406,7 @@ export interface AppContextType {
   effectiveOccupancyBookings: any[];
   accommodationAddresses: AccommodationAddresses;
   accommodationCategories: AccommodationCategory[];
-  addAccommodationCategory: (category: Omit<AccommodationCategory, 'id' | 'created_at'> | string) => Promise<{ success: boolean; error?: string; category?: AccommodationCategory }>;
+  addAccommodationCategory: (category: (Omit<AccommodationCategory, 'created_at'> & { id?: string }) | Omit<AccommodationCategory, 'id' | 'created_at'> | string) => Promise<{ success: boolean; error?: string; category?: AccommodationCategory }>;
   updateAccommodationCategory: (id: string, updates: Partial<AccommodationCategory>) => Promise<{ success: boolean; error?: string }>;
   deleteAccommodationCategory: (id: string) => Promise<{ success: boolean; error?: string }>;
   refreshAccommodationCategories: () => Promise<AccommodationCategory[]>;

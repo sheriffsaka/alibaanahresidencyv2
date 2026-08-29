@@ -13,7 +13,10 @@ import {
   DollarSign, 
   RefreshCw,
   Plus,
-  Power
+  Power,
+  Hash,
+  Wand2,
+  Tag
 } from 'lucide-react';
 
 interface ManageCategoryModalProps {
@@ -36,6 +39,8 @@ export const ManageCategoryModal: React.FC<ManageCategoryModalProps> = ({ isOpen
 
   // Form states
   const [name, setName] = useState('');
+  const [categoryId, setCategoryId] = useState('');
+  const [isCustomId, setIsCustomId] = useState(false);
   const [address, setAddress] = useState('');
   const [defaultPrice, setDefaultPrice] = useState<number | string>('');
   const [description, setDescription] = useState('');
@@ -58,8 +63,18 @@ export const ManageCategoryModal: React.FC<ManageCategoryModalProps> = ({ isOpen
     }
   }, [isOpen]);
 
+  const generateSlug = (val: string) => {
+    return val
+      .toLowerCase()
+      .trim()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/(^-|-$)/g, '');
+  };
+
   const resetForm = () => {
     setName('');
+    setCategoryId('');
+    setIsCustomId(false);
     setAddress('');
     setDefaultPrice('');
     setDescription('');
@@ -86,6 +101,8 @@ export const ManageCategoryModal: React.FC<ManageCategoryModalProps> = ({ isOpen
     setEditingCategory(category);
     setIsAdding(false);
     setName(category.name);
+    setCategoryId(category.id);
+    setIsCustomId(true);
     setAddress(category.address || '');
     setDefaultPrice(category.defaultPrice !== undefined ? category.defaultPrice : '');
     setDescription(category.description || '');
@@ -97,6 +114,41 @@ export const ManageCategoryModal: React.FC<ManageCategoryModalProps> = ({ isOpen
     resetForm();
     setIsAdding(true);
     setFeedback(null);
+  };
+
+  const handleNameChange = (val: string) => {
+    setName(val);
+    if (!isCustomId || !categoryId) {
+      setCategoryId(generateSlug(val));
+    }
+  };
+
+  const handleSyncSlugFromName = () => {
+    if (name.trim()) {
+      setCategoryId(generateSlug(name));
+      setIsCustomId(true);
+    }
+  };
+
+  const handleQuickSyncId = async (cat: AccommodationCategory) => {
+    const newSlug = generateSlug(cat.name);
+    if (!newSlug || newSlug === cat.id) return;
+
+    setIsSubmitting(true);
+    setFeedback(null);
+
+    const res = await updateAccommodationCategory(cat.id, { id: newSlug });
+    setIsSubmitting(false);
+
+    if (res.success) {
+      setFeedback({ type: 'success', message: `Category ID updated to "${newSlug}" in Supabase!` });
+      await handleRefresh();
+      if (editingCategory?.id === cat.id) {
+        setCategoryId(newSlug);
+      }
+    } else {
+      setFeedback({ type: 'error', message: res.error || 'Failed to update category ID.' });
+    }
   };
 
   const handleToggleStatus = async (cat: AccommodationCategory) => {
@@ -147,16 +199,36 @@ export const ManageCategoryModal: React.FC<ManageCategoryModalProps> = ({ isOpen
       return;
     }
 
-    // Duplicate check
-    const isDuplicate = categories.some(
+    const cleanSlug = (categoryId.trim() || generateSlug(trimmedName)).toLowerCase().replace(/[^a-z0-9_-]/g, '-');
+    if (!cleanSlug) {
+      setFeedback({ type: 'error', message: 'Valid Category ID (slug) is required.' });
+      return;
+    }
+
+    // Duplicate check for name
+    const isDuplicateName = categories.some(
       c => c.name.trim().toLowerCase() === trimmedName.toLowerCase() && 
            (!editingCategory || c.id !== editingCategory.id)
     );
 
-    if (isDuplicate) {
+    if (isDuplicateName) {
       setFeedback({ 
         type: 'error', 
         message: `A category named "${trimmedName}" already exists. Please choose a distinct name.` 
+      });
+      return;
+    }
+
+    // Duplicate check for ID
+    const isDuplicateId = categories.some(
+      c => c.id.toLowerCase() === cleanSlug.toLowerCase() && 
+           (!editingCategory || c.id !== editingCategory.id)
+    );
+
+    if (isDuplicateId) {
+      setFeedback({ 
+        type: 'error', 
+        message: `Category ID "${cleanSlug}" is already taken. Please enter a unique ID.` 
       });
       return;
     }
@@ -167,8 +239,9 @@ export const ManageCategoryModal: React.FC<ManageCategoryModalProps> = ({ isOpen
       const priceVal = defaultPrice === '' ? undefined : Number(defaultPrice);
 
       if (editingCategory) {
-        // Update existing category
+        // Update existing category (including category ID)
         const res = await updateAccommodationCategory(editingCategory.id, {
+          id: cleanSlug,
           name: trimmedName,
           address: address.trim(),
           defaultPrice: priceVal,
@@ -177,7 +250,7 @@ export const ManageCategoryModal: React.FC<ManageCategoryModalProps> = ({ isOpen
         });
 
         if (res.success) {
-          setFeedback({ type: 'success', message: `Category "${trimmedName}" updated in Supabase!` });
+          setFeedback({ type: 'success', message: `Category "${trimmedName}" (ID: ${cleanSlug}) updated in Supabase!` });
           resetForm();
           await handleRefresh();
         } else {
@@ -186,6 +259,7 @@ export const ManageCategoryModal: React.FC<ManageCategoryModalProps> = ({ isOpen
       } else {
         // Add new category
         const res = await addAccommodationCategory({
+          id: cleanSlug,
           name: trimmedName,
           address: address.trim(),
           defaultPrice: priceVal,
@@ -194,7 +268,7 @@ export const ManageCategoryModal: React.FC<ManageCategoryModalProps> = ({ isOpen
         });
 
         if (res.success) {
-          setFeedback({ type: 'success', message: `Category "${trimmedName}" created and saved to Supabase!` });
+          setFeedback({ type: 'success', message: `Category "${trimmedName}" (ID: ${cleanSlug}) created and saved to Supabase!` });
           resetForm();
           await handleRefresh();
         } else {
@@ -329,11 +403,14 @@ export const ManageCategoryModal: React.FC<ManageCategoryModalProps> = ({ isOpen
                       }`}
                     >
                       <div className="flex items-start justify-between gap-3">
-                        <div className="space-y-1 flex-1 min-w-0">
+                        <div className="space-y-1.5 flex-1 min-w-0">
                           <div className="flex items-center gap-2 flex-wrap">
                             <h4 className="font-bold text-sm text-gray-900 dark:text-white truncate">
                               {cat.name}
                             </h4>
+                            <span className="font-mono text-[10px] font-semibold text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-700/60 px-1.5 py-0.5 rounded flex items-center gap-0.5">
+                              <Hash className="w-2.5 h-2.5 opacity-60" />{cat.id}
+                            </span>
                             <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${
                               isActive
                                 ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300'
@@ -347,6 +424,20 @@ export const ManageCategoryModal: React.FC<ManageCategoryModalProps> = ({ isOpen
                               </span>
                             )}
                           </div>
+
+                          {cat.id !== generateSlug(cat.name) && (
+                            <div className="flex items-center gap-2 text-[11px] text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/30 px-2 py-1 rounded-md border border-amber-200 dark:border-amber-900/50">
+                              <span>Slug differs from name. Suggested ID: <strong className="font-mono font-bold">{generateSlug(cat.name)}</strong></span>
+                              <button
+                                type="button"
+                                onClick={() => handleQuickSyncId(cat)}
+                                disabled={isSubmitting}
+                                className="ml-auto font-bold text-brand-600 dark:text-brand-400 hover:underline flex items-center gap-1 cursor-pointer"
+                              >
+                                <Wand2 className="w-3 h-3" /> Sync ID
+                              </button>
+                            </div>
+                          )}
 
                           {cat.address && (
                             <p className="text-xs text-gray-500 dark:text-gray-400 flex items-center gap-1 truncate">
@@ -446,11 +537,44 @@ export const ManageCategoryModal: React.FC<ManageCategoryModalProps> = ({ isOpen
                     required
                     placeholder="e.g. Premium 3, Standard 2"
                     value={name}
-                    onChange={(e) => setName(e.target.value)}
+                    onChange={(e) => handleNameChange(e.target.value)}
                     className="w-full px-3 py-2 text-xs font-medium border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-brand-500 focus:border-transparent outline-hidden"
                   />
                   <p className="text-[10px] text-gray-400 mt-1">
                     Must be unique (e.g. Premium 1, Premium 2, Premium 3, Standard, Standard 2)
+                  </p>
+                </div>
+
+                {/* Category ID (Slug) */}
+                <div>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="text-xs font-bold text-gray-700 dark:text-gray-300 flex items-center gap-1">
+                      <Hash className="w-3 h-3 text-brand-500" /> Category ID (Database Key) <span className="text-rose-500">*</span>
+                    </label>
+                    {name.trim() && (
+                      <button
+                        type="button"
+                        onClick={handleSyncSlugFromName}
+                        className="text-[10px] text-brand-600 dark:text-brand-400 hover:underline flex items-center gap-1 font-semibold"
+                      >
+                        <Wand2 className="w-3 h-3" /> Auto-generate from Name
+                      </button>
+                    )}
+                  </div>
+                  <input
+                    id="category-id-input"
+                    type="text"
+                    required
+                    placeholder="e.g. premium-3, standard"
+                    value={categoryId}
+                    onChange={(e) => {
+                      setCategoryId(e.target.value.toLowerCase().replace(/[^a-z0-9_-]/g, '-'));
+                      setIsCustomId(true);
+                    }}
+                    className="w-full font-mono px-3 py-2 text-xs font-medium border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-brand-500 focus:border-transparent outline-hidden"
+                  />
+                  <p className="text-[10px] text-gray-400 mt-1">
+                    Primary database key used for records (e.g. <code>premium-1</code>, <code>premium-2</code>, <code>premium-3</code>).
                   </p>
                 </div>
 
