@@ -9,19 +9,25 @@ const CHANNEL_CONFIG = {
     title: 'General Residency Desk',
     subtitle: 'Arrivals, extensions & key management',
     icon: '🏢',
-    description: 'Residency coordinator desk for general inquiries, room assignments, and key collection.'
+    description: 'Residency coordinator desk for general inquiries, room assignments, and key collection.',
+    emptyTitle: 'No general residency inquiries yet.',
+    emptySubtitle: 'Send an inquiry to the student coordinator for general assistance, arrival notes, or room queries.'
   },
   maintenance: {
     title: 'Maintenance Requests',
     subtitle: 'AC, plumbing & appliances',
     icon: '🛠️',
-    description: 'Technical and facility maintenance team for rapid response to room repairs.'
+    description: 'Technical and facility maintenance team for rapid response to room repairs.',
+    emptyTitle: 'No maintenance requests logged yet.',
+    emptySubtitle: 'Report plumbing, electricity, air conditioning, or appliance repair needs directly here.'
   },
   billing: {
     title: 'Payment & Accounts',
     subtitle: 'Transfers, invoices & receipts',
     icon: '💳',
-    description: 'Accounts office for rent payments, deposit returns, and ledger questions.'
+    description: 'Accounts office for rent payments, deposit returns, and ledger questions.',
+    emptyTitle: 'No payment or accounting inquiries yet.',
+    emptySubtitle: 'Submit payment confirmation receipts, inquire about rent balances, or request security deposit updates.'
   }
 } as const;
 
@@ -46,24 +52,22 @@ const MessagesPage: React.FC = () => {
   const [feedback, setFeedback] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  // Find the conversation for the current student and selected channel
+  // Locate conversation for the current student
   const activeConversation = useMemo(() => {
     if (!user?.id || !conversations) return null;
     return conversations.find(
-      c => (c.student_id === user.id || (c.student && c.student.email === user.email) || c.student_email === user.email) && 
-           (c.channel === selectedChannel || (!c.channel && selectedChannel === 'support'))
-    ) || conversations.find(
-      c => c.student_id === user.id || (c.student && c.student.email === user.email) || c.student_email === user.email
+      c => c.student_id === user.id || 
+           (c.student && c.student.email && user.email && c.student.email.toLowerCase() === user.email.toLowerCase()) || 
+           (c.student_email && user.email && c.student_email.toLowerCase() === user.email.toLowerCase())
     ) || null;
-  }, [user, conversations, selectedChannel]);
+  }, [user, conversations]);
 
-  // Fetch messages when active conversation or channel changes
-  const loadMessages = async (convId: string) => {
+  // Fetch messages scoped to the selected channel
+  const loadMessages = async (convId: string, channel: ChannelType) => {
     setLoadingMessages(true);
     try {
-      const msgs = await fetchConversationMessages(convId);
+      const msgs = await fetchConversationMessages(convId, channel);
       setMessages(msgs);
-      // Mark messages as read
       await markConversationAsRead(convId);
     } catch (err) {
       console.error('Failed to load messages:', err);
@@ -74,7 +78,7 @@ const MessagesPage: React.FC = () => {
 
   useEffect(() => {
     if (activeConversation?.id) {
-      loadMessages(activeConversation.id);
+      loadMessages(activeConversation.id, selectedChannel);
     } else {
       setMessages([]);
     }
@@ -84,8 +88,8 @@ const MessagesPage: React.FC = () => {
   useEffect(() => {
     if (!activeConversation?.id) return;
 
-    const channel = supabase
-      .channel(`student_chat_${activeConversation.id}`)
+    const channelSub = supabase
+      .channel(`student_chat_${activeConversation.id}_${selectedChannel}`)
       .on(
         'postgres_changes',
         {
@@ -96,26 +100,37 @@ const MessagesPage: React.FC = () => {
         },
         (payload) => {
           const newMsg = payload.new as MessageItem;
-          setMessages(prev => {
-            if (prev.some(m => m.id === newMsg.id)) return prev;
-            return [...prev, newMsg];
-          });
-          if (newMsg.sender_role !== 'student') {
-            markConversationAsRead(activeConversation.id);
+          const msgChannel = newMsg.channel || 'support';
+          if (msgChannel === selectedChannel) {
+            setMessages(prev => {
+              if (prev.some(m => m.id === newMsg.id)) return prev;
+              return [...prev, newMsg];
+            });
+            if (newMsg.sender_role !== 'student') {
+              markConversationAsRead(activeConversation.id);
+            }
           }
         }
       )
       .subscribe();
 
     return () => {
-      supabase.removeChannel(channel);
+      supabase.removeChannel(channelSub);
     };
-  }, [activeConversation?.id]);
+  }, [activeConversation?.id, selectedChannel]);
+
+  // Filter messages strictly for the current channel view
+  const displayedMessages = useMemo(() => {
+    return messages.filter(m => {
+      const ch = m.channel || 'support';
+      return ch === selectedChannel;
+    });
+  }, [messages, selectedChannel]);
 
   // Auto-scroll to bottom of messages
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages, loadingMessages]);
+  }, [displayedMessages, loadingMessages]);
 
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -132,14 +147,16 @@ const MessagesPage: React.FC = () => {
         subject: CHANNEL_CONFIG[selectedChannel].title
       });
 
-      if (res && res.success && res.message) {
-        const created = res.message;
-        setMessages(prev => {
-          if (prev.some(m => m.id === created.id)) return prev;
-          return [...prev, created];
-        });
+      const created = res?.data || res?.message;
+      if (res && res.success && created) {
+        if ((created.channel || 'support') === selectedChannel) {
+          setMessages(prev => {
+            if (prev.some(m => m.id === created.id)) return prev;
+            return [...prev, created];
+          });
+        }
         setMessageText('');
-        setFeedback('Message sent to the residency management team.');
+        setFeedback(`Message sent to ${CHANNEL_CONFIG[selectedChannel].title}.`);
         setTimeout(() => setFeedback(null), 5000);
       } else if (res && !res.success) {
         setFeedback(res.error || 'Failed to deliver message.');
@@ -172,7 +189,7 @@ const MessagesPage: React.FC = () => {
         <button
           onClick={() => {
             refreshConversations();
-            if (activeConversation?.id) loadMessages(activeConversation.id);
+            if (activeConversation?.id) loadMessages(activeConversation.id, selectedChannel);
           }}
           className="p-2.5 rounded-xl border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 text-xs font-bold flex items-center gap-1.5 transition-colors shadow-2xs"
           title="Refresh Messages"
@@ -236,49 +253,51 @@ const MessagesPage: React.FC = () => {
 
         {/* Right Column: Message Feed & Sender */}
         <div className="lg:col-span-2 space-y-4">
-          <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm flex flex-col h-[540px]">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm flex flex-col h-[560px] overflow-hidden">
             {/* Thread Header */}
-            <div className="px-6 py-4 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between bg-gray-50/50 dark:bg-gray-900/40 rounded-t-2xl">
-              <div className="flex items-center gap-3">
-                <span className="text-2xl">{CHANNEL_CONFIG[selectedChannel].icon}</span>
-                <div>
-                  <h3 className="text-sm font-black text-gray-900 dark:text-white">
+            <div className="px-6 py-4 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between bg-gray-50/50 dark:bg-gray-900/40 shrink-0">
+              <div className="flex items-center gap-3 min-w-0">
+                <span className="text-2xl flex-shrink-0">{CHANNEL_CONFIG[selectedChannel].icon}</span>
+                <div className="min-w-0">
+                  <h3 className="text-sm font-black text-gray-900 dark:text-white truncate">
                     {CHANNEL_CONFIG[selectedChannel].title}
                   </h3>
-                  <p className="text-[10px] text-gray-500 dark:text-gray-400">
+                  <p className="text-[10px] text-gray-500 dark:text-gray-400 truncate">
                     {CHANNEL_CONFIG[selectedChannel].description}
                   </p>
                 </div>
               </div>
-              <div className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300 text-[10px] font-bold">
+              <div className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300 text-[10px] font-bold shrink-0">
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
                 <span>Active Desk</span>
               </div>
             </div>
 
             {/* Messages Feed */}
-            <div className="flex-1 p-6 overflow-y-auto space-y-4 bg-gray-50/20 dark:bg-gray-900/10">
+            <div className="flex-1 p-6 overflow-y-auto space-y-4 bg-gray-50/20 dark:bg-gray-900/10 min-h-0">
               {/* Default Welcome Greetings Banner */}
               <div className="flex items-start gap-3 p-3.5 rounded-xl bg-blue-50/70 dark:bg-blue-950/30 border border-blue-100 dark:border-blue-900/40 text-blue-800 dark:text-blue-200 text-xs">
                 <span className="text-lg">ℹ️</span>
                 <div className="leading-relaxed">
-                  <strong>Assalamu alaikum!</strong> This thread connects directly to the Al-Ibaanah Housing administration team. Messages sent here are stored securely and received by residency supervisors in real-time.
+                  <strong>Assalamu alaikum!</strong> Messages in <strong>{CHANNEL_CONFIG[selectedChannel].title}</strong> connect directly to Al-Ibaanah Housing staff and supervisors.
                 </div>
               </div>
 
               {loadingMessages ? (
                 <div className="py-12 text-center text-xs text-gray-400 flex flex-col items-center justify-center gap-2">
                   <div className="w-6 h-6 border-2 border-brand-500 border-t-transparent rounded-full animate-spin"></div>
-                  <span>Loading message history...</span>
+                  <span>Loading {CHANNEL_CONFIG[selectedChannel].title.toLowerCase()} history...</span>
                 </div>
-              ) : messages.length === 0 ? (
+              ) : displayedMessages.length === 0 ? (
                 <div className="py-12 text-center text-xs text-gray-400 space-y-2">
-                  <p className="text-2xl">💬</p>
-                  <p className="font-bold text-gray-600 dark:text-gray-300">No messages in this channel yet.</p>
-                  <p className="text-[11px]">Type below to send an inquiry directly to the Al-Ibaanah administration team.</p>
+                  <p className="text-3xl">{CHANNEL_CONFIG[selectedChannel].icon}</p>
+                  <p className="font-bold text-gray-700 dark:text-gray-200">{CHANNEL_CONFIG[selectedChannel].emptyTitle}</p>
+                  <p className="text-[11px] text-gray-500 dark:text-gray-400 max-w-sm mx-auto">
+                    {CHANNEL_CONFIG[selectedChannel].emptySubtitle}
+                  </p>
                 </div>
               ) : (
-                messages.map((msg) => {
+                displayedMessages.map((msg) => {
                   const isStudent = msg.sender_role === 'student' || msg.sender_id === user?.id;
                   const formattedTime = new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
                   const formattedDate = new Date(msg.created_at).toLocaleDateString([], { month: 'short', day: 'numeric' });
@@ -316,14 +335,14 @@ const MessagesPage: React.FC = () => {
 
             {/* Feedback Alert if any */}
             {feedback && (
-              <div className="px-4 py-2 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-200 text-xs flex items-center gap-2 border-t border-emerald-200/50">
+              <div className="px-4 py-2 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-200 text-xs flex items-center gap-2 border-t border-emerald-200/50 shrink-0">
                 <IconCheckCircle className="w-4 h-4 flex-shrink-0 text-emerald-600" />
                 <span>{feedback}</span>
               </div>
             )}
 
             {/* Input Footer */}
-            <form onSubmit={handleSendMessage} className="p-4 border-t border-gray-100 dark:border-gray-700 flex gap-2 bg-white dark:bg-gray-800 rounded-b-2xl">
+            <form onSubmit={handleSendMessage} className="p-4 border-t border-gray-100 dark:border-gray-700 flex gap-2 bg-white dark:bg-gray-800 rounded-b-2xl shrink-0">
               <input
                 type="text"
                 value={messageText}

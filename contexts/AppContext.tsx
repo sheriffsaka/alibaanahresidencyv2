@@ -247,8 +247,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     }
   }, [user]);
 
-  const fetchConversationMessages = useCallback(async (conversationId: string): Promise<MessageItem[]> => {
-    return await fetchMessages(conversationId);
+  const fetchConversationMessages = useCallback(async (conversationId: string, channel?: string): Promise<MessageItem[]> => {
+    return await fetchMessages(conversationId, channel);
   }, []);
 
   const sendMessage = useCallback(async (params: {

@@ -17,6 +17,27 @@ interface MessagesInboxViewProps {
   bookings?: Booking[];
 }
 
+const CHANNEL_LABELS: Record<string, { label: string; icon: string; bg: string; text: string }> = {
+  support: {
+    label: 'General Desk',
+    icon: '🏢',
+    bg: 'bg-blue-50 dark:bg-blue-950/40 border-blue-200 dark:border-blue-800',
+    text: 'text-blue-700 dark:text-blue-300'
+  },
+  maintenance: {
+    label: 'Maintenance',
+    icon: '🛠️',
+    bg: 'bg-amber-50 dark:bg-amber-950/40 border-amber-200 dark:border-amber-800',
+    text: 'text-amber-700 dark:text-amber-300'
+  },
+  billing: {
+    label: 'Payment & Accounts',
+    icon: '💳',
+    bg: 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-200 dark:border-emerald-800',
+    text: 'text-emerald-700 dark:text-emerald-300'
+  }
+};
+
 export const MessagesInboxView: React.FC<MessagesInboxViewProps> = ({ bookings = [] }) => {
   const { 
     user: adminUser, 
@@ -33,6 +54,7 @@ export const MessagesInboxView: React.FC<MessagesInboxViewProps> = ({ bookings =
   const [messages, setMessages] = useState<MessageItem[]>([]);
   const [loadingMessages, setLoadingMessages] = useState<boolean>(false);
   const [replyText, setReplyText] = useState('');
+  const [replyChannel, setReplyChannel] = useState<'support' | 'maintenance' | 'billing'>('support');
   const [isSending, setIsSending] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [channelFilter, setChannelFilter] = useState<'all' | 'support' | 'maintenance' | 'billing'>('all');
@@ -47,7 +69,7 @@ export const MessagesInboxView: React.FC<MessagesInboxViewProps> = ({ bookings =
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  // Set initial selected conversation when list loads
+  // Set initial selected conversation on desktop
   useEffect(() => {
     if (conversations.length > 0 && !selectedConversationId) {
       setSelectedConversationId(conversations[0].id);
@@ -56,8 +78,16 @@ export const MessagesInboxView: React.FC<MessagesInboxViewProps> = ({ bookings =
 
   // Find active conversation object
   const activeConversation = useMemo(() => {
-    return conversations.find(c => c.id === selectedConversationId) || conversations[0] || null;
+    if (!selectedConversationId) return null;
+    return conversations.find(c => c.id === selectedConversationId) || null;
   }, [conversations, selectedConversationId]);
+
+  // Sync reply channel with active conversation default channel
+  useEffect(() => {
+    if (activeConversation?.channel) {
+      setReplyChannel((activeConversation.channel as any) || 'support');
+    }
+  }, [activeConversation?.id, activeConversation?.channel]);
 
   // Find student booking info for active conversation
   const studentBooking = useMemo(() => {
@@ -65,13 +95,13 @@ export const MessagesInboxView: React.FC<MessagesInboxViewProps> = ({ bookings =
     const sEmail = activeConversation.student_email || activeConversation.student?.email;
     return bookings.find(
       b => b.student_id === activeConversation.student_id || 
-           (sEmail && b.email.toLowerCase() === sEmail.toLowerCase())
+           (sEmail && b.email && b.email.toLowerCase() === sEmail.toLowerCase())
     );
   }, [activeConversation, bookings]);
 
   // Find student room label
   const studentRoomInfo = useMemo(() => {
-    if (!studentBooking) return 'No Active Room';
+    if (!studentBooking) return 'General Student Resident';
     const room = rooms.find(r => r.id === studentBooking.room_id);
     const cat = room?.apartment_name || room?.category || studentBooking.rooms?.apartment_name || studentBooking.rooms?.category || 'Residency';
     const roomNum = room?.room_number || studentBooking.rooms?.room_number || '';
@@ -84,7 +114,6 @@ export const MessagesInboxView: React.FC<MessagesInboxViewProps> = ({ bookings =
     try {
       const msgs = await fetchConversationMessages(convId);
       setMessages(msgs);
-      // Mark as read in DB & update local context count
       await markConversationAsRead(convId);
     } catch (err) {
       console.error('Error fetching conversation messages:', err);
@@ -96,6 +125,8 @@ export const MessagesInboxView: React.FC<MessagesInboxViewProps> = ({ bookings =
   useEffect(() => {
     if (activeConversation?.id) {
       loadMessages(activeConversation.id);
+    } else {
+      setMessages([]);
     }
   }, [activeConversation?.id]);
 
@@ -103,7 +134,7 @@ export const MessagesInboxView: React.FC<MessagesInboxViewProps> = ({ bookings =
   useEffect(() => {
     if (!activeConversation?.id) return;
 
-    const channel = supabase
+    const channelSub = supabase
       .channel(`admin_chat_${activeConversation.id}`)
       .on(
         'postgres_changes',
@@ -127,7 +158,7 @@ export const MessagesInboxView: React.FC<MessagesInboxViewProps> = ({ bookings =
       .subscribe();
 
     return () => {
-      supabase.removeChannel(channel);
+      supabase.removeChannel(channelSub);
     };
   }, [activeConversation?.id]);
 
@@ -148,13 +179,13 @@ export const MessagesInboxView: React.FC<MessagesInboxViewProps> = ({ bookings =
       const res = await sendMessage({
         conversationId: activeConversation.id,
         recipientId: activeConversation.student_id,
-        channel: activeConversation.channel || 'support',
+        channel: replyChannel,
         message: trimmed,
-        subject: activeConversation.subject || 'Residency Support'
+        subject: CHANNEL_LABELS[replyChannel]?.label || activeConversation.subject || 'Residency Support'
       });
 
-      if (res && res.success && res.message) {
-        const created = res.message;
+      const created = res?.data || res?.message;
+      if (res && res.success && created) {
         setMessages(prev => {
           if (prev.some(m => m.id === created.id)) return prev;
           return [...prev, created];
@@ -179,15 +210,19 @@ export const MessagesInboxView: React.FC<MessagesInboxViewProps> = ({ bookings =
         recipientId: composeStudentId,
         channel: composeChannel,
         message: composeText.trim(),
-        subject: composeChannel === 'support' ? 'Residency Desk Inquiry' : composeChannel === 'maintenance' ? 'Maintenance Update' : 'Payment Notification'
+        subject: composeChannel === 'support' ? 'General Residency Desk' : composeChannel === 'maintenance' ? 'Maintenance Request' : 'Payment & Accounts'
       });
 
-      if (res && res.success && res.conversation) {
+      if (res && res.success) {
         setIsComposeOpen(false);
         setComposeText('');
         setComposeStudentId('');
-        await refreshConversations();
-        setSelectedConversationId(res.conversation.id);
+        const freshList = await refreshConversations();
+        if (res.conversation?.id) {
+          setSelectedConversationId(res.conversation.id);
+        } else if (freshList.length > 0) {
+          setSelectedConversationId(freshList[0].id);
+        }
       }
     } catch (err) {
       console.error('Error starting conversation:', err);
@@ -222,16 +257,18 @@ export const MessagesInboxView: React.FC<MessagesInboxViewProps> = ({ bookings =
   }, [conversations, channelFilter, unreadOnly, searchQuery]);
 
   return (
-    <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 overflow-hidden h-[720px] flex flex-col md:flex-row animate-fade-in">
+    <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-150 dark:border-gray-700 overflow-hidden h-[740px] max-h-[calc(100vh-140px)] min-h-[580px] flex flex-col md:flex-row animate-fade-in">
       {/* Threads Sidebar */}
-      <div className="w-full md:w-88 border-r border-gray-100 dark:border-gray-700 flex flex-col bg-gray-50/40 dark:bg-gray-900/30">
+      <div className={`w-full md:w-80 lg:w-96 shrink-0 flex flex-col h-full border-r border-gray-150 dark:border-gray-750 bg-gray-50/50 dark:bg-gray-900/40 min-w-0 ${
+        selectedConversationId ? 'hidden md:flex' : 'flex'
+      }`}>
         {/* Header & Controls */}
-        <div className="p-4 border-b border-gray-100 dark:border-gray-700 space-y-3 bg-white dark:bg-gray-800">
+        <div className="p-4 border-b border-gray-150 dark:border-gray-700 space-y-3 bg-white dark:bg-gray-800 shrink-0">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <span className="text-xl">💬</span>
               <div>
-                <h2 className="text-sm font-black text-gray-900 dark:text-white">Student In-App Messages</h2>
+                <h2 className="text-sm font-black text-gray-900 dark:text-white">Student Messages</h2>
                 <p className="text-[10px] text-gray-400 font-medium">Real-time residency communication</p>
               </div>
             </div>
@@ -245,11 +282,11 @@ export const MessagesInboxView: React.FC<MessagesInboxViewProps> = ({ bookings =
               </button>
               <button
                 onClick={() => setIsComposeOpen(true)}
-                className="bg-brand-600 hover:bg-brand-700 text-white p-2 rounded-xl text-xs font-bold transition-all shadow-xs flex items-center gap-1"
+                className="bg-brand-600 hover:bg-brand-700 text-white px-2.5 py-1.5 rounded-xl text-xs font-bold transition-all shadow-xs flex items-center gap-1"
                 title="Start new thread with a student"
               >
                 <IconPlus className="w-3.5 h-3.5" />
-                <span className="hidden sm:inline text-[11px]">Compose</span>
+                <span className="text-[11px]">Compose</span>
               </button>
             </div>
           </div>
@@ -261,9 +298,9 @@ export const MessagesInboxView: React.FC<MessagesInboxViewProps> = ({ bookings =
               placeholder="Search student or message..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-8 pr-3 py-2 text-xs border rounded-xl dark:bg-gray-700 dark:border-gray-600 font-medium"
+              className="w-full pl-8 pr-3 py-2 text-xs border rounded-xl dark:bg-gray-700 dark:border-gray-600 font-medium text-gray-800 dark:text-gray-200"
             />
-            <IconSearch className="w-3.5 h-3.5 text-gray-400 absolute left-2.5 top-3" />
+            <IconSearch className="w-3.5 h-3.5 text-gray-400 absolute left-2.5 top-2.5" />
           </div>
 
           {/* Filters */}
@@ -289,7 +326,7 @@ export const MessagesInboxView: React.FC<MessagesInboxViewProps> = ({ bookings =
                     : 'text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700'
                 }`}
               >
-                Support
+                General
               </button>
               <button
                 type="button"
@@ -302,12 +339,23 @@ export const MessagesInboxView: React.FC<MessagesInboxViewProps> = ({ bookings =
               >
                 Maintenance
               </button>
+              <button
+                type="button"
+                onClick={() => setChannelFilter('billing')}
+                className={`px-2 py-1 rounded-lg font-bold transition-colors ${
+                  channelFilter === 'billing'
+                    ? 'bg-brand-600 text-white'
+                    : 'text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700'
+                }`}
+              >
+                Payment
+              </button>
             </div>
 
             <button
               type="button"
               onClick={() => setUnreadOnly(!unreadOnly)}
-              className={`px-2 py-1 rounded-lg font-bold transition-colors whitespace-nowrap ${
+              className={`px-2 py-1 rounded-lg font-bold transition-colors whitespace-nowrap ml-1 ${
                 unreadOnly
                   ? 'bg-red-500 text-white'
                   : 'text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-750'
@@ -319,7 +367,7 @@ export const MessagesInboxView: React.FC<MessagesInboxViewProps> = ({ bookings =
         </div>
 
         {/* Conversation List */}
-        <div className="flex-1 overflow-y-auto divide-y divide-gray-100 dark:divide-gray-700/50">
+        <div className="flex-1 overflow-y-auto divide-y divide-gray-100 dark:divide-gray-750 min-h-0">
           {filteredConversations.length === 0 ? (
             <div className="p-8 text-center text-xs text-gray-400 space-y-3">
               <p className="text-2xl">📭</p>
@@ -338,6 +386,7 @@ export const MessagesInboxView: React.FC<MessagesInboxViewProps> = ({ bookings =
               const unreadCount = conv.admin_unread_count ?? conv.unread_count ?? 0;
               const studentName = conv.student_name || conv.student?.full_name || conv.student_email || conv.student?.email || 'Student';
               const lastTimestamp = conv.last_message_at ? new Date(conv.last_message_at) : new Date(conv.created_at);
+              const chInfo = CHANNEL_LABELS[conv.channel || 'support'] || CHANNEL_LABELS.support;
 
               return (
                 <button
@@ -350,11 +399,11 @@ export const MessagesInboxView: React.FC<MessagesInboxViewProps> = ({ bookings =
                     isSelected
                       ? 'bg-white dark:bg-gray-800 border-brand-600 shadow-2xs'
                       : unreadCount > 0
-                      ? 'bg-brand-50/50 dark:bg-brand-950/20 border-red-500 hover:bg-gray-100/60 dark:hover:bg-gray-750'
+                      ? 'bg-brand-50/40 dark:bg-brand-950/20 border-red-500 hover:bg-gray-100/60 dark:hover:bg-gray-750'
                       : 'border-transparent hover:bg-gray-100/50 dark:hover:bg-gray-750'
                   }`}
                 >
-                  <div className="w-10 h-10 rounded-full bg-brand-100 dark:bg-brand-900/50 text-brand-700 dark:text-brand-300 font-black text-xs flex items-center justify-center flex-shrink-0">
+                  <div className="w-10 h-10 rounded-full bg-brand-100 dark:bg-brand-900/50 text-brand-700 dark:text-brand-300 font-black text-xs flex items-center justify-center shrink-0">
                     {studentName.slice(0, 2).toUpperCase()}
                   </div>
 
@@ -363,14 +412,14 @@ export const MessagesInboxView: React.FC<MessagesInboxViewProps> = ({ bookings =
                       <p className={`text-xs truncate ${unreadCount > 0 ? 'font-black text-gray-950 dark:text-white' : 'font-bold text-gray-800 dark:text-gray-200'}`}>
                         {studentName}
                       </p>
-                      <span className="text-[9px] text-gray-400 font-mono flex-shrink-0">
+                      <span className="text-[9px] text-gray-400 font-mono shrink-0">
                         {lastTimestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                       </span>
                     </div>
 
                     <div className="flex items-center gap-1.5 mt-0.5">
-                      <span className="text-[10px] px-1.5 py-0.2 rounded bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 font-semibold capitalize">
-                        {conv.channel || 'support'}
+                      <span className={`text-[10px] px-1.5 py-0.2 rounded font-semibold ${chInfo.bg} ${chInfo.text}`}>
+                        {chInfo.icon} {chInfo.label}
                       </span>
                       {conv.subject && (
                         <span className="text-[10px] text-gray-400 truncate">
@@ -385,7 +434,7 @@ export const MessagesInboxView: React.FC<MessagesInboxViewProps> = ({ bookings =
                   </div>
 
                   {unreadCount > 0 && (
-                    <span className="min-w-[18px] h-[18px] px-1 bg-red-500 text-white text-[10px] font-black rounded-full flex items-center justify-center flex-shrink-0 mt-1 shadow-xs">
+                    <span className="min-w-[18px] h-[18px] px-1 bg-red-500 text-white text-[10px] font-black rounded-full flex items-center justify-center shrink-0 mt-1 shadow-xs">
                       {unreadCount}
                     </span>
                   )}
@@ -398,17 +447,28 @@ export const MessagesInboxView: React.FC<MessagesInboxViewProps> = ({ bookings =
 
       {/* Active Conversation Pane */}
       {activeConversation ? (
-        <div className="flex-1 flex flex-col bg-gray-50/20 dark:bg-gray-900/10 min-w-0">
+        <div className={`flex-1 flex flex-col bg-white dark:bg-gray-800 min-w-0 h-full ${
+          !selectedConversationId ? 'hidden md:flex' : 'flex'
+        }`}>
           {/* Active Conversation Header */}
-          <div className="p-4 bg-white dark:bg-gray-800 border-b border-gray-100 dark:border-gray-700 flex flex-wrap justify-between items-center gap-3">
+          <div className="p-4 bg-white dark:bg-gray-800 border-b border-gray-150 dark:border-gray-700 flex flex-wrap justify-between items-center gap-3 shrink-0">
             <div className="flex items-center gap-3 min-w-0">
-              <div className="w-10 h-10 rounded-full bg-brand-600 text-white font-black text-xs flex items-center justify-center flex-shrink-0 shadow-xs">
+              {/* Back to conversations button on mobile */}
+              <button
+                onClick={() => setSelectedConversationId(null)}
+                className="md:hidden p-2 rounded-xl bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 text-xs font-bold hover:bg-gray-200"
+                title="Back to conversation list"
+              >
+                ← Back
+              </button>
+
+              <div className="w-10 h-10 rounded-full bg-brand-600 text-white font-black text-xs flex items-center justify-center shrink-0 shadow-xs">
                 {(activeConversation.student_name || activeConversation.student?.full_name || activeConversation.student_email || activeConversation.student?.email || 'ST').slice(0, 2).toUpperCase()}
               </div>
               <div className="min-w-0">
                 <div className="flex items-center gap-2">
                   <h3 className="text-sm font-black text-gray-900 dark:text-white truncate">
-                    {activeConversation.student_name || activeConversation.student?.full_name || 'Student'}
+                    {activeConversation.student_name || activeConversation.student?.full_name || 'Student Resident'}
                   </h3>
                   <span className="px-2 py-0.5 rounded-full text-[9px] font-bold bg-brand-50 text-brand-700 dark:bg-brand-900/40 dark:text-brand-300 uppercase">
                     {activeConversation.channel || 'support'}
@@ -420,7 +480,7 @@ export const MessagesInboxView: React.FC<MessagesInboxViewProps> = ({ bookings =
               </div>
             </div>
 
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 shrink-0">
               {studentBooking?.phone_number && (
                 <a
                   href={`https://wa.me/${studentBooking.phone_number.replace(/[^0-9]/g, '')}`}
@@ -443,7 +503,7 @@ export const MessagesInboxView: React.FC<MessagesInboxViewProps> = ({ bookings =
           </div>
 
           {/* Messages Feed */}
-          <div className="flex-1 overflow-y-auto p-6 space-y-4">
+          <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4 bg-gray-50/20 dark:bg-gray-900/10 min-h-0">
             {loadingMessages ? (
               <div className="py-16 text-center text-xs text-gray-400 flex flex-col items-center justify-center gap-2">
                 <div className="w-6 h-6 border-2 border-brand-500 border-t-transparent rounded-full animate-spin"></div>
@@ -460,15 +520,19 @@ export const MessagesInboxView: React.FC<MessagesInboxViewProps> = ({ bookings =
                 const isAdmin = msg.sender_role !== 'student';
                 const formattedTime = new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
                 const formattedDate = new Date(msg.created_at).toLocaleDateString([], { month: 'short', day: 'numeric' });
+                const msgChannel = CHANNEL_LABELS[msg.channel || 'support'] || CHANNEL_LABELS.support;
 
                 return (
                   <div
                     key={msg.id}
                     className={`flex flex-col ${isAdmin ? 'items-end' : 'items-start'}`}
                   >
-                    <div className="flex items-center gap-1.5 mb-1 px-1">
+                    <div className="flex items-center gap-2 mb-1 px-1">
                       <span className="text-[10px] font-bold text-gray-500 dark:text-gray-400">
                         {isAdmin ? (msg.sender_profile?.full_name || msg.sender_name || 'Admin Team') : (activeConversation.student_name || activeConversation.student?.full_name || 'Student')}
+                      </span>
+                      <span className={`text-[9px] px-1.5 py-0.2 rounded font-bold ${msgChannel.bg} ${msgChannel.text}`}>
+                        {msgChannel.icon} {msgChannel.label}
                       </span>
                       <span className="text-[9px] text-gray-400 font-mono">
                         {formattedDate} • {formattedTime}
@@ -492,33 +556,59 @@ export const MessagesInboxView: React.FC<MessagesInboxViewProps> = ({ bookings =
           </div>
 
           {/* Reply Box */}
-          <form onSubmit={handleSendReply} className="p-4 bg-white dark:bg-gray-800 border-t border-gray-100 dark:border-gray-700 flex gap-2">
-            <input
-              type="text"
-              value={replyText}
-              onChange={(e) => setReplyText(e.target.value)}
-              placeholder={`Reply to ${activeConversation.student_name || activeConversation.student?.full_name || 'Student'}...`}
-              disabled={isSending}
-              className="flex-1 text-xs p-3.5 border rounded-xl dark:bg-gray-700 dark:border-gray-600 focus:outline-none focus:ring-2 focus:ring-brand-500 font-medium"
-            />
-            <button
-              type="submit"
-              disabled={!replyText.trim() || isSending}
-              className="bg-brand-600 hover:bg-brand-700 disabled:opacity-50 text-white font-bold text-xs px-6 py-3.5 rounded-xl transition-all shadow-sm flex items-center gap-1.5 shrink-0"
-            >
-              {isSending ? (
-                <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-              ) : (
-                <>
-                  <IconSend className="w-3.5 h-3.5" />
-                  <span>Send Reply</span>
-                </>
-              )}
-            </button>
+          <form onSubmit={handleSendReply} className="p-4 bg-white dark:bg-gray-800 border-t border-gray-150 dark:border-gray-700 flex flex-col gap-2 shrink-0">
+            <div className="flex items-center justify-between gap-2 text-[11px] pb-1">
+              <span className="text-gray-400 font-bold">Reply Desk Channel:</span>
+              <div className="flex items-center gap-1.5">
+                {(['support', 'maintenance', 'billing'] as const).map(ch => {
+                  const chCfg = CHANNEL_LABELS[ch];
+                  const isCur = replyChannel === ch;
+                  return (
+                    <button
+                      key={ch}
+                      type="button"
+                      onClick={() => setReplyChannel(ch)}
+                      className={`px-2 py-0.5 rounded-md text-[10px] font-bold transition-all ${
+                        isCur
+                          ? `${chCfg.bg} ${chCfg.text} ring-1 ring-brand-500`
+                          : 'text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'
+                      }`}
+                    >
+                      {chCfg.icon} {chCfg.label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={replyText}
+                onChange={(e) => setReplyText(e.target.value)}
+                placeholder={`Reply to ${activeConversation.student_name || activeConversation.student?.full_name || 'Student'} on ${CHANNEL_LABELS[replyChannel]?.label}...`}
+                disabled={isSending}
+                className="flex-1 text-xs p-3.5 border rounded-xl dark:bg-gray-700 dark:border-gray-600 focus:outline-none focus:ring-2 focus:ring-brand-500 font-medium text-gray-900 dark:text-white"
+              />
+              <button
+                type="submit"
+                disabled={!replyText.trim() || isSending}
+                className="bg-brand-600 hover:bg-brand-700 disabled:opacity-50 text-white font-bold text-xs px-6 py-3.5 rounded-xl transition-all shadow-sm flex items-center gap-1.5 shrink-0"
+              >
+                {isSending ? (
+                  <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                ) : (
+                  <>
+                    <IconSend className="w-3.5 h-3.5" />
+                    <span>Send Reply</span>
+                  </>
+                )}
+              </button>
+            </div>
           </form>
         </div>
       ) : (
-        <div className="flex-1 flex flex-col items-center justify-center p-8 text-center text-gray-400 space-y-3 bg-gray-50/20 dark:bg-gray-900/10">
+        <div className="flex-1 hidden md:flex flex-col items-center justify-center p-8 text-center text-gray-400 space-y-3 bg-gray-50/20 dark:bg-gray-900/10 min-w-0">
           <span className="text-4xl">💬</span>
           <p className="text-sm font-bold text-gray-600 dark:text-gray-300">Select a Student Conversation</p>
           <p className="text-xs max-w-sm">Choose a thread from the sidebar or click compose to start a new discussion.</p>
@@ -534,7 +624,7 @@ export const MessagesInboxView: React.FC<MessagesInboxViewProps> = ({ bookings =
       {/* Compose Message Modal */}
       {isComposeOpen && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-xs z-50 flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-gray-800 rounded-2xl max-w-md w-full p-6 shadow-2xl border border-gray-100 dark:border-gray-700 space-y-4 animate-scale-up">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl max-w-md w-full p-6 shadow-2xl border border-gray-150 dark:border-gray-700 space-y-4 animate-scale-up">
             <div className="flex justify-between items-center pb-2 border-b dark:border-gray-700">
               <h3 className="text-base font-black text-gray-900 dark:text-white flex items-center gap-2">
                 <IconPlus className="w-4 h-4 text-brand-600" /> Start Message to Student
@@ -556,7 +646,7 @@ export const MessagesInboxView: React.FC<MessagesInboxViewProps> = ({ bookings =
                   value={composeStudentId}
                   onChange={(e) => setComposeStudentId(e.target.value)}
                   required
-                  className="w-full text-xs p-3 border rounded-xl dark:bg-gray-700 dark:border-gray-600 font-medium"
+                  className="w-full text-xs p-3 border rounded-xl dark:bg-gray-700 dark:border-gray-600 font-medium text-gray-900 dark:text-white"
                 >
                   <option value="">-- Choose student recipient --</option>
                   {students.map(st => {
@@ -586,7 +676,7 @@ export const MessagesInboxView: React.FC<MessagesInboxViewProps> = ({ bookings =
                           : 'border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400'
                       }`}
                     >
-                      {ch}
+                      {ch === 'support' ? '🏢 General' : ch === 'maintenance' ? '🛠️ Maintenance' : '💳 Payment'}
                     </button>
                   ))}
                 </div>
@@ -602,7 +692,7 @@ export const MessagesInboxView: React.FC<MessagesInboxViewProps> = ({ bookings =
                   rows={4}
                   required
                   placeholder="Type your message to the student..."
-                  className="w-full text-xs p-3 border rounded-xl dark:bg-gray-700 dark:border-gray-600 font-medium"
+                  className="w-full text-xs p-3 border rounded-xl dark:bg-gray-700 dark:border-gray-600 font-medium text-gray-900 dark:text-white"
                 />
               </div>
 

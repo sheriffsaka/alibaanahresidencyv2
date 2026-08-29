@@ -144,11 +144,11 @@ export async function fetchConversationsList(user: User): Promise<ConversationIt
 }
 
 /**
- * Fetches all messages for a specific conversation ID.
+ * Fetches messages for a specific conversation ID with optional channel filtering.
  */
-export async function fetchMessages(conversationId: string): Promise<MessageItem[]> {
+export async function fetchMessages(conversationId: string, channel?: string): Promise<MessageItem[]> {
   try {
-    const { data, error } = await supabase
+    let query = supabase
       .from('messages')
       .select(`
         id,
@@ -165,6 +165,16 @@ export async function fetchMessages(conversationId: string): Promise<MessageItem
       `)
       .eq('conversation_id', conversationId)
       .order('created_at', { ascending: true });
+
+    if (channel && channel !== 'all') {
+      if (channel === 'support') {
+        query = query.or('channel.eq.support,channel.is.null');
+      } else {
+        query = query.eq('channel', channel);
+      }
+    }
+
+    const { data, error } = await query;
 
     if (error) {
       console.error('[Messaging] Error fetching messages for conversation:', conversationId, error.message);
@@ -197,7 +207,7 @@ export async function postMessage({
   message: string;
   channel?: string;
   recipientId?: string;
-}): Promise<{ success: boolean; data?: MessageItem; error?: string }> {
+}): Promise<{ success: boolean; data?: MessageItem; message?: MessageItem; error?: string }> {
   const trimmed = message.trim();
   if (!trimmed) {
     return { success: false, error: 'Message cannot be empty.' };
@@ -247,7 +257,22 @@ export async function postMessage({
       return { success: false, error: error.message };
     }
 
-    return { success: true, data: data as unknown as MessageItem };
+    // Keep conversation timestamp and preview updated
+    try {
+      await supabase
+        .from('conversations')
+        .update({
+          last_message_preview: trimmed,
+          last_message_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', resolvedConversationId);
+    } catch (updateErr) {
+      console.warn('[Messaging] Notice updating conversation preview:', updateErr);
+    }
+
+    const item = data as unknown as MessageItem;
+    return { success: true, data: item, message: item };
   } catch (err: any) {
     return { success: false, error: err?.message || 'Failed to send message.' };
   }

@@ -459,7 +459,7 @@ export interface AppContextType {
   conversations: ConversationItem[];
   unreadMessagesCount: number;
   refreshConversations: () => Promise<ConversationItem[]>;
-  fetchConversationMessages: (conversationId: string) => Promise<MessageItem[]>;
+  fetchConversationMessages: (conversationId: string, channel?: string) => Promise<MessageItem[]>;
   sendMessage: (params: {
     conversationId?: string;
     studentId?: string;
@@ -467,7 +467,7 @@ export interface AppContextType {
     channel?: string;
     subject?: string;
     recipientId?: string;
-  }) => Promise<{ success: boolean; error?: string; message?: MessageItem; conversation?: ConversationItem }>;
+  }) => Promise<{ success: boolean; error?: string; message?: MessageItem; data?: MessageItem; conversation?: ConversationItem }>;
   markConversationAsRead: (conversationId: string) => Promise<void>;
 }
 
