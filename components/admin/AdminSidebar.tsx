@@ -25,6 +25,7 @@ interface AdminSidebarProps {
   pendingVerificationsCount?: number;
   totalStudentsCount?: number;
   pendingWaitlistCount?: number;
+  unreadMessagesCount?: number;
   isMobileOpen?: boolean;
   onCloseMobile?: () => void;
 }
@@ -46,6 +47,7 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
   pendingVerificationsCount = 0,
   totalStudentsCount = 0,
   pendingWaitlistCount = 0,
+  unreadMessagesCount = 0,
   isMobileOpen = false,
   onCloseMobile
 }) => {
@@ -95,7 +97,13 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
     {
       label: 'ENGAGEMENT',
       items: [
-        { id: 'messages', label: 'Messages / Inbox', icon: '💬' },
+        { 
+          id: 'messages', 
+          label: 'Messages / Inbox', 
+          icon: '💬',
+          badge: unreadMessagesCount > 0 ? unreadMessagesCount : undefined,
+          badgeColor: 'bg-red-500 text-white'
+        },
         { id: 'reviews', label: 'Reviews & Ratings', icon: '⭐' }
       ]
     },

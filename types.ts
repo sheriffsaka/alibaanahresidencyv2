@@ -178,6 +178,48 @@ export interface User {
   created_at?: string;
 }
 
+export interface MessageItem {
+  id: number;
+  conversation_id: string;
+  sender_id: string;
+  sender_role: 'student' | 'staff' | 'proprietor' | 'admin';
+  recipient_id?: string | null;
+  channel?: string;
+  message: string;
+  is_read: boolean;
+  read_at?: string | null;
+  created_at: string;
+  sender_name?: string;
+  sender_profile?: {
+    full_name?: string;
+    role?: string;
+  };
+}
+
+export interface ConversationItem {
+  id: string;
+  student_id: string;
+  student_name?: string;
+  student_email?: string;
+  subject?: string;
+  channel?: string;
+  status: 'active' | 'archived' | 'closed';
+  last_message_preview?: string | null;
+  last_message_at?: string;
+  created_at: string;
+  updated_at?: string;
+  student?: {
+    id: string;
+    full_name?: string;
+    email?: string;
+    phone_number?: string;
+    nationality?: string;
+  };
+  messages?: MessageItem[];
+  unread_count?: number;
+  admin_unread_count?: number;
+}
+
 export interface AccommodationCategory {
   id: string;
   name: string; // e.g. "Premium 1", "Premium 2", "Premium 3", "Standard", "Standard 2"
@@ -414,6 +456,19 @@ export interface AppContextType {
   emailLogs: EmailLogEntry[];
   refreshEmailLogs: () => Promise<void>;
   retryEmailLog: (logId: number) => Promise<{ success: boolean; error?: string }>;
+  conversations: ConversationItem[];
+  unreadMessagesCount: number;
+  refreshConversations: () => Promise<ConversationItem[]>;
+  fetchConversationMessages: (conversationId: string) => Promise<MessageItem[]>;
+  sendMessage: (params: {
+    conversationId?: string;
+    studentId?: string;
+    message: string;
+    channel?: string;
+    subject?: string;
+    recipientId?: string;
+  }) => Promise<{ success: boolean; error?: string; message?: MessageItem; conversation?: ConversationItem }>;
+  markConversationAsRead: (conversationId: string) => Promise<void>;
 }
 
 export interface ChatMessage {

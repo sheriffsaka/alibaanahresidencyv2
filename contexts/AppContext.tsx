@@ -1,9 +1,10 @@
 
 import React, { createContext, useState, ReactNode, useCallback, useEffect, useRef, useMemo } from 'react';
-import { AppContextType, Language, Page, User, Room, BedSpace, Booking, BookingStatus, CmsContent, Activity, AcademicTerm, BookingPackage, AccommodationType, DEFAULT_CATEGORY_MEDIA, CategoryMediaConfig, PublicOccupancy, AccommodationAddresses, DEFAULT_ACCOMMODATION_ADDRESSES, DEFAULT_SUPPORT_CONTENT, WaitlistEntry, WaitlistStatus, EmailLogEntry, AccommodationCategory, DEFAULT_ACCOMMODATION_CATEGORIES } from '../types';
+import { AppContextType, Language, Page, User, Room, BedSpace, Booking, BookingStatus, CmsContent, Activity, AcademicTerm, BookingPackage, AccommodationType, DEFAULT_CATEGORY_MEDIA, CategoryMediaConfig, PublicOccupancy, AccommodationAddresses, DEFAULT_ACCOMMODATION_ADDRESSES, DEFAULT_SUPPORT_CONTENT, WaitlistEntry, WaitlistStatus, EmailLogEntry, AccommodationCategory, DEFAULT_ACCOMMODATION_CATEGORIES, ConversationItem, MessageItem } from '../types';
 import { supabase } from '../lib/supabaseClient';
 import { Session } from '@supabase/supabase-js';
 import { sendEmail, fetchRecentEmailLogs } from '../lib/email';
+import { fetchConversationsList, fetchMessages, postMessage, markConversationAsRead as markConvAsRead, getOrCreateStudentConversation } from '../lib/messaging';
 
 export const AppContext = createContext<AppContextType | undefined>(undefined);
 
@@ -224,7 +225,97 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const [users, setUsers] = useState<User[]>([]);
   const [waitlist, setWaitlist] = useState<WaitlistEntry[]>([]);
   const [emailLogs, setEmailLogs] = useState<EmailLogEntry[]>([]);
+  const [conversations, setConversations] = useState<ConversationItem[]>([]);
   const isUpdatingSessionRef = useRef(false);
+
+  const unreadMessagesCount = useMemo(() => {
+    return conversations.reduce((acc, c) => acc + (c.unread_count || 0), 0);
+  }, [conversations]);
+
+  const refreshConversations = useCallback(async (): Promise<ConversationItem[]> => {
+    if (!user) {
+      setConversations([]);
+      return [];
+    }
+    try {
+      const list = await fetchConversationsList(user);
+      setConversations(list);
+      return list;
+    } catch (err) {
+      console.warn("Error refreshing conversations:", err);
+      return [];
+    }
+  }, [user]);
+
+  const fetchConversationMessages = useCallback(async (conversationId: string): Promise<MessageItem[]> => {
+    return await fetchMessages(conversationId);
+  }, []);
+
+  const sendMessage = useCallback(async (params: {
+    conversationId?: string;
+    studentId?: string;
+    message: string;
+    channel?: string;
+    recipientId?: string;
+  }) => {
+    if (!user) return { success: false, error: 'User not authenticated.' };
+    const res = await postMessage({
+      conversationId: params.conversationId,
+      studentId: params.studentId || (user.role === 'student' ? user.id : undefined),
+      senderId: user.id,
+      senderRole: user.role,
+      message: params.message,
+      channel: params.channel || 'support',
+      recipientId: params.recipientId
+    });
+
+    if (res.success) {
+      await refreshConversations();
+    }
+    return res;
+  }, [user, refreshConversations]);
+
+  const markConversationAsRead = useCallback(async (conversationId: string) => {
+    if (!user) return;
+    await markConvAsRead(conversationId, user.id);
+    setConversations(prev => prev.map(c => c.id === conversationId ? { ...c, unread_count: 0 } : c));
+  }, [user]);
+
+  // Load conversations when user state changes
+  useEffect(() => {
+    if (user) {
+      refreshConversations();
+    } else {
+      setConversations([]);
+    }
+  }, [user?.id, refreshConversations]);
+
+  // Real-time subscription for messaging
+  useEffect(() => {
+    if (!user) return;
+
+    const messagingChannel = supabase
+      .channel(`realtime-messaging-${user.id}`)
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'messages'
+      }, async () => {
+        refreshConversations();
+      })
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'conversations'
+      }, async () => {
+        refreshConversations();
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(messagingChannel);
+    };
+  }, [user?.id, refreshConversations]);
 
   const updateUserSession = useCallback(async (session: Session | null) => {
     setSession(session);
@@ -2002,6 +2093,12 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     emailLogs,
     refreshEmailLogs,
     retryEmailLog,
+    conversations,
+    unreadMessagesCount,
+    refreshConversations,
+    fetchConversationMessages,
+    sendMessage,
+    markConversationAsRead,
     loading,
     landlordDetails: cmsContent.landlordDetails || DEFAULT_LANDLORD_DETAILS,
     accommodationAddresses: cmsContent.accommodationAddresses || DEFAULT_ACCOMMODATION_ADDRESSES,

@@ -16,7 +16,7 @@ import {
 } from './Icon';
 
 const Header: React.FC = () => {
-  const { user, page, setPage, cmsContent, logout, bookings } = useApp();
+  const { user, page, setPage, cmsContent, logout, bookings, unreadMessagesCount } = useApp();
   const t = useTranslation();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isAvatarDropdownOpen, setIsAvatarDropdownOpen] = useState(false);
@@ -156,7 +156,12 @@ const Header: React.FC = () => {
                     }`}
                   >
                     <IconMessage className="w-3.5 h-3.5" />
-                    Messages
+                    <span>Messages</span>
+                    {unreadMessagesCount > 0 && (
+                      <span className="min-w-[17px] h-[17px] px-1 bg-brand-600 text-white text-[9px] font-black rounded-full flex items-center justify-center shadow-xs animate-pulse">
+                        {unreadMessagesCount > 9 ? '9+' : unreadMessagesCount}
+                      </span>
+                    )}
                   </button>
 
                   {/* Notifications Bell Icon */}
@@ -321,7 +326,14 @@ const Header: React.FC = () => {
                   <>
                     <button onClick={() => navigate('my-bookings')} className="block w-full text-left px-3 py-2 rounded-lg text-sm font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700">My Bookings</button>
                     <button onClick={() => navigate('documents')} className="block w-full text-left px-3 py-2 rounded-lg text-sm font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700">Documents</button>
-                    <button onClick={() => navigate('messages')} className="block w-full text-left px-3 py-2 rounded-lg text-sm font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700">Messages</button>
+                    <button onClick={() => navigate('messages')} className="flex items-center justify-between w-full px-3 py-2 rounded-lg text-sm font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700">
+                      <span>Messages</span>
+                      {unreadMessagesCount > 0 && (
+                        <span className="px-2 py-0.5 text-xs font-bold bg-brand-600 text-white rounded-full">
+                          {unreadMessagesCount}
+                        </span>
+                      )}
+                    </button>
                     <button onClick={() => navigate('notifications')} className="flex items-center justify-between w-full px-3 py-2 rounded-lg text-sm font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700">
                       <span>Notifications</span>
                       {pendingActionsCount > 0 && (

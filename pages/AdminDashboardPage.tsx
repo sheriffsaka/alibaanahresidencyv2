@@ -344,7 +344,7 @@ const SummaryCard: React.FC<SummaryCardProps> = ({ label, value, icon, trend, co
 
 const AdminDashboardPage: React.FC = () => {
   const t = useTranslation();
-  const { user, bookings, updateBookingStatus, deleteBooking, cmsContent, updateCmsContent, rooms, bedSpaces, addRoom, updateRoom, toggleRoomStatus, deleteRoom, activities, addActivity, language, setPage, users, addUser, updateUser, deleteUser, students, waitlist, refreshWaitlist, accommodationCategories } = useApp();
+  const { user, bookings, updateBookingStatus, deleteBooking, cmsContent, updateCmsContent, rooms, bedSpaces, addRoom, updateRoom, toggleRoomStatus, deleteRoom, activities, addActivity, language, setPage, users, addUser, updateUser, deleteUser, students, waitlist, refreshWaitlist, accommodationCategories, unreadMessagesCount } = useApp();
   const [activeSection, setActiveSection] = useState<AdminNavSection>('dashboard');
   const [isActivityDrawerOpen, setIsActivityDrawerOpen] = useState(false);
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
@@ -966,6 +966,7 @@ const AdminDashboardPage: React.FC = () => {
         pendingVerificationsCount={analytics.pendingVerifications.length}
         totalStudentsCount={uniqueStudentRecords.length}
         pendingWaitlistCount={waitingWaitlistCount}
+        unreadMessagesCount={unreadMessagesCount}
         isMobileOpen={isMobileSidebarOpen}
         onCloseMobile={() => setIsMobileSidebarOpen(false)}
       />
