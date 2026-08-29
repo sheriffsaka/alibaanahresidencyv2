@@ -6,14 +6,26 @@ export const ACCOMMODATION_ADDRESSES: Record<string, string> = {
   'Standard': '24 Saqaliyyah Street, Off Kaabool, Makram Ebeid, Nasr City, Cairo.',
 };
 
-export const getAccommodationAddress = (category?: string, customAddresses?: AccommodationAddresses | Record<string, string>): string => {
+export const getAccommodationAddress = (
+  category?: string, 
+  customAddresses?: AccommodationAddresses | Record<string, string>,
+  knownCategories?: { id: string; name: string; address?: string }[]
+): string => {
+  if (knownCategories && Array.isArray(knownCategories) && category) {
+    const found = knownCategories.find(c => c.name.toLowerCase() === category.trim().toLowerCase() || c.id.toLowerCase() === category.trim().toLowerCase());
+    if (found?.address) return found.address;
+  }
+
   const addresses = customAddresses || ACCOMMODATION_ADDRESSES;
+  if (!category) return addresses['Standard'] || ACCOMMODATION_ADDRESSES['Standard'];
+  
+  const cat = category.trim();
+  if (addresses[cat]) return addresses[cat];
+
   const p1 = addresses['Premium 1'] || ACCOMMODATION_ADDRESSES['Premium 1'];
   const p2 = addresses['Premium 2'] || ACCOMMODATION_ADDRESSES['Premium 2'];
   const std = addresses['Standard'] || ACCOMMODATION_ADDRESSES['Standard'];
 
-  if (!category) return std;
-  const cat = category.trim();
   if (cat.toLowerCase().includes('premium 2') || cat === 'Apartment 3') {
     return p2;
   }
@@ -28,12 +40,12 @@ export const getAccommodationAddress = (category?: string, customAddresses?: Acc
 
 export interface RoomSpaceConfig {
   id: string;
-  category: 'Standard' | 'Premium 1' | 'Premium 2';
+  category: string;
   roomName: string;
   bedSpaceName: string;
   type: 'Shared' | 'Private';
-  displayName: string; // e.g. "Premium 1 – Room 1 (Shared Room) – Bed A"
-  apartmentName: string; // e.g. "Premium 1", "Premium 2", "Standard"
+  displayName: string; // e.g. "Premium 1, Room 1, Bed Space: Bed A"
+  apartmentName: string; // e.g. "Premium 1", "Premium 2", "Standard", "Premium 3"
   bedSpaceId?: number;
   roomId?: number;
 }
@@ -113,23 +125,49 @@ export const extractRoomNumber = (code?: string | null): string => {
   return str;
 };
 
-export const normalizeCategory = (apartmentName?: string, category?: string, roomNumber?: string): 'Standard' | 'Premium 1' | 'Premium 2' => {
-  const norm = (str?: string) => (str || '').trim().toLowerCase();
+export const normalizeCategory = (
+  apartmentName?: string, 
+  category?: string, 
+  roomNumber?: string,
+  knownCategories?: { id: string; name: string }[] | string[]
+): string => {
+  const norm = (str?: string) => (str || '').trim();
   const apt = norm(apartmentName);
   const cat = norm(category);
   const rCode = norm(roomNumber);
   
-  if (apt.includes('premium 1') || rCode.startsWith('p1') || (cat.includes('premium') && !apt.includes('premium 2') && !rCode.startsWith('p2') && !apt.includes('standard'))) {
-    if (apt.includes('premium 2') || rCode.startsWith('p2')) return 'Premium 2';
+  if (knownCategories && Array.isArray(knownCategories) && knownCategories.length > 0) {
+    const list = knownCategories.map(c => typeof c === 'string' ? { id: c.toLowerCase(), name: c } : c);
+    
+    if (apt) {
+      const match = list.find(c => c.name.toLowerCase() === apt.toLowerCase() || c.id.toLowerCase() === apt.toLowerCase());
+      if (match) return match.name;
+    }
+    if (cat) {
+      const match = list.find(c => c.name.toLowerCase() === cat.toLowerCase() || c.id.toLowerCase() === cat.toLowerCase());
+      if (match) return match.name;
+    }
+  }
+
+  if (apt && apt !== 'undefined' && apt !== 'null') {
+    return apt;
+  }
+
+  const aptLower = apt.toLowerCase();
+  const catLower = cat.toLowerCase();
+  const rLower = rCode.toLowerCase();
+
+  if (aptLower.includes('premium 1') || rLower.startsWith('p1') || (catLower.includes('premium') && !aptLower.includes('premium 2') && !rLower.startsWith('p2') && !aptLower.includes('standard'))) {
+    if (aptLower.includes('premium 2') || rLower.startsWith('p2')) return 'Premium 2';
     return 'Premium 1';
   }
-  if (apt.includes('premium 2') || rCode.startsWith('p2')) {
+  if (aptLower.includes('premium 2') || rLower.startsWith('p2')) {
     return 'Premium 2';
   }
-  if (apt.includes('standard') || cat.includes('standard') || rCode.startsWith('std')) {
+  if (aptLower.includes('standard') || catLower.includes('standard') || rLower.startsWith('std')) {
     return 'Standard';
   }
-  return 'Standard';
+  return cat || 'Standard';
 };
 
 export const getUnifiedRoomName = (category: string, roomNameOrNumber: string, bedSpaceName?: string): string => {
@@ -265,7 +303,8 @@ export interface ParsedRoomSpace extends RoomSpaceConfig {
 export const getDynamicRoomSpaces = (
   rooms: any[] = [], 
   bedSpaces: any[] = [], 
-  options?: { includeInactive?: boolean }
+  options?: { includeInactive?: boolean },
+  knownCategories?: { id: string; name: string }[] | string[]
 ): RoomSpaceConfig[] => {
   if (!rooms || rooms.length === 0) {
     return ALL_ROOM_SPACES;
@@ -278,11 +317,11 @@ export const getDynamicRoomSpaces = (
     }
     return true;
   });
-  const categoryOrder: Record<string, number> = { 'Premium 1': 1, 'Premium 2': 2, 'Standard': 3 };
+  const categoryOrder: Record<string, number> = { 'Premium 1': 1, 'Premium 2': 2, 'Standard': 3, 'Premium 3': 4 };
   
   const sortedRooms = [...validRooms].sort((a, b) => {
-    const catA = normalizeCategory(a.apartment_name, a.category, a.room_number);
-    const catB = normalizeCategory(b.apartment_name, b.category, b.room_number);
+    const catA = normalizeCategory(a.apartment_name, a.category, a.room_number, knownCategories);
+    const catB = normalizeCategory(b.apartment_name, b.category, b.room_number, knownCategories);
     const ordA = categoryOrder[catA] || 99;
     const ordB = categoryOrder[catB] || 99;
     if (ordA !== ordB) return ordA - ordB;
@@ -295,8 +334,14 @@ export const getDynamicRoomSpaces = (
   const generatedSpaces: RoomSpaceConfig[] = [];
 
   for (const room of sortedRooms) {
-    const category = normalizeCategory(room.apartment_name, room.category, room.room_number);
-    const catPrefix = category === 'Premium 1' ? 'p1' : category === 'Premium 2' ? 'p2' : 'std';
+    const category = normalizeCategory(room.apartment_name, room.category, room.room_number, knownCategories);
+    const catClean = category.trim();
+    let catPrefix = 'std';
+    if (catClean.toLowerCase().includes('premium 1')) catPrefix = 'p1';
+    else if (catClean.toLowerCase().includes('premium 2')) catPrefix = 'p2';
+    else if (catClean.toLowerCase().includes('premium 3')) catPrefix = 'p3';
+    else if (catClean.toLowerCase().includes('standard')) catPrefix = 'std';
+    else catPrefix = catClean.toLowerCase().replace(/[^a-z0-9]/g, '_').slice(0, 8);
     
     const roomDigit = extractRoomNumber(room.room_number || String(room.id));
     const roomName = `Room ${roomDigit}`;
@@ -310,7 +355,9 @@ export const getDynamicRoomSpaces = (
       for (const b of relatedBeds) {
         const bedLabel = b.label || (isPrivate ? 'Single' : 'Bed A');
         const bedSuffix = bedLabel.toLowerCase().includes('bed b') || bedLabel.toLowerCase() === 'b' ? '_b' : 
-                         bedLabel.toLowerCase().includes('bed a') || bedLabel.toLowerCase() === 'a' ? '_a' : '';
+                         bedLabel.toLowerCase().includes('bed a') || bedLabel.toLowerCase() === 'a' ? '_a' : 
+                         bedLabel.toLowerCase().includes('bed c') || bedLabel.toLowerCase() === 'c' ? '_c' : 
+                         bedLabel.toLowerCase().includes('bed d') || bedLabel.toLowerCase() === 'd' ? '_d' : '';
         const spaceId = `${catPrefix}_r${roomDigit}${bedSuffix}`;
         generatedSpaces.push({
           id: spaceId,
@@ -372,7 +419,8 @@ export const getParsedRoomSpaces = (
   rooms: any[], 
   bookings: any[], 
   bedSpaces?: any[],
-  options?: { includeInactive?: boolean }
+  options?: { includeInactive?: boolean },
+  knownCategories?: { id: string; name: string }[] | string[]
 ): ParsedRoomSpace[] => {
   const isCancelledOrCompleted = (status?: string) => {
     if (!status) return false;
@@ -380,7 +428,7 @@ export const getParsedRoomSpaces = (
     return s === 'CANCELLED' || s === 'COMPLETED' || s === 'REJECTED' || s === 'DISCONTINUED';
   };
 
-  const spacesList = getDynamicRoomSpaces(rooms, bedSpaces, options);
+  const spacesList = getDynamicRoomSpaces(rooms, bedSpaces, options, knownCategories);
 
   // Active bookings include:
   // 1) PublicOccupancy items where is_held is true

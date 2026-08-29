@@ -49,7 +49,7 @@ export const EditBookingModal: React.FC<EditBookingModalProps> = ({
     passport_number: '',
     expected_arrival_date: '',
     duration_of_stay: '',
-    category: 'Standard' as 'Standard' | 'Premium 1' | 'Premium 2',
+    category: 'Standard' as string,
     selectedSpaceId: 'std_r1_a',
     roomName: 'Room 1',
     bedSpaceName: 'Bed A',

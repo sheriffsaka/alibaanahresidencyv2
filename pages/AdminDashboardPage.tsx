@@ -639,8 +639,8 @@ const AdminDashboardPage: React.FC = () => {
   }, [bookings, trxStatusFilter, trxSearchQuery, rooms]);
 
   const parsedRoomSpaces = useMemo(() => {
-    return getParsedRoomSpaces(rooms, bookings, bedSpaces);
-  }, [rooms, bookings, bedSpaces]);
+    return getParsedRoomSpaces(rooms, bookings, bedSpaces, undefined, accommodationCategories);
+  }, [rooms, bookings, bedSpaces, accommodationCategories]);
 
   const filteredRoomSpaces = useMemo(() => {
     return parsedRoomSpaces.filter(space => {

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, ChangeEvent } from 'react';
+import React, { useState, useEffect, useMemo, ChangeEvent } from 'react';
 import { Room, AccommodationType, AccommodationCategory } from '../types';
 import { useApp } from '../hooks/useApp';
 import { uploadFile, generateFileName } from '../lib/storage';
@@ -47,7 +47,7 @@ const COMMON_AMENITIES = [
 ];
 
 export const RoomEditorModal: React.FC<RoomEditorModalProps> = ({ room, onClose, onSave }) => {
-  const { accommodationCategories, rooms, bedSpaces } = useApp();
+  const { accommodationCategories, rooms, bedSpaces, bookings } = useApp();
 
   const isEditing = !!room;
   const [currentStep, setCurrentStep] = useState<number>(1);
@@ -155,6 +155,27 @@ export const RoomEditorModal: React.FC<RoomEditorModalProps> = ({ room, onClose,
 
   // Sync capacity with bed labels
   const capacity = bedLabels.length;
+
+  // Active bookings safeguard check when editing an existing room
+  const conflictingActiveBookings = useMemo(() => {
+    if (!isEditing || !room) return [];
+    const currentBeds = bedSpaces.filter(b => b.room_id === room.id);
+    const isPrivateNow = roomType === 'Private Room' || bedLabels.length === 1;
+    
+    let removedBeds: any[] = [];
+    if (isPrivateNow && currentBeds.length > 1) {
+      removedBeds = currentBeds.slice(1);
+    } else if (!isPrivateNow && currentBeds.length > bedLabels.length) {
+      removedBeds = currentBeds.slice(bedLabels.length);
+    }
+    
+    const activeStatuses = ['CONFIRMED', 'PENDING_APPROVAL', 'APPROVED', 'OCCUPIED', 'ACTIVE', 'PENDING_PAYMENT', 'UNDER_REVIEW'];
+    return bookings.filter(b => 
+      b.room_id === room.id && 
+      activeStatuses.includes((b.status || '').toUpperCase()) &&
+      removedBeds.some(bed => bed.id === b.bed_space_id || (b as any).assigned_space?.includes(bed.label))
+    );
+  }, [isEditing, room, bedSpaces, roomType, bedLabels, bookings]);
 
   // Duplicate room check in same accommodation
   const isDuplicateRoomNumber = () => {
@@ -272,6 +293,11 @@ export const RoomEditorModal: React.FC<RoomEditorModalProps> = ({ room, onClose,
       }
       if (bedLabels.some(l => !l.trim())) {
         setErrorMessage('All bed spaces must have a non-empty name (e.g. Bed A, Bed B).');
+        return false;
+      }
+      if (conflictingActiveBookings.length > 0) {
+        const studentName = conflictingActiveBookings[0].full_name || conflictingActiveBookings[0].student_name || 'an assigned student';
+        setErrorMessage(`Cannot remove bed space or convert to Private: Active booking exists for ${studentName} (Status: ${conflictingActiveBookings[0].status}). Please reassign or conclude their booking before reducing capacity.`);
         return false;
       }
       return true;
@@ -641,6 +667,18 @@ export const RoomEditorModal: React.FC<RoomEditorModalProps> = ({ room, onClose,
                     Total: {bedLabels.length} {bedLabels.length === 1 ? 'Bed' : 'Beds'}
                   </span>
                 </div>
+
+                {conflictingActiveBookings.length > 0 && (
+                  <div className="p-3.5 rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 text-amber-800 dark:text-amber-300 text-xs flex items-start gap-2.5">
+                    <AlertCircle className="w-4 h-4 shrink-0 mt-0.5 text-amber-600 dark:text-amber-400" />
+                    <div>
+                      <strong className="block font-bold">Active Student Booking Protection</strong>
+                      <span>
+                        Student <strong>{conflictingActiveBookings[0].full_name || 'Assigned Student'}</strong> has an active booking on a bed space that would be removed by this change. To protect students and prevent data corruption, please reassign or conclude their booking before reducing capacity or converting to Single/Private.
+                      </span>
+                    </div>
+                  </div>
+                )}
 
                 {/* Quick Presets */}
                 <div>

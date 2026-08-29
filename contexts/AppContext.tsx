@@ -1215,6 +1215,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         return { success: false, error: 'Category not found.' };
       }
 
+      const oldName = existing.name;
       if (updates.name !== undefined) {
         const trimmedName = updates.name.trim();
         if (!trimmedName) {
@@ -1253,10 +1254,29 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         console.warn("Notice updating accommodation_categories table:", dbError.message);
       }
 
-      // 3. Keep cmsContent in sync
+      // 3. If category name changed, synchronize all rooms in Supabase that reference the old category name
+      if (updates.name && updates.name !== oldName) {
+        const newName = updates.name.trim();
+        try {
+          const { error: roomSyncErr } = await supabase
+            .from('rooms')
+            .update({ apartment_name: newName })
+            .eq('apartment_name', oldName);
+          
+          if (roomSyncErr) {
+            console.warn("Notice syncing rooms apartment_name on category rename:", roomSyncErr.message);
+          }
+
+          // Update local rooms state immediately
+          setRooms(prev => prev.map(r => r.apartment_name === oldName ? { ...r, apartment_name: newName } : r));
+        } catch (rErr) {
+          console.warn("Error updating rooms for renamed category:", rErr);
+        }
+      }
+
+      // 4. Keep cmsContent in sync
       const nextList = accommodationCategories.map(c => c.id === id ? updatedCategory : c);
       const updatedAddresses = { ...cmsContent.accommodationAddresses };
-      const oldName = existing.name;
       if (updates.name && updates.name !== oldName && updatedAddresses[oldName]) {
         updatedAddresses[updates.name] = updatedCategory.address || updatedAddresses[oldName];
         delete updatedAddresses[oldName];
@@ -1278,6 +1298,24 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
   const deleteAccommodationCategory = async (id: string) => {
     try {
+      const existing = accommodationCategories.find(c => c.id === id);
+      if (!existing) {
+        return { success: false, error: 'Category not found.' };
+      }
+
+      // Safety check: verify no rooms are currently assigned to this category
+      const assignedRooms = rooms.filter(
+        r => (r.apartment_name || '').trim().toLowerCase() === existing.name.trim().toLowerCase() ||
+             (r.category || '').trim().toLowerCase() === existing.name.trim().toLowerCase()
+      );
+
+      if (assignedRooms.length > 0) {
+        return {
+          success: false,
+          error: `Cannot delete category "${existing.name}": There are ${assignedRooms.length} room(s) currently assigned to this category. Please reassign or delete these rooms first.`
+        };
+      }
+
       const nextList = accommodationCategories.filter(c => c.id !== id);
       setAccommodationCategories(nextList);
 
@@ -1290,8 +1328,12 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         console.warn("Notice deleting from accommodation_categories table:", error.message);
       }
 
+      const updatedAddresses = { ...cmsContent.accommodationAddresses };
+      delete updatedAddresses[existing.name];
+
       await updateCmsContent({
-        accommodationCategories: nextList
+        accommodationCategories: nextList,
+        accommodationAddresses: updatedAddresses
       });
 
       return { success: true };
@@ -1414,7 +1456,77 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const updateRoom = async (updatedRoom: Room) => {
     try {
         console.log("Updating room in Supabase:", updatedRoom.id, updatedRoom);
+
+        // 1. Safety check for active bookings before modifying room configuration
+        const isPrivate = updatedRoom.type?.toLowerCase().includes('private') || updatedRoom.capacity === 1;
+        const customBedLabels = (updatedRoom as any).bedLabels;
+        const targetLabels: string[] = (Array.isArray(customBedLabels) && customBedLabels.length > 0)
+            ? customBedLabels
+            : (isPrivate
+                ? ['Single']
+                : Array.from({ length: Math.max(1, updatedRoom.capacity || 2) }, (_, i) => `Bed ${String.fromCharCode(65 + i)}`));
+
+        const currentRoomBeds = bedSpaces.filter(b => b.room_id === updatedRoom.id);
+        
+        let removedBeds: any[] = [];
+        if (isPrivate && currentRoomBeds.length > 1) {
+            removedBeds = currentRoomBeds.slice(1);
+        } else if (!isPrivate && currentRoomBeds.length > targetLabels.length) {
+            removedBeds = currentRoomBeds.slice(targetLabels.length);
+        }
+
+        const activeStatuses = ['CONFIRMED', 'PENDING_APPROVAL', 'APPROVED', 'OCCUPIED', 'ACTIVE', 'PENDING_PAYMENT', 'UNDER_REVIEW'];
+        for (const bed of removedBeds) {
+            const activeBooking = bookings.find(b => {
+                const bAny = b as any;
+                const matchesBed = b.bed_space_id === bed.id || 
+                    (b.room_id === updatedRoom.id && (bAny.bed_space_name === bed.label || bAny.assigned_space?.includes(bed.label)));
+                return matchesBed && activeStatuses.includes((b.status || '').toUpperCase());
+            });
+            if (activeBooking) {
+                return {
+                    success: false,
+                    error: `Cannot modify room configuration: Bed Space "${bed.label}" currently has an active booking for student ${activeBooking.full_name || (activeBooking as any).student_name || 'assigned student'} (Status: ${activeBooking.status}). Please reassign or conclude their booking before reducing capacity or converting this room to private.`
+                };
+            }
+        }
+
         const { id, created_at, property_id, bedLabels, ...updateData } = updatedRoom as any;
+
+        // 2. Ensure category strictly satisfies PostgreSQL check constraint ('Standard' | 'Premium')
+        const aptCat = (updatedRoom.apartment_name || updatedRoom.category || '').toLowerCase();
+        updateData.category = aptCat.includes('premium') ? 'Premium' : 'Standard';
+        updateData.apartment_name = updatedRoom.apartment_name || (updateData.category === 'Premium' ? 'Premium 1' : 'Standard');
+
+        // 3. Ensure accommodation type is valid ENUM
+        if (updateData.category === 'Premium') {
+            updateData.type = isPrivate ? AccommodationType.PREMIUM_PRIVATE : AccommodationType.PREMIUM_SHARED;
+        } else {
+            updateData.type = isPrivate ? AccommodationType.STANDARD_PRIVATE : AccommodationType.STANDARD_SHARED;
+        }
+
+        // 4. Resolve room_number uniqueness to prevent duplicate key violations on UNIQUE(property_id, room_number)
+        let targetRoomNum = (updateData.room_number || '').trim();
+        const digitMatch = targetRoomNum.match(/\d+/);
+        const rDigit = digitMatch ? digitMatch[0] : '1';
+
+        const hasCollision = rooms.some(
+            r => r.id !== updatedRoom.id && 
+            ((r.room_number || '').trim().toLowerCase() === `room ${rDigit}`.toLowerCase() ||
+             (r.room_number || '').trim().toLowerCase() === targetRoomNum.toLowerCase())
+        );
+
+        if (hasCollision) {
+            let prefix = 'STD';
+            if (aptCat.includes('premium 1')) prefix = 'P1';
+            else if (aptCat.includes('premium 2')) prefix = 'P2';
+            else if (aptCat.includes('premium 3')) prefix = 'P3';
+            else if (aptCat.includes('premium')) prefix = 'PRM';
+            
+            updateData.room_number = `${prefix}-R${rDigit}`;
+        } else if (!targetRoomNum.toLowerCase().startsWith('room') && !targetRoomNum.includes('-')) {
+            updateData.room_number = `Room ${rDigit}`;
+        }
 
         const { error, data } = await supabase
             .from('rooms')
@@ -1470,15 +1582,6 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         
         console.log("Room updated successfully in Supabase:", updatedRoom.id);
 
-        // Reconcile bed_spaces for this room
-        const isPrivate = updatedRoom.type?.toLowerCase().includes('private') || updatedRoom.capacity === 1;
-        const customBedLabels = (updatedRoom as any).bedLabels;
-        const targetLabels: string[] = (Array.isArray(customBedLabels) && customBedLabels.length > 0)
-            ? customBedLabels
-            : (isPrivate
-                ? ['Single']
-                : Array.from({ length: Math.max(1, updatedRoom.capacity || 2) }, (_, i) => `Bed ${String.fromCharCode(65 + i)}`));
-
         // Fetch current bed spaces for this room from DB
         const { data: existingBeds } = await supabase
             .from('bed_spaces')
@@ -1488,11 +1591,11 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
         const currentBeds = existingBeds || [];
 
-        // 1. If transitioning from Single to Shared (e.g. ['Single'] -> ['Bed A', 'Bed B'])
+        // Reconcile bed spaces
         if (currentBeds.length === 1 && currentBeds[0].label === 'Single' && !isPrivate) {
             await supabase
                 .from('bed_spaces')
-                .update({ label: 'Bed A' })
+                .update({ label: targetLabels[0] || 'Bed A' })
                 .eq('id', currentBeds[0].id);
 
             const extraBeds = targetLabels.slice(1).map(label => ({
@@ -1502,9 +1605,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             if (extraBeds.length > 0) {
                 await supabase.from('bed_spaces').insert(extraBeds);
             }
-        } 
-        // 2. If transitioning from Shared to Private (e.g. ['Bed A', 'Bed B'] -> ['Single'])
-        else if (isPrivate && currentBeds.length > 0 && currentBeds[0].label !== 'Single') {
+        } else if (isPrivate && currentBeds.length > 0) {
             await supabase
                 .from('bed_spaces')
                 .update({ label: 'Single' })
@@ -1512,11 +1613,13 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
             const extraBedIds = currentBeds.slice(1).map(b => b.id);
             for (const bId of extraBedIds) {
-                await supabase.from('bed_spaces').delete().eq('id', bId);
+                try {
+                    await supabase.from('bed_spaces').delete().eq('id', bId);
+                } catch (delErr) {
+                    console.warn(`Safe bed delete skipped for bed ${bId}:`, delErr);
+                }
             }
-        } 
-        // 3. General alignment of labels & capacity
-        else {
+        } else {
             const existingLabels = new Set(currentBeds.map(b => b.label));
             const missingLabels = targetLabels.filter(lbl => !existingLabels.has(lbl));
             if (missingLabels.length > 0) {
@@ -1529,7 +1632,11 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
             const excessBeds = currentBeds.filter(b => !targetLabels.includes(b.label));
             for (const excess of excessBeds) {
-                await supabase.from('bed_spaces').delete().eq('id', excess.id);
+                try {
+                    await supabase.from('bed_spaces').delete().eq('id', excess.id);
+                } catch (delErr) {
+                    console.warn(`Safe bed delete skipped for bed ${excess.id}:`, delErr);
+                }
             }
         }
 
@@ -1543,7 +1650,12 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             setBedSpaces(refreshedBeds);
         }
 
-        setRooms(prev => prev.map(r => r.id === updatedRoom.id ? { ...r, ...updatedRoom } : r));
+        const refreshedRoom: Room = {
+            ...updatedRoom,
+            ...updateData
+        };
+
+        setRooms(prev => prev.map(r => r.id === updatedRoom.id ? refreshedRoom : r));
         return { success: true };
     } catch (err: any) {
         console.error("Error updating room in Supabase:", err);
