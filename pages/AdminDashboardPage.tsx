@@ -344,7 +344,7 @@ const SummaryCard: React.FC<SummaryCardProps> = ({ label, value, icon, trend, co
 
 const AdminDashboardPage: React.FC = () => {
   const t = useTranslation();
-  const { user, bookings, updateBookingStatus, deleteBooking, cmsContent, updateCmsContent, rooms, bedSpaces, addRoom, updateRoom, toggleRoomStatus, deleteRoom, activities, addActivity, language, setPage, users, addUser, updateUser, deleteUser, students, waitlist, refreshWaitlist, accommodationCategories, unreadMessagesCount } = useApp();
+  const { user, bookings, updateBookingStatus, deleteBooking, cmsContent, updateCmsContent, rooms, bedSpaces, addRoom, updateRoom, toggleRoomStatus, deleteRoom, activities, addActivity, language, setPage, users, addUser, updateUser, deleteUser, students, waitlist, refreshWaitlist, accommodationCategories, unreadMessagesCount, parsedRoomSpaces: contextParsedRoomSpaces } = useApp();
   const [activeSection, setActiveSection] = useState<AdminNavSection>('dashboard');
   const [isActivityDrawerOpen, setIsActivityDrawerOpen] = useState(false);
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
@@ -567,7 +567,7 @@ const AdminDashboardPage: React.FC = () => {
     );
 
     // Live physical bed spaces count dynamically derived from bed_spaces table (or room capacity sum)
-    const dynamicSpaces = getParsedRoomSpaces(rooms, safeBookings, bedSpaces);
+    const dynamicSpaces = contextParsedRoomSpaces || [];
     const totalCapacity = (bedSpaces && bedSpaces.length > 0)
       ? bedSpaces.length
       : (rooms && rooms.length > 0)
@@ -638,9 +638,7 @@ const AdminDashboardPage: React.FC = () => {
     });
   }, [bookings, trxStatusFilter, trxSearchQuery, rooms]);
 
-  const parsedRoomSpaces = useMemo(() => {
-    return getParsedRoomSpaces(rooms, bookings, bedSpaces, undefined, accommodationCategories);
-  }, [rooms, bookings, bedSpaces, accommodationCategories]);
+  const parsedRoomSpaces = contextParsedRoomSpaces || [];
 
   const filteredRoomSpaces = useMemo(() => {
     return parsedRoomSpaces.filter(space => {

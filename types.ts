@@ -404,6 +404,8 @@ export interface AppContextType {
   bookings: Booking[];
   publicOccupancy: PublicOccupancy[];
   effectiveOccupancyBookings: any[];
+  parsedRoomSpaces?: any[];
+  roomOccupancyMap?: Record<number, { occupiedSlots: number; capacity: number; slotsLeft: number; isOccupied: boolean; isAvailable: boolean }>;
   accommodationAddresses: AccommodationAddresses;
   accommodationCategories: AccommodationCategory[];
   addAccommodationCategory: (category: (Omit<AccommodationCategory, 'created_at'> & { id?: string }) | Omit<AccommodationCategory, 'id' | 'created_at'> | string) => Promise<{ success: boolean; error?: string; category?: AccommodationCategory }>;

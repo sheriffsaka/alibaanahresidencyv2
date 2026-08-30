@@ -1,10 +1,9 @@
 
-import React, { useMemo } from 'react';
-import { Room, BookingStatus } from '../types';
+import React from 'react';
+import { Room } from '../types';
 import { useTranslation } from '../hooks/useTranslation';
 import { useApp } from '../hooks/useApp';
 import { IconCheckCircle } from './Icon';
-import { getParsedRoomSpaces } from '../lib/roomNaming';
 
 interface RoomCardProps {
   room: Room;
@@ -13,33 +12,14 @@ interface RoomCardProps {
 
 const RoomCard: React.FC<RoomCardProps> = ({ room, isOccupied: propIsOccupied }) => {
   const t = useTranslation();
-  const { setPage, effectiveOccupancyBookings, rooms, bedSpaces } = useApp();
+  const { setPage, roomOccupancyMap } = useApp();
 
-  const { occupiedSlots, capacity, slotsLeft, isOccupied } = useMemo(() => {
-    const parsedSpaces = getParsedRoomSpaces(rooms, effectiveOccupancyBookings, bedSpaces);
-    // Find matching spaces for this room's category and type
-    const roomCat = (room.apartment_name || room.category || '').toLowerCase().replace(/\s+/g, '');
-    const isPrivate = (room.type || '').toLowerCase().includes('private');
-    
-    const matchingSpaces = parsedSpaces.filter(s => {
-      const sCat = s.category.toLowerCase().replace(/\s+/g, '');
-      const sType = s.type === 'Private';
-      return (sCat.includes(roomCat) || roomCat.includes(sCat) || (roomCat.includes('premium') && sCat.includes('premium'))) && sType === isPrivate;
-    });
-
-    const totalCap = matchingSpaces.length > 0 ? matchingSpaces.length : (room.capacity || 1);
-    const occupied = matchingSpaces.filter(s => s.isOccupied).length;
-    const remaining = Math.max(0, totalCap - occupied);
-    const isInactive = room.status === 'Inactive';
-    const full = propIsOccupied !== undefined ? propIsOccupied : (remaining === 0 || isInactive);
-
-    return {
-      occupiedSlots: occupied,
-      capacity: totalCap,
-      slotsLeft: isInactive ? 0 : remaining,
-      isOccupied: full
-    };
-  }, [rooms, effectiveOccupancyBookings, bedSpaces, room, propIsOccupied]);
+  const occ = roomOccupancyMap ? roomOccupancyMap[room.id] : undefined;
+  const occupiedSlots = occ ? occ.occupiedSlots : (room.occupied_slots || 0);
+  const capacity = occ ? occ.capacity : (room.capacity || 1);
+  const slotsLeft = occ ? occ.slotsLeft : Math.max(0, capacity - occupiedSlots);
+  const isInactive = room.status === 'Inactive';
+  const isOccupied = propIsOccupied !== undefined ? propIsOccupied : (occ ? occ.isOccupied : (slotsLeft === 0 || isInactive));
 
   return (
     <div className={`bg-white dark:bg-gray-800 rounded-2xl shadow-xl overflow-hidden transition-all duration-500 ${isOccupied ? 'filter grayscale cursor-not-allowed' : 'transform hover:-translate-y-2 hover:shadow-2xl'}`}>

@@ -13,12 +13,12 @@ import PaymentProofModal from '../components/PaymentProofModal';
 import { supabase } from '../lib/supabaseClient';
 import AgreementModal from '../components/AgreementModal';
 import { sendEmail, getAgreementSignedTemplate, getPaymentProofUploadedAdminTemplate } from '../lib/email';
-import { formatStoredRoomString, getParsedRoomSpaces, getAccommodationAddress } from '../lib/roomNaming';
+import { formatStoredRoomString, getAccommodationAddress } from '../lib/roomNaming';
 import JoinWaitlistModal from '../components/JoinWaitlistModal';
 
 const DashboardPage: React.FC = () => {
   const t = useTranslation();
-  const { user, bookings, effectiveOccupancyBookings, setPage, cmsContent, addActivity, updateBooking, language, rooms, bedSpaces, landlordDetails, accommodationAddresses } = useApp();
+  const { user, bookings, setPage, cmsContent, addActivity, updateBooking, language, rooms, parsedRoomSpaces, landlordDetails, accommodationAddresses } = useApp();
   
   const [selectedInvoice, setSelectedInvoice] = useState<Booking | null>(null);
   const [viewingAgreement, setViewingAgreement] = useState<Booking | null>(null);
@@ -42,9 +42,7 @@ const DashboardPage: React.FC = () => {
   const announcements = cmsContent.announcements?.[language] || cmsContent.announcements?.['en'] || [];
 
   // Determine which rooms/beds are currently occupied based on effective occupancy data
-  const parsedAvailabilityData = useMemo(() => {
-    return getParsedRoomSpaces(rooms, effectiveOccupancyBookings, bedSpaces);
-  }, [effectiveOccupancyBookings, rooms, bedSpaces]);
+  const parsedAvailabilityData = parsedRoomSpaces || [];
 
   const filteredAvailabilityData = useMemo(() => {
     if (selectedFilterCategory === 'All') return parsedAvailabilityData;

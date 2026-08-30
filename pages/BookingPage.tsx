@@ -5,11 +5,10 @@ import { useTranslation } from '../hooks/useTranslation';
 import MultiStepBookingForm from '../components/MultiStepBookingForm';
 import { useApp } from '../hooks/useApp';
 import { IconBuilding } from '../components/Icon';
-import { getParsedRoomSpaces } from '../lib/roomNaming';
 
 const BookingPage: React.FC = () => {
   const t = useTranslation();
-  const { effectiveOccupancyBookings, setPage, selectedRoom, extendingBooking, rooms, bedSpaces } = useApp();
+  const { setPage, selectedRoom, extendingBooking, roomOccupancyMap } = useApp();
 
   const isOccupied = useMemo(() => {
     if (!selectedRoom) return false;
@@ -20,22 +19,14 @@ const BookingPage: React.FC = () => {
     if (extendingBooking && extendingBooking.room_id === selectedRoom.id) {
       return false;
     }
-    const parsedSpaces = getParsedRoomSpaces(rooms, effectiveOccupancyBookings, bedSpaces, { includeInactive: false });
-    const roomCat = (selectedRoom.apartment_name || selectedRoom.category || '').toLowerCase().replace(/\s+/g, '');
-    const isPrivate = (selectedRoom.type || '').toLowerCase().includes('private');
-    
-    const matchingSpaces = parsedSpaces.filter(s => {
-      const sCat = s.category.toLowerCase().replace(/\s+/g, '');
-      const sType = s.type === 'Private';
-      return (sCat.includes(roomCat) || roomCat.includes(sCat) || (roomCat.includes('premium') && sCat.includes('premium'))) && sType === isPrivate;
-    });
 
-    if (matchingSpaces.length > 0) {
-      return matchingSpaces.every(s => s.isOccupied);
+    const occ = roomOccupancyMap ? roomOccupancyMap[selectedRoom.id] : undefined;
+    if (occ) {
+      return occ.isOccupied;
     }
 
     return !selectedRoom.is_available;
-  }, [rooms, effectiveOccupancyBookings, bedSpaces, selectedRoom, extendingBooking]);
+  }, [selectedRoom, extendingBooking, roomOccupancyMap]);
 
   const isUnavailable = selectedRoom ? isOccupied : false;
   

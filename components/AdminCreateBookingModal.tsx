@@ -26,7 +26,7 @@ export const calculateExpiryDate = (arrivalDateStr: string, months: number): str
 };
 
 export const AdminCreateBookingModal: React.FC<AdminCreateBookingModalProps> = ({ isOpen, onClose, onSuccess }) => {
-  const { students, rooms, bedSpaces, bookings, addBooking } = useApp();
+  const { students, rooms, bedSpaces, bookings, addBooking, parsedRoomSpaces } = useApp();
 
   const [selectedStudentId, setSelectedStudentId] = useState<string>('new');
   
@@ -77,10 +77,8 @@ export const AdminCreateBookingModal: React.FC<AdminCreateBookingModalProps> = (
     }
   }, [selectedStudentId, students, bookings]);
 
-  // Compute available bed spaces for selected category based on current Supabase bookings
-  const parsedSpaces = useMemo(() => {
-    return getParsedRoomSpaces(rooms, bookings, bedSpaces);
-  }, [rooms, bookings, bedSpaces]);
+  // Available bed spaces for selected category based on centralized occupancy data
+  const parsedSpaces = parsedRoomSpaces || [];
 
   const categoryBedSpaces = parsedSpaces.filter(space => space.category === selectedCategory);
 

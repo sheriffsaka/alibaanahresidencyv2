@@ -5,6 +5,7 @@ import { supabase } from '../lib/supabaseClient';
 import { Session } from '@supabase/supabase-js';
 import { sendEmail, fetchRecentEmailLogs } from '../lib/email';
 import { fetchConversationsList, fetchMessages, postMessage, markConversationAsRead as markConvAsRead, getOrCreateStudentConversation } from '../lib/messaging';
+import { getParsedRoomSpaces } from '../lib/roomNaming';
 
 export const AppContext = createContext<AppContextType | undefined>(undefined);
 
@@ -1275,27 +1276,23 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         .eq('id', oldId);
 
       if (dbError) {
-        console.warn("Notice updating accommodation_categories table:", dbError.message);
+        throw new Error(`Failed to update accommodation category in database: ${dbError.message}`);
       }
 
       // 3. If category name changed, synchronize all rooms in Supabase that reference the old category name
       if (updates.name && updates.name !== oldName) {
         const newName = updates.name.trim();
-        try {
-          const { error: roomSyncErr } = await supabase
-            .from('rooms')
-            .update({ apartment_name: newName })
-            .eq('apartment_name', oldName);
-          
-          if (roomSyncErr) {
-            console.warn("Notice syncing rooms apartment_name on category rename:", roomSyncErr.message);
-          }
-
-          // Update local rooms state immediately
-          setRooms(prev => prev.map(r => r.apartment_name === oldName ? { ...r, apartment_name: newName } : r));
-        } catch (rErr) {
-          console.warn("Error updating rooms for renamed category:", rErr);
+        const { error: roomSyncErr } = await supabase
+          .from('rooms')
+          .update({ apartment_name: newName })
+          .eq('apartment_name', oldName);
+        
+        if (roomSyncErr) {
+          throw new Error(`Failed to update room records for renamed category "${newName}": ${roomSyncErr.message}`);
         }
+
+        // Update local rooms state immediately
+        setRooms(prev => prev.map(r => r.apartment_name === oldName ? { ...r, apartment_name: newName } : r));
       }
 
       // 4. Keep cmsContent in sync
@@ -1458,7 +1455,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                 .select();
 
             if (bedErr) {
-                console.warn("Error auto-inserting bed_spaces for new room:", bedErr.message);
+                throw new Error(`Room created, but failed to auto-insert bed spaces: ${bedErr.message}`);
             } else if (insertedBeds) {
                 setBedSpaces(prev => [...prev, ...insertedBeds]);
             }
@@ -1481,7 +1478,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     try {
         console.log("Updating room in Supabase:", updatedRoom.id, updatedRoom);
 
-        // 1. Safety check for active bookings before modifying room configuration
+        // 1. Safety check: query live database bookings for this room before modifying configuration
         const isPrivate = updatedRoom.type?.toLowerCase().includes('private') || updatedRoom.capacity === 1;
         const customBedLabels = (updatedRoom as any).bedLabels;
         const targetLabels: string[] = (Array.isArray(customBedLabels) && customBedLabels.length > 0)
@@ -1490,8 +1487,39 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                 ? ['Single']
                 : Array.from({ length: Math.max(1, updatedRoom.capacity || 2) }, (_, i) => `Bed ${String.fromCharCode(65 + i)}`));
 
+        const targetCapacity = isPrivate ? 1 : Math.max(1, updatedRoom.capacity || targetLabels.length || 2);
+
+        // Query live bookings for this room from Supabase
+        let liveRoomBookings: any[] = [];
+        const { data: dbBookings, error: liveErr } = await supabase
+            .from('bookings')
+            .select('id, full_name, status, room_id, bed_space_id, checked_out_at, end_date')
+            .eq('room_id', updatedRoom.id);
+
+        if (!liveErr && Array.isArray(dbBookings)) {
+            liveRoomBookings = dbBookings;
+        } else {
+            liveRoomBookings = bookings.filter(b => b.room_id === updatedRoom.id);
+        }
+
+        const inactiveStatuses = ['CANCELLED', 'REJECTED', 'COMPLETED', 'EXPIRED'];
+        const activeBookings = liveRoomBookings.filter(b => {
+            const bStatus = (b.status || '').toUpperCase().trim().replace(/[\s_-]+/g, '_');
+            const isInactive = inactiveStatuses.includes(bStatus) || Boolean(b.checked_out_at);
+            return !isInactive;
+        });
+
+        // Block if active booking count exceeds new target capacity
+        if (activeBookings.length > targetCapacity) {
+            const studentNames = activeBookings.map(b => b.full_name || (b as any).student_name || 'Student').filter(Boolean).join(', ');
+            return {
+                success: false,
+                error: `Cannot modify room configuration: Room currently has ${activeBookings.length} active booking(s) (${studentNames || 'Active Students'}), which exceeds the requested capacity of ${targetCapacity}. Please reassign or conclude those bookings before reducing capacity.`
+            };
+        }
+
+        // Check if any specific bed space being removed is actively assigned
         const currentRoomBeds = bedSpaces.filter(b => b.room_id === updatedRoom.id);
-        
         let removedBeds: any[] = [];
         if (isPrivate && currentRoomBeds.length > 1) {
             removedBeds = currentRoomBeds.slice(1);
@@ -1499,18 +1527,16 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             removedBeds = currentRoomBeds.slice(targetLabels.length);
         }
 
-        const activeStatuses = ['CONFIRMED', 'PENDING_APPROVAL', 'APPROVED', 'OCCUPIED', 'ACTIVE', 'PENDING_PAYMENT', 'UNDER_REVIEW'];
         for (const bed of removedBeds) {
-            const activeBooking = bookings.find(b => {
+            const assignedActive = activeBookings.find(b => {
                 const bAny = b as any;
-                const matchesBed = b.bed_space_id === bed.id || 
+                return b.bed_space_id === bed.id || 
                     (b.room_id === updatedRoom.id && (bAny.bed_space_name === bed.label || bAny.assigned_space?.includes(bed.label)));
-                return matchesBed && activeStatuses.includes((b.status || '').toUpperCase());
             });
-            if (activeBooking) {
+            if (assignedActive) {
                 return {
                     success: false,
-                    error: `Cannot modify room configuration: Bed Space "${bed.label}" currently has an active booking for student ${activeBooking.full_name || (activeBooking as any).student_name || 'assigned student'} (Status: ${activeBooking.status}). Please reassign or conclude their booking before reducing capacity or converting this room to private.`
+                    error: `Cannot modify room configuration: Bed Space "${bed.label}" (ID: ${bed.id}) currently has an active booking for student ${assignedActive.full_name || (assignedActive as any).student_name || 'assigned student'} (Status: ${assignedActive.status}). Please reassign or conclude their booking before reducing capacity or converting this room to private.`
                 };
             }
         }
@@ -1617,30 +1643,38 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
         // Reconcile bed spaces
         if (currentBeds.length === 1 && currentBeds[0].label === 'Single' && !isPrivate) {
-            await supabase
+            const { error: singleBedErr } = await supabase
                 .from('bed_spaces')
                 .update({ label: targetLabels[0] || 'Bed A' })
                 .eq('id', currentBeds[0].id);
+            if (singleBedErr) {
+                throw new Error(`Failed to update bed space label: ${singleBedErr.message}`);
+            }
 
             const extraBeds = targetLabels.slice(1).map(label => ({
                 room_id: updatedRoom.id,
                 label
             }));
             if (extraBeds.length > 0) {
-                await supabase.from('bed_spaces').insert(extraBeds);
+                const { error: extraInsErr } = await supabase.from('bed_spaces').insert(extraBeds);
+                if (extraInsErr) {
+                    throw new Error(`Failed to add extra bed spaces: ${extraInsErr.message}`);
+                }
             }
         } else if (isPrivate && currentBeds.length > 0) {
-            await supabase
+            const { error: singleBedErr } = await supabase
                 .from('bed_spaces')
                 .update({ label: 'Single' })
                 .eq('id', currentBeds[0].id);
+            if (singleBedErr) {
+                throw new Error(`Failed to update bed label to Single: ${singleBedErr.message}`);
+            }
 
             const extraBedIds = currentBeds.slice(1).map(b => b.id);
             for (const bId of extraBedIds) {
-                try {
-                    await supabase.from('bed_spaces').delete().eq('id', bId);
-                } catch (delErr) {
-                    console.warn(`Safe bed delete skipped for bed ${bId}:`, delErr);
+                const { error: delErr } = await supabase.from('bed_spaces').delete().eq('id', bId);
+                if (delErr) {
+                    throw new Error(`Failed to remove bed space (ID: ${bId}): ${delErr.message}. The bed may be referenced by an existing booking.`);
                 }
             }
         } else {
@@ -1651,15 +1685,17 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                     room_id: updatedRoom.id,
                     label
                 }));
-                await supabase.from('bed_spaces').insert(newBedsToInsert);
+                const { error: insErr } = await supabase.from('bed_spaces').insert(newBedsToInsert);
+                if (insErr) {
+                    throw new Error(`Failed to insert new bed spaces: ${insErr.message}`);
+                }
             }
 
             const excessBeds = currentBeds.filter(b => !targetLabels.includes(b.label));
             for (const excess of excessBeds) {
-                try {
-                    await supabase.from('bed_spaces').delete().eq('id', excess.id);
-                } catch (delErr) {
-                    console.warn(`Safe bed delete skipped for bed ${excess.id}:`, delErr);
+                const { error: delErr } = await supabase.from('bed_spaces').delete().eq('id', excess.id);
+                if (delErr) {
+                    throw new Error(`Failed to remove excess bed space "${excess.label}" (ID: ${excess.id}): ${delErr.message}. The bed may be referenced by an existing booking.`);
                 }
             }
         }
@@ -1717,7 +1753,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             .eq('room_id', roomId);
 
         if (bedDeleteError) {
-            console.warn("Notice deleting bed spaces for room:", bedDeleteError.message);
+            throw new Error(`Failed to delete bed spaces for room: ${bedDeleteError.message}`);
         }
 
         // 3. Delete room from rooms table
@@ -2186,6 +2222,46 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     return publicOccupancy;
   }, [user, bookings, publicOccupancy]);
 
+  // Centralized, memoized parsedRoomSpaces
+  const parsedRoomSpaces = useMemo(() => {
+    return getParsedRoomSpaces(rooms, effectiveOccupancyBookings, bedSpaces, { includeInactive: true }, accommodationCategories);
+  }, [rooms, effectiveOccupancyBookings, bedSpaces, accommodationCategories]);
+
+  // Centralized roomOccupancyMap mapping each room ID to its true occupied count and availability
+  const roomOccupancyMap = useMemo(() => {
+    const map: Record<number, { occupiedSlots: number; capacity: number; slotsLeft: number; isOccupied: boolean; isAvailable: boolean }> = {};
+    for (const r of rooms) {
+      const matchingSpaces = parsedRoomSpaces.filter(s => s.roomId === r.id || (s.dbRoom && s.dbRoom.id === r.id));
+      const totalCap = matchingSpaces.length > 0 ? matchingSpaces.length : (r.capacity || 1);
+      const occupied = matchingSpaces.filter(s => s.isOccupied).length;
+      const isInactive = r.status === 'Inactive';
+      const remaining = isInactive ? 0 : Math.max(0, totalCap - occupied);
+      const isFull = isInactive || remaining === 0;
+      map[r.id] = {
+        occupiedSlots: occupied,
+        capacity: totalCap,
+        slotsLeft: remaining,
+        isOccupied: isFull,
+        isAvailable: !isInactive && remaining > 0
+      };
+    }
+    return map;
+  }, [rooms, parsedRoomSpaces]);
+
+  // Dynamic self-healed rooms list
+  const effectiveRooms = useMemo(() => {
+    return rooms.map(r => {
+      const occ = roomOccupancyMap[r.id];
+      if (!occ) return r;
+      return {
+        ...r,
+        capacity: occ.capacity,
+        occupied_slots: occ.occupiedSlots,
+        is_available: occ.isAvailable
+      };
+    });
+  }, [rooms, roomOccupancyMap]);
+
   const value = {
     language,
     setLanguage,
@@ -2199,13 +2275,15 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     bookings,
     publicOccupancy,
     effectiveOccupancyBookings,
+    parsedRoomSpaces,
+    roomOccupancyMap,
     addBooking,
     updateBookingStatus,
     updateBooking,
     deleteBooking,
     cmsContent,
     updateCmsContent,
-    rooms,
+    rooms: effectiveRooms,
     bedSpaces,
     addRoom,
     updateRoom,
