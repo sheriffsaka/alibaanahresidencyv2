@@ -7,6 +7,7 @@ import { sendEmail, fetchRecentEmailLogs } from '../lib/email';
 import { fetchConversationsList, fetchMessages, postMessage, markConversationAsRead as markConvAsRead, getOrCreateStudentConversation } from '../lib/messaging';
 import { getParsedRoomSpaces } from '../lib/roomNaming';
 import { DEFAULT_CONTRACT_TRANSLATIONS, ContractTranslationsStore, LegalContractTranslation } from '../lib/contractTranslations';
+import { OFFICIAL_STUDENT_HANDBOOK_DOCUMENT } from '../lib/studentHandbookData';
 
 export const AppContext = createContext<AppContextType | undefined>(undefined);
 
@@ -199,6 +200,7 @@ export const INITIAL_CMS: CmsContent = {
 };
 
 export const DEFAULT_STUDENT_DOCUMENTS: StudentDocument[] = [
+  OFFICIAL_STUDENT_HANDBOOK_DOCUMENT,
   {
     id: 'house-rules',
     title: 'Student Residency Rules & Code of Conduct',

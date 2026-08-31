@@ -403,6 +403,14 @@ export interface StudentDocument {
   order?: number;
   created_at?: string;
   updated_at?: string;
+  is_handbook?: boolean;
+  translations?: Partial<Record<Language, {
+    title?: string;
+    category?: string;
+    updated?: string;
+    description?: string;
+    content?: string;
+  }>>;
 }
 
 export interface AppContextType {

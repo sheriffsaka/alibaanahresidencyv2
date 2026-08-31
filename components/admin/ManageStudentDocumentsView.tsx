@@ -1,7 +1,8 @@
 import React, { useState, useMemo } from 'react';
 import { useApp } from '../../hooks/useApp';
-import { StudentDocument } from '../../types';
+import { StudentDocument, Language } from '../../types';
 import { DEFAULT_STUDENT_DOCUMENTS } from '../../contexts/AppContext';
+import { STUDENT_HANDBOOK_TRANSLATIONS, OFFICIAL_STUDENT_HANDBOOK_DOCUMENT } from '../../lib/studentHandbookData';
 import { 
   IconCheckCircle, 
   IconEye, 
@@ -25,6 +26,15 @@ const PREDEFINED_CATEGORIES = [
   'Community & Conduct'
 ];
 
+const ADMIN_LANGUAGES: { key: Language; label: string; flag: string }[] = [
+  { key: 'en', label: 'English', flag: '🇬🇧' },
+  { key: 'ar', label: 'العربية (Arabic)', flag: '🇸🇦' },
+  { key: 'fr', label: 'Français (French)', flag: '🇫🇷' },
+  { key: 'ru', label: 'Русский (Russian)', flag: '🇷🇺' },
+  { key: 'uz', label: "O'zbekcha (Uzbek)", flag: '🇺🇿' },
+  { key: 'zh', label: '中文 (Chinese)', flag: '🇨🇳' }
+];
+
 export const ManageStudentDocumentsView: React.FC = () => {
   const { 
     studentDocuments, 
@@ -44,8 +54,12 @@ export const ManageStudentDocumentsView: React.FC = () => {
   const [isEditorModalOpen, setIsEditorModalOpen] = useState(false);
   const [editingDoc, setEditingDoc] = useState<StudentDocument | null>(null);
   const [previewingDoc, setPreviewingDoc] = useState<StudentDocument | null>(null);
+  const [previewLanguage, setPreviewLanguage] = useState<Language>('en');
   const [deletingDoc, setDeletingDoc] = useState<StudentDocument | null>(null);
   const [isResetConfirmOpen, setIsResetConfirmOpen] = useState(false);
+
+  // Active translation language in Editor
+  const [activeEditLang, setActiveEditLang] = useState<Language>('en');
 
   // Form State for Create/Edit
   const [formData, setFormData] = useState<{
@@ -57,6 +71,14 @@ export const ManageStudentDocumentsView: React.FC = () => {
     description: string;
     content: string;
     is_published: boolean;
+    is_handbook?: boolean;
+    translations: Partial<Record<Language, {
+      title?: string;
+      category?: string;
+      updated?: string;
+      description?: string;
+      content?: string;
+    }>>;
   }>({
     id: '',
     title: '',
@@ -65,7 +87,9 @@ export const ManageStudentDocumentsView: React.FC = () => {
     updated: 'Active Guide',
     description: '',
     content: '',
-    is_published: true
+    is_published: true,
+    is_handbook: false,
+    translations: {}
   });
 
   const [editorTab, setEditorTab] = useState<'edit' | 'preview' | 'split'>('split');
@@ -128,6 +152,7 @@ export const ManageStudentDocumentsView: React.FC = () => {
   // Open Create Modal
   const handleOpenCreate = () => {
     setEditingDoc(null);
+    setActiveEditLang('en');
     setFormData({
       id: '',
       title: '',
@@ -136,7 +161,9 @@ export const ManageStudentDocumentsView: React.FC = () => {
       updated: 'Active Guide',
       description: '',
       content: '',
-      is_published: true
+      is_published: true,
+      is_handbook: false,
+      translations: {}
     });
     setEditorTab('split');
     setIsEditorModalOpen(true);
@@ -145,6 +172,7 @@ export const ManageStudentDocumentsView: React.FC = () => {
   // Open Edit Modal
   const handleOpenEdit = (doc: StudentDocument) => {
     setEditingDoc(doc);
+    setActiveEditLang('en');
     const isCustomCat = !PREDEFINED_CATEGORIES.includes(doc.category);
     setFormData({
       id: doc.id,
@@ -154,7 +182,9 @@ export const ManageStudentDocumentsView: React.FC = () => {
       updated: doc.updated || 'Active Guide',
       description: doc.description || '',
       content: doc.content || '',
-      is_published: doc.is_published !== false
+      is_published: doc.is_published !== false,
+      is_handbook: doc.is_handbook || doc.id === 'student-accommodation-handbook',
+      translations: doc.translations || (doc.id === 'student-accommodation-handbook' ? OFFICIAL_STUDENT_HANDBOOK_DOCUMENT.translations || {} : {})
     });
     setEditorTab('split');
     setIsEditorModalOpen(true);
@@ -182,7 +212,9 @@ export const ManageStudentDocumentsView: React.FC = () => {
           updated: formData.updated.trim() || 'Active Guide',
           description: formData.description.trim(),
           content: formData.content,
-          is_published: formData.is_published
+          is_published: formData.is_published,
+          is_handbook: formData.is_handbook,
+          translations: formData.translations
         });
         if (res.success) {
           showToast(`Document "${formData.title}" updated successfully!`);
@@ -199,7 +231,9 @@ export const ManageStudentDocumentsView: React.FC = () => {
           updated: formData.updated.trim() || 'Active Guide',
           description: formData.description.trim(),
           content: formData.content,
-          is_published: formData.is_published
+          is_published: formData.is_published,
+          is_handbook: formData.is_handbook,
+          translations: formData.translations
         });
         if (res.success) {
           showToast(`Document "${formData.title}" created successfully!`);
@@ -249,7 +283,7 @@ export const ManageStudentDocumentsView: React.FC = () => {
     try {
       const res = await resetStudentDocumentsToDefault();
       if (res.success) {
-        showToast('Student documents restored to standard residency guides.');
+        showToast('Student documents restored to official defaults (including Student Handbook)!');
         setIsResetConfirmOpen(false);
       } else {
         showToast(res.error || 'Failed to reset documents', 'error');
@@ -259,12 +293,27 @@ export const ManageStudentDocumentsView: React.FC = () => {
     }
   };
 
-  // Helper to insert snippet in editor
+  // Quick snippets insert helper
   const insertContentSnippet = (snippet: string) => {
-    setFormData(prev => ({
-      ...prev,
-      content: prev.content ? `${prev.content}\n\n${snippet}` : snippet
-    }));
+    if (activeEditLang === 'en') {
+      setFormData(prev => ({
+        ...prev,
+        content: prev.content ? `${prev.content}\n\n${snippet}` : snippet
+      }));
+    } else {
+      setFormData(prev => ({
+        ...prev,
+        translations: {
+          ...prev.translations,
+          [activeEditLang]: {
+            ...prev.translations[activeEditLang],
+            content: prev.translations[activeEditLang]?.content 
+              ? `${prev.translations[activeEditLang]?.content}\n\n${snippet}` 
+              : snippet
+          }
+        }
+      }));
+    }
   };
 
   // Category styling helper
@@ -285,226 +334,251 @@ export const ManageStudentDocumentsView: React.FC = () => {
     }
   };
 
+  // Helper for current preview content in the preview modal
+  const getPreviewLocalized = (doc: StudentDocument, lang: Language) => {
+    if (doc.id === 'student-accommodation-handbook' || doc.is_handbook) {
+      const hb = STUDENT_HANDBOOK_TRANSLATIONS[lang] || STUDENT_HANDBOOK_TRANSLATIONS.en;
+      return {
+        title: hb.title,
+        category: hb.category,
+        updated: hb.updated,
+        description: hb.description,
+        content: hb.fullMarkdown
+      };
+    }
+    const t = doc.translations?.[lang];
+    if (t && t.content) {
+      return {
+        title: t.title || doc.title,
+        category: t.category || doc.category,
+        updated: t.updated || doc.updated,
+        description: t.description || doc.description,
+        content: t.content
+      };
+    }
+    return {
+      title: doc.title,
+      category: doc.category,
+      updated: doc.updated,
+      description: doc.description,
+      content: doc.content
+    };
+  };
+
   return (
-    <div className="space-y-6 animate-fade-in">
-      {/* Toast Notification */}
+    <div className="space-y-6">
+      {/* Toast Alert */}
       {toastMessage && (
-        <div className={`fixed bottom-6 right-6 z-50 px-5 py-3.5 rounded-xl shadow-xl flex items-center gap-3 border text-sm font-bold animate-slide-up ${
-          toastMessage.type === 'success' 
-            ? 'bg-emerald-900 text-white border-emerald-700' 
-            : 'bg-red-900 text-white border-red-700'
-        }`}>
-          {toastMessage.type === 'success' ? (
-            <IconCheckCircle className="w-5 h-5 text-emerald-300 shrink-0" />
-          ) : (
-            <IconAlertTriangle className="w-5 h-5 text-red-300 shrink-0" />
-          )}
+        <div 
+          className={`fixed bottom-6 right-6 z-50 px-5 py-3 rounded-2xl shadow-xl border flex items-center gap-3 text-xs font-bold transition-all animate-bounce ${
+            toastMessage.type === 'success' 
+              ? 'bg-emerald-600 text-white border-emerald-500' 
+              : 'bg-red-600 text-white border-red-500'
+          }`}
+        >
+          {toastMessage.type === 'success' ? <IconCheckCircle className="w-5 h-5" /> : <IconAlertTriangle className="w-5 h-5" />}
           <span>{toastMessage.text}</span>
+          <button onClick={() => setToastMessage(null)} className="ml-2 hover:opacity-80">✕</button>
         </div>
       )}
 
-      {/* Header Banner */}
-      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-6 sm:p-8 border border-gray-100 dark:border-gray-700">
-        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
-          <div>
-            <div className="flex items-center gap-2 mb-1.5">
-              <span className="px-2.5 py-0.5 rounded-full text-[11px] font-black uppercase tracking-wider bg-brand-50 text-brand-700 dark:bg-brand-950/40 dark:text-brand-300 border border-brand-200/50">
-                Student Experience & Compliance
-              </span>
-            </div>
-            <h1 className="text-2xl sm:text-3xl font-black text-gray-900 dark:text-white tracking-tight">
-              Student Documents & Housing Guides
-            </h1>
-            <p className="text-sm text-gray-600 dark:text-gray-400 mt-1 max-w-3xl">
-              Manage the official residency documents, arrival protocols, rules, and policy manuals displayed directly in the student dashboard&apos;s <strong className="text-gray-800 dark:text-gray-200">Documents</strong> tab. All updates sync instantly to the database.
-            </p>
+      {/* Top Banner & Header */}
+      <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 border border-gray-100 dark:border-gray-700 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+          <div className="flex items-center gap-2 text-brand-600 dark:text-brand-400 text-xs font-black uppercase tracking-wider mb-1">
+            <IconFile className="w-4 h-4" /> Content Management & Policies
           </div>
-
-          <div className="flex flex-wrap items-center gap-3 shrink-0">
-            <button
-              id="reset-documents-btn"
-              type="button"
-              onClick={() => setIsResetConfirmOpen(true)}
-              className="px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-750 text-xs font-bold transition-colors flex items-center gap-2"
-              title="Reset all documents to the initial standard guides"
-            >
-              🔄 Reset to Defaults
-            </button>
-            <button
-              id="create-document-btn"
-              type="button"
-              onClick={handleOpenCreate}
-              className="bg-brand-600 hover:bg-brand-700 text-white px-5 py-2.5 rounded-xl text-xs font-bold transition-all shadow-md shadow-brand-600/20 flex items-center gap-2"
-            >
-              <IconFile className="w-4 h-4" />
-              <span>Create New Document</span>
-            </button>
-          </div>
+          <h1 className="text-xl sm:text-2xl font-black text-gray-900 dark:text-white">
+            Student Documents & Multi-Language Handbook
+          </h1>
+          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 max-w-2xl">
+            Publish official residency rules, house protocols, and the multilingual Student Accommodation Handbook (English, Arabic, French, Russian, Uzbek, Chinese).
+          </p>
         </div>
 
-        {/* Stats Row */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-6 pt-6 border-t border-gray-100 dark:border-gray-700">
-          <div className="bg-gray-50 dark:bg-gray-900/50 p-4 rounded-xl border border-gray-150 dark:border-gray-750">
-            <span className="text-[11px] font-bold text-gray-500 uppercase tracking-wider block">Total Documents</span>
-            <span className="text-2xl font-black text-gray-900 dark:text-white mt-1 block">{stats.total}</span>
-          </div>
-          <div className="bg-emerald-50/50 dark:bg-emerald-950/20 p-4 rounded-xl border border-emerald-100 dark:border-emerald-900/30">
-            <span className="text-[11px] font-bold text-emerald-700 dark:text-emerald-400 uppercase tracking-wider block">Published / Live</span>
-            <span className="text-2xl font-black text-emerald-700 dark:text-emerald-300 mt-1 block">{stats.published}</span>
-          </div>
-          <div className="bg-amber-50/50 dark:bg-amber-950/20 p-4 rounded-xl border border-amber-100 dark:border-amber-900/30">
-            <span className="text-[11px] font-bold text-amber-700 dark:text-amber-400 uppercase tracking-wider block">Draft / Hidden</span>
-            <span className="text-2xl font-black text-amber-700 dark:text-amber-300 mt-1 block">{stats.drafts}</span>
-          </div>
-          <div className="bg-purple-50/50 dark:bg-purple-950/20 p-4 rounded-xl border border-purple-100 dark:border-purple-900/30">
-            <span className="text-[11px] font-bold text-purple-700 dark:text-purple-400 uppercase tracking-wider block">Categories</span>
-            <span className="text-2xl font-black text-purple-700 dark:text-purple-300 mt-1 block">{stats.categoriesCount}</span>
-          </div>
-        </div>
-      </div>
-
-      {/* Search & Category Filter Toolbar */}
-      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm p-4 border border-gray-100 dark:border-gray-700 flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4">
-        {/* Category Pills */}
-        <div className="flex items-center gap-1.5 overflow-x-auto pb-1 md:pb-0 scrollbar-thin">
+        <div className="flex items-center gap-2.5 flex-wrap">
           <button
             type="button"
-            onClick={() => setSelectedCategory('All')}
-            className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all whitespace-nowrap ${
-              selectedCategory === 'All'
-                ? 'bg-brand-600 text-white shadow-xs'
-                : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
-            }`}
+            onClick={() => setIsResetConfirmOpen(true)}
+            className="px-3.5 py-2 rounded-xl text-xs font-bold text-gray-600 dark:text-gray-300 bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 transition-colors"
+            title="Reset documents to default residency templates"
           >
-            All ({studentDocuments?.length || 0})
+            ↺ Restore Defaults
           </button>
-          {allCategories.map(cat => {
-            const count = (studentDocuments || []).filter(d => d.category === cat).length;
-            if (count === 0 && selectedCategory !== cat) return null;
-            return (
-              <button
-                key={cat}
-                type="button"
-                onClick={() => setSelectedCategory(cat)}
-                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all whitespace-nowrap flex items-center gap-1.5 ${
-                  selectedCategory === cat
-                    ? 'bg-brand-600 text-white shadow-xs'
-                    : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
-                }`}
-              >
-                <span>{cat}</span>
-                <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-mono ${
-                  selectedCategory === cat ? 'bg-white/20 text-white' : 'bg-gray-200 dark:bg-gray-600 text-gray-600 dark:text-gray-300'
-                }`}>
-                  {count}
-                </span>
-              </button>
-            );
-          })}
-        </div>
 
-        {/* Search & Status Controls */}
-        <div className="flex items-center gap-3 shrink-0">
-          <div className="relative flex-1 sm:w-64">
-            <input
-              type="text"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder="Search documents..."
-              className="w-full text-xs py-2 pl-8 pr-3 border rounded-xl dark:bg-gray-700 dark:border-gray-600 dark:text-white focus:ring-2 focus:ring-brand-500"
-            />
-            <span className="absolute left-2.5 top-2.5 text-gray-400 text-xs">🔍</span>
-            {searchTerm && (
-              <button 
-                type="button" 
-                onClick={() => setSearchTerm('')} 
-                className="absolute right-2.5 top-2.5 text-gray-400 hover:text-gray-600 text-xs"
-              >
-                ✕
-              </button>
-            )}
-          </div>
-
-          <select
-            value={selectedStatus}
-            onChange={(e) => setSelectedStatus(e.target.value as any)}
-            className="text-xs py-2 px-3 border rounded-xl dark:bg-gray-700 dark:border-gray-600 dark:text-white font-medium"
+          <button
+            type="button"
+            onClick={handleOpenCreate}
+            className="bg-brand-600 hover:bg-brand-700 text-white px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-colors shadow-sm"
           >
-            <option value="all">All Statuses</option>
-            <option value="published">Published Only</option>
-            <option value="draft">Drafts Only</option>
-          </select>
+            <span>+ Create New Guide</span>
+          </button>
         </div>
       </div>
 
-      {/* Documents Grid */}
+      {/* KPI Overview Cards */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
+        <div className="bg-white dark:bg-gray-800 p-4 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-xs">
+          <span className="text-[11px] font-bold text-gray-400 uppercase tracking-wider block">Total Documents</span>
+          <div className="text-2xl font-black text-gray-900 dark:text-white mt-1">{stats.total}</div>
+          <span className="text-[10px] text-gray-400">Official residency records</span>
+        </div>
+
+        <div className="bg-white dark:bg-gray-800 p-4 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-xs">
+          <span className="text-[11px] font-bold text-emerald-600 uppercase tracking-wider block">Published Live</span>
+          <div className="text-2xl font-black text-emerald-600 mt-1">{stats.published}</div>
+          <span className="text-[10px] text-emerald-600/80">Visible to active students</span>
+        </div>
+
+        <div className="bg-white dark:bg-gray-800 p-4 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-xs">
+          <span className="text-[11px] font-bold text-amber-600 uppercase tracking-wider block">Drafts / Hidden</span>
+          <div className="text-2xl font-black text-amber-600 mt-1">{stats.drafts}</div>
+          <span className="text-[10px] text-gray-400">Unreleased documents</span>
+        </div>
+
+        <div className="bg-white dark:bg-gray-800 p-4 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-xs">
+          <span className="text-[11px] font-bold text-brand-600 uppercase tracking-wider block">Supported Languages</span>
+          <div className="text-2xl font-black text-brand-600 mt-1">6</div>
+          <span className="text-[10px] text-brand-600/80">EN, AR, FR, RU, UZ, ZH</span>
+        </div>
+      </div>
+
+      {/* Filter and Search Bar */}
+      <div className="bg-white dark:bg-gray-800 p-4 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-xs flex flex-col md:flex-row gap-3 items-center justify-between">
+        {/* Search */}
+        <div className="relative w-full md:w-80">
+          <span className="absolute inset-y-0 left-3 flex items-center text-gray-400 text-xs">🔍</span>
+          <input
+            type="text"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            placeholder="Search by title, keyword, or body..."
+            className="w-full text-xs pl-8 pr-3 py-2 border rounded-xl dark:bg-gray-700 dark:border-gray-600 dark:text-white focus:outline-hidden focus:ring-2 focus:ring-brand-500"
+          />
+        </div>
+
+        {/* Filters */}
+        <div className="flex items-center gap-2 w-full md:w-auto flex-wrap justify-between md:justify-end">
+          {/* Category Filter */}
+          <select
+            value={selectedCategory}
+            onChange={(e) => setSelectedCategory(e.target.value)}
+            className="text-xs p-2 border rounded-xl dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+          >
+            <option value="All">All Categories ({allCategories.length})</option>
+            {allCategories.map(c => (
+              <option key={c} value={c}>{c}</option>
+            ))}
+          </select>
+
+          {/* Status Filter */}
+          <div className="bg-gray-100 dark:bg-gray-700 p-1 rounded-xl flex items-center text-xs font-bold">
+            <button
+              type="button"
+              onClick={() => setSelectedStatus('all')}
+              className={`px-2.5 py-1 rounded-lg transition-all ${
+                selectedStatus === 'all' ? 'bg-white dark:bg-gray-800 text-brand-600 shadow-xs' : 'text-gray-600 dark:text-gray-300'
+              }`}
+            >
+              All
+            </button>
+            <button
+              type="button"
+              onClick={() => setSelectedStatus('published')}
+              className={`px-2.5 py-1 rounded-lg transition-all ${
+                selectedStatus === 'published' ? 'bg-white dark:bg-gray-800 text-emerald-600 shadow-xs' : 'text-gray-600 dark:text-gray-300'
+              }`}
+            >
+              Published
+            </button>
+            <button
+              type="button"
+              onClick={() => setSelectedStatus('draft')}
+              className={`px-2.5 py-1 rounded-lg transition-all ${
+                selectedStatus === 'draft' ? 'bg-white dark:bg-gray-800 text-amber-600 shadow-xs' : 'text-gray-600 dark:text-gray-300'
+              }`}
+            >
+              Drafts
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Document Grid / Table View */}
       {filteredDocuments.length > 0 ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-          {filteredDocuments.map(doc => {
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {filteredDocuments.map((doc) => {
             const isPublished = doc.is_published !== false;
-            const wordCount = doc.content ? doc.content.split(/\s+/).filter(Boolean).length : 0;
+            const isHandbook = doc.id === 'student-accommodation-handbook' || doc.is_handbook;
             const charCount = doc.content ? doc.content.length : 0;
+            const lineCount = doc.content ? doc.content.split('\n').length : 0;
 
             return (
-              <div 
+              <div
                 key={doc.id}
-                className={`bg-white dark:bg-gray-800 rounded-2xl p-6 border transition-all duration-200 flex flex-col justify-between shadow-sm hover:shadow-md ${
-                  isPublished 
-                    ? 'border-gray-150 dark:border-gray-700' 
-                    : 'border-amber-200/70 dark:border-amber-800/40 bg-amber-50/20 dark:bg-amber-950/10'
-                }`}
+                className={`bg-white dark:bg-gray-800 rounded-2xl border ${
+                  isHandbook 
+                    ? 'border-amber-300 dark:border-amber-800 ring-2 ring-amber-400/20' 
+                    : 'border-gray-100 dark:border-gray-700'
+                } p-5 shadow-sm hover:shadow-md transition-shadow flex flex-col justify-between`}
               >
                 <div>
-                  {/* Top Metadata Row */}
-                  <div className="flex items-center justify-between gap-2 mb-3">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className={`text-[10px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded-full border ${getCategoryBadgeClass(doc.category)}`}>
+                  {/* Top Row: Category + Version + Status */}
+                  <div className="flex items-center justify-between gap-2 mb-2 flex-wrap">
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <span className={`text-[10px] font-black uppercase px-2.5 py-0.5 rounded-full border ${getCategoryBadgeClass(doc.category)}`}>
                         {doc.category}
                       </span>
-                      <span className="text-[10px] font-bold text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-700 px-2 py-0.5 rounded-md font-mono">
+                      {isHandbook && (
+                        <span className="px-2 py-0.5 text-[10px] font-black bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300 rounded-full border border-amber-300">
+                          ★ Handbook (6 Langs)
+                        </span>
+                      )}
+                      <span className="text-[11px] font-bold text-gray-500 bg-gray-100 dark:bg-gray-700 px-2 py-0.5 rounded-md font-mono">
                         {doc.updated || 'Active Guide'}
                       </span>
                     </div>
 
-                    <div className="flex items-center gap-2 shrink-0">
-                      <span className={`inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-0.5 rounded-full ${
-                        isPublished
-                          ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-300'
-                          : 'bg-amber-100 text-amber-800 dark:bg-amber-950/50 dark:text-amber-300'
-                      }`}>
-                        <span className={`w-1.5 h-1.5 rounded-full ${isPublished ? 'bg-emerald-500' : 'bg-amber-500'}`}></span>
-                        {isPublished ? 'Published' : 'Draft'}
-                      </span>
-                    </div>
+                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                      isPublished 
+                        ? 'bg-emerald-50 text-emerald-600 dark:bg-emerald-950/40 dark:text-emerald-300' 
+                        : 'bg-amber-50 text-amber-600 dark:bg-amber-950/40 dark:text-amber-300'
+                    }`}>
+                      {isPublished ? '● Published' : '○ Draft'}
+                    </span>
                   </div>
 
                   {/* Title & Description */}
-                  <h3 className="text-base font-bold text-gray-900 dark:text-white leading-snug mb-2">
+                  <h3 className="text-base font-black text-gray-900 dark:text-white leading-tight">
                     {doc.title}
                   </h3>
-                  <p className="text-xs text-gray-600 dark:text-gray-400 line-clamp-2 leading-relaxed mb-4">
-                    {doc.description || 'No summary description provided.'}
-                  </p>
 
-                  {/* Content Preview Box */}
-                  <div className="bg-gray-50 dark:bg-gray-900/50 rounded-xl p-3 border border-gray-100 dark:border-gray-750 font-mono text-[11px] text-gray-600 dark:text-gray-400 line-clamp-3 mb-4 select-none whitespace-pre-wrap">
-                    {doc.content ? doc.content.slice(0, 180) + '...' : '(Empty document content)'}
+                  {doc.description && (
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-2 line-clamp-2 leading-relaxed">
+                      {doc.description}
+                    </p>
+                  )}
+
+                  {/* Snippet Preview */}
+                  <div className="mt-3 p-3 bg-gray-50 dark:bg-gray-900/50 rounded-xl border border-gray-100 dark:border-gray-700/50 text-[11px] font-mono text-gray-600 dark:text-gray-300 line-clamp-3 whitespace-pre-wrap">
+                    {doc.content}
                   </div>
                 </div>
 
-                {/* Footer Info & Actions */}
-                <div className="pt-4 border-t border-gray-100 dark:border-gray-700 flex items-center justify-between gap-3">
+                {/* Bottom Actions Bar */}
+                <div className="mt-4 pt-3 border-t border-gray-100 dark:border-gray-700 flex items-center justify-between">
                   <div className="text-[10px] text-gray-400 font-mono">
-                    <span>{wordCount} words</span>
-                    <span className="mx-1.5">•</span>
-                    <span>{charCount} chars</span>
+                    <span>{lineCount} lines</span> • <span>{charCount} chars</span>
                   </div>
 
                   <div className="flex items-center gap-2">
                     {/* Preview Button */}
                     <button
                       type="button"
-                      onClick={() => setPreviewingDoc(doc)}
+                      onClick={() => {
+                        setPreviewingDoc(doc);
+                        setPreviewLanguage('en');
+                      }}
                       className="p-2 rounded-lg text-gray-600 hover:text-brand-600 hover:bg-brand-50 dark:text-gray-400 dark:hover:text-brand-300 dark:hover:bg-brand-950/40 text-xs font-bold transition-colors flex items-center gap-1"
                       title="Preview student document reader"
                     >
@@ -583,7 +657,7 @@ export const ManageStudentDocumentsView: React.FC = () => {
         </div>
       )}
 
-      {/* CREATE / EDIT DOCUMENT MODAL */}
+      {/* CREATE / EDIT DOCUMENT MODAL (WITH MULTI-LANGUAGE TABS) */}
       {isEditorModalOpen && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 overflow-y-auto">
           <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl max-w-5xl w-full my-8 border border-gray-100 dark:border-gray-700 overflow-hidden flex flex-col max-h-[90vh]">
@@ -640,20 +714,75 @@ export const ManageStudentDocumentsView: React.FC = () => {
               </div>
             </div>
 
-            {/* Modal Body */}
+            {/* Language Switcher Bar in Editor */}
+            <div className="px-6 py-2.5 bg-brand-50/60 dark:bg-brand-950/30 border-b border-brand-100 dark:border-brand-900/40 flex items-center justify-between flex-wrap gap-2">
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-bold text-brand-900 dark:text-brand-200">
+                  Editing Language:
+                </span>
+                <div className="flex items-center gap-1 flex-wrap">
+                  {ADMIN_LANGUAGES.map(lang => {
+                    const isSelected = activeEditLang === lang.key;
+                    const hasTranslation = lang.key === 'en' || !!formData.translations[lang.key]?.content;
+                    return (
+                      <button
+                        key={lang.key}
+                        type="button"
+                        onClick={() => setActiveEditLang(lang.key)}
+                        className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all flex items-center gap-1 ${
+                          isSelected 
+                            ? 'bg-brand-600 text-white shadow-xs' 
+                            : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 border border-gray-200 dark:border-gray-700'
+                        }`}
+                      >
+                        <span>{lang.flag}</span>
+                        <span>{lang.label.split(' ')[0]}</span>
+                        {hasTranslation && <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block" />}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <span className="text-[11px] text-brand-700 dark:text-brand-300 font-medium">
+                {activeEditLang === 'en' ? 'Base Master Language (English)' : `Custom Translation for ${activeEditLang.toUpperCase()}`}
+              </span>
+            </div>
+
+            {/* Modal Body Form */}
             <form onSubmit={handleSaveDocument} className="flex-1 overflow-y-auto p-6 space-y-6">
               {/* Top Configuration Grid */}
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 {/* Title */}
                 <div className="md:col-span-2 space-y-1">
                   <label className="block text-xs font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
-                    Document Title <span className="text-red-500">*</span>
+                    Document Title ({activeEditLang.toUpperCase()}) <span className="text-red-500">*</span>
                   </label>
                   <input
                     type="text"
                     required
-                    value={formData.title}
-                    onChange={(e) => setFormData(prev => ({ ...prev, title: e.target.value }))}
+                    value={
+                      activeEditLang === 'en' 
+                        ? formData.title 
+                        : (formData.translations[activeEditLang]?.title ?? formData.title)
+                    }
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      if (activeEditLang === 'en') {
+                        setFormData(prev => ({ ...prev, title: val }));
+                      } else {
+                        setFormData(prev => ({
+                          ...prev,
+                          translations: {
+                            ...prev.translations,
+                            [activeEditLang]: {
+                              ...prev.translations[activeEditLang],
+                              title: val
+                            }
+                          }
+                        }));
+                      }
+                    }}
                     placeholder="e.g., Student Residency Rules & Code of Conduct"
                     className="w-full text-sm p-2.5 border rounded-xl dark:bg-gray-700 dark:border-gray-600 dark:text-white font-bold focus:ring-2 focus:ring-brand-500"
                   />
@@ -666,8 +795,28 @@ export const ManageStudentDocumentsView: React.FC = () => {
                   </label>
                   <input
                     type="text"
-                    value={formData.updated}
-                    onChange={(e) => setFormData(prev => ({ ...prev, updated: e.target.value }))}
+                    value={
+                      activeEditLang === 'en' 
+                        ? formData.updated 
+                        : (formData.translations[activeEditLang]?.updated ?? formData.updated)
+                    }
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      if (activeEditLang === 'en') {
+                        setFormData(prev => ({ ...prev, updated: val }));
+                      } else {
+                        setFormData(prev => ({
+                          ...prev,
+                          translations: {
+                            ...prev.translations,
+                            [activeEditLang]: {
+                              ...prev.translations[activeEditLang],
+                              updated: val
+                            }
+                          }
+                        }));
+                      }
+                    }}
                     placeholder="e.g., Academic Term 2026, Active Guide"
                     className="w-full text-sm p-2.5 border rounded-xl dark:bg-gray-700 dark:border-gray-600 dark:text-white font-medium"
                   />
@@ -731,12 +880,32 @@ export const ManageStudentDocumentsView: React.FC = () => {
               {/* Short Summary Description */}
               <div className="space-y-1">
                 <label className="block text-xs font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
-                  Summary Description (Shown on Student Dashboard Card)
+                  Summary Description ({activeEditLang.toUpperCase()})
                 </label>
                 <textarea
                   rows={2}
-                  value={formData.description}
-                  onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
+                  value={
+                    activeEditLang === 'en' 
+                      ? formData.description 
+                      : (formData.translations[activeEditLang]?.description ?? formData.description)
+                  }
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    if (activeEditLang === 'en') {
+                      setFormData(prev => ({ ...prev, description: val }));
+                    } else {
+                      setFormData(prev => ({
+                        ...prev,
+                        translations: {
+                          ...prev.translations,
+                          [activeEditLang]: {
+                            ...prev.translations[activeEditLang],
+                            description: val
+                          }
+                        }
+                      }));
+                    }
+                  }}
                   placeholder="Provide a concise 1-2 sentence overview of what this document covers..."
                   className="w-full text-xs p-2.5 border rounded-xl dark:bg-gray-700 dark:border-gray-600 dark:text-white font-medium leading-relaxed"
                 />
@@ -746,22 +915,21 @@ export const ManageStudentDocumentsView: React.FC = () => {
               <div className="space-y-2">
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <label className="block text-xs font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
-                    Full Document Content (Formatted Text / Markdown)
+                    Full Document Content ({activeEditLang.toUpperCase()})
                   </label>
-
-                  {/* Template Quick Insert Helpers */}
-                  <div className="flex flex-wrap items-center gap-1.5">
-                    <span className="text-[10px] font-bold text-gray-400">Quick Insert:</span>
+                  
+                  {/* Quick Format Tools */}
+                  <div className="flex items-center gap-1.5 flex-wrap">
                     <button
                       type="button"
-                      onClick={() => insertContentSnippet('1. SECTION HEADING\n- Detailed rule or procedure item\n- Additional condition')}
+                      onClick={() => insertContentSnippet('SECTION TITLE:\n- Rule item 1\n- Rule item 2')}
                       className="px-2 py-1 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 text-[10px] font-mono font-bold rounded"
                     >
                       + Section Heading
                     </button>
                     <button
                       type="button"
-                      onClick={() => insertContentSnippet('IMPORTANT NOTICE:\nAll residents must adhere strictly to building security policies.')}
+                      onClick={() => insertContentSnippet('IMPORTANT NOTICE:\nAll students are required to follow this policy strictly.')}
                       className="px-2 py-1 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 text-[10px] font-mono font-bold rounded"
                     >
                       + Notice Box
@@ -776,60 +944,68 @@ export const ManageStudentDocumentsView: React.FC = () => {
                   </div>
                 </div>
 
-                {/* Editor / Preview Content Area */}
-                <div className={`grid gap-4 ${editorTab === 'split' ? 'grid-cols-1 lg:grid-cols-2' : 'grid-cols-1'}`}>
-                  {/* Left: Textarea Editor */}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                  {/* Editor Side */}
                   {(editorTab === 'edit' || editorTab === 'split') && (
-                    <div className="space-y-1">
+                    <div className={editorTab === 'edit' ? 'lg:col-span-2' : ''}>
                       <textarea
-                        rows={16}
-                        value={formData.content}
-                        onChange={(e) => setFormData(prev => ({ ...prev, content: e.target.value }))}
-                        placeholder="Type full official document content here (supports numbered lists, bullet points, capitalized headers, and paragraphs)..."
-                        className="w-full text-xs p-3.5 border rounded-xl font-mono dark:bg-gray-750 dark:border-gray-600 dark:text-gray-100 leading-relaxed focus:ring-2 focus:ring-brand-500 h-[380px] overflow-y-auto"
+                        rows={14}
+                        required={activeEditLang === 'en'}
+                        value={
+                          activeEditLang === 'en' 
+                            ? formData.content 
+                            : (formData.translations[activeEditLang]?.content ?? '')
+                        }
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          if (activeEditLang === 'en') {
+                            setFormData(prev => ({ ...prev, content: val }));
+                          } else {
+                            setFormData(prev => ({
+                              ...prev,
+                              translations: {
+                                ...prev.translations,
+                                [activeEditLang]: {
+                                  ...prev.translations[activeEditLang],
+                                  content: val
+                                }
+                              }
+                            }));
+                          }
+                        }}
+                        dir={activeEditLang === 'ar' ? 'rtl' : 'ltr'}
+                        placeholder={activeEditLang === 'ar' ? 'أدخل نص المستند باللغة العربية هنا...' : 'Write or paste the full document text here...'}
+                        className="w-full text-xs font-mono p-3 border rounded-xl dark:bg-gray-900 dark:border-gray-700 dark:text-white leading-relaxed focus:ring-2 focus:ring-brand-500"
                       />
-                      <p className="text-[10px] text-gray-400 font-mono">
-                        {formData.content.length} characters • {formData.content.split(/\s+/).filter(Boolean).length} words
-                      </p>
                     </div>
                   )}
 
-                  {/* Right: Live Rendered Preview */}
+                  {/* Preview Side */}
                   {(editorTab === 'preview' || editorTab === 'split') && (
-                    <div className="border rounded-xl bg-gray-50 dark:bg-gray-900/50 p-4 dark:border-gray-700 h-[380px] overflow-y-auto">
-                      <div className="flex items-center justify-between pb-2 mb-3 border-b dark:border-gray-700 text-[11px] font-bold text-gray-500 uppercase tracking-wider">
-                        <span>Student View Reader Preview</span>
-                        <span className="text-[10px] bg-brand-100 text-brand-700 dark:bg-brand-900/40 dark:text-brand-300 px-2 py-0.5 rounded font-mono">
-                          Live Render
+                    <div className={`${editorTab === 'preview' ? 'lg:col-span-2' : ''} bg-gray-50 dark:bg-gray-900/60 rounded-xl p-4 border border-gray-200 dark:border-gray-700 overflow-y-auto max-h-[350px]`}>
+                      <div className="border-b dark:border-gray-700 pb-2 mb-3">
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-brand-600 block">
+                          Previewing ({activeEditLang.toUpperCase()} View)
                         </span>
+                        <h4 className="text-sm font-bold text-gray-900 dark:text-white">
+                          {activeEditLang === 'en' ? formData.title : (formData.translations[activeEditLang]?.title || formData.title)}
+                        </h4>
                       </div>
-
-                      <div className="space-y-4 font-sans">
-                        <div className="border-b pb-3 dark:border-gray-700">
-                          <span className="text-[10px] font-black uppercase tracking-wider text-brand-600">
-                            {formData.category === 'Custom' ? formData.customCategory || 'Category' : formData.category}
-                          </span>
-                          <h3 className="text-base font-bold text-gray-900 dark:text-white mt-0.5">
-                            {formData.title || 'Document Title Preview'}
-                          </h3>
-                          <p className="text-xs text-gray-500 mt-1">
-                            {formData.description || 'Summary description will appear here.'}
-                          </p>
-                        </div>
-
-                        <div className="text-xs text-gray-800 dark:text-gray-200 whitespace-pre-wrap leading-relaxed font-sans bg-white dark:bg-gray-800 p-4 rounded-xl border border-gray-200 dark:border-gray-700">
-                          {formData.content || (
-                            <span className="text-gray-400 italic">No content written yet. Type in the editor to see live rendering.</span>
-                          )}
-                        </div>
+                      <div 
+                        dir={activeEditLang === 'ar' ? 'rtl' : 'ltr'}
+                        className="text-xs text-gray-800 dark:text-gray-200 whitespace-pre-wrap font-sans leading-relaxed"
+                      >
+                        {activeEditLang === 'en' 
+                          ? (formData.content || 'Document content will appear here...')
+                          : (formData.translations[activeEditLang]?.content || `No ${activeEditLang.toUpperCase()} translation entered yet. Defaults to base English.`)}
                       </div>
                     </div>
                   )}
                 </div>
               </div>
 
-              {/* Modal Footer Controls */}
-              <div className="pt-4 border-t border-gray-100 dark:border-gray-700 flex items-center justify-between gap-3">
+              {/* Bottom Actions */}
+              <div className="pt-4 border-t border-gray-100 dark:border-gray-700 flex items-center justify-between">
                 <button
                   type="button"
                   onClick={() => setIsEditorModalOpen(false)}
@@ -842,10 +1018,10 @@ export const ManageStudentDocumentsView: React.FC = () => {
                   <button
                     type="submit"
                     disabled={isSaving}
-                    className="bg-brand-600 hover:bg-brand-700 text-white px-6 py-2.5 rounded-xl text-xs font-bold transition-all shadow-md shadow-brand-600/20 flex items-center gap-2 disabled:opacity-50"
+                    className="bg-brand-600 hover:bg-brand-700 text-white px-6 py-2.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all shadow-md shadow-brand-600/20 disabled:opacity-50"
                   >
                     {isSaving ? (
-                      <span className="animate-spin text-sm">⌛</span>
+                      <span className="animate-spin text-sm">⏳</span>
                     ) : (
                       <IconSave className="w-4 h-4" />
                     )}
@@ -870,10 +1046,28 @@ export const ManageStudentDocumentsView: React.FC = () => {
                     Student Document Reader
                   </span>
                   <h2 className="text-base font-bold text-gray-900 dark:text-white">
-                    {previewingDoc.title}
+                    {getPreviewLocalized(previewingDoc, previewLanguage).title}
                   </h2>
                 </div>
               </div>
+
+              {/* Language Switcher in Preview */}
+              <div className="flex items-center gap-1 bg-gray-200 dark:bg-gray-700 p-1 rounded-xl">
+                {ADMIN_LANGUAGES.map(l => (
+                  <button
+                    key={l.key}
+                    type="button"
+                    onClick={() => setPreviewLanguage(l.key)}
+                    className={`px-2 py-1 rounded-lg text-xs font-bold transition-all ${
+                      previewLanguage === l.key ? 'bg-brand-600 text-white shadow-xs' : 'text-gray-700 dark:text-gray-300'
+                    }`}
+                    title={l.label}
+                  >
+                    {l.flag} {l.key.toUpperCase()}
+                  </button>
+                ))}
+              </div>
+
               <button
                 type="button"
                 onClick={() => setPreviewingDoc(null)}
@@ -884,38 +1078,47 @@ export const ManageStudentDocumentsView: React.FC = () => {
             </div>
 
             <div className="flex-1 overflow-y-auto p-6 space-y-4">
-              <div className="flex items-center gap-2 flex-wrap pb-3 border-b dark:border-gray-700">
-                <span className={`text-xs font-black uppercase px-2.5 py-0.5 rounded-full border ${getCategoryBadgeClass(previewingDoc.category)}`}>
-                  {previewingDoc.category}
-                </span>
-                <span className="text-xs font-bold text-gray-500 bg-gray-100 dark:bg-gray-700 px-2.5 py-0.5 rounded-md font-mono">
-                  {previewingDoc.updated || 'Active Guide'}
-                </span>
-                <span className="text-xs text-gray-400 ml-auto">
-                  Status: {previewingDoc.is_published !== false ? '✅ Published' : '⚠️ Draft / Hidden'}
-                </span>
-              </div>
+              {(() => {
+                const loc = getPreviewLocalized(previewingDoc, previewLanguage);
+                const isArabic = previewLanguage === 'ar';
+                return (
+                  <>
+                    <div className="flex items-center gap-2 flex-wrap pb-3 border-b dark:border-gray-700">
+                      <span className={`text-xs font-black uppercase px-2.5 py-0.5 rounded-full border ${getCategoryBadgeClass(loc.category)}`}>
+                        {loc.category}
+                      </span>
+                      <span className="text-xs font-bold text-gray-500 bg-gray-100 dark:bg-gray-700 px-2.5 py-0.5 rounded-md font-mono">
+                        {loc.updated || 'Active Guide'}
+                      </span>
+                      <span className="text-xs text-gray-400 ml-auto">
+                        Status: {previewingDoc.is_published !== false ? '✅ Published' : '⚠️ Draft / Hidden'}
+                      </span>
+                    </div>
 
-              {previewingDoc.description && (
-                <div className="bg-brand-50/40 dark:bg-brand-950/20 p-3.5 rounded-xl border border-brand-100 dark:border-brand-900/30 text-xs text-brand-900 dark:text-brand-200">
-                  <span className="font-bold block mb-0.5">Summary / Overview:</span>
-                  <p>{previewingDoc.description}</p>
-                </div>
-              )}
+                    {loc.description && (
+                      <div className="bg-brand-50/40 dark:bg-brand-950/20 p-3.5 rounded-xl border border-brand-100 dark:border-brand-900/30 text-xs text-brand-900 dark:text-brand-200">
+                        <span className="font-bold block mb-0.5">Summary / Overview:</span>
+                        <p>{loc.description}</p>
+                      </div>
+                    )}
 
-              <div className="bg-gray-50 dark:bg-gray-900 p-5 rounded-xl border border-gray-200 dark:border-gray-700">
-                <pre className="text-xs text-gray-800 dark:text-gray-200 whitespace-pre-wrap font-sans leading-relaxed">
-                  {previewingDoc.content}
-                </pre>
-              </div>
+                    <div className={`bg-gray-50 dark:bg-gray-900 p-5 rounded-xl border border-gray-200 dark:border-gray-700 ${isArabic ? 'font-arabic text-right' : 'text-left'}`}>
+                      <pre className="text-xs text-gray-800 dark:text-gray-200 whitespace-pre-wrap font-sans leading-relaxed">
+                        {loc.content}
+                      </pre>
+                    </div>
+                  </>
+                );
+              })()}
             </div>
 
             <div className="px-6 py-3 border-t border-gray-100 dark:border-gray-700 flex justify-between items-center bg-gray-50/50 dark:bg-gray-900/50">
               <button
                 type="button"
                 onClick={() => {
+                  const docToEdit = previewingDoc;
                   setPreviewingDoc(null);
-                  handleOpenEdit(previewingDoc);
+                  handleOpenEdit(docToEdit);
                 }}
                 className="text-xs font-bold text-brand-600 hover:underline flex items-center gap-1"
               >
@@ -983,10 +1186,10 @@ export const ManageStudentDocumentsView: React.FC = () => {
 
             <div className="text-center space-y-2">
               <h3 className="text-lg font-bold text-gray-900 dark:text-white">
-                Reset to Standard Guides?
+                Reset to Standard Guides & Handbook?
               </h3>
               <p className="text-xs text-gray-500 dark:text-gray-400">
-                This will reset the student documents list to the 4 default official guides (House Rules, Check-In Protocol, Cairo Transit Guide, and Distance Enrolment Letter).
+                This will reset the student documents list to the official default guides (including the 6-language Student Accommodation Handbook, House Rules, Check-In Protocol, Cairo Transit Guide, and Distance Enrolment Letter).
               </p>
             </div>
 
