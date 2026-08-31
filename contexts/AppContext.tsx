@@ -1,6 +1,6 @@
 
 import React, { createContext, useState, ReactNode, useCallback, useEffect, useRef, useMemo } from 'react';
-import { AppContextType, Language, Page, User, Room, BedSpace, Booking, BookingStatus, CmsContent, Activity, AcademicTerm, BookingPackage, AccommodationType, DEFAULT_CATEGORY_MEDIA, CategoryMediaConfig, PublicOccupancy, AccommodationAddresses, DEFAULT_ACCOMMODATION_ADDRESSES, DEFAULT_SUPPORT_CONTENT, WaitlistEntry, WaitlistStatus, EmailLogEntry, AccommodationCategory, DEFAULT_ACCOMMODATION_CATEGORIES, ConversationItem, MessageItem } from '../types';
+import { AppContextType, Language, Page, User, Room, BedSpace, Booking, BookingStatus, CmsContent, Activity, AcademicTerm, BookingPackage, AccommodationType, DEFAULT_CATEGORY_MEDIA, CategoryMediaConfig, PublicOccupancy, AccommodationAddresses, DEFAULT_ACCOMMODATION_ADDRESSES, DEFAULT_SUPPORT_CONTENT, WaitlistEntry, WaitlistStatus, EmailLogEntry, AccommodationCategory, DEFAULT_ACCOMMODATION_CATEGORIES, ConversationItem, MessageItem, CreditRecord, CreditTransaction } from '../types';
 import { supabase } from '../lib/supabaseClient';
 import { Session } from '@supabase/supabase-js';
 import { sendEmail, fetchRecentEmailLogs } from '../lib/email';
@@ -227,6 +227,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const [waitlist, setWaitlist] = useState<WaitlistEntry[]>([]);
   const [emailLogs, setEmailLogs] = useState<EmailLogEntry[]>([]);
   const [conversations, setConversations] = useState<ConversationItem[]>([]);
+  const [credits, setCredits] = useState<CreditRecord[]>([]);
+  const [creditTransactions, setCreditTransactions] = useState<CreditTransaction[]>([]);
   const isUpdatingSessionRef = useRef(false);
 
   const unreadMessagesCount = useMemo(() => {
@@ -326,6 +328,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       setStudents([]);
       setUsers([]);
       setEmailLogs([]);
+      setCredits([]);
+      setCreditTransactions([]);
       return;
     }
 
@@ -2245,6 +2249,253 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     return res;
   };
 
+  // ==============================================================================
+  // CREDITS & CREDIT TRANSACTIONS MANAGEMENT
+  // ==============================================================================
+  const refreshCredits = useCallback(async () => {
+    try {
+      const [creditsRes, txRes] = await Promise.all([
+        safeFetch(supabase.from('credits').select('*').order('created_at', { ascending: false })),
+        safeFetch(supabase.from('credit_transactions').select('*, profiles:processed_by(full_name)').order('created_at', { ascending: false }))
+      ]);
+
+      if (creditsRes?.data && !creditsRes.error) {
+        const rawTxs = txRes?.data || [];
+        const txs: CreditTransaction[] = rawTxs.map((t: any) => ({
+          id: t.id,
+          credit_id: t.credit_id,
+          amount_used: Number(t.amount_used) || 0,
+          date_used: t.date_used,
+          amount_remaining_after: Number(t.amount_remaining_after) || 0,
+          purpose_notes: t.purpose_notes,
+          processed_by: t.processed_by,
+          processed_by_name: t.profiles?.full_name || null,
+          created_at: t.created_at
+        }));
+
+        const combined: CreditRecord[] = creditsRes.data.map((c: any) => ({
+          id: c.id,
+          student_name: c.student_name,
+          email: c.email,
+          student_id: c.student_id,
+          originating_booking_id: c.originating_booking_id,
+          booking_reference: c.booking_reference,
+          deposit_amount: Number(c.deposit_amount) || 0,
+          credit_balance: Number(c.credit_balance) || 0,
+          total_used: Number(c.total_used) || 0,
+          status: c.status,
+          notes: c.notes,
+          created_by: c.created_by,
+          created_at: c.created_at,
+          updated_at: c.updated_at,
+          transactions: txs.filter(t => t.credit_id === c.id)
+        }));
+
+        setCredits(combined);
+        setCreditTransactions(txs);
+      }
+    } catch (err) {
+      console.warn("Notice loading credits:", err);
+    }
+  }, []);
+
+  // Real-time synchronization for credits & credit transactions
+  useEffect(() => {
+    if (user && (user.role === 'staff' || user.role === 'proprietor')) {
+      refreshCredits();
+
+      const creditsChannel = supabase
+        .channel('global-credits-sync')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'credits' }, () => {
+          refreshCredits();
+        })
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'credit_transactions' }, () => {
+          refreshCredits();
+        })
+        .subscribe();
+
+      return () => {
+        supabase.removeChannel(creditsChannel);
+      };
+    }
+  }, [user?.role, user?.id, refreshCredits]);
+
+  const addCredit = async (creditData: {
+    student_name: string;
+    email: string;
+    deposit_amount: number;
+    booking_reference?: string;
+    student_id?: string;
+    originating_booking_id?: number;
+    notes?: string;
+  }): Promise<{ success: boolean; error?: string; data?: CreditRecord }> => {
+    try {
+      const deposit = Number(creditData.deposit_amount);
+      if (isNaN(deposit) || deposit <= 0) {
+        return { success: false, error: 'Deposit amount must be greater than $0.' };
+      }
+
+      const payload: any = {
+        student_name: creditData.student_name.trim(),
+        email: creditData.email.trim(),
+        deposit_amount: deposit,
+        credit_balance: deposit,
+        total_used: 0,
+        status: 'Active Credit',
+        notes: creditData.notes?.trim() || null,
+        booking_reference: creditData.booking_reference?.trim() || null,
+        student_id: creditData.student_id || null,
+        originating_booking_id: creditData.originating_booking_id || null,
+        created_by: user?.id || null
+      };
+
+      const { data, error } = await supabase
+        .from('credits')
+        .insert([payload])
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      const mappedRecord: CreditRecord = {
+        id: data.id,
+        student_name: data.student_name,
+        email: data.email,
+        student_id: data.student_id,
+        originating_booking_id: data.originating_booking_id,
+        booking_reference: data.booking_reference,
+        deposit_amount: Number(data.deposit_amount),
+        credit_balance: Number(data.credit_balance),
+        total_used: Number(data.total_used),
+        status: data.status,
+        notes: data.notes,
+        created_by: data.created_by,
+        created_at: data.created_at,
+        updated_at: data.updated_at,
+        transactions: []
+      };
+
+      setCredits(prev => [mappedRecord, ...prev.filter(c => c.id !== mappedRecord.id)]);
+
+      // Log to admin audit log
+      if (user) {
+        addActivity({
+          user_id: user.id,
+          type: 'system',
+          description: `Registered new credit account ${mappedRecord.id} ($${deposit}) for ${mappedRecord.student_name}.`,
+          timestamp: new Date().toISOString()
+        });
+      }
+
+      return { success: true, data: mappedRecord };
+    } catch (err: any) {
+      console.error("Error adding credit:", err.message);
+      return { success: false, error: err.message };
+    }
+  };
+
+  const executeCreditUsage = async (params: {
+    creditId: string;
+    amountUsed: number;
+    dateUsed?: string;
+    purposeNotes?: string;
+  }): Promise<{ success: boolean; error?: string; remainingBalance?: number; transaction?: CreditTransaction }> => {
+    try {
+      const credit = credits.find(c => c.id === params.creditId);
+      if (!credit) {
+        return { success: false, error: `Credit record ${params.creditId} not found.` };
+      }
+
+      const used = Number(params.amountUsed);
+      if (isNaN(used) || used <= 0) {
+        return { success: false, error: 'Amount used must be greater than $0.' };
+      }
+
+      if (used > credit.credit_balance) {
+        return { success: false, error: `Amount used ($${used}) exceeds available credit balance ($${credit.credit_balance}).` };
+      }
+
+      const newRemaining = Math.max(0, Number((credit.credit_balance - used).toFixed(2)));
+      const newTotalUsed = Number(((credit.total_used || 0) + used).toFixed(2));
+      const newStatus = newRemaining === 0 ? 'Fully Used' : 'Active Credit';
+      const whenDate = params.dateUsed || new Date().toISOString().split('T')[0];
+
+      // 1. Insert immutable transaction row
+      const txPayload: any = {
+        credit_id: params.creditId,
+        amount_used: used,
+        date_used: whenDate,
+        amount_remaining_after: newRemaining,
+        purpose_notes: params.purposeNotes?.trim() || 'Credit deducted toward tenancy renewal/services.',
+        processed_by: user?.id || null
+      };
+
+      const { data: txData, error: txErr } = await supabase
+        .from('credit_transactions')
+        .insert([txPayload])
+        .select('*, profiles:processed_by(full_name)')
+        .single();
+
+      if (txErr) throw txErr;
+
+      // 2. Update parent credit row
+      const { error: creditUpdateErr } = await supabase
+        .from('credits')
+        .update({
+          credit_balance: newRemaining,
+          total_used: newTotalUsed,
+          status: newStatus,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', params.creditId);
+
+      if (creditUpdateErr) throw creditUpdateErr;
+
+      const mappedTx: CreditTransaction = {
+        id: txData.id,
+        credit_id: txData.credit_id,
+        amount_used: Number(txData.amount_used),
+        date_used: txData.date_used,
+        amount_remaining_after: Number(txData.amount_remaining_after),
+        purpose_notes: txData.purpose_notes,
+        processed_by: txData.processed_by,
+        processed_by_name: txData.profiles?.full_name || user?.full_name || 'Admin',
+        created_at: txData.created_at
+      };
+
+      // Update local state
+      setCreditTransactions(prev => [mappedTx, ...prev]);
+      setCredits(prev => prev.map(c => {
+        if (c.id === params.creditId) {
+          return {
+            ...c,
+            credit_balance: newRemaining,
+            total_used: newTotalUsed,
+            status: newStatus,
+            updated_at: new Date().toISOString(),
+            transactions: [mappedTx, ...(c.transactions || [])]
+          };
+        }
+        return c;
+      }));
+
+      // Log to admin audit log
+      if (user) {
+        addActivity({
+          user_id: user.id,
+          type: 'payment',
+          description: `Executed $${used} credit usage for ${credit.student_name} (${params.creditId}). Remaining: $${newRemaining}.`,
+          timestamp: new Date().toISOString()
+        });
+      }
+
+      return { success: true, remainingBalance: newRemaining, transaction: mappedTx };
+    } catch (err: any) {
+      console.error("Error executing credit usage:", err.message);
+      return { success: false, error: err.message };
+    }
+  };
+
   // Role-based occupancy bookings calculation:
   // For Admin / Staff: uses the full `bookings` array with student names, passport numbers, audit data.
   // For Students / Anonymous visitors: uses strictly the anonymized `publicOccupancy` list from get_public_occupancy() RPC.
@@ -2347,6 +2598,11 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     fetchConversationMessages,
     sendMessage,
     markConversationAsRead,
+    credits,
+    creditTransactions,
+    refreshCredits,
+    addCredit,
+    executeCreditUsage,
     loading,
     landlordDetails: cmsContent.landlordDetails || DEFAULT_LANDLORD_DETAILS,
     accommodationAddresses: cmsContent.accommodationAddresses || DEFAULT_ACCOMMODATION_ADDRESSES,

@@ -1,95 +1,6 @@
-import React, { useState, useMemo } from 'react';
-import { Booking, User } from '../../types';
-
-export interface CreditUsageEntry {
-  id: string;
-  amount_used: number;
-  when_used: string;
-  amount_remaining: number;
-  purpose_notes: string;
-  recorded_by: string;
-  recorded_at: string;
-}
-
-export interface CreditRecord {
-  id: string;
-  student_name: string;
-  email: string;
-  deposit_amount: number;
-  credit_balance: number;
-  total_used: number;
-  originating_booking_id?: number | string;
-  booking_reference: string;
-  status: 'Active Credit' | 'Fully Used' | 'Forfeited';
-  last_updated: string;
-  notes: string;
-  usage_history: CreditUsageEntry[];
-}
-
-const INITIAL_CREDITS: CreditRecord[] = [
-  {
-    id: 'CR-901',
-    student_name: 'Zayd Al-Otaibi',
-    email: 'zayd.otaibi@example.com',
-    deposit_amount: 100,
-    credit_balance: 60,
-    total_used: 40,
-    originating_booking_id: 101,
-    booking_reference: 'BK-101',
-    status: 'Active Credit',
-    last_updated: new Date().toISOString(),
-    notes: 'Security deposit held as credit toward session renewal.',
-    usage_history: [
-      {
-        id: 'USG-101',
-        amount_used: 40,
-        when_used: new Date(Date.now() - 7 * 86400000).toISOString().split('T')[0],
-        amount_remaining: 60,
-        purpose_notes: 'Applied partial credit toward Month 2 rent invoice renewal.',
-        recorded_by: 'Admin Office',
-        recorded_at: new Date(Date.now() - 7 * 86400000).toISOString()
-      }
-    ]
-  },
-  {
-    id: 'CR-902',
-    student_name: 'Bilal Khan',
-    email: 'bilal.khan@example.com',
-    deposit_amount: 100,
-    credit_balance: 100,
-    total_used: 0,
-    originating_booking_id: 104,
-    booking_reference: 'BK-104',
-    status: 'Active Credit',
-    last_updated: new Date().toISOString(),
-    notes: 'Non-refundable deposit held on account for tenancy renewal.',
-    usage_history: []
-  },
-  {
-    id: 'CR-903',
-    student_name: 'Omar Farooq',
-    email: 'omar.farooq@example.com',
-    deposit_amount: 100,
-    credit_balance: 0,
-    total_used: 100,
-    originating_booking_id: 108,
-    booking_reference: 'BK-108',
-    status: 'Fully Used',
-    last_updated: new Date(Date.now() - 14 * 86400000).toISOString(),
-    notes: 'Full deposit applied to semester tenancy extension.',
-    usage_history: [
-      {
-        id: 'USG-102',
-        amount_used: 100,
-        when_used: new Date(Date.now() - 14 * 86400000).toISOString().split('T')[0],
-        amount_remaining: 0,
-        purpose_notes: 'Full $100 security deposit applied to semester renewal contract.',
-        recorded_by: 'Jimoh Bolakale Ajao',
-        recorded_at: new Date(Date.now() - 14 * 86400000).toISOString()
-      }
-    ]
-  }
-];
+import React, { useState, useMemo, useContext } from 'react';
+import { Booking, User, CreditRecord, CreditTransaction } from '../../types';
+import { AppContext } from '../../contexts/AppContext';
 
 interface PaymentsCreditsViewProps {
   bookings?: Booking[];
@@ -102,7 +13,12 @@ export const PaymentsCreditsView: React.FC<PaymentsCreditsViewProps> = ({
   adminUser,
   onAddActivity
 }) => {
-  const [credits, setCredits] = useState<CreditRecord[]>(INITIAL_CREDITS);
+  const context = useContext(AppContext);
+  const credits: CreditRecord[] = context?.credits || [];
+  const addCredit = context?.addCredit;
+  const executeCreditUsage = context?.executeCreditUsage;
+  const refreshCredits = context?.refreshCredits;
+
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<'All' | 'Active Credit' | 'Fully Used'>('All');
   
@@ -111,12 +27,14 @@ export const PaymentsCreditsView: React.FC<PaymentsCreditsViewProps> = ({
   const [amountUsedInput, setAmountUsedInput] = useState<number>(0);
   const [whenUsedInput, setWhenUsedInput] = useState<string>(new Date().toISOString().split('T')[0]);
   const [purposeNotesInput, setPurposeNotesInput] = useState<string>('');
+  const [isSubmittingExecute, setIsSubmittingExecute] = useState(false);
 
   // History & Table State
   const [expandedRows, setExpandedRows] = useState<Record<string, boolean>>({});
 
   // Add New Credit Modal State
   const [isAddCreditModalOpen, setIsAddCreditModalOpen] = useState(false);
+  const [isSubmittingNewCredit, setIsSubmittingNewCredit] = useState(false);
   const [newCreditForm, setNewCreditForm] = useState({
     student_name: '',
     email: '',
@@ -131,15 +49,15 @@ export const PaymentsCreditsView: React.FC<PaymentsCreditsViewProps> = ({
   const totalActiveCredits = useMemo(() => {
     return credits
       .filter(c => c.status === 'Active Credit')
-      .reduce((sum, c) => sum + c.credit_balance, 0);
+      .reduce((sum, c) => sum + (Number(c.credit_balance) || 0), 0);
   }, [credits]);
 
   const totalUsedCredits = useMemo(() => {
-    return credits.reduce((sum, c) => sum + (c.total_used || 0), 0);
+    return credits.reduce((sum, c) => sum + (Number(c.total_used) || 0), 0);
   }, [credits]);
 
   const totalOriginalDeposits = useMemo(() => {
-    return credits.reduce((sum, c) => sum + c.deposit_amount, 0);
+    return credits.reduce((sum, c) => sum + (Number(c.deposit_amount) || 0), 0);
   }, [credits]);
 
   // Filtered list
@@ -149,10 +67,10 @@ export const PaymentsCreditsView: React.FC<PaymentsCreditsViewProps> = ({
       if (searchQuery.trim()) {
         const q = searchQuery.toLowerCase();
         return (
-          c.student_name.toLowerCase().includes(q) ||
-          c.email.toLowerCase().includes(q) ||
-          c.id.toLowerCase().includes(q) ||
-          c.booking_reference.toLowerCase().includes(q)
+          (c.student_name || '').toLowerCase().includes(q) ||
+          (c.email || '').toLowerCase().includes(q) ||
+          (c.id || '').toLowerCase().includes(q) ||
+          (c.booking_reference || '').toLowerCase().includes(q)
         );
       }
       return true;
@@ -175,13 +93,17 @@ export const PaymentsCreditsView: React.FC<PaymentsCreditsViewProps> = ({
   const calculatedRemaining = useMemo(() => {
     if (!executingCredit) return 0;
     const remaining = executingCredit.credit_balance - (Number(amountUsedInput) || 0);
-    return Math.max(0, remaining);
+    return Math.max(0, Number(remaining.toFixed(2)));
   }, [executingCredit, amountUsedInput]);
 
   // Handle Submit Execution
-  const handleConfirmExecution = (e: React.FormEvent) => {
+  const handleConfirmExecution = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!executingCredit) return;
+    if (!executeCreditUsage) {
+      setNotification({ type: 'error', message: 'Context handler not initialized.' });
+      return;
+    }
 
     const used = Number(amountUsedInput);
     if (isNaN(used) || used <= 0) {
@@ -197,96 +119,94 @@ export const PaymentsCreditsView: React.FC<PaymentsCreditsViewProps> = ({
       return;
     }
 
-    const newRemaining = executingCredit.credit_balance - used;
-    const newTotalUsed = (executingCredit.total_used || 0) + used;
-    const newStatus = newRemaining === 0 ? 'Fully Used' : 'Active Credit';
-
-    const newUsageEntry: CreditUsageEntry = {
-      id: `USG-${Date.now().toString().slice(-4)}`,
-      amount_used: used,
-      when_used: whenUsedInput || new Date().toISOString().split('T')[0],
-      amount_remaining: newRemaining,
-      purpose_notes: purposeNotesInput.trim() || 'Credit deducted toward session/invoice renewal.',
-      recorded_by: adminUser?.full_name || 'Admin',
-      recorded_at: new Date().toISOString()
-    };
-
-    setCredits(prev =>
-      prev.map(c => {
-        if (c.id === executingCredit.id) {
-          return {
-            ...c,
-            credit_balance: newRemaining,
-            total_used: newTotalUsed,
-            status: newStatus,
-            last_updated: new Date().toISOString(),
-            usage_history: [newUsageEntry, ...(c.usage_history || [])]
-          };
-        }
-        return c;
-      })
-    );
-
-    if (onAddActivity && adminUser) {
-      onAddActivity({
-        user_id: adminUser.id,
-        type: 'payment',
-        description: `Executed $${used} credit usage for ${executingCredit.student_name}. Remaining balance: $${newRemaining}.`,
-        timestamp: new Date().toISOString()
+    setIsSubmittingExecute(true);
+    try {
+      const res = await executeCreditUsage({
+        creditId: executingCredit.id,
+        amountUsed: used,
+        dateUsed: whenUsedInput,
+        purposeNotes: purposeNotesInput.trim()
       });
+
+      if (!res.success) {
+        setNotification({ type: 'error', message: res.error || 'Failed to record credit usage.' });
+        return;
+      }
+
+      setNotification({
+        type: 'success',
+        message: `Successfully recorded $${used} USD credit drawdown for ${executingCredit.student_name}. Remaining balance: $${res.remainingBalance} USD.`
+      });
+
+      // Automatically expand the row so admin sees the new transaction immediately
+      setExpandedRows(prev => ({ ...prev, [executingCredit.id]: true }));
+      setExecutingCredit(null);
+    } catch (err: any) {
+      setNotification({ type: 'error', message: err.message || 'Error executing credit.' });
+    } finally {
+      setIsSubmittingExecute(false);
     }
-
-    setNotification({
-      type: 'success',
-      message: `Successfully executed $${used} credit usage for ${executingCredit.student_name}. Amount remaining: $${newRemaining}.`
-    });
-
-    setExecutingCredit(null);
   };
 
   // Handle Add New Manual Credit
-  const handleAddNewCredit = (e: React.FormEvent) => {
+  const handleAddNewCredit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newCreditForm.student_name || !newCreditForm.email) {
       setNotification({ type: 'error', message: 'Please provide the student name and email.' });
       return;
     }
 
-    const newRecord: CreditRecord = {
-      id: `CR-${Math.floor(900 + Math.random() * 900)}`,
-      student_name: newCreditForm.student_name,
-      email: newCreditForm.email,
-      deposit_amount: Number(newCreditForm.deposit_amount) || 100,
-      credit_balance: Number(newCreditForm.deposit_amount) || 100,
-      total_used: 0,
-      booking_reference: newCreditForm.booking_reference || `BK-${Math.floor(100 + Math.random() * 900)}`,
-      status: 'Active Credit',
-      last_updated: new Date().toISOString(),
-      notes: newCreditForm.notes || 'Manually registered security deposit credit.',
-      usage_history: []
-    };
+    if (!addCredit) {
+      setNotification({ type: 'error', message: 'Context handler not initialized.' });
+      return;
+    }
 
-    setCredits(prev => [newRecord, ...prev]);
-    setIsAddCreditModalOpen(false);
-    setNewCreditForm({
-      student_name: '',
-      email: '',
-      deposit_amount: 100,
-      booking_reference: '',
-      notes: ''
-    });
+    const deposit = Number(newCreditForm.deposit_amount);
+    if (isNaN(deposit) || deposit <= 0) {
+      setNotification({ type: 'error', message: 'Deposit amount must be greater than $0.' });
+      return;
+    }
 
-    setNotification({
-      type: 'success',
-      message: `Successfully added credit register record for ${newRecord.student_name} ($${newRecord.deposit_amount} USD).`
-    });
+    setIsSubmittingNewCredit(true);
+    try {
+      const res = await addCredit({
+        student_name: newCreditForm.student_name,
+        email: newCreditForm.email,
+        deposit_amount: deposit,
+        booking_reference: newCreditForm.booking_reference,
+        notes: newCreditForm.notes
+      });
+
+      if (!res.success) {
+        setNotification({ type: 'error', message: res.error || 'Failed to add credit record.' });
+        return;
+      }
+
+      setIsAddCreditModalOpen(false);
+      setNewCreditForm({
+        student_name: '',
+        email: '',
+        deposit_amount: 100,
+        booking_reference: '',
+        notes: ''
+      });
+
+      setNotification({
+        type: 'success',
+        message: `Successfully created credit account ${res.data?.id || ''} for ${res.data?.student_name || 'student'} ($${deposit} USD).`
+      });
+    } catch (err: any) {
+      setNotification({ type: 'error', message: err.message || 'Error saving credit.' });
+    } finally {
+      setIsSubmittingNewCredit(false);
+    }
   };
 
   return (
     <div className="space-y-6 animate-fade-in pb-12">
       {/* Overview Stat Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
-        <div className="bg-white dark:bg-gray-800 p-5 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm">
+        <div className="bg-white dark:bg-gray-800 p-5 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-xs">
           <p className="text-xs font-bold text-gray-500 uppercase tracking-wider">Active Credits Held</p>
           <p className="text-2xl font-black text-brand-600 dark:text-brand-400 mt-1">
             ${totalActiveCredits.toLocaleString()} USD
@@ -294,7 +214,7 @@ export const PaymentsCreditsView: React.FC<PaymentsCreditsViewProps> = ({
           <p className="text-[11px] text-gray-400 mt-1">Available for student invoice deduction</p>
         </div>
 
-        <div className="bg-white dark:bg-gray-800 p-5 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm">
+        <div className="bg-white dark:bg-gray-800 p-5 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-xs">
           <p className="text-xs font-bold text-emerald-600 uppercase tracking-wider">Total Credit Used</p>
           <p className="text-2xl font-black text-emerald-600 mt-1">
             ${totalUsedCredits.toLocaleString()} USD
@@ -302,15 +222,15 @@ export const PaymentsCreditsView: React.FC<PaymentsCreditsViewProps> = ({
           <p className="text-[11px] text-gray-400 mt-1">Applied to tenancy renewals & rent</p>
         </div>
 
-        <div className="bg-white dark:bg-gray-800 p-5 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm">
+        <div className="bg-white dark:bg-gray-800 p-5 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-xs">
           <p className="text-xs font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wider">Total Deposits</p>
           <p className="text-2xl font-black text-gray-900 dark:text-white mt-1">
             ${totalOriginalDeposits.toLocaleString()} USD
           </p>
-          <p className="text-[11px] text-gray-400 mt-1">Total non-refundable deposits tracked</p>
+          <p className="text-[11px] text-gray-400 mt-1">Total security deposits registered</p>
         </div>
 
-        <div className="bg-white dark:bg-gray-800 p-5 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm">
+        <div className="bg-white dark:bg-gray-800 p-5 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-xs">
           <p className="text-xs font-bold text-purple-600 uppercase tracking-wider">Active Accounts</p>
           <p className="text-2xl font-black text-purple-600 mt-1">
             {credits.filter(c => c.status === 'Active Credit').length} / {credits.length}
@@ -329,14 +249,14 @@ export const PaymentsCreditsView: React.FC<PaymentsCreditsViewProps> = ({
           }`}
         >
           <span className="font-medium">{notification.message}</span>
-          <button onClick={() => setNotification(null)} className="font-bold underline ml-4">
+          <button onClick={() => setNotification(null)} className="font-bold underline ml-4 hover:opacity-80">
             Dismiss
           </button>
         </div>
       )}
 
       {/* MAIN CREDIT REGISTER SECTION */}
-      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">
+      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xs border border-gray-100 dark:border-gray-700 overflow-hidden">
         {/* Section Header & Controls */}
         <div className="p-6 border-b border-gray-100 dark:border-gray-700 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
           <div>
@@ -364,10 +284,21 @@ export const PaymentsCreditsView: React.FC<PaymentsCreditsViewProps> = ({
               onChange={(e) => setStatusFilter(e.target.value as any)}
               className="px-3 py-2 text-xs font-bold border rounded-xl bg-gray-50 dark:bg-gray-700 dark:border-gray-600 text-gray-800 dark:text-gray-200"
             >
-              <option value="All">All Statuses</option>
+              <option value="All">All Statuses ({credits.length})</option>
               <option value="Active Credit">Active Credit ({credits.filter(c => c.status === 'Active Credit').length})</option>
               <option value="Fully Used">Fully Used ({credits.filter(c => c.status === 'Fully Used').length})</option>
             </select>
+
+            {/* Refresh Button */}
+            {refreshCredits && (
+              <button
+                onClick={() => refreshCredits()}
+                className="px-3 py-2 text-xs font-bold border rounded-xl bg-gray-50 dark:bg-gray-700 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:bg-gray-100"
+                title="Refresh Credit Records"
+              >
+                🔄
+              </button>
+            )}
 
             {/* Add Credit Button */}
             <button
@@ -398,13 +329,16 @@ export const PaymentsCreditsView: React.FC<PaymentsCreditsViewProps> = ({
               {filteredCredits.length === 0 ? (
                 <tr>
                   <td colSpan={8} className="px-6 py-12 text-center text-xs text-gray-500">
-                    No credit records found matching your search.
+                    {credits.length === 0
+                      ? 'No student credit accounts currently exist. Click "+ Add Credit" above to create a record.'
+                      : 'No credit records found matching your search.'}
                   </td>
                 </tr>
               ) : (
                 filteredCredits.map((c) => {
                   const isExpanded = !!expandedRows[c.id];
-                  const hasHistory = c.usage_history && c.usage_history.length > 0;
+                  const transactionsList = c.transactions || [];
+                  const hasHistory = transactionsList.length > 0;
 
                   return (
                     <React.Fragment key={c.id}>
@@ -445,7 +379,7 @@ export const PaymentsCreditsView: React.FC<PaymentsCreditsViewProps> = ({
 
                         {/* Booking Ref */}
                         <td className="px-4 py-4 text-xs text-gray-600 dark:text-gray-300 font-mono">
-                          {c.booking_reference || `BK-${c.originating_booking_id || 'N/A'}`}
+                          {c.booking_reference || (c.originating_booking_id ? `BK-${c.originating_booking_id}` : '—')}
                         </td>
 
                         {/* Status */}
@@ -489,7 +423,7 @@ export const PaymentsCreditsView: React.FC<PaymentsCreditsViewProps> = ({
                               }`}
                               title="View student usage records"
                             >
-                              📜 History ({c.usage_history ? c.usage_history.length : 0}) {isExpanded ? '▲' : '▼'}
+                              📜 History ({transactionsList.length}) {isExpanded ? '▲' : '▼'}
                             </button>
                           </div>
                         </td>
@@ -511,41 +445,41 @@ export const PaymentsCreditsView: React.FC<PaymentsCreditsViewProps> = ({
 
                               {!hasHistory ? (
                                 <p className="text-xs text-gray-400 italic py-2">
-                                  No credit usage records have been executed for this student yet. Click "Execute" to deduct credit.
+                                  No credit usage transactions have been executed for this student yet. Click "Execute" to record a deduction.
                                 </p>
                               ) : (
                                 <div className="overflow-x-auto">
                                   <table className="min-w-full divide-y divide-gray-100 dark:divide-gray-700 text-xs">
                                     <thead className="bg-gray-50 dark:bg-gray-900 text-gray-500 font-bold">
                                       <tr>
-                                        <th className="px-3 py-2 text-left">Record ID</th>
-                                        <th className="px-3 py-2 text-left">When Used</th>
+                                        <th className="px-3 py-2 text-left">Tx #</th>
+                                        <th className="px-3 py-2 text-left">Date Used</th>
                                         <th className="px-3 py-2 text-left">Amount Used</th>
                                         <th className="px-3 py-2 text-left">Amount Remaining</th>
                                         <th className="px-3 py-2 text-left">Purpose & Notes</th>
-                                        <th className="px-3 py-2 text-left">Recorded By</th>
+                                        <th className="px-3 py-2 text-left">Processed By</th>
                                       </tr>
                                     </thead>
                                     <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
-                                      {c.usage_history.map((u) => (
+                                      {transactionsList.map((u) => (
                                         <tr key={u.id} className="hover:bg-gray-50/50 dark:hover:bg-gray-750/30">
                                           <td className="px-3 py-2 font-mono font-bold text-brand-600 dark:text-brand-400">
-                                            {u.id}
+                                            #{u.id}
                                           </td>
                                           <td className="px-3 py-2 font-medium text-gray-800 dark:text-gray-200">
-                                            {u.when_used}
+                                            {u.date_used}
                                           </td>
                                           <td className="px-3 py-2 font-mono font-bold text-amber-600 dark:text-amber-400">
                                             -${u.amount_used} USD
                                           </td>
                                           <td className="px-3 py-2 font-mono font-bold text-emerald-600 dark:text-emerald-400">
-                                            ${u.amount_remaining} USD
+                                            ${u.amount_remaining_after} USD
                                           </td>
                                           <td className="px-3 py-2 text-gray-600 dark:text-gray-300">
-                                            {u.purpose_notes}
+                                            {u.purpose_notes || '—'}
                                           </td>
                                           <td className="px-3 py-2 text-gray-500 text-[11px]">
-                                            {u.recorded_by}
+                                            {u.processed_by_name || 'Admin Staff'}
                                           </td>
                                         </tr>
                                       ))}
@@ -619,7 +553,7 @@ export const PaymentsCreditsView: React.FC<PaymentsCreditsViewProps> = ({
                       value={amountUsedInput}
                       onChange={(e) => setAmountUsedInput(Number(e.target.value))}
                       className="w-full text-xs p-2.5 pl-7 border rounded-xl dark:bg-gray-700 dark:border-gray-600 font-bold text-gray-900 dark:text-white"
-                      min={1}
+                      min={0.01}
                       max={executingCredit.credit_balance}
                       step="any"
                       required
@@ -688,12 +622,20 @@ export const PaymentsCreditsView: React.FC<PaymentsCreditsViewProps> = ({
               <div className="flex gap-3 pt-2">
                 <button
                   type="submit"
-                  className="flex-1 bg-brand-600 hover:bg-brand-700 text-white font-bold text-xs py-3 rounded-xl shadow-md transition-all flex items-center justify-center gap-1.5"
+                  disabled={isSubmittingExecute}
+                  className="flex-1 bg-brand-600 hover:bg-brand-700 disabled:opacity-50 text-white font-bold text-xs py-3 rounded-xl shadow-md transition-all flex items-center justify-center gap-1.5"
                 >
-                  <span>✓</span> Confirm & Record Usage
+                  {isSubmittingExecute ? (
+                    <span>Recording Transaction...</span>
+                  ) : (
+                    <>
+                      <span>✓</span> Confirm & Record Usage
+                    </>
+                  )}
                 </button>
                 <button
                   type="button"
+                  disabled={isSubmittingExecute}
                   onClick={() => setExecutingCredit(null)}
                   className="px-4 py-3 text-xs font-bold text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"
                 >
@@ -785,12 +727,14 @@ export const PaymentsCreditsView: React.FC<PaymentsCreditsViewProps> = ({
               <div className="flex gap-3 pt-2">
                 <button
                   type="submit"
-                  className="flex-1 bg-brand-600 hover:bg-brand-700 text-white font-bold text-xs py-2.5 rounded-xl shadow-md transition-all"
+                  disabled={isSubmittingNewCredit}
+                  className="flex-1 bg-brand-600 hover:bg-brand-700 disabled:opacity-50 text-white font-bold text-xs py-2.5 rounded-xl shadow-md transition-all flex items-center justify-center gap-1"
                 >
-                  Save Credit Record
+                  {isSubmittingNewCredit ? 'Saving...' : 'Save Credit Record'}
                 </button>
                 <button
                   type="button"
+                  disabled={isSubmittingNewCredit}
                   onClick={() => setIsAddCreditModalOpen(false)}
                   className="px-4 py-2.5 text-xs font-bold text-gray-500"
                 >

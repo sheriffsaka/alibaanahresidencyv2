@@ -471,6 +471,24 @@ export interface AppContextType {
     recipientId?: string;
   }) => Promise<{ success: boolean; error?: string; message?: MessageItem; data?: MessageItem; conversation?: ConversationItem }>;
   markConversationAsRead: (conversationId: string) => Promise<void>;
+  credits: CreditRecord[];
+  creditTransactions: CreditTransaction[];
+  refreshCredits: () => Promise<void>;
+  addCredit: (creditData: {
+    student_name: string;
+    email: string;
+    deposit_amount: number;
+    booking_reference?: string;
+    student_id?: string;
+    originating_booking_id?: number;
+    notes?: string;
+  }) => Promise<{ success: boolean; error?: string; data?: CreditRecord }>;
+  executeCreditUsage: (params: {
+    creditId: string;
+    amountUsed: number;
+    dateUsed?: string;
+    purposeNotes?: string;
+  }) => Promise<{ success: boolean; error?: string; remainingBalance?: number; transaction?: CreditTransaction }>;
 }
 
 export interface ChatMessage {
@@ -490,4 +508,34 @@ export interface BookingPackage {
     duration_months: number;
     discount_percentage: number;
     description?: string;
+}
+
+export interface CreditTransaction {
+  id: number;
+  credit_id: string;
+  amount_used: number;
+  date_used: string;
+  amount_remaining_after: number;
+  purpose_notes: string;
+  processed_by?: string | null;
+  processed_by_name?: string | null;
+  created_at?: string;
+}
+
+export interface CreditRecord {
+  id: string;
+  student_name: string;
+  email: string;
+  student_id?: string | null;
+  originating_booking_id?: number | null;
+  booking_reference?: string | null;
+  deposit_amount: number;
+  credit_balance: number;
+  total_used: number;
+  status: 'Active Credit' | 'Fully Used' | 'Forfeited';
+  notes?: string | null;
+  created_by?: string | null;
+  created_at?: string;
+  updated_at?: string;
+  transactions?: CreditTransaction[];
 }
