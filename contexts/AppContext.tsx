@@ -2684,13 +2684,17 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
   const updateContractTranslation = async (lang: Language, updates: Partial<LegalContractTranslation>): Promise<{ success: boolean; error?: string }> => {
     try {
-      const existing = contractTranslations[lang];
+      const existing = contractTranslations[lang] || DEFAULT_CONTRACT_TRANSLATIONS[lang];
       if (!existing) return { success: false, error: `Translation for language '${lang}' not found.` };
 
       const now = new Date().toISOString();
       const updated: LegalContractTranslation = {
         ...existing,
         ...updates,
+        sections: {
+          ...existing.sections,
+          ...(updates.sections || {})
+        },
         version: (existing.version || 1) + 1,
         lastUpdated: now
       };
@@ -2724,6 +2728,15 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       }
 
       await updateCmsContent({ contractTranslations: updatedStore });
+
+      if (user) {
+        addActivity({
+          user_id: user.id,
+          type: 'system',
+          description: `Updated Tenancy Agreement clauses for ${updated.languageName} (${lang.toUpperCase()}).`,
+          timestamp: now
+        });
+      }
 
       return { success: true };
     } catch (err: any) {
