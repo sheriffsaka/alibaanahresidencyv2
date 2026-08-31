@@ -285,6 +285,8 @@ export const EditBookingModal: React.FC<EditBookingModalProps> = ({
       });
 
       const assignedBedSpaceId = BED_SPACE_TO_ID_MAP[editFormData.selectedSpaceId] || booking.bed_space_id;
+      const matchingBedObj = bedSpaces.find(b => b.id === assignedBedSpaceId);
+      const targetResolvedRoomId = matchingBedObj?.room_id || dbRoom?.id || booking.room_id;
 
       const unifiedRoomName = getUnifiedRoomName(
         editFormData.category,
@@ -310,7 +312,7 @@ export const EditBookingModal: React.FC<EditBookingModalProps> = ({
         emergency_contact_details: editFormData.emergency_contact_details,
         address_in_egypt: editFormData.address_in_egypt,
         bed_space_id: assignedBedSpaceId,
-        room_id: dbRoom?.id || booking.room_id,
+        room_id: targetResolvedRoomId,
         rooms: {
           room_number: unifiedRoomName,
           type: prefAccommodation,

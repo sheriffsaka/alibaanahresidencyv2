@@ -837,11 +837,67 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     }
   }, []);
 
+  // Helper to synchronize raw database room occupancy using strict whitelist ('Confirmed', 'Occupied')
+  const syncRoomOccupancyToDb = async (roomIds: (number | undefined)[], currentBookings: Booking[]) => {
+    const uniqueRoomIds = Array.from(new Set(roomIds.filter((id): id is number => typeof id === 'number' && id > 0)));
+    for (const rId of uniqueRoomIds) {
+        const room = rooms.find(r => r.id === rId);
+        if (!room) continue;
+
+        // Strict whitelist: ONLY 'Confirmed' and 'Occupied' statuses count as occupied
+        const activeCount = currentBookings.filter(b => 
+            b.room_id === rId && 
+            (b.status === BookingStatus.CONFIRMED || b.status === BookingStatus.OCCUPIED || (b.status as string) === 'Confirmed' || (b.status as string) === 'Occupied')
+        ).length;
+        const isNowAvailable = activeCount < (room.capacity || 1);
+
+        const { error: roomErr } = await supabase
+            .from('rooms')
+            .update({ occupied_slots: activeCount, is_available: isNowAvailable })
+            .eq('id', rId);
+
+        if (!roomErr) {
+            setRooms(prev => prev.map(r => r.id === rId ? { ...r, occupied_slots: activeCount, is_available: isNowAvailable } : r));
+        } else {
+            console.error(`Failed to update occupancy in DB for room ${rId}:`, roomErr.message);
+        }
+    }
+  };
+
   const addBooking = async (newBooking: Booking) => {
     try {
+        // --- SAFEGUARD: Bed Space & Room Parent Matching ---
+        let targetRoomId = newBooking.room_id;
+        const targetBedSpaceId = newBooking.bed_space_id;
+
+        if (targetBedSpaceId) {
+            // Find bed space record to guarantee 100% parent room alignment
+            let bedSpace = bedSpaces.find(bs => bs.id === targetBedSpaceId);
+            if (!bedSpace) {
+                const { data: fetchedBed, error: bedFetchErr } = await supabase
+                    .from('bed_spaces')
+                    .select('id, room_id, label')
+                    .eq('id', targetBedSpaceId)
+                    .single();
+                if (bedFetchErr || !fetchedBed) {
+                    throw new Error(`Validation Error: Bed Space ID #${targetBedSpaceId} does not exist in the database.`);
+                }
+                bedSpace = fetchedBed as BedSpace;
+            }
+
+            if (targetRoomId && targetRoomId !== bedSpace.room_id) {
+                console.warn(`[Safeguard Auto-Correction] Booking room_id (${targetRoomId}) did not match bed_space #${targetBedSpaceId} parent room_id (${bedSpace.room_id}). Auto-aligning room_id to ${bedSpace.room_id}.`);
+            }
+            targetRoomId = bedSpace.room_id;
+        }
+
         // Remove the 'rooms', 'profiles', and 'id' objects before inserting into Supabase
         // We let Supabase generate the ID
         const { rooms: rObj, profiles, student_name, id, ...bookingToInsert } = newBooking as any;
+        bookingToInsert.room_id = targetRoomId;
+        if (targetBedSpaceId) {
+            bookingToInsert.bed_space_id = targetBedSpaceId;
+        }
         
         const { data, error } = await supabase
             .from('bookings')
@@ -878,26 +934,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             }
         }
 
-        // Recalculate room occupancy slots and availability in Supabase
-        const room = rooms.find(r => r.id === data.room_id);
-        if (room) {
-            const activeRoomBookings = updatedBookings.filter(b => 
-                b.room_id === room.id && 
-                b.status !== BookingStatus.CANCELLED && 
-                b.status !== BookingStatus.COMPLETED
-            );
-            const newOccupied = activeRoomBookings.length;
-            const isNowAvailable = newOccupied < (room.capacity || 1);
-
-            const { error: roomErr } = await supabase
-                .from('rooms')
-                .update({ occupied_slots: newOccupied, is_available: isNowAvailable })
-                .eq('id', room.id);
-
-            if (!roomErr) {
-                setRooms(prev => prev.map(r => r.id === room.id ? { ...r, occupied_slots: newOccupied, is_available: isNowAvailable } : r));
-            }
-        }
+        // Recalculate room occupancy slots and availability in Supabase (whitelist: Confirmed/Occupied)
+        await syncRoomOccupancyToDb([data.room_id], updatedBookings);
 
         return { success: true, data: mappedBooking };
     } catch (err: any) {
@@ -921,26 +959,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         const updatedBookings = bookings.map(b => b.id === id ? { ...b, status } : b);
         setBookings(updatedBookings);
 
-        // Recalculate room occupancy slots and availability in Supabase
-        const room = rooms.find(r => r.id === booking.room_id);
-        if (room) {
-            const activeRoomBookings = updatedBookings.filter(b => 
-                b.room_id === room.id && 
-                b.status !== BookingStatus.CANCELLED && 
-                b.status !== BookingStatus.COMPLETED
-            );
-            const newOccupied = activeRoomBookings.length;
-            const isNowAvailable = newOccupied < (room.capacity || 1);
-
-            const { error: roomErr } = await supabase
-                .from('rooms')
-                .update({ occupied_slots: newOccupied, is_available: isNowAvailable })
-                .eq('id', room.id);
-
-            if (!roomErr) {
-                setRooms(prev => prev.map(r => r.id === room.id ? { ...r, occupied_slots: newOccupied, is_available: isNowAvailable } : r));
-            }
-        }
+        // Recalculate room occupancy slots and availability in Supabase (whitelist: Confirmed/Occupied)
+        await syncRoomOccupancyToDb([booking.room_id], updatedBookings);
 
         return { success: true };
     } catch (err: any) {
@@ -951,8 +971,38 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
   const updateBooking = async (id: number, updates: Partial<Booking>) => {
     try {
+        const existingBooking = bookings.find(b => b.id === id);
+
+        // --- SAFEGUARD: Bed Space & Room Parent Matching on Update ---
+        const targetBedSpaceId = updates.bed_space_id !== undefined ? updates.bed_space_id : existingBooking?.bed_space_id;
+        let targetRoomId = updates.room_id !== undefined ? updates.room_id : existingBooking?.room_id;
+
+        if (targetBedSpaceId) {
+            let bedSpace = bedSpaces.find(bs => bs.id === targetBedSpaceId);
+            if (!bedSpace) {
+                const { data: fetchedBed, error: bedFetchErr } = await supabase
+                    .from('bed_spaces')
+                    .select('id, room_id, label')
+                    .eq('id', targetBedSpaceId)
+                    .single();
+                if (bedFetchErr || !fetchedBed) {
+                    throw new Error(`Validation Error: Bed Space ID #${targetBedSpaceId} does not exist in the database.`);
+                }
+                bedSpace = fetchedBed as BedSpace;
+            }
+
+            if (targetRoomId !== bedSpace.room_id) {
+                console.warn(`[Safeguard Auto-Correction] Booking update room_id (${targetRoomId}) did not match bed_space #${targetBedSpaceId} parent room_id (${bedSpace.room_id}). Auto-aligning room_id to ${bedSpace.room_id}.`);
+                targetRoomId = bedSpace.room_id;
+                updates.room_id = targetRoomId;
+            }
+        }
+
         // Strip joined fields that might be in the updates object
         const { rooms, profiles, ...dbUpdates } = updates as any;
+        if (targetRoomId !== undefined) {
+            dbUpdates.room_id = targetRoomId;
+        }
         
         const { error } = await supabase
             .from('bookings')
@@ -960,7 +1010,14 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             .eq('id', id);
 
         if (error) throw error;
-        setBookings(prev => prev.map(b => b.id === id ? { ...b, ...updates } : b));
+
+        const updatedBookings = bookings.map(b => b.id === id ? { ...b, ...updates, ...(targetRoomId ? { room_id: targetRoomId } : {}) } : b);
+        setBookings(updatedBookings);
+
+        // Recalculate room occupancy slots and availability in Supabase (whitelist: Confirmed/Occupied)
+        const affectedRoomIds = [existingBooking?.room_id, targetRoomId].filter((x): x is number => typeof x === 'number');
+        await syncRoomOccupancyToDb(affectedRoomIds, updatedBookings);
+
         return { success: true };
     } catch (err: any) {
         console.error("Error updating booking in Supabase:", err.message);
@@ -996,31 +1053,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         const remainingBookings = bookings.filter(b => b.id !== id);
         setBookings(remainingBookings);
 
-        // 4. Update the room/bed occupancy slots and is_available status dynamically
-        const room = rooms.find(r => r.id === booking.room_id);
-        if (room) {
-            const activeRoomBookings = remainingBookings.filter(b => 
-                b.room_id === room.id && 
-                b.status !== BookingStatus.CANCELLED && 
-                b.status !== BookingStatus.COMPLETED
-            );
-            const newOccupied = activeRoomBookings.length;
-            const isNowAvailable = newOccupied < (room.capacity || 1);
-
-            const { error: roomUpdateError } = await supabase
-                .from('rooms')
-                .update({
-                    occupied_slots: newOccupied,
-                    is_available: isNowAvailable
-                })
-                .eq('id', room.id);
-
-            if (roomUpdateError) {
-                console.error("Error updating room slots after student deletion:", roomUpdateError.message);
-            } else {
-                setRooms(prev => prev.map(r => r.id === room.id ? { ...r, occupied_slots: newOccupied, is_available: isNowAvailable } : r));
-            }
-        }
+        // 4. Update the room/bed occupancy slots and is_available status dynamically (whitelist: Confirmed/Occupied)
+        await syncRoomOccupancyToDb([booking.room_id], remainingBookings);
 
         // 5. Clean up student profile if they have no other bookings
         const studentBookings = remainingBookings.filter(b => b.student_id === booking.student_id);
