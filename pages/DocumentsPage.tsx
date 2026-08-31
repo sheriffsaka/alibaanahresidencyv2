@@ -1,113 +1,64 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useApp } from '../hooks/useApp';
 import { IconFile, IconCheckCircle, IconBuilding, IconInfo } from '../components/Icon';
 import AgreementModal from '../components/AgreementModal';
-import { Booking } from '../types';
+import { Booking, StudentDocument } from '../types';
+import { DEFAULT_STUDENT_DOCUMENTS } from '../contexts/AppContext';
 
 const DocumentsPage: React.FC = () => {
-  const { user, bookings, landlordDetails } = useApp();
+  const { user, bookings, landlordDetails, studentDocuments, cmsContent } = useApp();
   const [viewingAgreement, setViewingAgreement] = useState<Booking | null>(null);
-  const [viewingDocumentModal, setViewingDocumentModal] = useState<{ title: string; content: string } | null>(null);
+  const [viewingDocumentModal, setViewingDocumentModal] = useState<{ title: string; category?: string; updated?: string; description?: string; content: string } | null>(null);
+  const [selectedCategoryFilter, setSelectedCategoryFilter] = useState<string>('All');
 
   const signedBookings = (bookings || []).filter(
     b => b.student_id === user?.id && b.signature_data
   );
 
-  const staticDocuments = [
-    {
-      id: 'house-rules',
-      title: 'Student Residency Rules & Code of Conduct',
-      category: 'Policy & Safety',
-      updated: 'Academic Term 2026',
-      description: 'Comprehensive guidelines covering quiet hours (11 PM - 6 AM), visitor policies, prayer hall etiquette, kitchen cleanliness, and community standards.',
-      content: `AL-IBAANAH STUDENT RESIDENCY CODE OF CONDUCT & HOUSE RULES
+  // Active documents from AppContext (with fallback)
+  const activeDocuments: StudentDocument[] = useMemo(() => {
+    const rawList = (studentDocuments && studentDocuments.length > 0)
+      ? studentDocuments
+      : (cmsContent?.studentDocuments && cmsContent.studentDocuments.length > 0)
+        ? cmsContent.studentDocuments
+        : DEFAULT_STUDENT_DOCUMENTS;
 
-1. GENERAL OBJECTIVE
-The student residency operates in harmony with the educational mission of Al-Ibaanah Arabic Center. All residents are expected to maintain an Islamic atmosphere of mutual respect, cleanliness, and dedication to study.
+    // Filter only published documents for students
+    return rawList.filter(d => d.is_published !== false);
+  }, [studentDocuments, cmsContent]);
 
-2. QUIET HOURS & STUDY ENVIRONMENT
-- Quiet hours are strictly observed from 11:00 PM to 06:00 AM daily.
-- Audio playback without headphones is prohibited in shared rooms and hallways.
+  // Unique categories for filtering
+  const categories = useMemo(() => {
+    const set = new Set<string>();
+    activeDocuments.forEach(d => {
+      if (d.category) set.add(d.category);
+    });
+    return Array.from(set);
+  }, [activeDocuments]);
 
-3. VISITOR POLICY
-- Visitors of the same gender are permitted between 10:00 AM and 09:00 PM in common reception areas.
-- Overnight guests are strictly prohibited without prior written authorization from administration.
+  // Filtered by selected category
+  const filteredDocuments = useMemo(() => {
+    if (selectedCategoryFilter === 'All') return activeDocuments;
+    return activeDocuments.filter(d => d.category === selectedCategoryFilter);
+  }, [activeDocuments, selectedCategoryFilter]);
 
-4. APARTMENT & ROOM CLEANLINESS
-- Residents must clean up after themselves immediately in communal kitchens and bathrooms.
-- Weekly room inspections are conducted to ensure maintenance of equipment, bedding, and air conditioning units.
-
-5. SAFETY & APPLIANCES
-- Tampering with electrical wiring or using unauthorized high-wattage heating elements is strictly prohibited.
-- Turn off air conditioners, lights, and water taps when leaving the room.
-
-6. KEYS & ACCESS
-- Door keys and keycards are non-transferable. Lost keys incur a replacement fee of 150 EGP.`
-    },
-    {
-      id: 'check-in-protocol',
-      title: 'Check-In, Key Collection & Inventory Protocol',
-      category: 'Arrival & Logistics',
-      updated: 'Active Guide',
-      description: 'Step-by-step instructions for arriving at the residency building in Nasr City, collecting keys from the superintendent, and verifying room inventory.',
-      content: `CHECK-IN & KEY COLLECTION INSTRUCTIONS
-
-1. ARRIVAL NOTIFICATION
-Please notify residency administration via WhatsApp (+20 1030062440) at least 24 hours prior to your scheduled Cairo arrival with your estimated time of arrival (ETA).
-
-2. KEY COLLECTION
-- Reception / Superintendent Desk is located on the Ground Floor of the respective Building.
-- Present your valid Passport / National ID and your Booking Confirmation (BK ID).
-
-3. ROOM INVENTORY CHECK
-Upon room entry, you will receive an Inventory Checklist covering:
-- Bed, mattress, and fresh linen set
-- Study desk, chair, and wardrobe
-- Air conditioner remote and room keys
-- Refrigerator and kitchen appliances (communal)
-
-Please report any pre-existing maintenance defects within 48 hours of check-in.`
-    },
-    {
-      id: 'cairo-transit-guide',
-      title: 'Cairo Arrival, Transit & Neighborhood Orientation',
-      category: 'Orientation',
-      updated: 'Active Guide',
-      description: 'Essential orientation for international students: Cairo Airport taxi advice, local SIM cards, nearest mosques, grocery stores, and walking routes to Al-Ibaanah Center.',
-      content: `CAIRO ARRIVAL & NEIGHBORHOOD GUIDE
-
-1. CAIRO INTERNATIONAL AIRPORT (CAI) TRANSIT
-- We recommend using official app-based rides (Uber or Careem) from the designated airport terminal pickup zones.
-- Destination: Set destination to "Al-Ibaanah Arabic Center, Nasr City, Cairo" or your assigned Building address.
-
-2. LOCAL SIM CARDS & CURRENCY
-- SIM card kiosks (Vodafone, Orange, WE, Etisalat) are located immediately outside baggage claim at Terminal 3 and Terminal 2.
-- Official bank ATMs are available at the airport for currency exchange (EGP).
-
-3. PROXIMITY TO AL-IBAANAH ARABIC CENTER
-- All residency apartments are situated within 3 to 7 minutes walking distance to the Al-Ibaanah teaching facility in District 7 / 8, Nasr City.
-- Local grocery markets, pharmacies, and traditional bakeries are located within 100 meters of the residential entrances.`
-    },
-    {
-      id: 'distance-enrolment-letter',
-      title: 'Distance Enrolment & Visa Accommodation Certificate',
-      category: 'Official Records',
-      updated: 'Term 2026',
-      description: 'Official proof of residence address format required for Egyptian visa renewals and embassy educational paperwork.',
-      content: `TO WHOM IT MAY CONCERN
-
-RESIDENTIAL ADDRESS VERIFICATION CERTIFICATE
-
-This document certifies that the enrolled student registered in the Al-Ibaanah Student Residency System holds an authorized accommodation reservation at the Al-Ibaanah Student Residences located in Nasr City, Cairo, Arab Republic of Egypt.
-
-Address of Building:
-Al-Ibaanah Student Housing Facilities,
-Nasr City, Cairo, Egypt.
-
-Contact: admin@alibaanah.com | +20 1030062440
-Authorized Property Management: ${landlordDetails?.recipientName || 'Al-Ibaanah Housing Administration'}`
+  // Category styling helper
+  const getCategoryBadgeClass = (category: string) => {
+    switch (category) {
+      case 'Policy & Safety':
+        return 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800';
+      case 'Arrival & Logistics':
+        return 'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/40 dark:text-blue-300 dark:border-blue-800';
+      case 'Orientation':
+        return 'bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-950/40 dark:text-purple-300 dark:border-purple-800';
+      case 'Official Records':
+        return 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-800';
+      case 'Maintenance & Utilities':
+        return 'bg-cyan-50 text-cyan-700 border-cyan-200 dark:bg-cyan-950/40 dark:text-cyan-300 dark:border-cyan-800';
+      default:
+        return 'bg-gray-100 text-gray-700 border-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-700';
     }
-  ];
+  };
 
   return (
     <div className="animate-fade-in space-y-8">
@@ -118,7 +69,7 @@ Authorized Property Management: ${landlordDetails?.recipientName || 'Al-Ibaanah 
         </div>
         <h1 className="text-2xl sm:text-3xl font-black text-gray-900 dark:text-white">Residency Documents & Agreements</h1>
         <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 mt-1">
-          Access your executed tenancy contracts, house rules, arrival check-in guides, and orientation records.
+          Access your executed tenancy contracts, house rules, arrival check-in guides, and official residency records.
         </p>
       </div>
 
@@ -171,56 +122,121 @@ Authorized Property Management: ${landlordDetails?.recipientName || 'Al-Ibaanah 
 
       {/* Official Guides & House Policies */}
       <div className="space-y-4">
-        <h2 className="text-base font-black text-gray-900 dark:text-white flex items-center gap-2">
-          <IconBuilding className="w-5 h-5 text-brand-600" />
-          <span>Housing Policies & Arrival Guides</span>
-        </h2>
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <h2 className="text-base font-black text-gray-900 dark:text-white flex items-center gap-2">
+            <IconBuilding className="w-5 h-5 text-brand-600" />
+            <span>Housing Policies & Arrival Guides</span>
+          </h2>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {staticDocuments.map(doc => (
-            <div key={doc.id} className="bg-white dark:bg-gray-800 p-5 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm flex flex-col justify-between">
-              <div>
-                <div className="flex items-center justify-between mb-2">
-                  <span className="px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider rounded-md bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300">
-                    {doc.category}
-                  </span>
-                  <span className="text-[11px] text-gray-400">{doc.updated}</span>
-                </div>
-                <h3 className="text-sm font-black text-gray-900 dark:text-white">{doc.title}</h3>
-                <p className="text-xs text-gray-500 dark:text-gray-400 mt-2 leading-relaxed">
-                  {doc.description}
-                </p>
-              </div>
-
-              <div className="mt-4 pt-4 border-t border-gray-100 dark:border-gray-700 flex justify-end">
-                <button
-                  onClick={() => setViewingDocumentModal({ title: doc.title, content: doc.content })}
-                  className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 text-xs font-bold transition-colors"
-                >
-                  <span>Read Full Document</span>
-                </button>
-              </div>
+          {/* Category Filter Pills */}
+          {categories.length > 1 && (
+            <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0 scrollbar-thin">
+              <button
+                type="button"
+                onClick={() => setSelectedCategoryFilter('All')}
+                className={`px-3 py-1 rounded-lg text-xs font-bold transition-all whitespace-nowrap ${
+                  selectedCategoryFilter === 'All'
+                    ? 'bg-brand-600 text-white shadow-xs'
+                    : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
+                }`}
+              >
+                All ({activeDocuments.length})
+              </button>
+              {categories.map(cat => {
+                const count = activeDocuments.filter(d => d.category === cat).length;
+                return (
+                  <button
+                    key={cat}
+                    type="button"
+                    onClick={() => setSelectedCategoryFilter(cat)}
+                    className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all whitespace-nowrap ${
+                      selectedCategoryFilter === cat
+                        ? 'bg-brand-600 text-white shadow-xs'
+                        : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
+                    }`}
+                  >
+                    {cat} ({count})
+                  </button>
+                );
+              })}
             </div>
-          ))}
+          )}
         </div>
+
+        {filteredDocuments.length === 0 ? (
+          <div className="p-8 bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 text-center text-xs text-gray-500">
+            No documents available in this category.
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {filteredDocuments.map(doc => (
+              <div key={doc.id} className="bg-white dark:bg-gray-800 p-5 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm flex flex-col justify-between hover:shadow-md transition-shadow">
+                <div>
+                  <div className="flex items-center justify-between mb-2 gap-2 flex-wrap">
+                    <span className={`px-2.5 py-0.5 text-[10px] font-black uppercase tracking-wider rounded-full border ${getCategoryBadgeClass(doc.category)}`}>
+                      {doc.category}
+                    </span>
+                    <span className="text-[11px] font-bold text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-700 px-2 py-0.5 rounded font-mono">
+                      {doc.updated || 'Active Guide'}
+                    </span>
+                  </div>
+                  <h3 className="text-sm font-black text-gray-900 dark:text-white leading-snug">{doc.title}</h3>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-2 leading-relaxed line-clamp-3">
+                    {doc.description}
+                  </p>
+                </div>
+
+                <div className="mt-4 pt-4 border-t border-gray-100 dark:border-gray-700 flex justify-end">
+                  <button
+                    onClick={() => setViewingDocumentModal({ 
+                      title: doc.title, 
+                      category: doc.category,
+                      updated: doc.updated,
+                      description: doc.description,
+                      content: doc.content 
+                    })}
+                    className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 text-xs font-bold transition-colors"
+                  >
+                    <span>Read Full Document</span>
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Document Reader Modal */}
       {viewingDocumentModal && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-gray-800 rounded-2xl max-w-2xl w-full p-6 shadow-2xl border border-gray-100 dark:border-gray-700 max-h-[85vh] flex flex-col animate-fade-in">
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl max-w-3xl w-full p-6 shadow-2xl border border-gray-100 dark:border-gray-700 max-h-[85vh] flex flex-col animate-fade-in">
             <div className="flex items-center justify-between pb-4 border-b border-gray-100 dark:border-gray-700">
-              <h3 className="text-base font-black text-gray-900 dark:text-white">{viewingDocumentModal.title}</h3>
+              <div>
+                {viewingDocumentModal.category && (
+                  <span className={`text-[10px] font-black uppercase px-2 py-0.5 rounded-full border inline-block mb-1 ${getCategoryBadgeClass(viewingDocumentModal.category)}`}>
+                    {viewingDocumentModal.category}
+                  </span>
+                )}
+                <h3 className="text-base font-black text-gray-900 dark:text-white">{viewingDocumentModal.title}</h3>
+              </div>
               <button 
                 onClick={() => setViewingDocumentModal(null)}
-                className="text-gray-400 hover:text-gray-600 text-sm font-bold p-1"
+                className="text-gray-400 hover:text-gray-600 text-sm font-bold p-1 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700"
               >
                 ✕
               </button>
             </div>
-            <div className="py-4 overflow-y-auto flex-1 font-mono text-xs text-gray-700 dark:text-gray-300 whitespace-pre-wrap leading-relaxed bg-gray-50 dark:bg-gray-900/50 p-4 rounded-xl border border-gray-100 dark:border-gray-700">
+
+            {viewingDocumentModal.description && (
+              <div className="my-3 p-3 bg-brand-50/50 dark:bg-brand-950/20 rounded-xl border border-brand-100 dark:border-brand-900/30 text-xs text-brand-900 dark:text-brand-200 leading-relaxed">
+                {viewingDocumentModal.description}
+              </div>
+            )}
+
+            <div className="py-4 overflow-y-auto flex-1 font-sans text-xs text-gray-800 dark:text-gray-200 whitespace-pre-wrap leading-relaxed bg-gray-50 dark:bg-gray-900/50 p-5 rounded-xl border border-gray-100 dark:border-gray-700">
               {viewingDocumentModal.content}
             </div>
+
             <div className="pt-4 border-t border-gray-100 dark:border-gray-700 flex justify-end">
               <button
                 onClick={() => setViewingDocumentModal(null)}

@@ -389,6 +389,20 @@ export interface CmsContent {
   accommodationCategories?: AccommodationCategory[];
   supportContent?: SupportPageContent;
   contractTranslations?: any;
+  studentDocuments?: StudentDocument[];
+}
+
+export interface StudentDocument {
+  id: string;
+  title: string;
+  category: string;
+  updated: string;
+  description: string;
+  content: string;
+  is_published?: boolean;
+  order?: number;
+  created_at?: string;
+  updated_at?: string;
 }
 
 export interface AppContextType {
@@ -495,6 +509,11 @@ export interface AppContextType {
   revertContractTranslationToDraft: (lang: Language) => Promise<{ success: boolean; error?: string }>;
   updateContractTranslation: (lang: Language, updates: any) => Promise<{ success: boolean; error?: string }>;
   resetContractTranslation: (lang: Language) => Promise<{ success: boolean; error?: string }>;
+  studentDocuments: StudentDocument[];
+  addStudentDocument: (doc: Omit<StudentDocument, 'id' | 'created_at' | 'updated_at'> & { id?: string }) => Promise<{ success: boolean; error?: string; document?: StudentDocument }>;
+  updateStudentDocument: (id: string, updates: Partial<StudentDocument>) => Promise<{ success: boolean; error?: string }>;
+  deleteStudentDocument: (id: string) => Promise<{ success: boolean; error?: string }>;
+  resetStudentDocumentsToDefault: () => Promise<{ success: boolean; error?: string }>;
 }
 
 export interface ChatMessage {

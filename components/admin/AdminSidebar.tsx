@@ -15,6 +15,7 @@ export type AdminNavSection =
   | 'reviews'
   | 'landing_branding'
   | 'contracts'
+  | 'student_documents'
   | 'faqs_announcements'
   | 'admin_users'
   | 'settings';
@@ -112,6 +113,7 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
       items: [
         { id: 'landing_branding', label: 'Landing Page & Branding', icon: '🎨' },
         { id: 'contracts', label: 'Contract Templates', icon: '📜' },
+        { id: 'student_documents', label: 'Student Documents', icon: '📁' },
         { id: 'faqs_announcements', label: 'FAQs & Announcements', icon: '📢' }
       ]
     },

@@ -1,6 +1,6 @@
 
 import React, { createContext, useState, ReactNode, useCallback, useEffect, useRef, useMemo } from 'react';
-import { AppContextType, Language, Page, User, Room, BedSpace, Booking, BookingStatus, CmsContent, Activity, AcademicTerm, BookingPackage, AccommodationType, DEFAULT_CATEGORY_MEDIA, CategoryMediaConfig, PublicOccupancy, AccommodationAddresses, DEFAULT_ACCOMMODATION_ADDRESSES, DEFAULT_SUPPORT_CONTENT, WaitlistEntry, WaitlistStatus, EmailLogEntry, AccommodationCategory, DEFAULT_ACCOMMODATION_CATEGORIES, ConversationItem, MessageItem, CreditRecord, CreditTransaction } from '../types';
+import { AppContextType, Language, Page, User, Room, BedSpace, Booking, BookingStatus, CmsContent, Activity, AcademicTerm, BookingPackage, AccommodationType, DEFAULT_CATEGORY_MEDIA, CategoryMediaConfig, PublicOccupancy, AccommodationAddresses, DEFAULT_ACCOMMODATION_ADDRESSES, DEFAULT_SUPPORT_CONTENT, WaitlistEntry, WaitlistStatus, EmailLogEntry, AccommodationCategory, DEFAULT_ACCOMMODATION_CATEGORIES, ConversationItem, MessageItem, CreditRecord, CreditTransaction, StudentDocument } from '../types';
 import { supabase } from '../lib/supabaseClient';
 import { Session } from '@supabase/supabase-js';
 import { sendEmail, fetchRecentEmailLogs } from '../lib/email';
@@ -194,8 +194,123 @@ export const INITIAL_CMS: CmsContent = {
   },
   accommodationAddresses: DEFAULT_ACCOMMODATION_ADDRESSES,
   supportContent: DEFAULT_SUPPORT_CONTENT,
-  contractTranslations: DEFAULT_CONTRACT_TRANSLATIONS
+  contractTranslations: DEFAULT_CONTRACT_TRANSLATIONS,
+  studentDocuments: []
 };
+
+export const DEFAULT_STUDENT_DOCUMENTS: StudentDocument[] = [
+  {
+    id: 'house-rules',
+    title: 'Student Residency Rules & Code of Conduct',
+    category: 'Policy & Safety',
+    updated: 'Academic Term 2026',
+    description: 'Comprehensive guidelines covering quiet hours (11 PM - 6 AM), visitor policies, prayer hall etiquette, kitchen cleanliness, and community standards.',
+    content: `AL-IBAANAH STUDENT RESIDENCY CODE OF CONDUCT & HOUSE RULES
+
+1. GENERAL OBJECTIVE
+The student residency operates in harmony with the educational mission of Al-Ibaanah Arabic Center. All residents are expected to maintain an Islamic atmosphere of mutual respect, cleanliness, and dedication to study.
+
+2. QUIET HOURS & STUDY ENVIRONMENT
+- Quiet hours are strictly observed from 11:00 PM to 06:00 AM daily.
+- Audio playback without headphones is prohibited in shared rooms and hallways.
+
+3. VISITOR POLICY
+- Visitors of the same gender are permitted between 10:00 AM and 09:00 PM in common reception areas.
+- Overnight guests are strictly prohibited without prior written authorization from administration.
+
+4. APARTMENT & ROOM CLEANLINESS
+- Residents must clean up after themselves immediately in communal kitchens and bathrooms.
+- Weekly room inspections are conducted to ensure maintenance of equipment, bedding, and air conditioning units.
+
+5. SAFETY & APPLIANCES
+- Tampering with electrical wiring or using unauthorized high-wattage heating elements is strictly prohibited.
+- Turn off air conditioners, lights, and water taps when leaving the room.
+
+6. KEYS & ACCESS
+- Door keys and keycards are non-transferable. Lost keys incur a replacement fee of 150 EGP.`,
+    is_published: true,
+    order: 1,
+    created_at: '2026-01-01T00:00:00.000Z',
+    updated_at: '2026-01-01T00:00:00.000Z'
+  },
+  {
+    id: 'check-in-protocol',
+    title: 'Check-In, Key Collection & Inventory Protocol',
+    category: 'Arrival & Logistics',
+    updated: 'Active Guide',
+    description: 'Step-by-step instructions for arriving at the residency building in Nasr City, collecting keys from the superintendent, and verifying room inventory.',
+    content: `CHECK-IN & KEY COLLECTION INSTRUCTIONS
+
+1. ARRIVAL NOTIFICATION
+Please notify residency administration via WhatsApp (+20 1030062440) at least 24 hours prior to your scheduled Cairo arrival with your estimated time of arrival (ETA).
+
+2. KEY COLLECTION
+- Reception / Superintendent Desk is located on the Ground Floor of the respective Building.
+- Present your valid Passport / National ID and your Booking Confirmation (BK ID).
+
+3. ROOM INVENTORY CHECK
+Upon room entry, you will receive an Inventory Checklist covering:
+- Bed, mattress, and fresh linen set
+- Study desk, chair, and wardrobe
+- Air conditioner remote and room keys
+- Refrigerator and kitchen appliances (communal)
+
+Please report any pre-existing maintenance defects within 48 hours of check-in.`,
+    is_published: true,
+    order: 2,
+    created_at: '2026-01-01T00:00:00.000Z',
+    updated_at: '2026-01-01T00:00:00.000Z'
+  },
+  {
+    id: 'cairo-transit-guide',
+    title: 'Cairo Arrival, Transit & Neighborhood Orientation',
+    category: 'Orientation',
+    updated: 'Active Guide',
+    description: 'Essential orientation for international students: Cairo Airport taxi advice, local SIM cards, nearest mosques, grocery stores, and walking routes to Al-Ibaanah Center.',
+    content: `CAIRO ARRIVAL & NEIGHBORHOOD GUIDE
+
+1. CAIRO INTERNATIONAL AIRPORT (CAI) TRANSIT
+- We recommend using official app-based rides (Uber or Careem) from the designated airport terminal pickup zones.
+- Destination: Set destination to "Al-Ibaanah Arabic Center, Nasr City, Cairo" or your assigned Building address.
+
+2. LOCAL SIM CARDS & CURRENCY
+- SIM card kiosks (Vodafone, Orange, WE, Etisalat) are located immediately outside baggage claim at Terminal 3 and Terminal 2.
+- Official bank ATMs are available at the airport for currency exchange (EGP).
+
+3. PROXIMITY TO AL-IBAANAH ARABIC CENTER
+- All residency apartments are situated within 3 to 7 minutes walking distance to the Al-Ibaanah teaching facility in District 7 / 8, Nasr City.
+- Local grocery markets, pharmacies, and traditional bakeries are located within 100 meters of the residential entrances.`,
+    is_published: true,
+    order: 3,
+    created_at: '2026-01-01T00:00:00.000Z',
+    updated_at: '2026-01-01T00:00:00.000Z'
+  },
+  {
+    id: 'distance-enrolment-letter',
+    title: 'Distance Enrolment & Visa Accommodation Certificate',
+    category: 'Official Records',
+    updated: 'Term 2026',
+    description: 'Official proof of residence address format required for Egyptian visa renewals and embassy educational paperwork.',
+    content: `TO WHOM IT MAY CONCERN
+
+RESIDENTIAL ADDRESS VERIFICATION CERTIFICATE
+
+This document certifies that the enrolled student registered in the Al-Ibaanah Student Residency System holds an authorized accommodation reservation at the Al-Ibaanah Student Residences located in Nasr City, Cairo, Arab Republic of Egypt.
+
+Address of Building:
+Al-Ibaanah Student Housing Facilities,
+Nasr City, Cairo, Egypt.
+
+Contact: admin@alibaanah.com | +20 1030062440
+Authorized Property Management: Al-Ibaanah Housing Administration`,
+    is_published: true,
+    order: 4,
+    created_at: '2026-01-01T00:00:00.000Z',
+    updated_at: '2026-01-01T00:00:00.000Z'
+  }
+];
+
+INITIAL_CMS.studentDocuments = DEFAULT_STUDENT_DOCUMENTS;
 
 const MOCK_ACTIVITIES: Activity[] = [
   { id: 1, user_id: 's1', type: 'booking', description: 'Booked Room 101A (BK1045)', timestamp: new Date(Date.now() - 3600000).toISOString() },
@@ -232,6 +347,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const [credits, setCredits] = useState<CreditRecord[]>([]);
   const [creditTransactions, setCreditTransactions] = useState<CreditTransaction[]>([]);
   const [contractTranslations, setContractTranslations] = useState<ContractTranslationsStore>(DEFAULT_CONTRACT_TRANSLATIONS);
+  const [studentDocuments, setStudentDocuments] = useState<StudentDocument[]>(DEFAULT_STUDENT_DOCUMENTS);
   const isUpdatingSessionRef = useRef(false);
 
   const unreadMessagesCount = useMemo(() => {
@@ -835,8 +951,14 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                 accommodationAddresses: (dbCms.how_to_videos || dbCms.howToVideos)?.accommodationAddresses || dbCms.accommodationAddresses || DEFAULT_ACCOMMODATION_ADDRESSES,
                 accommodationCategories: Array.isArray(cmsCategories) && cmsCategories.length > 0 ? cmsCategories : DEFAULT_ACCOMMODATION_CATEGORIES,
                 supportContent: (dbCms.how_to_videos || dbCms.howToVideos)?.supportContent || dbCms.supportContent || dbCms.support_content || DEFAULT_SUPPORT_CONTENT,
-                contractTranslations: mergedTranslations
+                contractTranslations: mergedTranslations,
+                studentDocuments: (dbCms.how_to_videos || dbCms.howToVideos)?.studentDocuments || dbCms.student_documents || dbCms.studentDocuments || DEFAULT_STUDENT_DOCUMENTS
               });
+
+              const loadedStudentDocs = (dbCms.how_to_videos || dbCms.howToVideos)?.studentDocuments || dbCms.student_documents || dbCms.studentDocuments;
+              if (Array.isArray(loadedStudentDocs) && loadedStudentDocs.length > 0) {
+                setStudentDocuments(loadedStudentDocs);
+              }
 
               if (!hasLoadedCategories && Array.isArray(cmsCategories) && cmsCategories.length > 0) {
                 setAccommodationCategories(cmsCategories);
@@ -1150,6 +1272,9 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         if (content.accommodationCategories) {
           setAccommodationCategories(content.accommodationCategories);
         }
+        if (content.studentDocuments) {
+          setStudentDocuments(content.studentDocuments);
+        }
 
         // Get the property ID (assume the first one for now)
         const { data: propData } = await supabase.from('properties').select('id').limit(1).single();
@@ -1172,7 +1297,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                 announcements: updatedCms.announcements,
                 accommodationAddresses: updatedCms.accommodationAddresses,
                 accommodationCategories: updatedCms.accommodationCategories || accommodationCategories,
-                supportContent: updatedCms.supportContent
+                supportContent: updatedCms.supportContent,
+                studentDocuments: updatedCms.studentDocuments || studentDocuments
             },
             updated_at: new Date().toISOString()
         };
@@ -2787,6 +2913,181 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     }
   };
 
+  const addStudentDocument = async (doc: Omit<StudentDocument, 'id' | 'created_at' | 'updated_at'> & { id?: string }): Promise<{ success: boolean; error?: string; document?: StudentDocument }> => {
+    try {
+      const now = new Date().toISOString();
+      const slugId = doc.id?.trim() || doc.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') || `doc-${Date.now()}`;
+      
+      const newDoc: StudentDocument = {
+        id: slugId,
+        title: doc.title.trim(),
+        category: doc.category?.trim() || 'General',
+        updated: doc.updated?.trim() || 'Active Guide',
+        description: doc.description?.trim() || '',
+        content: doc.content || '',
+        is_published: doc.is_published !== false,
+        order: doc.order !== undefined ? doc.order : (studentDocuments.length + 1),
+        created_at: now,
+        updated_at: now
+      };
+
+      const updatedDocs = [...studentDocuments, newDoc];
+      setStudentDocuments(updatedDocs);
+
+      // Attempt to write to dedicated table if available
+      try {
+        await supabase.from('student_documents').upsert({
+          id: newDoc.id,
+          title: newDoc.title,
+          category: newDoc.category,
+          updated_badge: newDoc.updated,
+          description: newDoc.description,
+          content: newDoc.content,
+          is_published: newDoc.is_published,
+          display_order: newDoc.order,
+          updated_at: now
+        });
+      } catch (tableErr) {
+        // Table might not exist yet; CMS persistence handles it gracefully
+      }
+
+      // Persist to CMS JSON storage
+      const cmsRes = await updateCmsContent({ studentDocuments: updatedDocs });
+      if (!cmsRes.success) {
+        throw new Error(cmsRes.error || "Failed to update CMS storage");
+      }
+
+      if (user) {
+        addActivity({
+          user_id: user.id,
+          type: 'system',
+          description: `Created new student document: "${newDoc.title}" (${newDoc.category}).`,
+          timestamp: now
+        });
+      }
+
+      return { success: true, document: newDoc };
+    } catch (err: any) {
+      console.error("Error creating student document:", err.message);
+      return { success: false, error: err.message };
+    }
+  };
+
+  const updateStudentDocument = async (id: string, updates: Partial<StudentDocument>): Promise<{ success: boolean; error?: string }> => {
+    try {
+      const now = new Date().toISOString();
+      const existingDoc = studentDocuments.find(d => d.id === id);
+      if (!existingDoc) {
+        return { success: false, error: `Document with ID "${id}" not found.` };
+      }
+
+      const updatedDocs = studentDocuments.map(d => {
+        if (d.id === id) {
+          return {
+            ...d,
+            ...updates,
+            updated_at: now
+          };
+        }
+        return d;
+      });
+
+      setStudentDocuments(updatedDocs);
+
+      // Attempt table update if available
+      try {
+        await supabase.from('student_documents').update({
+          title: updates.title !== undefined ? updates.title : existingDoc.title,
+          category: updates.category !== undefined ? updates.category : existingDoc.category,
+          updated_badge: updates.updated !== undefined ? updates.updated : existingDoc.updated,
+          description: updates.description !== undefined ? updates.description : existingDoc.description,
+          content: updates.content !== undefined ? updates.content : existingDoc.content,
+          is_published: updates.is_published !== undefined ? updates.is_published : existingDoc.is_published,
+          display_order: updates.order !== undefined ? updates.order : existingDoc.order,
+          updated_at: now
+        }).eq('id', id);
+      } catch (tableErr) {
+        // Fallback to CMS JSON storage
+      }
+
+      const cmsRes = await updateCmsContent({ studentDocuments: updatedDocs });
+      if (!cmsRes.success) {
+        throw new Error(cmsRes.error || "Failed to update CMS storage");
+      }
+
+      if (user) {
+        addActivity({
+          user_id: user.id,
+          type: 'system',
+          description: `Updated student document: "${updates.title || existingDoc.title}".`,
+          timestamp: now
+        });
+      }
+
+      return { success: true };
+    } catch (err: any) {
+      console.error("Error updating student document:", err.message);
+      return { success: false, error: err.message };
+    }
+  };
+
+  const deleteStudentDocument = async (id: string): Promise<{ success: boolean; error?: string }> => {
+    try {
+      const existingDoc = studentDocuments.find(d => d.id === id);
+      const updatedDocs = studentDocuments.filter(d => d.id !== id);
+      setStudentDocuments(updatedDocs);
+
+      try {
+        await supabase.from('student_documents').delete().eq('id', id);
+      } catch (tableErr) {
+        // Ignore
+      }
+
+      const cmsRes = await updateCmsContent({ studentDocuments: updatedDocs });
+      if (!cmsRes.success) {
+        throw new Error(cmsRes.error || "Failed to update CMS storage");
+      }
+
+      if (user) {
+        addActivity({
+          user_id: user.id,
+          type: 'system',
+          description: `Deleted student document: "${existingDoc?.title || id}".`,
+          timestamp: new Date().toISOString()
+        });
+      }
+
+      return { success: true };
+    } catch (err: any) {
+      console.error("Error deleting student document:", err.message);
+      return { success: false, error: err.message };
+    }
+  };
+
+  const resetStudentDocumentsToDefault = async (): Promise<{ success: boolean; error?: string }> => {
+    try {
+      setStudentDocuments(DEFAULT_STUDENT_DOCUMENTS);
+      const cmsRes = await updateCmsContent({ studentDocuments: DEFAULT_STUDENT_DOCUMENTS });
+      if (!cmsRes.success) {
+        throw new Error(cmsRes.error || "Failed to reset student documents");
+      }
+
+      if (user) {
+        addActivity({
+          user_id: user.id,
+          type: 'system',
+          description: `Reset student documents list to default standard residency guides.`,
+          timestamp: new Date().toISOString()
+        });
+      }
+
+      return { success: true };
+    } catch (err: any) {
+      console.error("Error resetting student documents:", err.message);
+      return { success: false, error: err.message };
+    }
+  };
+
   // Role-based occupancy bookings calculation:
   // For Admin / Staff: uses the full `bookings` array with student names, passport numbers, audit data.
   // For Students / Anonymous visitors: uses strictly the anonymized `publicOccupancy` list from get_public_occupancy() RPC.
@@ -2899,6 +3200,11 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     revertContractTranslationToDraft,
     updateContractTranslation,
     resetContractTranslation,
+    studentDocuments,
+    addStudentDocument,
+    updateStudentDocument,
+    deleteStudentDocument,
+    resetStudentDocumentsToDefault,
     loading,
     landlordDetails: cmsContent.landlordDetails || DEFAULT_LANDLORD_DETAILS,
     accommodationAddresses: cmsContent.accommodationAddresses || DEFAULT_ACCOMMODATION_ADDRESSES,

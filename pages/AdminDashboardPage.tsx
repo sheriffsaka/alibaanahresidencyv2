@@ -26,6 +26,7 @@ import AdminSettingsView from '../components/admin/AdminSettingsView';
 import { EmailLogsView } from '../components/admin/EmailLogsView';
 import { ManageCategoryModal } from '../components/admin/ManageCategoryModal';
 import { ContractTranslationsReviewView } from '../components/admin/ContractTranslationsReviewView';
+import { ManageStudentDocumentsView } from '../components/admin/ManageStudentDocumentsView';
 import { Layers } from 'lucide-react';
 
 // A responsive, accessible SVG Bar Chart component for occupancy metrics
@@ -1824,6 +1825,11 @@ const AdminDashboardPage: React.FC = () => {
           {/* 12. CONTRACT TEMPLATES & LEGAL REVIEW VIEW */}
           {activeSection === 'contracts' && (
             <ContractTranslationsReviewView />
+          )}
+
+          {/* 12B. STUDENT DOCUMENTS MANAGEMENT VIEW */}
+          {activeSection === 'student_documents' && (
+            <ManageStudentDocumentsView />
           )}
 
           {/* 13. FAQS & ANNOUNCEMENTS VIEW */}
