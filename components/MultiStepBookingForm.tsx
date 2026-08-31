@@ -53,7 +53,7 @@ export const CATEGORY_MEDIA: Record<'Standard' | 'Premium 1' | 'Premium 2', {
 
 const MultiStepBookingForm: React.FC = () => {
   const t = useTranslation();
-  const { user, setPage, addBooking, addActivity, rooms, bedSpaces, bookings, effectiveOccupancyBookings, extendingBooking, landlordDetails, cmsContent, accommodationAddresses } = useApp();
+  const { user, setPage, addBooking, addActivity, rooms, bedSpaces, bookings, effectiveOccupancyBookings, extendingBooking, landlordDetails, cmsContent, accommodationAddresses, language, contractTranslations } = useApp();
 
   const parsedAvailabilityData = useMemo(() => {
     // Exclude inactive rooms from student booking options
@@ -1034,6 +1034,8 @@ const MultiStepBookingForm: React.FC = () => {
                     endDate={endDate}
                     signature={signature || undefined}
                     customAddresses={accommodationAddresses}
+                    language={language}
+                    contractTranslations={contractTranslations}
                  />
               </div>
             </div>

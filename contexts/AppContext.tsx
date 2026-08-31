@@ -6,6 +6,7 @@ import { Session } from '@supabase/supabase-js';
 import { sendEmail, fetchRecentEmailLogs } from '../lib/email';
 import { fetchConversationsList, fetchMessages, postMessage, markConversationAsRead as markConvAsRead, getOrCreateStudentConversation } from '../lib/messaging';
 import { getParsedRoomSpaces } from '../lib/roomNaming';
+import { DEFAULT_CONTRACT_TRANSLATIONS, ContractTranslationsStore, LegalContractTranslation } from '../lib/contractTranslations';
 
 export const AppContext = createContext<AppContextType | undefined>(undefined);
 
@@ -192,7 +193,8 @@ export const INITIAL_CMS: CmsContent = {
     ]
   },
   accommodationAddresses: DEFAULT_ACCOMMODATION_ADDRESSES,
-  supportContent: DEFAULT_SUPPORT_CONTENT
+  supportContent: DEFAULT_SUPPORT_CONTENT,
+  contractTranslations: DEFAULT_CONTRACT_TRANSLATIONS
 };
 
 const MOCK_ACTIVITIES: Activity[] = [
@@ -229,6 +231,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const [conversations, setConversations] = useState<ConversationItem[]>([]);
   const [credits, setCredits] = useState<CreditRecord[]>([]);
   const [creditTransactions, setCreditTransactions] = useState<CreditTransaction[]>([]);
+  const [contractTranslations, setContractTranslations] = useState<ContractTranslationsStore>(DEFAULT_CONTRACT_TRANSLATIONS);
   const isUpdatingSessionRef = useRef(false);
 
   const unreadMessagesCount = useMemo(() => {
@@ -620,6 +623,39 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         })
         .subscribe();
 
+    // Real-time subscription for contract translations changes
+    const contractTranslationsChannel = supabase
+        .channel('global-contract-translations-changes')
+        .on('postgres_changes', {
+            event: '*',
+            schema: 'public',
+            table: 'contract_translations'
+        }, async (payload) => {
+            console.log('Real-time contract translation update:', payload);
+            if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
+                const raw = payload.new as any;
+                if (raw && raw.language_code) {
+                    const lang = raw.language_code as Language;
+                    setContractTranslations(prev => {
+                        const existing = prev[lang] || DEFAULT_CONTRACT_TRANSLATIONS[lang];
+                        if (!existing) return prev;
+                        return {
+                            ...prev,
+                            [lang]: {
+                                ...existing,
+                                status: raw.status || existing.status,
+                                approvedAt: raw.approved_at || existing.approvedAt,
+                                approvedBy: raw.approved_by || existing.approvedBy,
+                                version: raw.version || existing.version,
+                                ...(raw.content_json || {})
+                            }
+                        };
+                    });
+                }
+            }
+        })
+        .subscribe();
+
     return () => {
         supabase.removeChannel(bookingsChannel);
         supabase.removeChannel(roomsChannel);
@@ -627,6 +663,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         supabase.removeChannel(waitlistChannel);
         supabase.removeChannel(emailLogsChannel);
         supabase.removeChannel(categoriesChannel);
+        supabase.removeChannel(contractTranslationsChannel);
     };
   }, []);
 
@@ -641,7 +678,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const fetchPublicData = useCallback(async () => {
         try {
             console.log("Fetching public data...");
-            const [roomsRes, bedSpacesRes, bookingsRes, termsRes, packagesRes, cmsRes, activitiesRes, publicOccupancyRes, waitlistRes, categoriesRes] = await Promise.all([
+            const [roomsRes, bedSpacesRes, bookingsRes, termsRes, packagesRes, cmsRes, activitiesRes, publicOccupancyRes, waitlistRes, categoriesRes, contractTranslationsRes] = await Promise.all([
                 safeFetch(supabase.from('rooms').select('*')),
                 safeFetch(supabase.from('bed_spaces').select('*').order('id', { ascending: true })),
                 safeFetch(supabase.from('bookings').select('*, rooms(room_number, type, apartment_name, category), profiles:student_id(full_name)').order('booked_at', { ascending: false })),
@@ -651,7 +688,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                 safeFetch(supabase.from('admin_audit_log').select('*').order('created_at', { ascending: false }).limit(20)),
                 safeFetch(supabase.rpc('get_public_occupancy')),
                 safeFetch(supabase.from('waitlist').select('*, profiles:student_id(full_name, phone_number, nationality)').order('created_at', { ascending: false })),
-                safeFetch(supabase.from('accommodation_categories').select('*').order('display_order', { ascending: true }))
+                safeFetch(supabase.from('accommodation_categories').select('*').order('display_order', { ascending: true })),
+                safeFetch(supabase.from('contract_translations').select('*'))
             ]);
             
             // Accommodation categories table data takes precedence
@@ -743,6 +781,28 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
               const cmsCategories = (dbCms.how_to_videos || dbCms.howToVideos)?.accommodationCategories || dbCms.accommodation_categories || dbCms.accommodationCategories;
 
+              // Merge DB contract translations if available
+              let mergedTranslations: ContractTranslationsStore = { ...DEFAULT_CONTRACT_TRANSLATIONS };
+              if (contractTranslationsRes && !contractTranslationsRes.error && Array.isArray(contractTranslationsRes.data) && contractTranslationsRes.data.length > 0) {
+                contractTranslationsRes.data.forEach((row: any) => {
+                  const langCode = row.language_code as Language;
+                  if (mergedTranslations[langCode]) {
+                    mergedTranslations[langCode] = {
+                      ...mergedTranslations[langCode],
+                      status: (row.status || 'draft') as 'draft' | 'approved',
+                      approvedAt: row.approved_at || undefined,
+                      approvedBy: row.approved_by || undefined,
+                      version: row.version || mergedTranslations[langCode].version,
+                      ...(row.content_json || {})
+                    };
+                  }
+                });
+              } else if (dbCms.contract_translations || (dbCms.how_to_videos || dbCms.howToVideos)?.contractTranslations) {
+                const storedCmsTranslations = dbCms.contract_translations || (dbCms.how_to_videos || dbCms.howToVideos)?.contractTranslations;
+                mergedTranslations = { ...DEFAULT_CONTRACT_TRANSLATIONS, ...storedCmsTranslations };
+              }
+              setContractTranslations(mergedTranslations);
+
               setCmsContent({
                 ...INITIAL_CMS,
                 logoUrl: dbCms.logo_url || dbCms.logoUrl || INITIAL_CMS.logoUrl,
@@ -774,7 +834,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                 landlordDetails: (dbCms.how_to_videos || dbCms.howToVideos)?.landlordDetails || DEFAULT_LANDLORD_DETAILS,
                 accommodationAddresses: (dbCms.how_to_videos || dbCms.howToVideos)?.accommodationAddresses || dbCms.accommodationAddresses || DEFAULT_ACCOMMODATION_ADDRESSES,
                 accommodationCategories: Array.isArray(cmsCategories) && cmsCategories.length > 0 ? cmsCategories : DEFAULT_ACCOMMODATION_CATEGORIES,
-                supportContent: (dbCms.how_to_videos || dbCms.howToVideos)?.supportContent || dbCms.supportContent || dbCms.support_content || DEFAULT_SUPPORT_CONTENT
+                supportContent: (dbCms.how_to_videos || dbCms.howToVideos)?.supportContent || dbCms.supportContent || dbCms.support_content || DEFAULT_SUPPORT_CONTENT,
+                contractTranslations: mergedTranslations
               });
 
               if (!hasLoadedCategories && Array.isArray(cmsCategories) && cmsCategories.length > 0) {
@@ -2496,6 +2557,223 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     }
   };
 
+  const approveContractTranslation = async (lang: Language, approvedByName?: string): Promise<{ success: boolean; error?: string }> => {
+    try {
+      const existing = contractTranslations[lang];
+      if (!existing) return { success: false, error: `Translation for language '${lang}' not found.` };
+      if (lang === 'en') return { success: true }; // English is default
+
+      const now = new Date().toISOString();
+      const updated: LegalContractTranslation = {
+        ...existing,
+        status: 'approved',
+        approvedAt: now,
+        approvedBy: approvedByName || user?.full_name || user?.email || 'Admin',
+        lastUpdated: now
+      };
+
+      const updatedStore: ContractTranslationsStore = {
+        ...contractTranslations,
+        [lang]: updated
+      };
+
+      setContractTranslations(updatedStore);
+
+      // Persist to contract_translations table in Supabase
+      const dbPayload = {
+        language_code: lang,
+        language_name: updated.languageName,
+        native_name: updated.nativeName,
+        direction: updated.direction,
+        status: 'approved',
+        approved_by: user?.id || null,
+        approved_at: now,
+        version: updated.version || 1,
+        content_json: updated,
+        updated_at: now
+      };
+
+      const { error: dbErr } = await supabase
+        .from('contract_translations')
+        .upsert([dbPayload], { onConflict: 'language_code' });
+
+      if (dbErr) {
+        console.warn("Notice updating contract_translations table:", dbErr.message);
+      }
+
+      // Also persist to CMS content for fallback durability
+      await updateCmsContent({ contractTranslations: updatedStore });
+
+      // Admin audit log
+      if (user) {
+        addActivity({
+          user_id: user.id,
+          type: 'system',
+          description: `Approved Tenancy Agreement translation for ${updated.languageName} (${lang.toUpperCase()}). Now live for students.`,
+          timestamp: now
+        });
+      }
+
+      return { success: true };
+    } catch (err: any) {
+      console.error("Error approving contract translation:", err.message);
+      return { success: false, error: err.message };
+    }
+  };
+
+  const revertContractTranslationToDraft = async (lang: Language): Promise<{ success: boolean; error?: string }> => {
+    try {
+      const existing = contractTranslations[lang];
+      if (!existing) return { success: false, error: `Translation for language '${lang}' not found.` };
+      if (lang === 'en') return { success: false, error: "English contract cannot be reverted to draft." };
+
+      const now = new Date().toISOString();
+      const updated: LegalContractTranslation = {
+        ...existing,
+        status: 'draft',
+        approvedAt: undefined,
+        approvedBy: undefined,
+        lastUpdated: now
+      };
+
+      const updatedStore: ContractTranslationsStore = {
+        ...contractTranslations,
+        [lang]: updated
+      };
+
+      setContractTranslations(updatedStore);
+
+      const dbPayload = {
+        language_code: lang,
+        language_name: updated.languageName,
+        native_name: updated.nativeName,
+        direction: updated.direction,
+        status: 'draft',
+        approved_by: null,
+        approved_at: null,
+        version: updated.version || 1,
+        content_json: updated,
+        updated_at: now
+      };
+
+      const { error: dbErr } = await supabase
+        .from('contract_translations')
+        .upsert([dbPayload], { onConflict: 'language_code' });
+
+      if (dbErr) {
+        console.warn("Notice updating contract_translations table:", dbErr.message);
+      }
+
+      await updateCmsContent({ contractTranslations: updatedStore });
+
+      if (user) {
+        addActivity({
+          user_id: user.id,
+          type: 'system',
+          description: `Reverted Tenancy Agreement translation for ${updated.languageName} (${lang.toUpperCase()}) to Draft. Students will receive English contract until re-approved.`,
+          timestamp: now
+        });
+      }
+
+      return { success: true };
+    } catch (err: any) {
+      console.error("Error reverting contract translation to draft:", err.message);
+      return { success: false, error: err.message };
+    }
+  };
+
+  const updateContractTranslation = async (lang: Language, updates: Partial<LegalContractTranslation>): Promise<{ success: boolean; error?: string }> => {
+    try {
+      const existing = contractTranslations[lang];
+      if (!existing) return { success: false, error: `Translation for language '${lang}' not found.` };
+
+      const now = new Date().toISOString();
+      const updated: LegalContractTranslation = {
+        ...existing,
+        ...updates,
+        version: (existing.version || 1) + 1,
+        lastUpdated: now
+      };
+
+      const updatedStore: ContractTranslationsStore = {
+        ...contractTranslations,
+        [lang]: updated
+      };
+
+      setContractTranslations(updatedStore);
+
+      const dbPayload = {
+        language_code: lang,
+        language_name: updated.languageName,
+        native_name: updated.nativeName,
+        direction: updated.direction,
+        status: updated.status,
+        approved_by: updated.status === 'approved' ? (user?.id || null) : null,
+        approved_at: updated.status === 'approved' ? (updated.approvedAt || now) : null,
+        version: updated.version,
+        content_json: updated,
+        updated_at: now
+      };
+
+      const { error: dbErr } = await supabase
+        .from('contract_translations')
+        .upsert([dbPayload], { onConflict: 'language_code' });
+
+      if (dbErr) {
+        console.warn("Notice updating contract_translations table:", dbErr.message);
+      }
+
+      await updateCmsContent({ contractTranslations: updatedStore });
+
+      return { success: true };
+    } catch (err: any) {
+      console.error("Error updating contract translation:", err.message);
+      return { success: false, error: err.message };
+    }
+  };
+
+  const resetContractTranslation = async (lang: Language): Promise<{ success: boolean; error?: string }> => {
+    try {
+      const defaultDraft = DEFAULT_CONTRACT_TRANSLATIONS[lang];
+      if (!defaultDraft) return { success: false, error: `Default translation for '${lang}' not found.` };
+
+      const updatedStore: ContractTranslationsStore = {
+        ...contractTranslations,
+        [lang]: { ...defaultDraft }
+      };
+
+      setContractTranslations(updatedStore);
+
+      const dbPayload = {
+        language_code: lang,
+        language_name: defaultDraft.languageName,
+        native_name: defaultDraft.nativeName,
+        direction: defaultDraft.direction,
+        status: defaultDraft.status,
+        approved_by: null,
+        approved_at: null,
+        version: 1,
+        content_json: defaultDraft,
+        updated_at: new Date().toISOString()
+      };
+
+      const { error: dbErr } = await supabase
+        .from('contract_translations')
+        .upsert([dbPayload], { onConflict: 'language_code' });
+
+      if (dbErr) {
+        console.warn("Notice resetting contract_translations table:", dbErr.message);
+      }
+
+      await updateCmsContent({ contractTranslations: updatedStore });
+
+      return { success: true };
+    } catch (err: any) {
+      console.error("Error resetting contract translation:", err.message);
+      return { success: false, error: err.message };
+    }
+  };
+
   // Role-based occupancy bookings calculation:
   // For Admin / Staff: uses the full `bookings` array with student names, passport numbers, audit data.
   // For Students / Anonymous visitors: uses strictly the anonymized `publicOccupancy` list from get_public_occupancy() RPC.
@@ -2603,6 +2881,11 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     refreshCredits,
     addCredit,
     executeCreditUsage,
+    contractTranslations,
+    approveContractTranslation,
+    revertContractTranslationToDraft,
+    updateContractTranslation,
+    resetContractTranslation,
     loading,
     landlordDetails: cmsContent.landlordDetails || DEFAULT_LANDLORD_DETAILS,
     accommodationAddresses: cmsContent.accommodationAddresses || DEFAULT_ACCOMMODATION_ADDRESSES,

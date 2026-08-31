@@ -25,6 +25,7 @@ import ReviewsRatingsView from '../components/admin/ReviewsRatingsView';
 import AdminSettingsView from '../components/admin/AdminSettingsView';
 import { EmailLogsView } from '../components/admin/EmailLogsView';
 import { ManageCategoryModal } from '../components/admin/ManageCategoryModal';
+import { ContractTranslationsReviewView } from '../components/admin/ContractTranslationsReviewView';
 import { Layers } from 'lucide-react';
 
 // A responsive, accessible SVG Bar Chart component for occupancy metrics
@@ -1820,64 +1821,9 @@ const AdminDashboardPage: React.FC = () => {
             </div>
           )}
 
-          {/* 12. CONTRACT TEMPLATES VIEW */}
+          {/* 12. CONTRACT TEMPLATES & LEGAL REVIEW VIEW */}
           {activeSection === 'contracts' && (
-            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-6 border border-gray-100 dark:border-gray-700 space-y-6">
-              <div className="flex items-center justify-between mb-6">
-                <div className="flex items-center">
-                  <IconEdit className="w-6 h-6 text-purple-600 mr-2" />
-                  <h2 className="text-xl font-bold">Contract Templates</h2>
-                </div>
-                <button 
-                  onClick={() => setEditingContract({ roomType: AccommodationType.STANDARD_SHARED, lang: 'en' })}
-                  className="bg-brand-600 text-white px-4 py-2 rounded-lg text-xs font-bold"
-                >
-                  + Add/Edit Template
-                </button>
-              </div>
-              
-              <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-                  <thead className="bg-gray-50 dark:bg-gray-900">
-                    <tr>
-                      <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase">Room Type</th>
-                      <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase">Languages</th>
-                      <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
-                    {Object.values(AccommodationType).map(type => (
-                      <tr key={type}>
-                        <td className="px-6 py-4 font-bold text-sm">{type}</td>
-                        <td className="px-6 py-4">
-                          <div className="flex gap-2">
-                            {['en', 'fr', 'ru', 'ar', 'uz', 'zh'].map(lang => {
-                              const exists = cmsContent.contractTemplates[type]?.[lang as Language];
-                              return (
-                                <span 
-                                  key={lang} 
-                                  className={`px-2 py-1 rounded text-[10px] font-bold uppercase ${exists ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-400'}`}
-                                >
-                                  {lang}
-                                </span>
-                              );
-                            })}
-                          </div>
-                        </td>
-                        <td className="px-6 py-4">
-                          <button 
-                            onClick={() => setEditingContract({ roomType: type, lang: 'en' })}
-                            className="text-brand-600 text-xs font-bold underline"
-                          >
-                            Manage
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
+            <ContractTranslationsReviewView />
           )}
 
           {/* 13. FAQS & ANNOUNCEMENTS VIEW */}

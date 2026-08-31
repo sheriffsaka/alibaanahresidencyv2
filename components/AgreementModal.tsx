@@ -15,7 +15,7 @@ interface AgreementModalProps {
 }
 
 const AgreementModal: React.FC<AgreementModalProps> = ({ booking, onSign, onClose, isReadOnly = false }) => {
-  const { accommodationAddresses } = useApp();
+  const { accommodationAddresses, language, contractTranslations } = useApp();
   const [signature, setSignature] = useState<string | null>(booking.signature_data || null);
   const sigPadRef = useRef<SignaturePad>(null);
   const agreementRef = useRef<HTMLDivElement>(null);
@@ -75,6 +75,8 @@ const AgreementModal: React.FC<AgreementModalProps> = ({ booking, onSign, onClos
                 endDate={booking.end_date}
                 signature={signature || undefined}
                 customAddresses={accommodationAddresses}
+                language={language}
+                contractTranslations={contractTranslations}
               />
            </div>
         </div>

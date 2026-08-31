@@ -388,6 +388,7 @@ export interface CmsContent {
   accommodationAddresses?: AccommodationAddresses;
   accommodationCategories?: AccommodationCategory[];
   supportContent?: SupportPageContent;
+  contractTranslations?: any;
 }
 
 export interface AppContextType {
@@ -489,6 +490,11 @@ export interface AppContextType {
     dateUsed?: string;
     purposeNotes?: string;
   }) => Promise<{ success: boolean; error?: string; remainingBalance?: number; transaction?: CreditTransaction }>;
+  contractTranslations: any;
+  approveContractTranslation: (lang: Language, approvedByName?: string) => Promise<{ success: boolean; error?: string }>;
+  revertContractTranslationToDraft: (lang: Language) => Promise<{ success: boolean; error?: string }>;
+  updateContractTranslation: (lang: Language, updates: any) => Promise<{ success: boolean; error?: string }>;
+  resetContractTranslation: (lang: Language) => Promise<{ success: boolean; error?: string }>;
 }
 
 export interface ChatMessage {
