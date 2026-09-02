@@ -15,11 +15,11 @@ export const DEFAULT_ROOMS: Room[] = [
   {
     id: 1,
     property_id: 'prop_1',
-    room_number: 'Room 1 A',
-    type: AccommodationType.STANDARD_SHARED,
-    apartment_name: 'Standard',
-    category: 'Standard',
-    price_per_month: 250,
+    room_number: 'P3-R1',
+    type: AccommodationType.PREMIUM_SHARED,
+    apartment_name: 'Premium 3',
+    category: 'Premium',
+    price_per_month: 350,
     capacity: 2,
     occupied_slots: 0,
     amenities: ['High-speed Wi-Fi', 'Air Conditioning', 'Study Desk'],
@@ -32,11 +32,11 @@ export const DEFAULT_ROOMS: Room[] = [
   {
     id: 2,
     property_id: 'prop_1',
-    room_number: 'Room 2',
-    type: AccommodationType.STANDARD_PRIVATE,
-    apartment_name: 'Standard',
-    category: 'Standard',
-    price_per_month: 300,
+    room_number: 'P3-R2',
+    type: AccommodationType.PREMIUM_PRIVATE,
+    apartment_name: 'Premium 3',
+    category: 'Premium',
+    price_per_month: 400,
     capacity: 1,
     occupied_slots: 0,
     amenities: ['High-speed Wi-Fi', 'Air Conditioning', 'Private Desk'],
@@ -1794,7 +1794,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         );
 
         if (hasCollision || targetRoomNum.includes('-')) {
-            updateData.room_number = generateUnitCode(updatedRoom.apartment_name || updatedRoom.category || 'Standard', rDigit, accommodationCategories);
+            updateData.room_number = generateUnitCode(updatedRoom.apartment_name || updatedRoom.category || (accommodationCategories[0]?.name || 'Premium 3'), rDigit, accommodationCategories);
         } else if (!targetRoomNum.toLowerCase().startsWith('room')) {
             updateData.room_number = `Room ${rDigit}`;
         }

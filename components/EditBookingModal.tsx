@@ -49,8 +49,8 @@ export const EditBookingModal: React.FC<EditBookingModalProps> = ({
     passport_number: '',
     expected_arrival_date: '',
     duration_of_stay: '',
-    category: 'Standard' as string,
-    selectedSpaceId: 'std_r1_a',
+    category: 'Premium 1' as string,
+    selectedSpaceId: 'p1_r1_a',
     roomName: 'Room 1',
     bedSpaceName: 'Bed A',
     roomType: 'Shared' as 'Shared' | 'Private',
@@ -294,9 +294,9 @@ export const EditBookingModal: React.FC<EditBookingModalProps> = ({
         editFormData.bedSpaceName
       );
 
-      const prefAccommodation = (editFormData.category.startsWith('Premium') 
-        ? (editFormData.roomType === 'Private' ? 'Premium Private' : 'Premium Shared')
-        : (editFormData.roomType === 'Private' ? 'Standard Private' : 'Standard Shared')) as AccommodationType;
+      const prefAccommodation = (editFormData.roomType === 'Private'
+        ? `${editFormData.category} Private`
+        : `${editFormData.category} Shared`) as AccommodationType;
 
       const updatedPayload: Partial<Booking> = {
         full_name: editFormData.full_name,
@@ -317,7 +317,7 @@ export const EditBookingModal: React.FC<EditBookingModalProps> = ({
           room_number: unifiedRoomName,
           type: prefAccommodation,
           apartment_name: `Apartment ${editFormData.category}`,
-          category: editFormData.category.startsWith('Premium') ? 'Premium' : 'Standard'
+          category: editFormData.category
         }
       };
 

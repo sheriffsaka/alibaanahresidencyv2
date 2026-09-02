@@ -246,8 +246,8 @@ export const ContractTranslationsReviewView: React.FC = () => {
     homeAddress: 'Flat 4B, 12 Al-Nasr Road, Nasr City, Cairo',
     whatsappNumber: '+20 100 123 4567',
     email: 'abdullah.student@example.com',
-    category: 'Standard',
-    roomName: 'Standard Room A',
+    category: 'Premium 1',
+    roomName: 'Room 1',
     bedSpaceName: 'Bed 1',
     duration: '2 Months',
   };

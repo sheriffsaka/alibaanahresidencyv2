@@ -299,7 +299,7 @@ export const zh = {
   dash_filter_all: '全部',
   dash_filter_premium1: '高级 1 型 (Premium 1)',
   dash_filter_premium2: '高级 2 型 (Premium 2)',
-  dash_filter_standard: '标准型 (Standard)',
+  dash_filter_standard: '高级 3 型 (Premium 3)',
   dash_badge_occupied: '已入住',
   dash_badge_vacant: '空闲',
   dash_card_bed_space: '床位：',

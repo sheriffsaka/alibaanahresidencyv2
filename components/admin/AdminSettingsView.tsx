@@ -22,7 +22,7 @@ export const AdminSettingsView: React.FC = () => {
     autoHoldWaitlistDays: 3,
     premium1Address: cmsContent?.accommodationAddresses?.['Premium 1'] || DEFAULT_ACCOMMODATION_ADDRESSES['Premium 1'],
     premium2Address: cmsContent?.accommodationAddresses?.['Premium 2'] || DEFAULT_ACCOMMODATION_ADDRESSES['Premium 2'],
-    standardAddress: cmsContent?.accommodationAddresses?.['Standard'] || DEFAULT_ACCOMMODATION_ADDRESSES['Standard'],
+    premium3Address: cmsContent?.accommodationAddresses?.['Premium 3'] || cmsContent?.accommodationAddresses?.['Standard'] || DEFAULT_ACCOMMODATION_ADDRESSES['Premium 3'] || DEFAULT_ACCOMMODATION_ADDRESSES['Standard'],
     supportTitle: cmsContent?.supportContent?.title || DEFAULT_SUPPORT_CONTENT.title || 'Al-Ibaanah Student Support & Help Desk',
     supportSubtitle: cmsContent?.supportContent?.subtitle || DEFAULT_SUPPORT_CONTENT.subtitle || 'We are here to assist with your student residency, inquiries, tenancy agreements, and stay in Cairo.',
     supportEmail: cmsContent?.supportContent?.contactEmail || DEFAULT_SUPPORT_CONTENT.contactEmail || 'al.ibaanah.housing4brothers@gmail.com',
@@ -49,7 +49,8 @@ export const AdminSettingsView: React.FC = () => {
         accommodationAddresses: {
           'Premium 1': settingsForm.premium1Address,
           'Premium 2': settingsForm.premium2Address,
-          'Standard': settingsForm.standardAddress,
+          'Premium 3': settingsForm.premium3Address,
+          'Standard': settingsForm.premium3Address,
         },
         supportContent: {
           title: settingsForm.supportTitle,
@@ -301,14 +302,14 @@ export const AdminSettingsView: React.FC = () => {
 
                 <div>
                   <label className="block text-xs font-bold text-gray-500 uppercase mb-1.5">
-                    Standard Apartment Physical Address
+                    Premium 3 Apartment Physical Address
                   </label>
                   <input
                     type="text"
-                    value={settingsForm.standardAddress}
-                    onChange={(e) => setSettingsForm(prev => ({ ...prev, standardAddress: e.target.value }))}
+                    value={settingsForm.premium3Address}
+                    onChange={(e) => setSettingsForm(prev => ({ ...prev, premium3Address: e.target.value }))}
                     className="w-full text-xs p-3 border rounded-xl dark:bg-gray-700 dark:border-gray-600 font-medium text-gray-800 dark:text-gray-100"
-                    placeholder="e.g. Building 22, Dr. Mostafa El-Nahas St, 8th Zone, Nasr City, Cairo, Egypt"
+                    placeholder="e.g. 24 Saqaliyyah Street, Off Kaabool, Makram Ebeid, Nasr City, Cairo, Egypt"
                   />
                 </div>
               </div>

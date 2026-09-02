@@ -8,7 +8,7 @@ interface Testimonial {
   country: string;
   flag: string;
   course: string;
-  roomCategory: 'Standard' | 'Premium 1' | 'Premium 2';
+  roomCategory: string;
   roomType: 'Shared' | 'Private';
   stayDuration: string;
   rating: number;
@@ -52,7 +52,7 @@ const TESTIMONIALS_DATA: Testimonial[] = [
     country: 'France',
     flag: '🇫🇷',
     course: 'Islamic Studies & Tajweed',
-    roomCategory: 'Standard',
+    roomCategory: 'Premium 3',
     roomType: 'Shared',
     stayDuration: '1 Academic Year',
     rating: 5,
@@ -77,14 +77,24 @@ const TESTIMONIALS_DATA: Testimonial[] = [
 ];
 
 const Testimonials: React.FC = () => {
-  const { language } = useApp();
-  const [filter, setFilter] = useState<'All' | 'Standard' | 'Premium 1' | 'Premium 2'>('All');
+  const { language, accommodationCategories } = useApp();
+  const [filter, setFilter] = useState<string>('All');
 
   const isArabic = language === 'ar';
 
+  const filterCategories = React.useMemo(() => {
+    const cats = new Set<string>(['All']);
+    if (accommodationCategories && accommodationCategories.length > 0) {
+      accommodationCategories.filter(c => c.status !== 'Inactive').forEach(c => cats.add(c.name));
+    } else {
+      ['Premium 1', 'Premium 2', 'Premium 3'].forEach(c => cats.add(c));
+    }
+    return Array.from(cats);
+  }, [accommodationCategories]);
+
   const filteredTestimonials = filter === 'All'
     ? TESTIMONIALS_DATA
-    : TESTIMONIALS_DATA.filter(t => t.roomCategory === filter);
+    : TESTIMONIALS_DATA.filter(t => t.roomCategory.toLowerCase() === filter.toLowerCase());
 
   return (
     <div className="space-y-8 animate-fade-in text-start">
@@ -104,7 +114,7 @@ const Testimonials: React.FC = () => {
 
         {/* Filter Pills */}
         <div className="flex flex-wrap items-center justify-center gap-2 pt-2">
-          {(['All', 'Premium 1', 'Premium 2', 'Standard'] as const).map(cat => (
+          {filterCategories.map(cat => (
             <button
               key={cat}
               onClick={() => setFilter(cat)}

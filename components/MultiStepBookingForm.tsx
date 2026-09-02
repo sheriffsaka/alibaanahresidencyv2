@@ -20,7 +20,7 @@ import { ALL_ROOM_SPACES, BED_SPACE_TO_ID_MAP, getUnifiedRoomName, getParsedRoom
 import JoinWaitlistModal from './JoinWaitlistModal';
 
 // Swappable media assets (images, tour videos, and features) for each student accommodation category.
-export const CATEGORY_MEDIA: Record<'Standard' | 'Premium 1' | 'Premium 2', {
+export const CATEGORY_MEDIA: Record<string, {
   videoUrl: string;
   images: string[];
   features: string[];
@@ -41,8 +41,23 @@ export const CATEGORY_MEDIA: Record<'Standard' | 'Premium 1' | 'Premium 2', {
     ],
     features: ['Premium Suite features', 'Modern kitchen accessibility', 'Spacious study areas', 'In-room high capacity AC', 'Dedicated Resident Lounge Area', 'Weekly student helper laundry cleaning']
   },
-  'Standard': {
+  'Premium 3': {
     videoUrl: 'https://www.youtube.com/embed/dQw4w9WgXcQ', // Embed YouTube or Vimeo video ID
+    images: [
+      'https://res.cloudinary.com/di7okmjsx/image/upload/v1770388212/shared_bathroom1_hlxjdg.jpg',
+      'https://res.cloudinary.com/di7okmjsx/image/upload/v1770388212/single_room2_zhd9uo.jpg'
+    ],
+    features: ['Shared bathroom area', 'High-speed student Wi-Fi', 'Air conditioning unit', 'Fully furnished student kitchen', 'Automatic washing machine access', 'Tranquil student community focus']
+  },
+  'Premium 4': {
+    videoUrl: 'https://www.youtube.com/embed/dQw4w9WgXcQ',
+    images: [
+      'https://res.cloudinary.com/di7okmjsx/image/upload/v1770388212/Suite2_q62y4w.jpg'
+    ],
+    features: ['Fully Air-Conditioned', 'High-speed student Wi-Fi', 'Dedicated study desk', 'Modern furnishings']
+  },
+  'Standard': {
+    videoUrl: 'https://www.youtube.com/embed/dQw4w9WgXcQ',
     images: [
       'https://res.cloudinary.com/di7okmjsx/image/upload/v1770388212/shared_bathroom1_hlxjdg.jpg',
       'https://res.cloudinary.com/di7okmjsx/image/upload/v1770388212/single_room2_zhd9uo.jpg'
@@ -53,34 +68,43 @@ export const CATEGORY_MEDIA: Record<'Standard' | 'Premium 1' | 'Premium 2', {
 
 const MultiStepBookingForm: React.FC = () => {
   const t = useTranslation();
-  const { user, setPage, addBooking, addActivity, rooms, bedSpaces, bookings, effectiveOccupancyBookings, extendingBooking, landlordDetails, cmsContent, accommodationAddresses, language, contractTranslations } = useApp();
+  const { user, setPage, addBooking, addActivity, rooms, bedSpaces, bookings, effectiveOccupancyBookings, extendingBooking, landlordDetails, cmsContent, accommodationAddresses, language, contractTranslations, accommodationCategories } = useApp();
+
+  const availableCategories = useMemo(() => {
+    if (accommodationCategories && accommodationCategories.length > 0) {
+      const active = accommodationCategories.filter(c => c.status !== 'Inactive').map(c => c.name);
+      if (active.length > 0) return active;
+    }
+    return ['Premium 1', 'Premium 2', 'Premium 3'];
+  }, [accommodationCategories]);
 
   const parsedAvailabilityData = useMemo(() => {
     // Exclude inactive rooms from student booking options
-    return getParsedRoomSpaces(rooms, effectiveOccupancyBookings, bedSpaces, { includeInactive: false });
-  }, [effectiveOccupancyBookings, rooms, bedSpaces]);
+    return getParsedRoomSpaces(rooms, effectiveOccupancyBookings, bedSpaces, { includeInactive: false }, accommodationCategories);
+  }, [effectiveOccupancyBookings, rooms, bedSpaces, accommodationCategories]);
 
   const accommodationsSelection = useMemo(() => {
-    const map: Record<string, Array<{ id: string; room: string; space: string; type: 'Shared' | 'Private'; label: string }>> = {
-      'Premium 1': [],
-      'Premium 2': [],
-      'Standard': []
-    };
+    const map: Record<string, Array<{ id: string; room: string; space: string; type: 'Shared' | 'Private'; label: string }>> = {};
     
-    parsedAvailabilityData.forEach(item => {
-      if (map[item.category]) {
-        map[item.category].push({
-          id: item.id,
-          room: item.roomName,
-          space: item.bedSpaceName,
-          type: item.type,
-          label: item.displayName
-        });
-      }
+    availableCategories.forEach(cat => {
+      map[cat] = [];
     });
 
-    (['Premium 1', 'Premium 2', 'Standard'] as const).forEach(cat => {
-      if (map[cat].length === 0) {
+    parsedAvailabilityData.forEach(item => {
+      if (!map[item.category]) {
+        map[item.category] = [];
+      }
+      map[item.category].push({
+        id: item.id,
+        room: item.roomName,
+        space: item.bedSpaceName,
+        type: item.type,
+        label: item.displayName
+      });
+    });
+
+    availableCategories.forEach(cat => {
+      if (!map[cat] || map[cat].length === 0) {
         map[cat] = ALL_ROOM_SPACES.filter(r => r.category === cat).map(r => ({
           id: r.id,
           room: r.roomName,
@@ -92,11 +116,11 @@ const MultiStepBookingForm: React.FC = () => {
     });
 
     return map;
-  }, [parsedAvailabilityData]);
+  }, [parsedAvailabilityData, availableCategories]);
   
   const [step, setStep] = useState(1);
   const [formData, setFormData] = useState({
-    category: 'Premium 1' as 'Standard' | 'Premium 1' | 'Premium 2',
+    category: 'Premium 1' as string,
     selectedRoomId: 'p1_r1_a', // default to first option
     roomName: 'Room 1',
     bedSpaceName: 'Bed A',
@@ -117,7 +141,7 @@ const MultiStepBookingForm: React.FC = () => {
   const [signature, setSignature] = useState<string | null>(null);
   const [confirmPaymentTab, setConfirmPaymentTab] = useState<'bank' | 'remitly'>('bank');
   const [isWaitlistModalOpen, setIsWaitlistModalOpen] = useState(false);
-  const [waitlistCategory, setWaitlistCategory] = useState<'Standard' | 'Premium 1' | 'Premium 2'>('Standard');
+  const [waitlistCategory, setWaitlistCategory] = useState<string>('Premium 1');
   const [waitlistType, setWaitlistType] = useState<'Shared' | 'Private'>('Shared');
   const [waitlistSpaceLabel, setWaitlistSpaceLabel] = useState<string | undefined>(undefined);
   
@@ -174,7 +198,7 @@ const MultiStepBookingForm: React.FC = () => {
   }, [user, bookings, extendingBooking, todayStr]);
 
   // Sync Category change with preselecting room (pre-selecting first available)
-  const handleCategoryChange = (cat: 'Standard' | 'Premium 1' | 'Premium 2') => {
+  const handleCategoryChange = (cat: string) => {
     const list = accommodationsSelection[cat];
     if (list && list.length > 0) {
       const availableItem = list.find(item => {
@@ -192,6 +216,11 @@ const MultiStepBookingForm: React.FC = () => {
         roomName: availableItem.room,
         bedSpaceName: availableItem.space,
         roomType: availableItem.type,
+      }));
+    } else {
+      setFormData(prev => ({
+        ...prev,
+        category: cat,
       }));
     }
   };
@@ -270,8 +299,8 @@ const MultiStepBookingForm: React.FC = () => {
     if (extendingBooking && parsedAvailabilityData.length > 0) {
       const mySpace = parsedAvailabilityData.find(s => s.booking?.id === extendingBooking.id);
       if (mySpace) {
-        let foundCat: 'Standard' | 'Premium 1' | 'Premium 2' = 'Premium 1';
-        for (const cat of ['Premium 1', 'Premium 2', 'Standard'] as const) {
+        let foundCat: string = availableCategories[0] || 'Premium 1';
+        for (const cat of availableCategories) {
           if (accommodationsSelection[cat]?.some(item => item.id === mySpace.id)) {
             foundCat = cat;
             break;
@@ -291,7 +320,7 @@ const MultiStepBookingForm: React.FC = () => {
         }
       }
     }
-  }, [extendingBooking, parsedAvailabilityData, accommodationsSelection]);
+  }, [extendingBooking, parsedAvailabilityData, accommodationsSelection, availableCategories]);
 
   // Navigation handlers: seamlessly skip Step 3 if extending existing lease
   const nextStep = () => {
@@ -481,7 +510,7 @@ const MultiStepBookingForm: React.FC = () => {
     return parsedAvailabilityData.filter(s => s.category === formData.category);
   }, [parsedAvailabilityData, formData.category]);
 
-  const activeCategoryBedsCount = categorySpaces.length > 0 ? categorySpaces.length : (formData.category === 'Standard' ? 7 : 4);
+  const activeCategoryBedsCount = categorySpaces.length > 0 ? categorySpaces.length : 4;
   const currentOccupied = categorySpaces.filter(s => {
     const bookingForSpace = s.booking;
     return s.isOccupied && (!extendingBooking || bookingForSpace?.id !== extendingBooking.id);
@@ -538,23 +567,27 @@ const MultiStepBookingForm: React.FC = () => {
             </div>
 
             {/* Category selection */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              {['Premium 1', 'Premium 2', 'Standard'].map(cat => (
-                <button
-                  key={cat}
-                  onClick={() => handleCategoryChange(cat as any)}
-                  className={`p-5 rounded-2xl border-2 transition-all text-center ${
-                    formData.category === cat 
-                      ? 'border-brand-600 bg-brand-50/50 dark:bg-brand-900/10 ring-4 ring-brand-500/10' 
-                      : 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800'
-                  }`}
-                >
-                  <span className="block font-black text-base text-gray-900 dark:text-white uppercase tracking-wider">{cat}</span>
-                  <span className="text-xs text-brand-600 dark:text-brand-400 font-bold mt-1 block">
-                    {cat === 'Standard' ? (t.pricePerMonth?.replace('{price}', '$150') || 'From $150/mo') : (t.pricePerMonth?.replace('{price}', '$175') || 'From $175/mo')}
-                  </span>
-                </button>
-              ))}
+            <div className={`grid grid-cols-1 md:grid-cols-${Math.min(availableCategories.length, 4)} gap-4`}>
+              {availableCategories.map(cat => {
+                const catObj = accommodationCategories?.find(c => c.name.toLowerCase() === cat.toLowerCase() || c.id.toLowerCase() === cat.toLowerCase());
+                const price = catObj?.defaultPrice || 175;
+                return (
+                  <button
+                    key={cat}
+                    onClick={() => handleCategoryChange(cat)}
+                    className={`p-5 rounded-2xl border-2 transition-all text-center ${
+                      formData.category === cat 
+                        ? 'border-brand-600 bg-brand-50/50 dark:bg-brand-900/10 ring-4 ring-brand-500/10' 
+                        : 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800'
+                    }`}
+                  >
+                    <span className="block font-black text-base text-gray-900 dark:text-white uppercase tracking-wider">{cat}</span>
+                    <span className="text-xs text-brand-600 dark:text-brand-400 font-bold mt-1 block">
+                      {t.pricePerMonth?.replace('{price}', `$${price}`) || `From $${price}/mo`}
+                    </span>
+                  </button>
+                );
+              })}
             </div>
 
             {/* Room choice & Bed selection for selected category */}
@@ -701,7 +734,10 @@ const MultiStepBookingForm: React.FC = () => {
 
       case 2: // Apartment features, pricing, Shared vs Private selection
         {
-          const media = cmsContent?.categoryMedia?.[formData.category] || CATEGORY_MEDIA[formData.category];
+          const media = cmsContent?.categoryMedia?.[formData.category] || 
+                        CATEGORY_MEDIA[formData.category] || 
+                        CATEGORY_MEDIA['Premium 1'] || 
+                        { videoUrl: '', images: [], features: [] };
           
           let videoUrl = media.videoUrl;
           if (selectedSupabaseRoom?.video_urls && selectedSupabaseRoom.video_urls.length > 0) {

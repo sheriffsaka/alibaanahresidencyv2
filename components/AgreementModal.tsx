@@ -39,7 +39,7 @@ const AgreementModal: React.FC<AgreementModalProps> = ({ booking, onSign, onClos
     homeAddress: booking.address_in_egypt,
     whatsappNumber: booking.phone_number,
     email: booking.email,
-    category: booking.rooms?.category || (booking.preferred_accommodation?.toLowerCase().includes('premium') ? 'Premium' : 'Standard'),
+    category: booking.rooms?.category || booking.preferred_accommodation || 'Premium 1',
     apartment: booking.rooms?.apartment_name || '',
     roomType: booking.rooms?.type || booking.preferred_accommodation,
     duration: booking.duration_of_stay?.split(' ')[0],

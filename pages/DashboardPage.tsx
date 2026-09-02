@@ -28,12 +28,12 @@ const DashboardPage: React.FC = () => {
   const [selectedFilterCategory, setSelectedFilterCategory] = useState<string>('All');
   const [waitlistModalConfig, setWaitlistModalConfig] = useState<{
     isOpen: boolean;
-    category: 'Standard' | 'Premium 1' | 'Premium 2';
+    category: string;
     type: 'Shared' | 'Private';
     spaceLabel?: string;
   }>({
     isOpen: false,
-    category: 'Standard',
+    category: 'Premium 1',
     type: 'Shared',
   });
   

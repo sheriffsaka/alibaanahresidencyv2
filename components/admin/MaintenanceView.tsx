@@ -60,7 +60,7 @@ export const MaintenanceView: React.FC<MaintenanceViewProps> = ({ rooms = [], be
   const [searchQuery, setSearchQuery] = useState('');
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [newTicket, setNewTicket] = useState({
-    room_number: dynamicSpaces[0]?.displayName || rooms[0]?.room_number || 'Standard, Room 1, Bed Space: Bed A',
+    room_number: dynamicSpaces[0]?.displayName || rooms[0]?.room_number || 'Premium 1, Room 1, Bed Space: Bed A',
     category: 'Air Conditioning' as MaintenanceTicket['category'],
     title: '',
     description: '',

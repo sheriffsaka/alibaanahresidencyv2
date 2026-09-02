@@ -59,7 +59,7 @@ export const RoomEditorModal: React.FC<RoomEditorModalProps> = ({ room, onClose,
   // Helper to parse existing room details or setup defaults
   const getInitialValues = () => {
     if (!room) {
-      const defaultCategory = accommodationCategories[0]?.name || 'Standard';
+      const defaultCategory = accommodationCategories[0]?.name || 'Premium 1';
       const categoryObj = accommodationCategories.find(c => c.name === defaultCategory);
       return {
         category: defaultCategory,
@@ -77,7 +77,7 @@ export const RoomEditorModal: React.FC<RoomEditorModalProps> = ({ room, onClose,
     }
 
     // Determine category
-    let category = room.apartment_name || room.category || 'Standard';
+    let category = room.apartment_name || room.category || accommodationCategories[0]?.name || 'Premium 1';
     // Match against known categories
     const matchedCategory = accommodationCategories.find(
       c => c.name.toLowerCase() === category.toLowerCase() || category.includes(c.name)

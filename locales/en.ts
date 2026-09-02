@@ -299,7 +299,7 @@ export const en = {
   dash_filter_all: 'All',
   dash_filter_premium1: 'Premium 1',
   dash_filter_premium2: 'Premium 2',
-  dash_filter_standard: 'Standard',
+  dash_filter_standard: 'Premium 3',
   dash_badge_occupied: 'Occupied',
   dash_badge_vacant: 'Vacant',
   dash_card_bed_space: 'Bed Space:',

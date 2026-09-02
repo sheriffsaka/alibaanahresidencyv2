@@ -378,7 +378,7 @@ const AdminDashboardPage: React.FC = () => {
 
   const [editingContract, setEditingContract] = useState<{ roomType: AccommodationType; lang: Language } | null>(null);
   const [isUploadingCms, setIsUploadingCms] = useState(false);
-  const [activeCategoryConfig, setActiveCategoryConfig] = useState<string>('Standard');
+  const [activeCategoryConfig, setActiveCategoryConfig] = useState<string>('Premium 1');
 
   // Transactions tab search & filter
   const [trxSearchQuery, setTrxSearchQuery] = useState('');
@@ -409,8 +409,9 @@ const AdminDashboardPage: React.FC = () => {
       const cat = (r.apartment_name || r.category || '').toLowerCase();
       if (cat.includes('premium 1')) return 1;
       if (cat.includes('premium 2')) return 2;
-      if (cat.includes('standard')) return 3;
-      return 4;
+      if (cat.includes('premium 3') || cat.includes('standard')) return 3;
+      if (cat.includes('premium 4')) return 4;
+      return 5;
     };
 
     return [...rooms].sort((a, b) => {
@@ -1812,7 +1813,7 @@ const AdminDashboardPage: React.FC = () => {
 
                   <div className="p-6 bg-white dark:bg-gray-800">
                     <CategoryMediaEditor 
-                      category={activeCategoryConfig || (accommodationCategories[0]?.name || 'Standard')} 
+                      category={activeCategoryConfig || (accommodationCategories[0]?.name || 'Premium 1')} 
                       cmsContent={cmsContent} 
                       updateCmsContent={updateCmsContent} 
                     />

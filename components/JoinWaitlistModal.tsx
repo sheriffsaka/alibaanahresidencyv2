@@ -7,7 +7,7 @@ import { WaitlistEntry } from '../types';
 interface JoinWaitlistModalProps {
   isOpen: boolean;
   onClose: () => void;
-  initialCategory?: 'Standard' | 'Premium 1' | 'Premium 2';
+  initialCategory?: string;
   initialType?: 'Shared' | 'Private';
   initialRoomId?: number | null;
   initialBedSpaceId?: number | null;
@@ -17,16 +17,24 @@ interface JoinWaitlistModalProps {
 export const JoinWaitlistModal: React.FC<JoinWaitlistModalProps> = ({
   isOpen,
   onClose,
-  initialCategory = 'Standard',
+  initialCategory = 'Premium 1',
   initialType = 'Shared',
   initialRoomId = null,
   initialBedSpaceId = null,
   initialSpaceLabel
 }) => {
-  const { user, addToWaitlist, academicTerms } = useApp();
+  const { user, addToWaitlist, academicTerms, accommodationCategories } = useApp();
   const t = useTranslation();
 
-  const [category, setCategory] = useState<'Standard' | 'Premium 1' | 'Premium 2'>(initialCategory);
+  const availableCategories = React.useMemo(() => {
+    if (accommodationCategories && accommodationCategories.length > 0) {
+      const active = accommodationCategories.filter(c => c.status !== 'Inactive').map(c => c.name);
+      if (active.length > 0) return active;
+    }
+    return ['Premium 1', 'Premium 2', 'Premium 3'];
+  }, [accommodationCategories]);
+
+  const [category, setCategory] = useState<string>(initialCategory);
   const [accommodationType, setAccommodationType] = useState<'Shared' | 'Private'>(initialType);
   const [durationMonths, setDurationMonths] = useState<number>(6);
   const [fullName, setFullName] = useState<string>('');
@@ -163,12 +171,12 @@ export const JoinWaitlistModal: React.FC<JoinWaitlistModalProps> = ({
                   </label>
                   <select
                     value={category}
-                    onChange={(e) => setCategory(e.target.value as any)}
+                    onChange={(e) => setCategory(e.target.value)}
                     className="w-full px-3 py-2.5 text-sm font-semibold border rounded-xl bg-gray-50 dark:bg-gray-700 dark:border-gray-600 text-gray-900 dark:text-white focus:ring-2 focus:ring-brand-500"
                   >
-                    <option value="Standard">Standard</option>
-                    <option value="Premium 1">Premium 1</option>
-                    <option value="Premium 2">Premium 2</option>
+                    {availableCategories.map(cat => (
+                      <option key={cat} value={cat}>{cat}</option>
+                    ))}
                   </select>
                 </div>
 

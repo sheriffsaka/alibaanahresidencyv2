@@ -40,7 +40,7 @@ export const AdminCreateBookingModal: React.FC<AdminCreateBookingModalProps> = (
   const [emergencyContact, setEmergencyContact] = useState('');
 
   // Accommodation & dates
-  const [selectedCategory, setSelectedCategory] = useState<string>('Standard');
+  const [selectedCategory, setSelectedCategory] = useState<string>(() => accommodationCategories[0]?.name || 'Premium 1');
   const [selectedBedSpaceId, setSelectedBedSpaceId] = useState<string>('');
   const [arrivalDate, setArrivalDate] = useState<string>(() => new Date().toISOString().split('T')[0]);
   const [durationMonths, setDurationMonths] = useState<number>(3);
@@ -48,6 +48,15 @@ export const AdminCreateBookingModal: React.FC<AdminCreateBookingModalProps> = (
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
+
+  // Synchronize category if initial category was empty or not in categories
+  useEffect(() => {
+    if (accommodationCategories && accommodationCategories.length > 0) {
+      if (!selectedCategory || !accommodationCategories.some(c => c.name.toLowerCase() === selectedCategory.toLowerCase())) {
+        setSelectedCategory(accommodationCategories[0].name);
+      }
+    }
+  }, [accommodationCategories]);
 
   // When a registered student is selected, pre-fill student info
   useEffect(() => {
@@ -111,7 +120,7 @@ export const AdminCreateBookingModal: React.FC<AdminCreateBookingModalProps> = (
 
   const calculatedExpiryDate = calculateExpiryDate(arrivalDate, durationMonths);
   const matchedCatObj = (accommodationCategories || []).find(c => c.name.toLowerCase() === selectedCategory.toLowerCase());
-  const monthlyRate = matchedCatObj?.defaultPrice || (selectedCategory === 'Standard' ? 150 : 175);
+  const monthlyRate = matchedCatObj?.defaultPrice || 175;
   const securityDeposit = 100;
   const totalPrice = (monthlyRate * durationMonths) + securityDeposit;
 
@@ -348,7 +357,7 @@ export const AdminCreateBookingModal: React.FC<AdminCreateBookingModalProps> = (
                   <div className="pr-2">
                     <p className="text-xs font-semibold">{space.displayName}</p>
                     <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-0.5">
-                      {space.type} • {selectedCategory === 'Standard' ? '$150/mo' : '$175/mo'}
+                      {space.type} • ${(accommodationCategories?.find(c => c.name.toLowerCase() === selectedCategory.toLowerCase())?.defaultPrice || 175)}/mo
                     </p>
                   </div>
                   {isOccupied ? (

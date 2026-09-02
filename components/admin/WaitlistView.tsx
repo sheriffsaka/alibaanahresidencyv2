@@ -15,7 +15,15 @@ export const WaitlistView: React.FC<WaitlistViewProps> = ({
   initialCategoryFilter = 'All',
   onClearCategoryFilter
 }) => {
-  const { waitlist, addToWaitlist, updateWaitlistStatus, refreshWaitlist, students } = useApp();
+  const { waitlist, addToWaitlist, updateWaitlistStatus, refreshWaitlist, students, accommodationCategories } = useApp();
+
+  const availableCategories = React.useMemo(() => {
+    if (accommodationCategories && accommodationCategories.length > 0) {
+      const active = accommodationCategories.filter(c => c.status !== 'Inactive').map(c => c.name);
+      if (active.length > 0) return active;
+    }
+    return ['Premium 1', 'Premium 2', 'Premium 3'];
+  }, [accommodationCategories]);
   
   const [statusFilter, setStatusFilter] = useState<'All' | WaitlistStatus>('All');
   const [categoryFilter, setCategoryFilter] = useState<string>(initialCategoryFilter || 'All');
@@ -51,7 +59,7 @@ export const WaitlistView: React.FC<WaitlistViewProps> = ({
     full_name: '',
     email: '',
     phone_number: '',
-    category: 'Premium 1' as 'Standard' | 'Premium 1' | 'Premium 2',
+    category: 'Premium 1' as string,
     accommodation_type: 'Private' as 'Shared' | 'Private',
     duration_months: 6,
     notes: ''
@@ -274,9 +282,9 @@ export const WaitlistView: React.FC<WaitlistViewProps> = ({
               className="px-3 py-2 text-xs font-bold border rounded-xl bg-gray-50 dark:bg-gray-700 dark:border-gray-600"
             >
               <option value="All">All Categories</option>
-              <option value="Premium 1">Premium 1</option>
-              <option value="Premium 2">Premium 2</option>
-              <option value="Standard">Standard</option>
+              {availableCategories.map(cat => (
+                <option key={cat} value={cat}>{cat}</option>
+              ))}
             </select>
 
             {/* Sorting Controls */}
@@ -289,8 +297,8 @@ export const WaitlistView: React.FC<WaitlistViewProps> = ({
               <option value="date-asc">📅 Date Joined (Oldest)</option>
               <option value="name-asc">👤 Name (A → Z)</option>
               <option value="name-desc">👤 Name (Z → A)</option>
-              <option value="category-asc">🛏️ Category (P1 → P2 → Std)</option>
-              <option value="category-desc">🛏️ Category (Std → P2 → P1)</option>
+              <option value="category-asc">🛏️ Category (A → Z)</option>
+              <option value="category-desc">🛏️ Category (Z → A)</option>
             </select>
 
             {/* Status Filter */}
@@ -526,12 +534,12 @@ export const WaitlistView: React.FC<WaitlistViewProps> = ({
                   <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Category</label>
                   <select
                     value={newEntry.category}
-                    onChange={(e) => setNewEntry(prev => ({ ...prev, category: e.target.value as any }))}
+                    onChange={(e) => setNewEntry(prev => ({ ...prev, category: e.target.value }))}
                     className="w-full text-xs p-2.5 border rounded-xl dark:bg-gray-700 dark:border-gray-600 text-gray-900 dark:text-white"
                   >
-                    <option value="Premium 1">Premium 1</option>
-                    <option value="Premium 2">Premium 2</option>
-                    <option value="Standard">Standard</option>
+                    {availableCategories.map(cat => (
+                      <option key={cat} value={cat}>{cat}</option>
+                    ))}
                   </select>
                 </div>
                 <div>

@@ -226,7 +226,7 @@ const TenancyAgreementDocument: React.ForwardRefRenderFunction<HTMLDivElement, T
 
               <div>
                 <h3 className="font-bold text-gray-900">{sec.useOccupancy.occupancyTitle}</h3>
-                <p className="text-gray-700 mt-1">{sec.useOccupancy.occupancyIntro.replace('{maxResidents}', String(formData?.category === 'Standard' ? 7 : 4))}</p>
+                <p className="text-gray-700 mt-1">{sec.useOccupancy.occupancyIntro.replace('{maxResidents}', String((formData?.category === 'Premium 3' || formData?.category === 'Standard') ? 7 : 4))}</p>
                 <ul className="list-disc list-inside mt-2 space-y-1 text-gray-600 pl-2">
                   {sec.useOccupancy.occupancyPoints.map((pt, idx) => (
                     <li key={idx}>{pt}</li>

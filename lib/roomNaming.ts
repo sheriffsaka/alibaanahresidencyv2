@@ -3,6 +3,8 @@ import { AccommodationAddresses, DEFAULT_ACCOMMODATION_ADDRESSES } from '../type
 export const ACCOMMODATION_ADDRESSES: Record<string, string> = {
   'Premium 1': '11, Samir Moursey Street, Nasr City, Cairo.',
   'Premium 2': '2 Ezzat Salamat Street, Off Kaabool, Makram Ebeid, Nasr City, Cairo.',
+  'Premium 3': '24 Saqaliyyah Street, Off Kaabool, Makram Ebeid, Nasr City, Cairo.',
+  'Premium 4': '11, Samir Moursey Street, Nasr City, Cairo.',
   'Standard': '24 Saqaliyyah Street, Off Kaabool, Makram Ebeid, Nasr City, Cairo.',
 };
 
@@ -17,25 +19,25 @@ export const getAccommodationAddress = (
   }
 
   const addresses = customAddresses || ACCOMMODATION_ADDRESSES;
-  if (!category) return addresses['Standard'] || ACCOMMODATION_ADDRESSES['Standard'];
+  if (!category) return addresses['Premium 3'] || addresses['Premium 1'] || ACCOMMODATION_ADDRESSES['Premium 3'];
   
   const cat = category.trim();
   if (addresses[cat]) return addresses[cat];
 
   const p1 = addresses['Premium 1'] || ACCOMMODATION_ADDRESSES['Premium 1'];
   const p2 = addresses['Premium 2'] || ACCOMMODATION_ADDRESSES['Premium 2'];
-  const std = addresses['Standard'] || ACCOMMODATION_ADDRESSES['Standard'];
+  const p3 = addresses['Premium 3'] || ACCOMMODATION_ADDRESSES['Premium 3'] || addresses['Standard'];
 
+  if (cat.toLowerCase().includes('premium 3') || cat.toLowerCase().includes('standard') || cat === 'Apartment 2') {
+    return p3;
+  }
   if (cat.toLowerCase().includes('premium 2') || cat === 'Apartment 3') {
     return p2;
-  }
-  if (cat.toLowerCase().includes('standard') || cat === 'Apartment 2') {
-    return std;
   }
   if (cat.toLowerCase().includes('premium 1') || cat === 'Apartment 1') {
     return p1;
   }
-  return std;
+  return p3 || p1;
 };
 
 export interface RoomSpaceConfig {
@@ -45,7 +47,7 @@ export interface RoomSpaceConfig {
   bedSpaceName: string;
   type: 'Shared' | 'Private';
   displayName: string; // e.g. "Premium 1, Room 1, Bed Space: Bed A"
-  apartmentName: string; // e.g. "Premium 1", "Premium 2", "Standard", "Premium 3"
+  apartmentName: string; // e.g. "Premium 1", "Premium 2", "Premium 3"
   bedSpaceId?: number;
   roomId?: number;
 }
@@ -63,14 +65,12 @@ export const ALL_ROOM_SPACES: RoomSpaceConfig[] = [
   { id: 'p2_r2', category: 'Premium 2', roomName: 'Room 2', bedSpaceName: 'Single', type: 'Private', displayName: 'Premium 2, Room 2 (Private)', apartmentName: 'Premium 2' },
   { id: 'p2_r3', category: 'Premium 2', roomName: 'Room 3', bedSpaceName: 'Single', type: 'Private', displayName: 'Premium 2, Room 3 (Private)', apartmentName: 'Premium 2' },
 
-  // Standard (7 beds total: 2 in Room 1, 2 in Room 2, 1 in Room 3, 2 in Room 4)
-  { id: 'std_r1_a', category: 'Standard', roomName: 'Room 1', bedSpaceName: 'Bed A', type: 'Shared', displayName: 'Standard, Room 1, Bed Space: Bed A', apartmentName: 'Standard' },
-  { id: 'std_r1_b', category: 'Standard', roomName: 'Room 1', bedSpaceName: 'Bed B', type: 'Shared', displayName: 'Standard, Room 1, Bed Space: Bed B', apartmentName: 'Standard' },
-  { id: 'std_r2_a', category: 'Standard', roomName: 'Room 2', bedSpaceName: 'Bed A', type: 'Shared', displayName: 'Standard, Room 2, Bed Space: Bed A', apartmentName: 'Standard' },
-  { id: 'std_r2_b', category: 'Standard', roomName: 'Room 2', bedSpaceName: 'Bed B', type: 'Shared', displayName: 'Standard, Room 2, Bed Space: Bed B', apartmentName: 'Standard' },
-  { id: 'std_r3', category: 'Standard', roomName: 'Room 3', bedSpaceName: 'Single', type: 'Private', displayName: 'Standard, Room 3 (Private)', apartmentName: 'Standard' },
-  { id: 'std_r4_a', category: 'Standard', roomName: 'Room 4', bedSpaceName: 'Bed A', type: 'Shared', displayName: 'Standard, Room 4, Bed Space: Bed A', apartmentName: 'Standard' },
-  { id: 'std_r4_b', category: 'Standard', roomName: 'Room 4', bedSpaceName: 'Bed B', type: 'Shared', displayName: 'Standard, Room 4, Bed Space: Bed B', apartmentName: 'Standard' }
+  // Premium 3 (5 beds total: 2 in Room 1 (P3-R1), 1 in Room 2 (P3-R2), 2 in Room 3 (P3-R3))
+  { id: 'p3_r1_a', category: 'Premium 3', roomName: 'Room 1', bedSpaceName: 'Bed A', type: 'Shared', displayName: 'Premium 3, Room 1, Bed Space: Bed A', apartmentName: 'Premium 3', roomId: 3, bedSpaceId: 9 },
+  { id: 'p3_r1_b', category: 'Premium 3', roomName: 'Room 1', bedSpaceName: 'Bed B', type: 'Shared', displayName: 'Premium 3, Room 1, Bed Space: Bed B', apartmentName: 'Premium 3', roomId: 3, bedSpaceId: 10 },
+  { id: 'p3_r2', category: 'Premium 3', roomName: 'Room 2', bedSpaceName: 'Single', type: 'Private', displayName: 'Premium 3, Room 2 (Private)', apartmentName: 'Premium 3', roomId: 9, bedSpaceId: 13 },
+  { id: 'p3_r3_a', category: 'Premium 3', roomName: 'Room 3', bedSpaceName: 'Bed A', type: 'Shared', displayName: 'Premium 3, Room 3, Bed Space: Bed A', apartmentName: 'Premium 3', roomId: 1, bedSpaceId: 11 },
+  { id: 'p3_r3_b', category: 'Premium 3', roomName: 'Room 3', bedSpaceName: 'Bed B', type: 'Shared', displayName: 'Premium 3, Room 3, Bed Space: Bed B', apartmentName: 'Premium 3', roomId: 1, bedSpaceId: 12 }
 ];
 
 export const BED_SPACE_TO_ID_MAP: Record<string, number> = {
@@ -82,6 +82,11 @@ export const BED_SPACE_TO_ID_MAP: Record<string, number> = {
   'p2_r1_b': 6,
   'p2_r2': 7,
   'p2_r3': 8,
+  'p3_r1_a': 9,
+  'p3_r1_b': 10,
+  'p3_r3_a': 11,
+  'p3_r3_b': 12,
+  'p3_r2': 13,
   'std_r1_a': 9,
   'std_r1_b': 10,
   'std_r2_a': 11,
@@ -101,13 +106,13 @@ export const ID_TO_BED_SPACE_MAP: Record<number, string> = {
   6: 'p2_r1_b',
   7: 'p2_r2',
   8: 'p2_r3',
-  9: 'std_r1_a',
-  10: 'std_r1_b',
-  11: 'std_r2_a',
-  12: 'std_r2_b',
-  13: 'std_r3',
-  14: 'std_r4_a',
-  15: 'std_r4_b'
+  9: 'p3_r1_a',
+  10: 'p3_r1_b',
+  11: 'p3_r3_a',
+  12: 'p3_r3_b',
+  13: 'p3_r2',
+  14: 'p3_r4_a',
+  15: 'p3_r4_b'
 };
 
 export const extractRoomNumber = (code?: string | null): string => {
@@ -175,7 +180,8 @@ export const normalizeCategory = (
     if (aptLower.includes('premium 3') || aptLower === 'p3' || aptLower === 'p3-') return 'Premium 3';
     if (aptLower.includes('premium 2') || aptLower === 'p2' || aptLower === 'p2-') return 'Premium 2';
     if (aptLower.includes('premium 1') || aptLower === 'p1' || aptLower === 'p1-') return 'Premium 1';
-    if (aptLower.includes('standard') || aptLower === 'std' || aptLower === 'std-') return 'Standard';
+    if (aptLower.includes('premium 4') || aptLower === 'p4' || aptLower === 'p4-') return 'Premium 4';
+    if (aptLower.includes('standard') || aptLower === 'std' || aptLower === 'std-') return 'Premium 3';
     return apt;
   }
 
@@ -193,8 +199,11 @@ export const normalizeCategory = (
   if (aptLower.includes('premium 1') || catLower.includes('premium 1') || rLower.startsWith('p1')) {
     return 'Premium 1';
   }
+  if (aptLower.includes('premium 4') || catLower.includes('premium 4') || rLower.startsWith('p4')) {
+    return 'Premium 4';
+  }
   if (aptLower.includes('standard') || catLower.includes('standard') || rLower.startsWith('std')) {
-    return 'Standard';
+    return 'Premium 3';
   }
 
   // General numbered premium e.g. "Premium 4"
@@ -207,15 +216,20 @@ export const normalizeCategory = (
     return cat;
   }
 
-  return 'Standard';
+  if (knownCategories && Array.isArray(knownCategories) && knownCategories.length > 0) {
+    const first = knownCategories[0];
+    return typeof first === 'string' ? first : first.name;
+  }
+
+  return 'Premium 1';
 };
 
-// Generates the category code prefix (e.g. Premium 1 -> P1, Premium 2 -> P2, Premium 3 -> P3, Standard -> STD)
+// Generates the category code prefix (e.g. Premium 1 -> P1, Premium 2 -> P2, Premium 3 -> P3, Premium 4 -> P4)
 export const getCategoryPrefix = (
   category?: string, 
   knownCategories?: { id: string; name: string; code?: string }[] | string[]
 ): string => {
-  if (!category) return 'STD';
+  if (!category) return 'P1';
   const clean = category.trim();
   const lower = clean.toLowerCase();
 
@@ -234,7 +248,7 @@ export const getCategoryPrefix = (
   const numMatch = lower.match(/premium\s*(\d+)/);
   if (numMatch) return `P${numMatch[1]}`;
 
-  if (lower.includes('standard') || lower === 'std') return 'STD';
+  if (lower.includes('standard') || lower === 'std') return 'P3';
   if (lower.includes('premium') || lower === 'prm') return 'PRM';
   
   // Custom category: extract uppercase initials or short alphanumeric code
@@ -242,7 +256,7 @@ export const getCategoryPrefix = (
   if (words.length > 1) {
     return words.map(w => w[0]).join('').toUpperCase();
   }
-  return clean.replace(/[^a-zA-Z0-9]/g, '').slice(0, 4).toUpperCase() || 'STD';
+  return clean.replace(/[^a-zA-Z0-9]/g, '').slice(0, 4).toUpperCase() || 'P1';
 };
 
 // Automatically generates the standardized Unit Code (e.g. Premium 3 + Room 1 => P3-R1)
@@ -413,7 +427,7 @@ export const getDynamicRoomSpaces = (
     }
     return true;
   });
-  const categoryOrder: Record<string, number> = { 'Premium 1': 1, 'Premium 2': 2, 'Standard': 3, 'Premium 3': 4 };
+  const categoryOrder: Record<string, number> = { 'Premium 1': 1, 'Premium 2': 2, 'Premium 3': 3, 'Premium 4': 4, 'Standard': 5 };
   
   const sortedRooms = [...validRooms].sort((a, b) => {
     const catA = normalizeCategory(a.apartment_name, a.category, a.room_number, knownCategories);

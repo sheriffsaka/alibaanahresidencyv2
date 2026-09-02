@@ -197,7 +197,7 @@ const MyBookingsPage: React.FC = () => {
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="text-xs font-bold text-gray-900 dark:text-white">
-                            {getDisplayFromRoom(booking.rooms) || booking.preferred_accommodation || booking.rooms?.type || 'Standard Room'}
+                            {getDisplayFromRoom(booking.rooms) || booking.preferred_accommodation || booking.rooms?.type || 'Residency Room'}
                           </div>
                           <div className="text-[11px] text-gray-500 dark:text-gray-400">
                             {booking.rooms?.apartment_name || 'Al-Azhar Accommodation'}

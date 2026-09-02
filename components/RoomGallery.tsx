@@ -11,18 +11,14 @@ const RoomGallery: React.FC<RoomGalleryProps> = ({ rooms }) => {
     const t = useTranslation();
 
     const galleryRooms = React.useMemo(() => {
-        const types = [
-            AccommodationType.STANDARD_SHARED,
-            AccommodationType.STANDARD_PRIVATE,
-            AccommodationType.PREMIUM_SHARED,
-            AccommodationType.PREMIUM_PRIVATE,
-        ];
-        
-        return types.map(type => {
-            // Priority: find rooms of this type that have images first
-            return rooms.filter(r => r.type?.toLowerCase() === type.toLowerCase())
-                        .sort((a, b) => (b.image_urls?.length || 0) - (a.image_urls?.length || 0))[0];
-        }).filter((r): r is Room => !!r);
+        const uniqueTypes = Array.from(new Set(rooms.map(r => r.type).filter(Boolean)));
+        if (uniqueTypes.length > 0) {
+            return uniqueTypes.map(type => {
+                return rooms.filter(r => r.type === type)
+                            .sort((a, b) => (b.image_urls?.length || 0) - (a.image_urls?.length || 0))[0];
+            }).filter((r): r is Room => !!r);
+        }
+        return rooms.slice(0, 4);
     }, [rooms]);
 
     if (galleryRooms.length === 0) {

@@ -18,7 +18,7 @@ export interface Room {
   room_number: string;
   type: AccommodationType;
   apartment_name: string;
-  category: 'Standard' | 'Premium';
+  category: 'Standard' | 'Premium' | string;
   price_per_month: number;
   capacity: number;
   occupied_slots: number;
@@ -139,7 +139,7 @@ export interface WaitlistEntry {
   full_name?: string | null;
   email?: string | null;
   phone_number?: string | null;
-  category: 'Standard' | 'Premium 1' | 'Premium 2';
+  category: string;
   accommodation_type: 'Shared' | 'Private';
   room_id?: number | null;
   bed_space_id?: number | null;
@@ -251,11 +251,20 @@ export const DEFAULT_ACCOMMODATION_CATEGORIES: AccommodationCategory[] = [
     created_at: '2026-01-01T00:00:00.000Z'
   },
   {
-    id: 'standard',
-    name: 'Standard',
-    description: 'Comfortable, budget-friendly student housing near the Arabic center.',
+    id: 'premium-3',
+    name: 'Premium 3',
+    description: 'Comfortable, student housing near the Arabic center with dedicated study facilities.',
     address: '24 Saqaliyyah Street, Off Kaabool, Makram Ebeid, Nasr City, Cairo.',
-    defaultPrice: 175,
+    defaultPrice: 350,
+    status: 'Active',
+    created_at: '2026-01-01T00:00:00.000Z'
+  },
+  {
+    id: 'premium-4',
+    name: 'Premium 4',
+    description: 'Fully Air-Conditioned residency accommodation.',
+    address: '11, Samir Moursey Street, Nasr City, Cairo.',
+    defaultPrice: 200,
     status: 'Active',
     created_at: '2026-01-01T00:00:00.000Z'
   }
@@ -268,6 +277,8 @@ export interface AccommodationAddresses {
 export const DEFAULT_ACCOMMODATION_ADDRESSES: AccommodationAddresses = {
   'Premium 1': '11, Samir Moursey Street, Nasr City, Cairo.',
   'Premium 2': '2 Ezzat Salamat Street, Off Kaabool, Makram Ebeid, Nasr City, Cairo.',
+  'Premium 3': '24 Saqaliyyah Street, Off Kaabool, Makram Ebeid, Nasr City, Cairo.',
+  'Premium 4': '11, Samir Moursey Street, Nasr City, Cairo.',
   'Standard': '24 Saqaliyyah Street, Off Kaabool, Makram Ebeid, Nasr City, Cairo.',
 };
 
@@ -312,13 +323,20 @@ export const DEFAULT_CATEGORY_MEDIA: CategoryMediaConfig = {
     ],
     features: ['Premium Suite features', 'Modern kitchen accessibility', 'Spacious study areas', 'In-room high capacity AC', 'Dedicated Resident Lounge Area', 'Weekly student helper laundry cleaning']
   },
-  'Standard': {
+  'Premium 3': {
     videoUrl: 'https://www.youtube.com/embed/dQw4w9WgXcQ',
     images: [
       'https://res.cloudinary.com/di7okmjsx/image/upload/v1770388212/shared_bathroom1_hlxjdg.jpg',
       'https://res.cloudinary.com/di7okmjsx/image/upload/v1770388212/single_room2_zhd9uo.jpg'
     ],
     features: ['Shared bathroom area', 'High-speed student Wi-Fi', 'Air conditioning unit', 'Fully furnished student kitchen', 'Automatic washing machine access', 'Tranquil student community focus']
+  },
+  'Premium 4': {
+    videoUrl: 'https://www.youtube.com/embed/dQw4w9WgXcQ',
+    images: [
+      'https://res.cloudinary.com/di7okmjsx/image/upload/v1770388212/Suite2_q62y4w.jpg'
+    ],
+    features: ['Fully Air-Conditioned', 'High-speed student Wi-Fi', 'Dedicated study desk', 'Modern furnishings']
   }
 };
 
