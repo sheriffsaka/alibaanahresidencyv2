@@ -13,19 +13,19 @@ import PaymentProofModal from '../components/PaymentProofModal';
 import { supabase } from '../lib/supabaseClient';
 import AgreementModal from '../components/AgreementModal';
 import { sendEmail, getAgreementSignedTemplate, getPaymentProofUploadedAdminTemplate } from '../lib/email';
-import { formatStoredRoomString, getAccommodationAddress } from '../lib/roomNaming';
+import { formatStoredRoomString, getAccommodationAddress, getLiveStudentRoomDetails } from '../lib/roomNaming';
 import JoinWaitlistModal from '../components/JoinWaitlistModal';
 
 const DashboardPage: React.FC = () => {
   const t = useTranslation();
-  const { user, bookings, setPage, cmsContent, addActivity, updateBooking, language, rooms, parsedRoomSpaces, landlordDetails, accommodationAddresses } = useApp();
+  const { user, bookings, setPage, cmsContent, addActivity, updateBooking, language, rooms, parsedRoomSpaces, landlordDetails, accommodationAddresses, accommodationCategories } = useApp();
   
   const [selectedInvoice, setSelectedInvoice] = useState<Booking | null>(null);
   const [viewingAgreement, setViewingAgreement] = useState<Booking | null>(null);
   const [signingBooking, setSigningBooking] = useState<Booking | null>(null);
   const [uploadingProofBooking, setUploadingProofBooking] = useState<Booking | null>(null);
   
-  const [selectedFilterCategory, setSelectedFilterCategory] = useState<'All' | 'Standard' | 'Premium 1' | 'Premium 2'>('All');
+  const [selectedFilterCategory, setSelectedFilterCategory] = useState<string>('All');
   const [waitlistModalConfig, setWaitlistModalConfig] = useState<{
     isOpen: boolean;
     category: 'Standard' | 'Premium 1' | 'Premium 2';
@@ -39,6 +39,17 @@ const DashboardPage: React.FC = () => {
   
   const userBookings = (bookings || []).filter(b => b.student_id === user?.id);
   const activeBooking = userBookings.find(b => b.status !== BookingStatus.CANCELLED && b.status !== BookingStatus.COMPLETED) || userBookings[0];
+  const liveRoomDetails = useMemo(() => {
+    return activeBooking ? getLiveStudentRoomDetails(activeBooking, rooms, accommodationAddresses, accommodationCategories) : null;
+  }, [activeBooking, rooms, accommodationAddresses, accommodationCategories]);
+
+  const dynamicCategoryTabs = useMemo(() => {
+    const set = new Set<string>(['All']);
+    (accommodationCategories || []).forEach(c => set.add(c.name));
+    (parsedRoomSpaces || []).forEach(s => set.add(s.category));
+    return Array.from(set);
+  }, [accommodationCategories, parsedRoomSpaces]);
+
   const announcements = cmsContent.announcements?.[language] || cmsContent.announcements?.['en'] || [];
 
   // Determine which rooms/beds are currently occupied based on effective occupancy data
@@ -175,7 +186,7 @@ const DashboardPage: React.FC = () => {
                 <div className="flex items-center gap-2 flex-wrap">
                   <span className="text-xs font-black text-brand-300">{t.dash_active_residency_label || "Active Residency:"}</span>
                   <span className="text-xs font-bold text-white">
-                    {activeBooking.rooms?.apartment_name || 'Residency'} – {formatStoredRoomString(activeBooking.rooms?.room_number)}
+                    {liveRoomDetails ? liveRoomDetails.fullDisplay : `${activeBooking.rooms?.apartment_name || 'Residency'} – ${formatStoredRoomString(activeBooking.rooms?.room_number)}`}
                   </span>
                   <BookingStatusBadge status={activeBooking.status} />
                 </div>
@@ -274,7 +285,7 @@ const DashboardPage: React.FC = () => {
           
           {/* Tabs filter */}
           <div className="flex flex-wrap gap-1.5">
-            {(['All', 'Premium 1', 'Premium 2', 'Standard'] as const).map(cat => {
+            {dynamicCategoryTabs.map(cat => {
               const getFilterLabel = (category: string) => {
                 if (category === 'All') return t.dash_filter_all || 'All';
                 if (category === 'Premium 1') return t.dash_filter_premium1 || 'Premium 1';

@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo, ChangeEvent } from 'react';
 import { Room, AccommodationType, AccommodationCategory } from '../types';
 import { useApp } from '../hooks/useApp';
 import { uploadFile, generateFileName } from '../lib/storage';
+import { generateUnitCode } from '../lib/roomNaming';
 import { ManageCategoryModal } from './admin/ManageCategoryModal';
 import { 
   Building2, 
@@ -644,6 +645,12 @@ export const RoomEditorModal: React.FC<RoomEditorModalProps> = ({ room, onClose,
                     </p>
                   )}
 
+                  <div className="flex items-center justify-between p-3 bg-brand-50/60 dark:bg-brand-950/30 rounded-xl border border-brand-100 dark:border-brand-900/50 mt-2">
+                    <span className="text-xs text-brand-800 dark:text-brand-300 font-semibold">Automatic System Unit Code:</span>
+                    <span className="text-xs font-black px-2.5 py-1 rounded-lg bg-brand-600 text-white shadow-xs tracking-wider">
+                      {generateUnitCode(selectedCategory, roomNumber, accommodationCategories)}
+                    </span>
+                  </div>
                   <p className="text-[11px] text-gray-500 italic">
                     This identifier is shown to students on contracts, payment receipts, and occupancy maps.
                   </p>

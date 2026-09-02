@@ -30,10 +30,10 @@ export const EditBookingModal: React.FC<EditBookingModalProps> = ({
   onClose,
   onBookingUpdated
 }) => {
-  const { user, rooms, bedSpaces, updateBooking, deleteBooking, addActivity, accommodationAddresses } = useApp();
+  const { user, rooms, bedSpaces, updateBooking, deleteBooking, addActivity, accommodationAddresses, accommodationCategories } = useApp();
 
   const dynamicSpaces = useMemo(() => {
-    return getDynamicRoomSpaces(rooms, bedSpaces);
+    return getDynamicRoomSpaces(rooms, bedSpaces, undefined, accommodationCategories);
   }, [rooms, bedSpaces]);
 
   const [activeTab, setActiveTab] = useState<'overview' | 'edit' | 'documents'>('overview');
@@ -62,15 +62,15 @@ export const EditBookingModal: React.FC<EditBookingModalProps> = ({
 
   const liveDetails = useMemo(() => {
     if (!booking) return null;
-    return getLiveStudentRoomDetails(booking, rooms);
+    return getLiveStudentRoomDetails(booking, rooms, accommodationAddresses, accommodationCategories);
   }, [booking, rooms]);
 
   // Synchronize edit state whenever booking changes
   useEffect(() => {
     if (booking) {
-      const details = getLiveStudentRoomDetails(booking, rooms);
+      const details = getLiveStudentRoomDetails(booking, rooms, accommodationAddresses, accommodationCategories);
       
-      const currentCat = (details.category === 'Premium 2' ? 'Premium 2' : details.category === 'Premium 1' ? 'Premium 1' : 'Standard');
+      const currentCat = details.category;
       
       const matchingSpace = dynamicSpaces.find(s => {
         const matchCat = s.category === currentCat;

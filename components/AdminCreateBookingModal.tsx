@@ -26,7 +26,7 @@ export const calculateExpiryDate = (arrivalDateStr: string, months: number): str
 };
 
 export const AdminCreateBookingModal: React.FC<AdminCreateBookingModalProps> = ({ isOpen, onClose, onSuccess }) => {
-  const { students, rooms, bedSpaces, bookings, addBooking, parsedRoomSpaces } = useApp();
+  const { students, rooms, bedSpaces, bookings, addBooking, parsedRoomSpaces, accommodationCategories } = useApp();
 
   const [selectedStudentId, setSelectedStudentId] = useState<string>('new');
   
@@ -40,7 +40,7 @@ export const AdminCreateBookingModal: React.FC<AdminCreateBookingModalProps> = (
   const [emergencyContact, setEmergencyContact] = useState('');
 
   // Accommodation & dates
-  const [selectedCategory, setSelectedCategory] = useState<'Standard' | 'Premium 1' | 'Premium 2'>('Standard');
+  const [selectedCategory, setSelectedCategory] = useState<string>('Standard');
   const [selectedBedSpaceId, setSelectedBedSpaceId] = useState<string>('');
   const [arrivalDate, setArrivalDate] = useState<string>(() => new Date().toISOString().split('T')[0]);
   const [durationMonths, setDurationMonths] = useState<number>(3);
@@ -80,7 +80,14 @@ export const AdminCreateBookingModal: React.FC<AdminCreateBookingModalProps> = (
   // Available bed spaces for selected category based on centralized occupancy data
   const parsedSpaces = parsedRoomSpaces || [];
 
-  const categoryBedSpaces = parsedSpaces.filter(space => space.category === selectedCategory);
+  const availableCategories = useMemo(() => {
+    const set = new Set<string>();
+    (accommodationCategories || []).forEach(c => set.add(c.name));
+    (parsedSpaces || []).forEach(s => set.add(s.category));
+    return Array.from(set);
+  }, [accommodationCategories, parsedSpaces]);
+
+  const categoryBedSpaces = parsedSpaces.filter(space => space.category.toLowerCase() === selectedCategory.toLowerCase());
 
   const bedSpaceAvailability = categoryBedSpaces.map(space => {
     return {
@@ -103,7 +110,8 @@ export const AdminCreateBookingModal: React.FC<AdminCreateBookingModalProps> = (
   if (!isOpen) return null;
 
   const calculatedExpiryDate = calculateExpiryDate(arrivalDate, durationMonths);
-  const monthlyRate = selectedCategory === 'Standard' ? 150 : 175;
+  const matchedCatObj = (accommodationCategories || []).find(c => c.name.toLowerCase() === selectedCategory.toLowerCase());
+  const monthlyRate = matchedCatObj?.defaultPrice || (selectedCategory === 'Standard' ? 150 : 175);
   const securityDeposit = 100;
   const totalPrice = (monthlyRate * durationMonths) + securityDeposit;
 
@@ -133,7 +141,7 @@ export const AdminCreateBookingModal: React.FC<AdminCreateBookingModalProps> = (
       type: selectedSpaceObj.type,
       roomName: selectedSpaceObj.roomName,
       id: selectedSpaceObj.id
-    }) || rooms[0];
+    }, accommodationCategories) || rooms[0];
 
     if (!matchingDbRoom) {
       setErrorMessage('No matching room found in database.');
@@ -302,14 +310,14 @@ export const AdminCreateBookingModal: React.FC<AdminCreateBookingModalProps> = (
             <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider mb-2">
               2. Accommodation Category
             </label>
-            <div className="grid grid-cols-3 gap-3 mb-4">
-              {(['Standard', 'Premium 1', 'Premium 2'] as const).map((cat) => (
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 mb-4">
+              {availableCategories.map((cat) => (
                 <button
                   key={cat}
                   type="button"
                   onClick={() => setSelectedCategory(cat)}
                   className={`p-3 rounded-xl border text-center font-medium text-sm transition ${
-                    selectedCategory === cat
+                    selectedCategory.toLowerCase() === cat.toLowerCase()
                       ? 'border-brand-600 bg-brand-50 text-brand-700 dark:bg-brand-900/30 dark:text-brand-300 dark:border-brand-500 font-semibold'
                       : 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-750'
                   }`}

@@ -5,7 +5,7 @@ import { supabase } from '../lib/supabaseClient';
 import { Session } from '@supabase/supabase-js';
 import { sendEmail, fetchRecentEmailLogs } from '../lib/email';
 import { fetchConversationsList, fetchMessages, postMessage, markConversationAsRead as markConvAsRead, getOrCreateStudentConversation } from '../lib/messaging';
-import { getParsedRoomSpaces } from '../lib/roomNaming';
+import { getParsedRoomSpaces, generateUnitCode } from '../lib/roomNaming';
 import { DEFAULT_CONTRACT_TRANSLATIONS, ContractTranslationsStore, LegalContractTranslation } from '../lib/contractTranslations';
 import { OFFICIAL_STUDENT_HANDBOOK_DOCUMENT } from '../lib/studentHandbookData';
 
@@ -1793,15 +1793,9 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
              (r.room_number || '').trim().toLowerCase() === targetRoomNum.toLowerCase())
         );
 
-        if (hasCollision) {
-            let prefix = 'STD';
-            if (aptCat.includes('premium 1')) prefix = 'P1';
-            else if (aptCat.includes('premium 2')) prefix = 'P2';
-            else if (aptCat.includes('premium 3')) prefix = 'P3';
-            else if (aptCat.includes('premium')) prefix = 'PRM';
-            
-            updateData.room_number = `${prefix}-R${rDigit}`;
-        } else if (!targetRoomNum.toLowerCase().startsWith('room') && !targetRoomNum.includes('-')) {
+        if (hasCollision || targetRoomNum.includes('-')) {
+            updateData.room_number = generateUnitCode(updatedRoom.apartment_name || updatedRoom.category || 'Standard', rDigit, accommodationCategories);
+        } else if (!targetRoomNum.toLowerCase().startsWith('room')) {
             updateData.room_number = `Room ${rDigit}`;
         }
 

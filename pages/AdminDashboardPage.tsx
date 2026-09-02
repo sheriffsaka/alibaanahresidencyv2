@@ -346,7 +346,7 @@ const SummaryCard: React.FC<SummaryCardProps> = ({ label, value, icon, trend, co
 
 const AdminDashboardPage: React.FC = () => {
   const t = useTranslation();
-  const { user, bookings, updateBookingStatus, deleteBooking, cmsContent, updateCmsContent, rooms, bedSpaces, addRoom, updateRoom, toggleRoomStatus, deleteRoom, activities, addActivity, language, setPage, users, addUser, updateUser, deleteUser, students, waitlist, refreshWaitlist, accommodationCategories, unreadMessagesCount, parsedRoomSpaces: contextParsedRoomSpaces } = useApp();
+  const { user, bookings, updateBookingStatus, deleteBooking, cmsContent, updateCmsContent, rooms, bedSpaces, addRoom, updateRoom, toggleRoomStatus, deleteRoom, activities, addActivity, language, setPage, users, addUser, updateUser, deleteUser, students, waitlist, refreshWaitlist, accommodationCategories, accommodationAddresses, unreadMessagesCount, parsedRoomSpaces: contextParsedRoomSpaces } = useApp();
   const [activeSection, setActiveSection] = useState<AdminNavSection>('dashboard');
   const [isActivityDrawerOpen, setIsActivityDrawerOpen] = useState(false);
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
@@ -459,7 +459,7 @@ const AdminDashboardPage: React.FC = () => {
     (students || []).forEach(st => {
       const studentBookings = bookings.filter(b => b.student_id === st.id || b.user_id === st.id || (b.email && st.email && b.email.toLowerCase() === st.email.toLowerCase()));
       const activeBooking = studentBookings.find(b => b.status === BookingStatus.CONFIRMED || b.status === BookingStatus.OCCUPIED) || studentBookings[0] || null;
-      const liveDetails = activeBooking ? getLiveStudentRoomDetails(activeBooking, rooms) : null;
+      const liveDetails = activeBooking ? getLiveStudentRoomDetails(activeBooking, rooms, accommodationAddresses, accommodationCategories) : null;
       
       const enrichedStudent: User = {
         ...st,
@@ -483,7 +483,7 @@ const AdminDashboardPage: React.FC = () => {
       if (!studentMap.has(st.id)) {
         const studentBookings = bookings.filter(b => b.student_id === st.id || b.user_id === st.id || (b.email && st.email && b.email.toLowerCase() === st.email.toLowerCase()));
         const activeBooking = studentBookings.find(b => b.status === BookingStatus.CONFIRMED || b.status === BookingStatus.OCCUPIED) || studentBookings[0] || null;
-        const liveDetails = activeBooking ? getLiveStudentRoomDetails(activeBooking, rooms) : null;
+        const liveDetails = activeBooking ? getLiveStudentRoomDetails(activeBooking, rooms, accommodationAddresses, accommodationCategories) : null;
         
         studentMap.set(st.id, {
           student: st,
@@ -500,7 +500,7 @@ const AdminDashboardPage: React.FC = () => {
       if (key && !studentMap.has(key) && !Array.from(studentMap.values()).some(item => item.student.email?.toLowerCase() === b.email?.toLowerCase())) {
         const studentBookings = bookings.filter(bk => (b.student_id && bk.student_id === b.student_id) || (b.user_id && bk.user_id === b.user_id) || (b.email && bk.email && bk.email.toLowerCase() === b.email.toLowerCase()));
         const activeBooking = studentBookings.find(bk => bk.status === BookingStatus.CONFIRMED || bk.status === BookingStatus.OCCUPIED) || b;
-        const liveDetails = getLiveStudentRoomDetails(activeBooking, rooms);
+        const liveDetails = getLiveStudentRoomDetails(activeBooking, rooms, accommodationAddresses, accommodationCategories);
         const studentObj: User = {
           id: b.student_id || b.user_id || `user_${b.id}`,
           email: b.email,
@@ -527,7 +527,7 @@ const AdminDashboardPage: React.FC = () => {
   const exportToCSV = () => {
     const headers = ['ID', 'Student Name', 'Email', 'Nationality', 'Accommodation', 'Room Name/Number', 'Bed Space', 'Arrival Date', 'Expiry Date', 'Status', 'Booked At'];
     const rows = sortedBookings.map(b => {
-      const details = getLiveStudentRoomDetails(b, rooms);
+      const details = getLiveStudentRoomDetails(b, rooms, accommodationAddresses, accommodationCategories);
       return [
         `BK${b.id}`,
         b.full_name,
@@ -632,7 +632,7 @@ const AdminDashboardPage: React.FC = () => {
         const matchName = b.full_name.toLowerCase().includes(q);
         const matchEmail = b.email.toLowerCase().includes(q);
         const matchRef = `bk${b.id}`.includes(q);
-        const roomDetails = getLiveStudentRoomDetails(b, rooms);
+        const roomDetails = getLiveStudentRoomDetails(b, rooms, accommodationAddresses, accommodationCategories);
         const matchRoom = roomDetails.roomName.toLowerCase().includes(q) || roomDetails.category.toLowerCase().includes(q);
         return matchName || matchEmail || matchRef || matchRoom;
       }
@@ -954,7 +954,7 @@ const AdminDashboardPage: React.FC = () => {
 
   const selectedBookingLiveDetails = useMemo(() => {
     if (!selectedBooking) return null;
-    return getLiveStudentRoomDetails(selectedBooking, rooms);
+    return getLiveStudentRoomDetails(selectedBooking, rooms, accommodationAddresses, accommodationCategories);
   }, [selectedBooking, rooms]);
 
   return (
@@ -1185,7 +1185,7 @@ const AdminDashboardPage: React.FC = () => {
                     <tbody className="divide-y divide-gray-100 dark:divide-gray-700 bg-white dark:bg-gray-800">
                       {filteredTransactions.length > 0 ? (
                         filteredTransactions.map(trx => {
-                          const liveDetails = getLiveStudentRoomDetails(trx, rooms);
+                          const liveDetails = getLiveStudentRoomDetails(trx, rooms, accommodationAddresses, accommodationCategories);
                           return (
                             <tr key={trx.id} className="hover:bg-gray-50/70 dark:hover:bg-gray-750 transition-colors">
                               <td className="px-6 py-4 font-mono font-bold text-xs text-brand-600 dark:text-brand-400">
