@@ -294,9 +294,13 @@ export const getUnifiedRoomName = (category: string, roomNameOrNumber: string, b
 };
 
 // Converts a database Room record into the standardized display format
-export const getDisplayFromRoom = (room: any, bedSpaceLabel?: string): string => {
+export const getDisplayFromRoom = (
+  room: any, 
+  bedSpaceLabel?: string, 
+  knownCategories?: { id: string; name: string; code?: string }[] | string[]
+): string => {
   if (!room) return '';
-  const category = normalizeCategory(room.apartment_name, room.category, room.room_number);
+  const category = normalizeCategory(room.apartment_name, room.category, room.room_number, knownCategories);
   const roomDigit = extractRoomNumber(room.room_number || room.roomName || room.name);
   const roomName = `Room ${roomDigit}`;
   const isPrivate = room.type?.toLowerCase().includes('private') || (room.capacity || 1) === 1;

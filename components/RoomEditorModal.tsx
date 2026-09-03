@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo, ChangeEvent } from 'react';
 import { Room, AccommodationType, AccommodationCategory } from '../types';
 import { useApp } from '../hooks/useApp';
 import { uploadFile, generateFileName } from '../lib/storage';
-import { generateUnitCode } from '../lib/roomNaming';
+import { generateUnitCode, normalizeCategory } from '../lib/roomNaming';
 import { ManageCategoryModal } from './admin/ManageCategoryModal';
 import { 
   Building2, 
@@ -77,10 +77,11 @@ export const RoomEditorModal: React.FC<RoomEditorModalProps> = ({ room, onClose,
     }
 
     // Determine category
-    let category = room.apartment_name || room.category || accommodationCategories[0]?.name || 'Premium 1';
+    const detectedCategory = normalizeCategory(room.apartment_name, room.category, room.room_number, accommodationCategories);
+    let category = detectedCategory || accommodationCategories[0]?.name || 'Premium 1';
     // Match against known categories
     const matchedCategory = accommodationCategories.find(
-      c => c.name.toLowerCase() === category.toLowerCase() || category.includes(c.name)
+      c => c.name.toLowerCase() === category.toLowerCase() || category.toLowerCase().includes(c.name.toLowerCase())
     );
     if (matchedCategory) {
       category = matchedCategory.name;
