@@ -134,15 +134,9 @@ const TenancyAgreementDocument: React.ForwardRefRenderFunction<HTMLDivElement, T
             </h2>
             <div className="space-y-2 text-xs text-gray-700">
               <p>{sec.property.intro}</p>
-              <strong className="text-xs text-gray-900 block px-4 py-2 border border-brand-100 bg-brand-50/20 rounded-lg text-center font-bold">
+              <p className="font-bold text-gray-900 text-center py-2">
                 {getAccommodationAddress(formData.category, customAddresses)}
-              </strong>
-              {formData.category && formData.roomName && (
-                <p className="mt-2 text-xs">
-                  <span className="font-bold text-gray-600">{sec.property.assignedUnitLabel}</span>{' '}
-                  <strong className="text-brand-800 text-sm">{getUnifiedRoomName(formData.category, formData.roomName, formData.bedSpaceName)}</strong>
-                </p>
-              )}
+              </p>
             </div>
 
             <h2 className="text-sm font-bold border-b border-brand-800 text-brand-800 pb-1 uppercase tracking-wider mt-8">
@@ -452,6 +446,50 @@ const TenancyAgreementDocument: React.ForwardRefRenderFunction<HTMLDivElement, T
                 <div>
                   <span className="font-bold text-gray-400 block text-[9px] uppercase">{sec.signatures.dateLabel}</span>
                   <span className="font-medium">{today}</span>
+                </div>
+              </div>
+            </div>
+
+            {/* WITNESSES SECTION */}
+            <div className="mt-6 pt-4 border-t border-gray-200">
+              <h3 className="text-xs font-bold text-gray-900 uppercase tracking-wider mb-3">
+                {sec.signatures.witnessesTitle || 'WITNESSES'}
+              </h3>
+              <div className="grid grid-cols-2 gap-8 text-xs">
+                <div className="space-y-3 border border-gray-100 p-3.5 rounded-xl">
+                  <span className="font-bold text-gray-500 block uppercase tracking-widest text-[9px]">
+                    {sec.signatures.witness1Label || 'WITNESS 1'}
+                  </span>
+                  <div className="space-y-1">
+                    <span className="font-bold text-gray-400 block text-[9px] uppercase">
+                      {sec.signatures.witnessNameLabel || 'NAME'}
+                    </span>
+                    <div className="h-5 border-b border-gray-300"></div>
+                  </div>
+                  <div className="space-y-1">
+                    <span className="font-bold text-gray-400 block text-[9px] uppercase">
+                      {sec.signatures.witnessDateLabel || 'DATE'}
+                    </span>
+                    <div className="h-5 border-b border-gray-300"></div>
+                  </div>
+                </div>
+
+                <div className="space-y-3 border border-gray-100 p-3.5 rounded-xl">
+                  <span className="font-bold text-gray-500 block uppercase tracking-widest text-[9px]">
+                    {sec.signatures.witness2Label || 'WITNESS 2'}
+                  </span>
+                  <div className="space-y-1">
+                    <span className="font-bold text-gray-400 block text-[9px] uppercase">
+                      {sec.signatures.witnessNameLabel || 'NAME'}
+                    </span>
+                    <div className="h-5 border-b border-gray-300"></div>
+                  </div>
+                  <div className="space-y-1">
+                    <span className="font-bold text-gray-400 block text-[9px] uppercase">
+                      {sec.signatures.witnessDateLabel || 'DATE'}
+                    </span>
+                    <div className="h-5 border-b border-gray-300"></div>
+                  </div>
                 </div>
               </div>
             </div>

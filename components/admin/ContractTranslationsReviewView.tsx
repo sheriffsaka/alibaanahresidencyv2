@@ -1282,6 +1282,87 @@ export const ContractTranslationsReviewView: React.FC = () => {
                     className="w-full p-3 text-sm bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-brand-500 outline-none text-gray-900 dark:text-white"
                   />
                 </div>
+
+                {/* WITNESSES TRANSLATION CONTROLS */}
+                <div className="pt-4 border-t border-gray-200 dark:border-gray-700 space-y-4">
+                  <h5 className="text-xs font-bold text-gray-900 dark:text-white uppercase tracking-wider">
+                    Witnesses Section (Official Document Requirement)
+                  </h5>
+
+                  <div>
+                    <label className="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">
+                      Witnesses Section Header Title
+                    </label>
+                    <input
+                      type="text"
+                      dir={editForm.direction}
+                      value={editForm.sections.signatures.witnessesTitle || ''}
+                      onChange={e => handleSectionFieldChange('signatures', 'witnessesTitle', e.target.value)}
+                      placeholder="WITNESSES"
+                      className="w-full p-3 text-sm bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-brand-500 outline-none text-gray-900 dark:text-white"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">
+                        Witness 1 Label
+                      </label>
+                      <input
+                        type="text"
+                        dir={editForm.direction}
+                        value={editForm.sections.signatures.witness1Label || ''}
+                        onChange={e => handleSectionFieldChange('signatures', 'witness1Label', e.target.value)}
+                        placeholder="WITNESS 1"
+                        className="w-full p-3 text-sm bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-brand-500 outline-none text-gray-900 dark:text-white"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">
+                        Witness 2 Label
+                      </label>
+                      <input
+                        type="text"
+                        dir={editForm.direction}
+                        value={editForm.sections.signatures.witness2Label || ''}
+                        onChange={e => handleSectionFieldChange('signatures', 'witness2Label', e.target.value)}
+                        placeholder="WITNESS 2"
+                        className="w-full p-3 text-sm bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-brand-500 outline-none text-gray-900 dark:text-white"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">
+                        Witness Name Label
+                      </label>
+                      <input
+                        type="text"
+                        dir={editForm.direction}
+                        value={editForm.sections.signatures.witnessNameLabel || ''}
+                        onChange={e => handleSectionFieldChange('signatures', 'witnessNameLabel', e.target.value)}
+                        placeholder="NAME"
+                        className="w-full p-3 text-sm bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-brand-500 outline-none text-gray-900 dark:text-white"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">
+                        Witness Date Label
+                      </label>
+                      <input
+                        type="text"
+                        dir={editForm.direction}
+                        value={editForm.sections.signatures.witnessDateLabel || ''}
+                        onChange={e => handleSectionFieldChange('signatures', 'witnessDateLabel', e.target.value)}
+                        placeholder="DATE"
+                        className="w-full p-3 text-sm bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-brand-500 outline-none text-gray-900 dark:text-white"
+                      />
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
           )}

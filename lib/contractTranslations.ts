@@ -130,6 +130,11 @@ export interface ContractSectionSignatures {
   footerText: string;
   pageText: string;
   agreementDateIntro: string;
+  witnessesTitle?: string;
+  witness1Label?: string;
+  witness2Label?: string;
+  witnessNameLabel?: string;
+  witnessDateLabel?: string;
 }
 
 export interface LegalContractTranslation {
@@ -194,7 +199,7 @@ export const DEFAULT_CONTRACT_TRANSLATIONS: ContractTranslationsStore = {
         tenantEmailLabel: 'Email'
       },
       property: {
-        title: '2. RENTAL PROPERTY & UNIT',
+        title: '2. RENTAL PROPERTY',
         intro: 'The property subject to this Agreement is located at:',
         assignedUnitLabel: 'Assigned Unit Space:'
       },
@@ -241,7 +246,7 @@ export const DEFAULT_CONTRACT_TRANSLATIONS: ContractTranslationsStore = {
         useTitle: '1.1 Use of Property',
         useBody: 'Reflects hostel accommodation: The property shall be used exclusively as shared hostel/dormitory accommodation. All residents must adhere to the terms of this Agreement and House Rules provided by the landlord. The landlord retains the right to oversee the property and ensure it is kept in clean, safe and lawful conditions at all times.',
         occupancyTitle: '1.2 Occupancy',
-        occupancyIntro: 'The apartment will accommodate up to {maxResidents} residents.',
+        occupancyIntro: 'The apartment may accommodate up to 3-4 residents: two residents per shared room and one per private room.',
         occupancyPoints: [
           'Each resident must provide a valid passport copy and sign an internal occupancy form.',
           'Subletting or reassignment of any kind is strictly prohibited under any circumstances.'
@@ -283,6 +288,7 @@ export const DEFAULT_CONTRACT_TRANSLATIONS: ContractTranslationsStore = {
           'Family visits must comply with visiting hours and all house rules.',
           'Non-family visitors are not permitted in any private rooms.',
           'Family members may only enter the room of the specific tenant they are visiting.',
+          'Women are not permitted in the apartment under any circumstances, including family members of the tenant.',
           'The resident receiving visitors is fully accountable for the behaviour of their guests.'
         ],
         womenNotice: 'Women are not permitted in the apartment under any circumstances, including family members of the tenant.',
@@ -316,9 +322,10 @@ export const DEFAULT_CONTRACT_TRANSLATIONS: ContractTranslationsStore = {
         ],
         ethicsTitle: '4.3 Islamic Environment and Ethics',
         ethicsPoints: [
-          'The apartment shall be maintained as an Islamic environment. All residents are expected to observe etiquette and conduct in accordance with the Qur’an and the Sunnah.',
+          "The apartment shall be maintained as an Islamic environment. All residents are expected to observe etiquette and conduct in accordance with the Qur'an and the Sunnah.",
           'Behaviour, speech, dress, and interactions among residents must reflect the values of modesty, respect, and cooperation as taught in Islam.',
-          'No resident may absent themselves from congregational prayer without a valid legislated excuse as defined by the Shari’ah.',
+          'All residents are expected to attend the masjid for the five daily prayers (salawat).',
+          "No resident may absent themselves from congregational prayer without a valid legislated excuse as defined by the Shari'ah.",
           'Any conduct contradicting these Islamic principles may result in corrective measures or termination of this Agreement by the landlord.'
         ],
         salawatHighlight: 'All residents are expected to attend the masjid for the five daily prayers (salawat).'
@@ -346,11 +353,16 @@ export const DEFAULT_CONTRACT_TRANSLATIONS: ContractTranslationsStore = {
         intro: 'By signing below, both parties confirm that they have read, understood, and agreed to all the terms and conditions set forth in this Tenancy Agreement.',
         landlordLabel: 'LANDLORD',
         tenantLabel: 'TENANT',
-        dateLabel: 'Date',
+        dateLabel: 'DATE',
         awaitingSignatureText: 'Awaiting Student Digital Signature',
-        footerText: 'Al-Ibaanah Arabic Center - Official Student Residency Agreement',
+        footerText: 'AL-IBAANAH ARABIC CENTER - OFFICIAL STUDENT RESIDENCY AGREEMENT',
         pageText: 'Page {page} of 4',
-        agreementDateIntro: 'This agreement is made on the'
+        agreementDateIntro: 'This agreement is made on the',
+        witnessesTitle: 'WITNESSES',
+        witness1Label: 'WITNESS 1',
+        witness2Label: 'WITNESS 2',
+        witnessNameLabel: 'NAME',
+        witnessDateLabel: 'DATE'
       }
     }
   },
