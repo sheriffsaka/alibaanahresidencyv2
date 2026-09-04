@@ -3,6 +3,7 @@ import React, { useState, ChangeEvent } from 'react';
 import { Room, BookingStatus, Booking, AccommodationType } from '../types';
 import { useTranslation } from '../hooks/useTranslation';
 import { useApp } from '../hooks/useApp';
+import { normalizeAccommodationType } from '../contexts/AppContext';
 import { IconUpload } from './Icon';
 import { uploadFile, generateFileName } from '../lib/storage';
 
@@ -113,7 +114,7 @@ const BookingForm: React.FC<BookingFormProps> = ({ room }) => {
           phone_number: formData.phoneNumber,
           expected_arrival_date: formData.arrivalDate,
           duration_of_stay: formData.duration,
-          preferred_accommodation: formData.accommodationType,
+          preferred_accommodation: normalizeAccommodationType(formData.accommodationType || room.type),
           emergency_contact_details: formData.emergencyContact,
           building_no: formData.buildingNo,
           flat_no: formData.flatNo,

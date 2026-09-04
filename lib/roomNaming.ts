@@ -661,14 +661,35 @@ export const getLiveStudentRoomDetails = (
   booking: any, 
   roomsList: any[] = [], 
   customAddresses?: AccommodationAddresses | Record<string, string>,
-  knownCategories?: { id: string; name: string; code?: string }[] | string[]
+  knownCategories?: { id: string; name: string; code?: string }[] | string[],
+  bedSpacesList?: any[]
 ): LiveRoomDetails => {
   // 0. Locate corresponding Database Room first (Database is the absolute source of truth)
   const dbRoom = (roomsList || []).find(r => r.id === booking?.room_id);
   const rawRoomObj = dbRoom || booking?.rooms;
 
-  // Direct bed_space_id lookup if present in static map or matches dynamic beds
+  // Direct bed_space_id lookup if present in bedSpacesList or static map
   if (booking?.bed_space_id != null) {
+    if (bedSpacesList && bedSpacesList.length > 0) {
+      const realBed = bedSpacesList.find(b => b.id === booking.bed_space_id);
+      if (realBed) {
+        const resolvedRoom = (roomsList || []).find(r => r.id === realBed.room_id) || dbRoom;
+        const category = resolvedRoom 
+          ? normalizeCategory(resolvedRoom.apartment_name, resolvedRoom.category, resolvedRoom.room_number, knownCategories)
+          : 'Standard';
+        const roomDigit = resolvedRoom ? extractRoomNumber(resolvedRoom.room_number || String(resolvedRoom.id)) : '1';
+        const roomName = `Room ${roomDigit}`;
+        const bedSpaceName = realBed.label || 'Bed';
+        return {
+          category,
+          roomName,
+          bedSpaceName,
+          fullDisplay: getUnifiedRoomName(category, roomName, bedSpaceName),
+          address: getAccommodationAddress(category, customAddresses)
+        };
+      }
+    }
+
     const spaceId = ID_TO_BED_SPACE_MAP[booking.bed_space_id];
     if (spaceId) {
       const spaceObj = ALL_ROOM_SPACES.find(s => s.id === spaceId);

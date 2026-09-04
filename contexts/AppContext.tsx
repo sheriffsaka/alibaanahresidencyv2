@@ -350,15 +350,23 @@ const VALID_BOOKINGS_COLUMNS = new Set([
   'checked_out_at'
 ]);
 
-const normalizeAccommodationType = (val: any): 'Standard Shared' | 'Standard Private' | 'Premium Shared' | 'Premium Private' => {
-  if (!val) return 'Standard Shared';
-  const str = String(val).toLowerCase();
-  const isPremium = str.includes('premium');
+export const normalizeAccommodationType = (val: any): AccommodationType => {
+  if (!val) return AccommodationType.STANDARD_SHARED;
+  const str = String(val).trim().toLowerCase();
+  
+  // Exact match to enum values
+  if (str === 'standard shared') return AccommodationType.STANDARD_SHARED;
+  if (str === 'standard private') return AccommodationType.STANDARD_PRIVATE;
+  if (str === 'premium shared') return AccommodationType.PREMIUM_SHARED;
+  if (str === 'premium private') return AccommodationType.PREMIUM_PRIVATE;
+
+  const isPremium = str.includes('premium') || /^p[1-9]/i.test(str) || str.includes('p1') || str.includes('p2') || str.includes('p3');
   const isPrivate = str.includes('private') || str.includes('single');
+  
   if (isPremium) {
-    return isPrivate ? 'Premium Private' : 'Premium Shared';
+    return isPrivate ? AccommodationType.PREMIUM_PRIVATE : AccommodationType.PREMIUM_SHARED;
   }
-  return isPrivate ? 'Standard Private' : 'Standard Shared';
+  return isPrivate ? AccommodationType.STANDARD_PRIVATE : AccommodationType.STANDARD_SHARED;
 };
 
 const MOCK_ACTIVITIES: Activity[] = [
@@ -908,6 +916,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             if (bookingsRes && !bookingsRes.error && bookingsRes.data && bookingsRes.data.length > 0) {
                 const mappedBookings = bookingsRes.data.map((b: any) => ({
                     ...b,
+                    preferred_accommodation: normalizeAccommodationType(b.preferred_accommodation || b.rooms?.type),
                     student_name: b.profiles?.full_name,
                 }));
                 setBookings(mappedBookings);
@@ -1144,7 +1153,11 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         const rawEmergencyContact = newBooking.emergency_contact_details || (newBooking as any).emergency_contact || 'N/A';
         const rawParentBookingId = newBooking.parent_booking_id || (newBooking as any).previous_booking_id || null;
         const rawPassportCopy = newBooking.passport_copy_url || (newBooking as any).passport_copy || '';
-        const rawPreferredAcc = normalizeAccommodationType(newBooking.preferred_accommodation);
+        const rawPreferredAcc = normalizeAccommodationType(
+            newBooking.preferred_accommodation || 
+            newBooking.rooms?.type || 
+            (targetRoomId ? rooms.find(r => r.id === targetRoomId)?.type : undefined)
+        );
 
         // Build clean insert payload containing ONLY genuine columns in the database 'bookings' table
         // We let Supabase generate the ID, and strictly avoid sending fields not in schema (e.g. academic_term, package_months, gender)
@@ -1314,6 +1327,20 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         }
         if (targetBedSpaceId !== undefined) {
             dbUpdates.bed_space_id = targetBedSpaceId;
+        }
+
+        // Guarantee preferred_accommodation is always a valid PostgreSQL enum on DB update
+        if (dbUpdates.preferred_accommodation) {
+            dbUpdates.preferred_accommodation = normalizeAccommodationType(dbUpdates.preferred_accommodation);
+        } else if (updates.preferred_accommodation !== undefined) {
+            dbUpdates.preferred_accommodation = normalizeAccommodationType(updates.preferred_accommodation);
+        } else if (existingBooking?.preferred_accommodation) {
+            dbUpdates.preferred_accommodation = normalizeAccommodationType(existingBooking.preferred_accommodation);
+        } else if (targetRoomId) {
+            const targetRoom = rooms.find(r => r.id === targetRoomId);
+            if (targetRoom) {
+                dbUpdates.preferred_accommodation = normalizeAccommodationType(targetRoom.type || targetRoom.category);
+            }
         }
         
         const { error } = await supabase
@@ -1730,8 +1757,18 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
         const { id, created_at, bedLabels, ...roomData } = newRoom as any;
         
+        const aptCat = (newRoom.apartment_name || newRoom.category || '').toLowerCase();
+        const isPrivate = (newRoom.type || '').toLowerCase().includes('private') || (newRoom.capacity || 1) === 1;
+        const normalizedCategory = aptCat.includes('premium') ? 'Premium' : 'Standard';
+        const normalizedType = normalizedCategory === 'Premium' 
+          ? (isPrivate ? AccommodationType.PREMIUM_PRIVATE : AccommodationType.PREMIUM_SHARED)
+          : (isPrivate ? AccommodationType.STANDARD_PRIVATE : AccommodationType.STANDARD_SHARED);
+
         const roomToInsert = {
             ...roomData,
+            category: normalizedCategory,
+            type: normalizedType,
+            apartment_name: newRoom.apartment_name || (normalizedCategory === 'Premium' ? 'Premium 1' : 'Standard'),
             status: newRoom.status || 'Active',
             property_id: propData.id,
         };
