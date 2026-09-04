@@ -294,9 +294,11 @@ export const EditBookingModal: React.FC<EditBookingModalProps> = ({
         editFormData.bedSpaceName
       );
 
-      const prefAccommodation = (editFormData.roomType === 'Private'
-        ? `${editFormData.category} Private`
-        : `${editFormData.category} Shared`) as AccommodationType;
+      const isPremium = editFormData.category.toLowerCase().includes('premium');
+      const isPrivate = editFormData.roomType === 'Private';
+      const prefAccommodation: AccommodationType = isPremium
+        ? (isPrivate ? AccommodationType.PREMIUM_PRIVATE : AccommodationType.PREMIUM_SHARED)
+        : (isPrivate ? AccommodationType.STANDARD_PRIVATE : AccommodationType.STANDARD_SHARED);
 
       const updatedPayload: Partial<Booking> = {
         full_name: editFormData.full_name,

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useApp } from '../hooks/useApp';
-import { BookingStatus, Booking, User } from '../types';
+import { BookingStatus, Booking, User, AccommodationType } from '../types';
 import { IconClose } from './Icon';
 import { ALL_ROOM_SPACES, RoomSpaceConfig, getUnifiedRoomName, getParsedRoomSpaces, BED_SPACE_TO_ID_MAP, findDatabaseRoomForSpace } from '../lib/roomNaming';
 
@@ -180,7 +180,9 @@ export const AdminCreateBookingModal: React.FC<AdminCreateBookingModalProps> = (
         end_date: calculatedExpiryDate,
         payment_expiry_date: calculatedExpiryDate,
         duration_of_stay: `${durationMonths} month${durationMonths > 1 ? 's' : ''}`,
-        preferred_accommodation: selectedCategory as any,
+        preferred_accommodation: selectedCategory.toLowerCase().includes('premium')
+          ? (selectedSpaceObj.type === 'Private' ? AccommodationType.PREMIUM_PRIVATE : AccommodationType.PREMIUM_SHARED)
+          : (selectedSpaceObj.type === 'Private' ? AccommodationType.STANDARD_PRIVATE : AccommodationType.STANDARD_SHARED),
         emergency_contact_details: emergencyContact.trim() || 'N/A',
         status: bookingStatus,
         total_price: totalPrice,

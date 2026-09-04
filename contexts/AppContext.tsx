@@ -1323,7 +1323,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
         if (error) throw error;
 
-        const updatedBookings = bookings.map(b => b.id === id ? { ...b, ...updates, ...(targetRoomId ? { room_id: targetRoomId } : {}) } : b);
+        const updatedBookings = bookings.map(b => b.id === id ? { ...b, ...updates, ...dbUpdates, ...(targetRoomId ? { room_id: targetRoomId } : {}) } : b);
         setBookings(updatedBookings);
 
         // Recalculate room occupancy slots and availability in Supabase (whitelist: Confirmed/Occupied)
