@@ -420,36 +420,41 @@ const MultiStepBookingForm: React.FC = () => {
 
     try {
       const unifiedRoomName = getUnifiedRoomName(formData.category, formData.roomName, formData.bedSpaceName);
-      const chosenRoomId = selectedSupabaseRoom ? selectedSupabaseRoom.id : (BED_SPACE_TO_ID_MAP[formData.selectedRoomId] || 1);
+      const chosenBedSpaceId = BED_SPACE_TO_ID_MAP[formData.selectedRoomId] || undefined;
+      const chosenRoomId = selectedSupabaseRoom ? selectedSupabaseRoom.id : 1;
+
+      const isPremium = formData.category.toLowerCase().includes('premium');
+      const isPrivate = formData.roomType.toLowerCase().includes('private');
+      const preferredAccommodation: AccommodationType = isPremium
+        ? (isPrivate ? AccommodationType.PREMIUM_PRIVATE : AccommodationType.PREMIUM_SHARED)
+        : (isPrivate ? AccommodationType.STANDARD_PRIVATE : AccommodationType.STANDARD_SHARED);
 
       const newBookingPayload: Omit<Booking, 'id' | 'created_at'> = {
-        user_id: user ? user.id : 'anonymous_guest',
+        student_id: user ? user.id : undefined,
         room_id: chosenRoomId,
-        package_months: parseInt(formData.duration, 10),
+        bed_space_id: chosenBedSpaceId,
         total_price: pricing.totalPrice,
-        academic_term: `${formData.category} Term (${formData.duration} Mos)`,
         start_date: startDate,
         end_date: endDate,
         status: BookingStatus.PENDING_PAYMENT,
-        payment_method: 'bank_transfer',
         full_name: formData.fullName,
         email: formData.email,
         expected_arrival_date: formData.arrivalDate,
         nationality: formData.nationality,
         passport_number: formData.passportNumber,
+        passport_copy_url: '',
         phone_number: formData.whatsappNumber,
-        gender: 'Any' as any,
-        preferred_accommodation: `${formData.category} - ${formData.roomType} (${formData.roomName}, ${formData.bedSpaceName})`,
-        emergency_contact: formData.homeAddress,
+        preferred_accommodation: preferredAccommodation,
+        emergency_contact_details: formData.homeAddress || 'N/A',
         address_in_egypt: getAccommodationAddress(formData.category, accommodationAddresses),
         duration_of_stay: `${formData.duration} Months`,
+        contract_language: (language as any) || 'en',
         signature_data: signature,
         contract_signed_at: new Date().toISOString(),
-        is_extended: !!extendingBooking,
-        previous_booking_id: extendingBooking ? extendingBooking.id : undefined,
+        parent_booking_id: extendingBooking ? extendingBooking.id : undefined,
       };
 
-      const result = await addBooking(newBookingPayload);
+      const result = await addBooking(newBookingPayload as Booking);
       if (!result.success) throw new Error(result.error);
       
       const createdBooking = result.data!;

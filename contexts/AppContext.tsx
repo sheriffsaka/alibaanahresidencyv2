@@ -314,6 +314,53 @@ Authorized Property Management: Al-Ibaanah Housing Administration`,
 
 INITIAL_CMS.studentDocuments = DEFAULT_STUDENT_DOCUMENTS;
 
+// Whitelist of genuine columns on the Supabase 'bookings' table
+const VALID_BOOKINGS_COLUMNS = new Set([
+  'student_id',
+  'room_id',
+  'bed_space_id',
+  'start_date',
+  'end_date',
+  'status',
+  'booked_at',
+  'full_name',
+  'nationality',
+  'passport_number',
+  'passport_copy_url',
+  'email',
+  'phone_number',
+  'expected_arrival_date',
+  'duration_of_stay',
+  'preferred_accommodation',
+  'emergency_contact_details',
+  'building_no',
+  'flat_no',
+  'street_name',
+  'district_name',
+  'state',
+  'address_in_egypt',
+  'contract_language',
+  'contract_signed_at',
+  'signature_data',
+  'total_price',
+  'payment_proof_url',
+  'payment_expiry_date',
+  'parent_booking_id',
+  'checked_in_at',
+  'checked_out_at'
+]);
+
+const normalizeAccommodationType = (val: any): 'Standard Shared' | 'Standard Private' | 'Premium Shared' | 'Premium Private' => {
+  if (!val) return 'Standard Shared';
+  const str = String(val).toLowerCase();
+  const isPremium = str.includes('premium');
+  const isPrivate = str.includes('private') || str.includes('single');
+  if (isPremium) {
+    return isPrivate ? 'Premium Private' : 'Premium Shared';
+  }
+  return isPrivate ? 'Standard Private' : 'Standard Shared';
+};
+
 const MOCK_ACTIVITIES: Activity[] = [
   { id: 1, user_id: 's1', type: 'booking', description: 'Booked Room 101A (BK1045)', timestamp: new Date(Date.now() - 3600000).toISOString() },
   { id: 2, user_id: 's1', type: 'payment', description: 'Payment for BK1045 confirmed by staff', timestamp: new Date(Date.now() - 1800000).toISOString() },
@@ -1080,13 +1127,68 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             targetRoomId = bedSpace.room_id;
         }
 
-        // Remove the 'rooms', 'profiles', and 'id' objects before inserting into Supabase
-        // We let Supabase generate the ID
-        const { rooms: rObj, profiles, student_name, id, ...bookingToInsert } = newBooking as any;
-        bookingToInsert.room_id = targetRoomId;
+        // Resolve student_id: prioritize explicit student_id, fallback to user_id or active user session
+        let resolvedStudentId = newBooking.student_id || (newBooking as any).user_id || user?.id || null;
+        if (!resolvedStudentId || resolvedStudentId === 'anonymous_guest') {
+            if (user?.id) {
+                resolvedStudentId = user.id;
+            } else {
+                const { data: anyProfile } = await supabase.from('profiles').select('id').eq('role', 'student').limit(1).maybeSingle();
+                if (anyProfile?.id) {
+                    resolvedStudentId = anyProfile.id;
+                }
+            }
+        }
+
+        // Normalize aliases & enum values
+        const rawEmergencyContact = newBooking.emergency_contact_details || (newBooking as any).emergency_contact || 'N/A';
+        const rawParentBookingId = newBooking.parent_booking_id || (newBooking as any).previous_booking_id || null;
+        const rawPassportCopy = newBooking.passport_copy_url || (newBooking as any).passport_copy || '';
+        const rawPreferredAcc = normalizeAccommodationType(newBooking.preferred_accommodation);
+
+        // Build clean insert payload containing ONLY genuine columns in the database 'bookings' table
+        // We let Supabase generate the ID, and strictly avoid sending fields not in schema (e.g. academic_term, package_months, gender)
+        const bookingToInsert: Record<string, any> = {
+            student_id: resolvedStudentId,
+            room_id: targetRoomId,
+            start_date: newBooking.start_date || (newBooking as any).expected_arrival_date || new Date().toISOString().split('T')[0],
+            end_date: newBooking.end_date,
+            status: newBooking.status || 'Pending Verification',
+            full_name: newBooking.full_name || user?.full_name || '',
+            nationality: newBooking.nationality || user?.nationality || 'International',
+            passport_number: newBooking.passport_number || user?.passport_number || 'N/A',
+            passport_copy_url: rawPassportCopy,
+            email: newBooking.email || user?.email || '',
+            phone_number: newBooking.phone_number || user?.phone_number || '',
+            expected_arrival_date: newBooking.expected_arrival_date || newBooking.start_date || new Date().toISOString().split('T')[0],
+            duration_of_stay: newBooking.duration_of_stay || '6 Months',
+            preferred_accommodation: rawPreferredAcc,
+            emergency_contact_details: rawEmergencyContact,
+        };
+
         if (targetBedSpaceId) {
             bookingToInsert.bed_space_id = targetBedSpaceId;
         }
+        if (newBooking.booked_at) {
+            bookingToInsert.booked_at = newBooking.booked_at;
+        }
+        if (newBooking.building_no) bookingToInsert.building_no = newBooking.building_no;
+        if (newBooking.flat_no) bookingToInsert.flat_no = newBooking.flat_no;
+        if (newBooking.street_name) bookingToInsert.street_name = newBooking.street_name;
+        if (newBooking.district_name) bookingToInsert.district_name = newBooking.district_name;
+        if (newBooking.state) bookingToInsert.state = newBooking.state;
+        if (newBooking.address_in_egypt) bookingToInsert.address_in_egypt = newBooking.address_in_egypt;
+        if (newBooking.contract_language) bookingToInsert.contract_language = newBooking.contract_language;
+        if (newBooking.contract_signed_at) bookingToInsert.contract_signed_at = newBooking.contract_signed_at;
+        if (newBooking.signature_data) bookingToInsert.signature_data = newBooking.signature_data;
+        if (newBooking.total_price !== undefined && newBooking.total_price !== null) {
+            bookingToInsert.total_price = Number(newBooking.total_price);
+        }
+        if (newBooking.payment_proof_url) bookingToInsert.payment_proof_url = newBooking.payment_proof_url;
+        if (newBooking.payment_expiry_date) bookingToInsert.payment_expiry_date = newBooking.payment_expiry_date;
+        if (rawParentBookingId) bookingToInsert.parent_booking_id = rawParentBookingId;
+        if (newBooking.checked_in_at) bookingToInsert.checked_in_at = newBooking.checked_in_at;
+        if (newBooking.checked_out_at) bookingToInsert.checked_out_at = newBooking.checked_out_at;
         
         const { data, error } = await supabase
             .from('bookings')
@@ -1187,10 +1289,31 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             }
         }
 
-        // Strip joined fields that might be in the updates object
-        const { rooms, profiles, ...dbUpdates } = updates as any;
+        // Sanitize update payload to only include genuine columns in the database 'bookings' table
+        const dbUpdates: Record<string, any> = {};
+        for (const [key, value] of Object.entries(updates)) {
+            if (VALID_BOOKINGS_COLUMNS.has(key)) {
+                if (key === 'preferred_accommodation' && value) {
+                    dbUpdates[key] = normalizeAccommodationType(value);
+                } else if (key === 'total_price' && value !== undefined && value !== null) {
+                    dbUpdates[key] = Number(value);
+                } else {
+                    dbUpdates[key] = value;
+                }
+            } else if (key === 'emergency_contact' && !dbUpdates['emergency_contact_details']) {
+                dbUpdates['emergency_contact_details'] = value;
+            } else if (key === 'previous_booking_id' && !dbUpdates['parent_booking_id']) {
+                dbUpdates['parent_booking_id'] = value;
+            } else if (key === 'passport_copy' && !dbUpdates['passport_copy_url']) {
+                dbUpdates['passport_copy_url'] = value;
+            }
+        }
+
         if (targetRoomId !== undefined) {
             dbUpdates.room_id = targetRoomId;
+        }
+        if (targetBedSpaceId !== undefined) {
+            dbUpdates.bed_space_id = targetBedSpaceId;
         }
         
         const { error } = await supabase

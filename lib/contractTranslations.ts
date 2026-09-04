@@ -398,7 +398,7 @@ export const DEFAULT_CONTRACT_TRANSLATIONS: ContractTranslationsStore = {
         tenantEmailLabel: 'البريد الإلكتروني'
       },
       property: {
-        title: '٢. العقار والوحدة السكنية',
+        title: '٢. العقار',
         intro: 'يقع العقار محل هذا العقد في العنوان التالي:',
         assignedUnitLabel: 'الوحدة / السرير المخصص:'
       },
@@ -445,7 +445,7 @@ export const DEFAULT_CONTRACT_TRANSLATIONS: ContractTranslationsStore = {
         useTitle: '١.١ استخدام العقار',
         useBody: 'نظام السكن الطلابي المشترك: يُستخدم العقار حصرياً كسكن طلابي مشترك. يجب على جميع المقيمين الالتزام ببنود هذا العقد والقواعد الداخلية المحددة من قبل المؤجر. يحتفظ المؤجر بالحق في الإشراف على العقار وضمان الحفاظ عليه نظيفاً وآمناً وقانونياً في جميع الأوقات.',
         occupancyTitle: '١.٢ السعة الإشغالية',
-        occupancyIntro: 'تتسع الشقة لعدد أقصاه {maxResidents} مقيمين.',
+        occupancyIntro: 'قد تستوعب الشقة ما بين ٣ إلى ٤ مقيمين: مقيمان في كل غرفة مشتركة ومقيم واحد في الغرفة الخاصة.',
         occupancyPoints: [
           'يجب على كل مقيم تقديم نسخة سارية من جواز السفر والتوقيع على استمارة الإشغال الداخلية.',
           'يُحظر منعاً باتاً التأجير من الباطن أو التنازل عن السكن للغير تحت أي ظرف من الظروف.'
@@ -487,6 +487,7 @@ export const DEFAULT_CONTRACT_TRANSLATIONS: ContractTranslationsStore = {
           'يجب أن تتوافق زيارات العائلة مع ساعات الزيارة وكافة القواعد الداخلية.',
           'يُمنع دخول الزوار من غير العائلة إلى الغرف الخاصة.',
           'لا يجوز لأفراد العائلة دخول سوى غرفة الطالب المعني بالزيارة فقط.',
+          'يُحظر منعاً باتاً دخول النساء إلى الشقة تحت أي ظرف من الظروف، بما في ذلك أفراد أسرة المستأجر.',
           'المقيم الذي يستقبل زواراً مسؤول مسؤولية تامة عن تصرفات وسلوك ضيوفه.'
         ],
         womenNotice: 'يُحظر منعاً باتاً دخول النساء إلى الشقة تحت أي ظرف من الظروف، بما في ذلك أفراد أسرة المستأجر.',
@@ -520,10 +521,11 @@ export const DEFAULT_CONTRACT_TRANSLATIONS: ContractTranslationsStore = {
         ],
         ethicsTitle: '٤.٣ البيئة الإسلامية والآداب الشرعية',
         ethicsPoints: [
-          'يُدار السكن وفق بيئة إسلامية ملتزمة، ويُتوقع من المقيمين الالتزام بآداب وسلوكيات الكتاب والسنة.',
-          'يجب أن تعكس الأقوال والأفعال واللباس والمعاملات قيم الحشمة والاحترام والتعاون على البر والتقوى.',
+          'يُدار السكن وفق بيئة إسلامية ملتزمة. ويُتوقع من جميع المقيمين مراعاة الآداب والسلوكيات وفقاً للقرآن والسنة.',
+          'يجب أن تعكس التصرفات والأقوال واللباس والتعاملات بين المقيمين قيم الحشمة والاحترام والتعاون كما يعلمنا الإسلام.',
+          'يُتوقع من جميع المقيمين أداء الصلوات الخمس (الصلوات) في المسجد جماعة.',
           'لا يجوز لأي مقيم التخلف عن صلاة الجماعة إلا بعذر شرعي معتبر في الشريعة الإسلامية.',
-          'أي سلوك يخالف هذه المبادئ الإسلامية قد يترتب عليه اتخاذ إجراءات تصحيحية أو إنهاء العقد فوراً من قبل المؤجر.'
+          'أي سلوك يخالف هذه المبادئ الإسلامية قد يترتب عليه اتخاذ إجراءات تصحيحية أو إنهاء هذا العقد من قبل المؤجر.'
         ],
         salawatHighlight: 'يُتوقع من جميع المقيمين أداء الصلوات الخمس جماعة في المسجد بانتظام.'
       },
@@ -546,15 +548,20 @@ export const DEFAULT_CONTRACT_TRANSLATIONS: ContractTranslationsStore = {
         extremismHighlight: 'أقر وأشهد بأنني لست منتمياً إلى أي جماعة أو تنظيم متطرف أو حزبي، بما في ذلك التكفير، أو الخوارج، أو تنظيم داعش، أو جماعة التبليغ، أو الإخوان، أو أي تنظيم مشابه.'
       },
       signatures: {
-        title: 'التوقيعات والإقرار',
-        intro: 'بالتوقيع أدناه، يقر الطرفان بأنهما قد قرآ وفهما ووافقا على جميع البنود والشروط الواردة في هذا العقد.',
+        title: 'التوقيعات',
+        intro: 'بالتوقيع أدناه، يقر الطرفان بأنهما قد قرآ وفهما ووافقا على جميع البنود والشروط الواردة في عقد الإيجار هذا.',
         landlordLabel: 'المؤجر',
         tenantLabel: 'المستأجر',
         dateLabel: 'التاريخ',
         awaitingSignatureText: 'في انتظار التوقيع الرقمي للمستأجر',
         footerText: 'مركز الإبانة للغة العربية - العقد الرسمي لسكن الطلاب',
         pageText: 'صفحة {page} من ٤',
-        agreementDateIntro: 'حُرر هذا العقد بتاريخ'
+        agreementDateIntro: 'حُرر هذا العقد بتاريخ',
+        witnessesTitle: 'الشهود',
+        witness1Label: 'الشاهد الأول',
+        witness2Label: 'الشاهد الثاني',
+        witnessNameLabel: 'الاسم',
+        witnessDateLabel: 'التاريخ'
       }
     }
   },
@@ -637,7 +644,7 @@ export const DEFAULT_CONTRACT_TRANSLATIONS: ContractTranslationsStore = {
         useTitle: '1.1 Назначение жилья',
         useBody: 'Студенческое общежитие: помещение используется исключительно для совместного студенческого проживания. Все жильцы обязаны соблюдать условия настоящего Договора и Правила внутреннего распорядка. Арендодатель сохраняет право контроля за надлежащим санитарным и безопасным состоянием жилья.',
         occupancyTitle: '1.2 Вместимость квартиры',
-        occupancyIntro: 'Квартира рассчитана на проживание максимум {maxResidents} человек.',
+        occupancyIntro: 'Квартира рассчитана на проживание до 3–4 человек: по два человека в общей комнате и один в отдельной комнате.',
         occupancyPoints: [
           'Каждый жилец обязан предоставить копию действующего загранпаспорта и подписать внутреннюю форму заселения.',
           'Субаренда, передача места третьим лицам или переуступка категорически запрещены.'
@@ -679,6 +686,7 @@ export const DEFAULT_CONTRACT_TRANSLATIONS: ContractTranslationsStore = {
           'Визиты родственников должны соответствовать часам посещения и общим правилам.',
           'Посторонним посетителям запрещен вход в спальные комнаты.',
           'Члены семьи могут находиться исключительно в комнате пригласившего их студента.',
+          'Нахождение женщин в квартире строго запрещено при любых обстоятельствах, включая родственниц арендатора.',
           'Студент, принимающий гостей, несет полную ответственность за их поведение.'
         ],
         womenNotice: 'Нахождение женщин в квартире строго запрещено при любых обстоятельствах, включая родственниц арендатора.',
@@ -712,10 +720,11 @@ export const DEFAULT_CONTRACT_TRANSLATIONS: ContractTranslationsStore = {
         ],
         ethicsTitle: '4.3 Исламская среда и этика',
         ethicsPoints: [
-          'Квартира функционирует как исламская среда, где соблюдаются нормы Корана и Сунны.',
-          'Поведение, речь, внешний вид и общение должны отражать скромность и исламский этикет.',
-          'Пропуск обязательной коллективной молитвы без уважительной шариатской причины недопустим.',
-          'Нарушение исламских принципов может повлечь предупреждение или расторжение договора.'
+          'Квартира функционирует как исламская среда. Все жильцы обязаны соблюдать этикет и нормы поведения в соответствии с Кораном и Сунной.',
+          'Поведение, речь, одежда и взаимодействие между жильцами должны отражать скромность, уважение и сотрудничество, предписанные исламом.',
+          'Все жильцы обязаны посещать мечеть для совершения пяти ежедневных обязательных молитв (саляват).',
+          'Ни один жилец не имеет права пропускать коллективную молитву без уважительной шариатской причины.',
+          'Любое поведение, противоречащее этим исламским принципам, может повлечь за собой меры воздействия или расторжение настоящего Договора со стороны арендодателя.'
         ],
         salawatHighlight: 'Все студенты обязаны совершать пять обязательных молитв (намазов) в мечети с джамаатом.'
       },
@@ -738,15 +747,20 @@ export const DEFAULT_CONTRACT_TRANSLATIONS: ContractTranslationsStore = {
         extremismHighlight: 'Я подтверждаю, что не принадлежу и не имею отношения к экстремистским, сектантским или радикальным течениям (такфир, хавариджи, ДАИШ/ИГИЛ, таблиг, ихваны и др.).'
       },
       signatures: {
-        title: 'ПОДПИСИ СТОРОН',
-        intro: 'Подписывая настоящий документ, стороны подтверждают, что полностью прочитали, поняли и согласны со всеми условиями Договора.',
+        title: 'ПОДПИСИ',
+        intro: 'Подписывая настоящий документ, стороны подтверждают, что полностью прочитали, поняли и согласны со всеми условиями настоящего Договора аренды.',
         landlordLabel: 'АРЕНДОДАТЕЛЬ',
         tenantLabel: 'АРЕНДАТОР',
-        dateLabel: 'Дата',
+        dateLabel: 'ДАТА',
         awaitingSignatureText: 'Ожидается электронная подпись студента',
-        footerText: 'Арабский центр Al-Ibaanah - Официальный договор аренды студенческого жилья',
+        footerText: 'АРАБСКИЙ ЦЕНТР AL-IBAANAH - ОФИЦИАЛЬНЫЙ ДОГОВОР АРЕНДЫ СТУДЕНЧЕСКОГО ЖИЛЬЯ',
         pageText: 'Стр. {page} из 4',
-        agreementDateIntro: 'Договор заключен'
+        agreementDateIntro: 'Настоящий Договор заключен',
+        witnessesTitle: 'СВИДЕТЕЛИ',
+        witness1Label: 'СВИДЕТЕЛЬ 1',
+        witness2Label: 'СВИДЕТЕЛЬ 2',
+        witnessNameLabel: 'ФИО',
+        witnessDateLabel: 'ДАТА'
       }
     }
   },
@@ -782,7 +796,7 @@ export const DEFAULT_CONTRACT_TRANSLATIONS: ContractTranslationsStore = {
         tenantEmailLabel: 'Courriel'
       },
       property: {
-        title: '2. BIEN LOUÉ ET LOGEMENT',
+        title: '2. BIEN LOUÉ',
         intro: 'Le bien immobilier faisant l’objet du présent contrat est situé à l’adresse suivante :',
         assignedUnitLabel: 'Unité / Lit attribué :'
       },
@@ -829,7 +843,7 @@ export const DEFAULT_CONTRACT_TRANSLATIONS: ContractTranslationsStore = {
         useTitle: '1.1 Usage des lieux',
         useBody: 'Hébergement étudiant partagé : le bien est exclusivement destiné à un usage d’hébergement étudiant collectif. Tous les résidents doivent se conformer aux termes du contrat et au règlement intérieur. Le bailleur se réserve le droit d’assurer la supervision des lieux afin de garantir leur propreté et sécurité.',
         occupancyTitle: '1.2 Capacité d’occupation',
-        occupancyIntro: 'L’appartement peut accueillir un maximum de {maxResidents} résidents.',
+        occupancyIntro: 'L’appartement peut accueillir jusqu’à 3 à 4 résidents : deux résidents par chambre partagée et un par chambre privée.',
         occupancyPoints: [
           'Chaque résident doit fournir une copie de son passeport en cours de validité et signer la fiche d’occupation.',
           'La sous-location ou la cession de bail est strictement interdite en toutes circonstances.'
@@ -871,6 +885,7 @@ export const DEFAULT_CONTRACT_TRANSLATIONS: ContractTranslationsStore = {
           'Les visites familiales doivent respecter les horaires et le règlement de l’établissement.',
           'Les visiteurs extérieurs à la famille n’ont pas accès aux chambres privées.',
           'Les membres de la famille ne peuvent accéder qu’à la chambre du locataire concerné.',
+          'La présence de femmes dans l’appartement est formellement interdite en toutes circonstances, y compris pour les membres de la famille du locataire.',
           'Le résident qui reçoit un invité demeure pleinement responsable de son comportement.'
         ],
         womenNotice: 'La présence de femmes dans l’appartement est formellement interdite en toutes circonstances, y compris pour les membres de la famille.',
@@ -904,10 +919,11 @@ export const DEFAULT_CONTRACT_TRANSLATIONS: ContractTranslationsStore = {
         ],
         ethicsTitle: '4.3 Environnement islamique et éthique',
         ethicsPoints: [
-          'Le logement constitue un environnement islamique régi par les préceptes du Coran et de la Sounnah.',
-          'Le comportement, les propos, la tenue vestimentaire et les relations doivent refléter la pudeur et la fraternité.',
-          'Aucun résident ne doit délaisser la prière en groupe à la mosquée sans excuse religieuse valable.',
-          'Tout manquement grave à ces règles éthiques pourra entraîner la résiliation immédiate du contrat.'
+          'L’appartement sera maintenu dans un cadre islamique. Tous les résidents sont tenus d’observer les convenances et le comportement conformes au Coran et à la Sunna.',
+          'Le comportement, les propos, la tenue vestimentaire et les relations entre résidents doivent refléter les valeurs de pudeur, de respect et d’entraide enseignées par l’Islam.',
+          'Tous les résidents sont tenus de se rendre à la mosquée pour les cinq prières quotidiennes (salawat).',
+          'Aucun résident ne peut s’absenter de la prière en groupe sans excuse religieuse valable définie par la Shari’ah.',
+          'Tout comportement contraire à ces principes islamiques peut donner lieu à des mesures correctives ou à la résiliation du présent contrat par le bailleur.'
         ],
         salawatHighlight: 'Tous les résidents sont tenus d’accomplir les cinq prières quotidiennes (salawat) à la mosquée en congrégation.'
       },
@@ -930,15 +946,20 @@ export const DEFAULT_CONTRACT_TRANSLATIONS: ContractTranslationsStore = {
         extremismHighlight: 'Je certifie sur l’honneur n’avoir aucune affiliation avec un quelconque mouvement ou groupe extrémiste ou sectaire (Takfir, Khawarij, Daesh, Tabligh, Ikhwan ou similaire).'
       },
       signatures: {
-        title: 'SIGNATURES DES PARTIES',
-        intro: 'Par leur signature ci-dessous, les deux parties confirment avoir lu, compris et approuvé l’ensemble des conditions du présent contrat.',
+        title: 'SIGNATURES',
+        intro: 'Par leur signature ci-dessous, les deux parties confirment avoir lu, compris et approuvé l’ensemble des conditions stipulées dans le présent contrat de location.',
         landlordLabel: 'LE BAILLEUR',
         tenantLabel: 'LE LOCATAIRE',
-        dateLabel: 'Date',
+        dateLabel: 'DATE',
         awaitingSignatureText: 'En attente de la signature électronique de l’étudiant',
-        footerText: 'Centre Arabe Al-Ibaanah - Contrat Officiel de Logement Étudiant',
+        footerText: 'CENTRE ARABE AL-IBAANAH - CONTRAT OFFICIEL DE LOGEMENT ÉTUDIANT',
         pageText: 'Page {page} sur 4',
-        agreementDateIntro: 'Fait le'
+        agreementDateIntro: 'Fait le',
+        witnessesTitle: 'TÉMOINS',
+        witness1Label: 'TÉMOIN 1',
+        witness2Label: 'TÉMOIN 2',
+        witnessNameLabel: 'NOM',
+        witnessDateLabel: 'DATE'
       }
     }
   },
@@ -974,7 +995,7 @@ export const DEFAULT_CONTRACT_TRANSLATIONS: ContractTranslationsStore = {
         tenantEmailLabel: 'Elektron pochta'
       },
       property: {
-        title: '2. IJARA OB’EKTI VA XONA',
+        title: '2. IJARA OB’EKTI',
         intro: 'Ushbu Shartnoma predmeti bo‘lgan turar-joy quyidagi manzilda joylashgan:',
         assignedUnitLabel: 'Biriktirilgan joy / xona:'
       },
@@ -1021,7 +1042,7 @@ export const DEFAULT_CONTRACT_TRANSLATIONS: ContractTranslationsStore = {
         useTitle: '1.1 Turar-joydan foydalanish',
         useBody: 'Talabalar yotoqxonasi: xonadon faqat talabalarning birgalikda yashashi uchun mo‘ljallangan. Barcha istiqomat qiluvchilar ushbu Shartnoma va Ichki tartib qoidalariga rioya qilishlari shart. Ijaraga beruvchi xonadonning tozaligi va xavfsizligini nazorat qilish huquqini saqlab qoladi.',
         occupancyTitle: '1.2 Yashovchilar soni',
-        occupancyIntro: 'Xonadon ko‘pi bilan {maxResidents} nafar talabaga mo‘ljallangan.',
+        occupancyIntro: 'Xonadon 3–4 nafargacha yashovchini sig‘dira oladi: umumiy xonada ikki kishi va alohida xonada bir kishi.',
         occupancyPoints: [
           'Har bir talaba pasport nusxasini topshirishi va ichki ro‘yxatga olish varaqasini imzolashi shart.',
           'Xonani yoki joyni boshqa shaxslarga qayta ijaraga berish qat’iyan man etiladi.'
@@ -1063,6 +1084,7 @@ export const DEFAULT_CONTRACT_TRANSLATIONS: ContractTranslationsStore = {
           'Oila a’zolarining tashrifi belgilangan soatlar va tartibga muvofiq bo‘lishi shart.',
           'Begona mehmonlarning yotoqxonalarga kirishi taqiqlanadi.',
           'Oila a’zolari faqat taklif qilgan talabaning xonasiga kirishi mumkin.',
+          'Xonadonga ayollarning kirishi har qanday holatda qat’iyan man etiladi, shu jumladan talabaning oila a’zolari ham.',
           'Mehmon chaqirgan talaba uning xatti-harakatlari uchun to‘liq javobgardir.'
         ],
         womenNotice: 'Xonadonga ayollarning kirishi qat’iyan man etiladi, shu jumladan talabaning oila a’zolari ham.',
@@ -1096,10 +1118,11 @@ export const DEFAULT_CONTRACT_TRANSLATIONS: ContractTranslationsStore = {
         ],
         ethicsTitle: '4.3 Islomiy muhit va odob-axloq',
         ethicsPoints: [
-          'Kvartira Qur’on va Sunnatga muvofiq islomiy muhit asosida faoliyat yuritadi.',
-          'Kiyinish, muomala va so‘zlashuv odobi islomiy hayo va hurmatni aks ettirishi shart.',
-          'Uzrli shar’iy sababsiz jamoat namozini tark etishga yo‘l qo‘yilmaydi.',
-          'Islomiy odobga zid xatti-harakatlar shartnomani bekor qilishga olib kelishi mumkin.'
+          'Xonadon islomiy muhit sifatida saqlanadi. Barcha yashovchilar Qur’on va Sunnatga muvofiq odob-axloq qoidalariga rioya qilishlari shart.',
+          'Yashovchilarning xatti-harakati, nutqi, kiyinishi va o‘zaro muomalasi Islom ta’limotidagi hayo, hurmat va hamkorlik qadriyatlarini aks ettirishi lozim.',
+          'Barcha yashovchilar besh vaqt namoz (salovot) uchun masjidga borishlari shart.',
+          'Hech bir yashovchi Shariatda belgilangan uzrli sababsiz jamoat namozini tark etishga haqli emas.',
+          'Ushbu islomiy tamoyillarga zid har qanday xatti-harakat ijaraga beruvchi tomonidan tuzatish choralari ko‘rilishiga yoki ushbu Shartnomani bekor qilishga sabab bo‘lishi mumkin.'
         ],
         salawatHighlight: 'Barcha talabalar kunlik 5 vaqt namozni masjidda jamoat bilan ado etishlari shart.'
       },
@@ -1122,15 +1145,20 @@ export const DEFAULT_CONTRACT_TRANSLATIONS: ContractTranslationsStore = {
         extremismHighlight: 'Men hech qanday ekstremistik, buzg‘unchi yoki radikal guruhlarga (Takfir, Xavorij, Doyish/IShID, Tablig‘, Ixvon va shunga o‘xshash) aloqador emasligimni tasdiqlayman.'
       },
       signatures: {
-        title: 'TOMONLARNING IMZOLARI',
-        intro: 'Quyida imzo chekish orqali tomonlar ushbu Shartnomaning barcha shartlarini o‘qib chiqqanliklari, tushunganliklari va qabul qilganliklarini tasdiqlaydilar.',
+        title: 'IMZOLAR',
+        intro: 'Quyida imzo chekish orqali har ikki tomon ushbu Ijara shartnomasida bayon etilgan barcha shartlarni o‘qib chiqqanliklari, tushunganliklari va qabul qilganliklarini tasdiqlaydilar.',
         landlordLabel: 'IJARAGA BERUVCHI',
         tenantLabel: 'IJARACHI',
-        dateLabel: 'Sana',
+        dateLabel: 'SANA',
         awaitingSignatureText: 'Talabaning elektron imzosi kutilmoqda',
-        footerText: 'Al-Ibaanah Arab Tili Markazi - Talabalar Turar-joyi Rasmiy Shartnomasi',
+        footerText: 'AL-IBAANAH ARAB TILI MARKAZI - TALABALAR TURAR-JOYI RASMIY SHARTNOMASI',
         pageText: '{page} / 4-bet',
-        agreementDateIntro: 'Ushbu shartnoma tuzilgan sana:'
+        agreementDateIntro: 'Ushbu shartnoma tuzilgan sana:',
+        witnessesTitle: 'GUVOHLAR',
+        witness1Label: '1-GUVOH',
+        witness2Label: '2-GUVOH',
+        witnessNameLabel: 'ISMI SHARIFI',
+        witnessDateLabel: 'SANA'
       }
     }
   },
@@ -1166,7 +1194,7 @@ export const DEFAULT_CONTRACT_TRANSLATIONS: ContractTranslationsStore = {
         tenantEmailLabel: '电子邮箱'
       },
       property: {
-        title: '二、 租赁物业与房间信息',
+        title: '二、 租赁物业',
         intro: '本协议项下的租赁物业地址为：',
         assignedUnitLabel: '分配房间 / 床位：'
       },
@@ -1213,7 +1241,7 @@ export const DEFAULT_CONTRACT_TRANSLATIONS: ContractTranslationsStore = {
         useTitle: '1.1 物业使用性质',
         useBody: '学生合住公寓性质：本物业仅作为学生合住宿舍使用。所有住户必须严格遵守本协议条款及房东制定的房屋守则。房东保留对物业的管理监督权，确保房屋始终处于整洁、安全及合法状态。',
         occupancyTitle: '1.2 入住人数限制',
-        occupancyIntro: '本公寓最多容纳 {maxResidents} 名住户。',
+        occupancyIntro: '本公寓最多可容纳 3 至 4 名住户：合住房每间两人，单人间每间一人。',
         occupancyPoints: [
           '每位住户须提供有效的护照复印件并签署内部入住登记表。',
           '在任何情况下均严禁转租、分租或出借床位给第三方。'
@@ -1255,6 +1283,7 @@ export const DEFAULT_CONTRACT_TRANSLATIONS: ContractTranslationsStore = {
           '家属探访须遵守探访时间及所有房屋守则。',
           '非家属访客严禁进入任何私人卧房。',
           '家属仅可进入所探访学生的指定房间。',
+          '在任何情况下严禁任何女性进入本公寓，包括承租人的女性亲属在内，概无例外。',
           '接待访客的学生须对访客的一切言行负全部责任。'
         ],
         womenNotice: '严禁任何女性进入本男生宿舍，包括学生的女性直系亲属在内，概无例外。',
@@ -1288,10 +1317,11 @@ export const DEFAULT_CONTRACT_TRANSLATIONS: ContractTranslationsStore = {
         ],
         ethicsTitle: '4.3 伊斯兰生活环境与品德',
         ethicsPoints: [
-          '公寓按照伊斯兰优良传统管理，住户应遵循《古兰经》和圣训所教导的礼节。',
-          '住户的言谈举止、穿着打扮及人际交往必须体现端庄、谦逊与互助。',
-          '无正当教法允许的理由，不得无故缺席清真寺的集体礼拜。',
-          '任何严重违背伊斯兰道德准则的行为，房东有权采取纠正措施或终止合同。'
+          '公寓将作为伊斯兰环境予以维护。所有住户必须遵守符合《古兰经》和圣训的礼仪与行为规范。',
+          '住户的言行举止、穿着打扮以及相互交往必须体现伊斯兰教义所要求的端庄、尊重与团结互助。',
+          '所有住户均须前往清真寺履行每日五番主命拜功（Salawat）。',
+          '无伊斯兰教法认可的正当理由，任何住户不得无故缺席集体拜功。',
+          '任何违背上述伊斯兰原则的行为，房东有权采取纠正措施或依法解除本协议。'
         ],
         salawatHighlight: '所有住宿学生均须按时前往清真寺参加每日五番拜功（Salawat）的集体礼拜。'
       },
@@ -1314,15 +1344,20 @@ export const DEFAULT_CONTRACT_TRANSLATIONS: ContractTranslationsStore = {
         extremismHighlight: '本人郑重声明并保证：本人绝不隶属于、不赞同且不参与任何极端主义、分裂主义或极端派别组织（包括 Takfir、Khawarij、Daesh、Tabligh、Ikhwan 或类似极端派别）。'
       },
       signatures: {
-        title: '签署与确认',
+        title: '签署',
         intro: '签署本协议即表示双方已完整阅读、完全理解并自愿遵守本租赁协议所列全部条款。',
         landlordLabel: '出租方（房东）',
         tenantLabel: '承租方（学生）',
-        dateLabel: '签署日期',
+        dateLabel: '日期',
         awaitingSignatureText: '等待学生完成电子手写签名',
-        footerText: 'Al-Ibaanah 阿拉伯语中心 - 官方学生宿舍租赁协议',
+        footerText: 'AL-IBAANAH 阿拉伯语中心 - 官方学生宿舍租赁协议',
         pageText: '第 {page} 页，共 4 页',
-        agreementDateIntro: '本协议订立于'
+        agreementDateIntro: '本协议订立于',
+        witnessesTitle: '见证人',
+        witness1Label: '见证人 1',
+        witness2Label: '见证人 2',
+        witnessNameLabel: '姓名',
+        witnessDateLabel: '日期'
       }
     }
   }
