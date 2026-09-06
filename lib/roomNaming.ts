@@ -53,24 +53,26 @@ export interface RoomSpaceConfig {
 }
 
 export const ALL_ROOM_SPACES: RoomSpaceConfig[] = [
-  // Premium 1 (4 beds total: 2 in Room 1, 1 in Room 2, 1 in Room 3)
-  { id: 'p1_r1_a', category: 'Premium 1', roomName: 'Room 1', bedSpaceName: 'Bed A', type: 'Shared', displayName: 'Premium 1, Room 1, Bed Space: Bed A', apartmentName: 'Premium 1' },
-  { id: 'p1_r1_b', category: 'Premium 1', roomName: 'Room 1', bedSpaceName: 'Bed B', type: 'Shared', displayName: 'Premium 1, Room 1, Bed Space: Bed B', apartmentName: 'Premium 1' },
-  { id: 'p1_r2', category: 'Premium 1', roomName: 'Room 2', bedSpaceName: 'Single', type: 'Private', displayName: 'Premium 1, Room 2 (Private)', apartmentName: 'Premium 1' },
-  { id: 'p1_r3', category: 'Premium 1', roomName: 'Room 3', bedSpaceName: 'Single', type: 'Private', displayName: 'Premium 1, Room 3 (Private)', apartmentName: 'Premium 1' },
+  // Premium 1 (4 beds total: 2 in Room 1 (P1-R1), 1 in Room 2 (P1-R2), 1 in Room 3 (P1-R3))
+  { id: 'p1_r1_a', category: 'Premium 1', roomName: 'Room 1', bedSpaceName: 'Bed A', type: 'Shared', displayName: 'Premium 1, Room 1, Bed Space: Bed A', apartmentName: 'Premium 1', roomId: 2, bedSpaceId: 1 },
+  { id: 'p1_r1_b', category: 'Premium 1', roomName: 'Room 1', bedSpaceName: 'Bed B', type: 'Shared', displayName: 'Premium 1, Room 1, Bed Space: Bed B', apartmentName: 'Premium 1', roomId: 2, bedSpaceId: 2 },
+  { id: 'p1_r2', category: 'Premium 1', roomName: 'Room 2', bedSpaceName: 'Single', type: 'Private', displayName: 'Premium 1, Room 2 (Private)', apartmentName: 'Premium 1', roomId: 7, bedSpaceId: 3 },
+  { id: 'p1_r3', category: 'Premium 1', roomName: 'Room 3', bedSpaceName: 'Single', type: 'Private', displayName: 'Premium 1, Room 3 (Private)', apartmentName: 'Premium 1', roomId: 4, bedSpaceId: 4 },
 
-  // Premium 2 (4 beds total: 2 in Room 1, 1 in Room 2, 1 in Room 3)
-  { id: 'p2_r1_a', category: 'Premium 2', roomName: 'Room 1', bedSpaceName: 'Bed A', type: 'Shared', displayName: 'Premium 2, Room 1, Bed Space: Bed A', apartmentName: 'Premium 2' },
-  { id: 'p2_r1_b', category: 'Premium 2', roomName: 'Room 1', bedSpaceName: 'Bed B', type: 'Shared', displayName: 'Premium 2, Room 1, Bed Space: Bed B', apartmentName: 'Premium 2' },
-  { id: 'p2_r2', category: 'Premium 2', roomName: 'Room 2', bedSpaceName: 'Single', type: 'Private', displayName: 'Premium 2, Room 2 (Private)', apartmentName: 'Premium 2' },
-  { id: 'p2_r3', category: 'Premium 2', roomName: 'Room 3', bedSpaceName: 'Single', type: 'Private', displayName: 'Premium 2, Room 3 (Private)', apartmentName: 'Premium 2' },
+  // Premium 2 (5 beds total: 2 in Room 1 (P2-R1), 2 in Room 2 (P2-R2), 1 in Room 3 (P2-R3))
+  { id: 'p2_r1_a', category: 'Premium 2', roomName: 'Room 1', bedSpaceName: 'Bed A', type: 'Shared', displayName: 'Premium 2, Room 1, Bed Space: Bed A', apartmentName: 'Premium 2', roomId: 5, bedSpaceId: 5 },
+  { id: 'p2_r1_b', category: 'Premium 2', roomName: 'Room 1', bedSpaceName: 'Bed B', type: 'Shared', displayName: 'Premium 2, Room 1, Bed Space: Bed B', apartmentName: 'Premium 2', roomId: 5, bedSpaceId: 6 },
+  { id: 'p2_r2_a', category: 'Premium 2', roomName: 'Room 2', bedSpaceName: 'Bed A', type: 'Shared', displayName: 'Premium 2, Room 2, Bed Space: Bed A', apartmentName: 'Premium 2', roomId: 8, bedSpaceId: 7 },
+  { id: 'p2_r2_b', category: 'Premium 2', roomName: 'Room 2', bedSpaceName: 'Bed B', type: 'Shared', displayName: 'Premium 2, Room 2, Bed Space: Bed B', apartmentName: 'Premium 2', roomId: 8, bedSpaceId: 18 },
+  { id: 'p2_r2', category: 'Premium 2', roomName: 'Room 2', bedSpaceName: 'Bed A', type: 'Shared', displayName: 'Premium 2, Room 2, Bed Space: Bed A', apartmentName: 'Premium 2', roomId: 8, bedSpaceId: 7 },
+  { id: 'p2_r3', category: 'Premium 2', roomName: 'Room 3', bedSpaceName: 'Single', type: 'Private', displayName: 'Premium 2, Room 3 (Private)', apartmentName: 'Premium 2', roomId: 6, bedSpaceId: 8 },
 
-  // Premium 3 (5 beds total: 2 in Room 1 (P3-R1), 1 in Room 2 (P3-R2), 2 in Room 3 (P3-R3))
+  // Premium 3 (5 beds total: 2 in Room 1 (P3-R1), 1 in Room 2 (P3-R2), 2 in Room 3 (P3-R3 / Room 3))
   { id: 'p3_r1_a', category: 'Premium 3', roomName: 'Room 1', bedSpaceName: 'Bed A', type: 'Shared', displayName: 'Premium 3, Room 1, Bed Space: Bed A', apartmentName: 'Premium 3', roomId: 3, bedSpaceId: 9 },
   { id: 'p3_r1_b', category: 'Premium 3', roomName: 'Room 1', bedSpaceName: 'Bed B', type: 'Shared', displayName: 'Premium 3, Room 1, Bed Space: Bed B', apartmentName: 'Premium 3', roomId: 3, bedSpaceId: 10 },
-  { id: 'p3_r2', category: 'Premium 3', roomName: 'Room 2', bedSpaceName: 'Single', type: 'Private', displayName: 'Premium 3, Room 2 (Private)', apartmentName: 'Premium 3', roomId: 9, bedSpaceId: 13 },
-  { id: 'p3_r3_a', category: 'Premium 3', roomName: 'Room 3', bedSpaceName: 'Bed A', type: 'Shared', displayName: 'Premium 3, Room 3, Bed Space: Bed A', apartmentName: 'Premium 3', roomId: 1, bedSpaceId: 11 },
-  { id: 'p3_r3_b', category: 'Premium 3', roomName: 'Room 3', bedSpaceName: 'Bed B', type: 'Shared', displayName: 'Premium 3, Room 3, Bed Space: Bed B', apartmentName: 'Premium 3', roomId: 1, bedSpaceId: 12 }
+  { id: 'p3_r2', category: 'Premium 3', roomName: 'Room 2', bedSpaceName: 'Single', type: 'Private', displayName: 'Premium 3, Room 2 (Private)', apartmentName: 'Premium 3', roomId: 9, bedSpaceId: 11 },
+  { id: 'p3_r3_a', category: 'Premium 3', roomName: 'Room 3', bedSpaceName: 'Bed A', type: 'Shared', displayName: 'Premium 3, Room 3, Bed Space: Bed A', apartmentName: 'Premium 3', roomId: 1, bedSpaceId: 13 },
+  { id: 'p3_r3_b', category: 'Premium 3', roomName: 'Room 3', bedSpaceName: 'Bed B', type: 'Shared', displayName: 'Premium 3, Room 3, Bed Space: Bed B', apartmentName: 'Premium 3', roomId: 1, bedSpaceId: 21 }
 ];
 
 export const BED_SPACE_TO_ID_MAP: Record<string, number> = {
@@ -80,18 +82,20 @@ export const BED_SPACE_TO_ID_MAP: Record<string, number> = {
   'p1_r3': 4,
   'p2_r1_a': 5,
   'p2_r1_b': 6,
+  'p2_r2_a': 7,
+  'p2_r2_b': 18,
   'p2_r2': 7,
   'p2_r3': 8,
   'p3_r1_a': 9,
   'p3_r1_b': 10,
-  'p3_r3_a': 11,
-  'p3_r3_b': 12,
-  'p3_r2': 13,
+  'p3_r2': 11,
+  'p3_r3_a': 13,
+  'p3_r3_b': 21,
   'std_r1_a': 9,
   'std_r1_b': 10,
-  'std_r2_a': 11,
-  'std_r2_b': 12,
-  'std_r3': 13,
+  'std_r2': 11,
+  'std_r3_a': 13,
+  'std_r3_b': 21,
   'std_r4_a': 14,
   'std_r4_b': 15,
   'std_r4': 14
@@ -104,15 +108,16 @@ export const ID_TO_BED_SPACE_MAP: Record<number, string> = {
   4: 'p1_r3',
   5: 'p2_r1_a',
   6: 'p2_r1_b',
-  7: 'p2_r2',
+  7: 'p2_r2_a',
   8: 'p2_r3',
   9: 'p3_r1_a',
   10: 'p3_r1_b',
-  11: 'p3_r3_a',
-  12: 'p3_r3_b',
-  13: 'p3_r2',
-  14: 'p3_r4_a',
-  15: 'p3_r4_b'
+  11: 'p3_r2',
+  13: 'p3_r3_a',
+  18: 'p2_r2_b',
+  21: 'p3_r3_b',
+  14: 'std_r4_a',
+  15: 'std_r4_b'
 };
 
 export const extractRoomNumber = (code?: string | null): string => {
@@ -143,7 +148,9 @@ export const normalizeCategory = (
   
   // 1. Check against known categories list if provided
   if (knownCategories && Array.isArray(knownCategories) && knownCategories.length > 0) {
-    const list = knownCategories.map(c => typeof c === 'string' ? { id: c.toLowerCase(), name: c, code: '' } : c);
+    const list = knownCategories
+      .map(c => typeof c === 'string' ? { id: c.toLowerCase(), name: c, code: '' } : c)
+      .filter(c => c && typeof c === 'object' && typeof c.name === 'string');
     
     if (apt) {
       const match = list.find(c => 

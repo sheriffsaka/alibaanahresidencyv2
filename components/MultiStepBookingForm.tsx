@@ -420,8 +420,14 @@ const MultiStepBookingForm: React.FC = () => {
 
     try {
       const unifiedRoomName = getUnifiedRoomName(formData.category, formData.roomName, formData.bedSpaceName);
-      const chosenBedSpaceId = BED_SPACE_TO_ID_MAP[formData.selectedRoomId] || undefined;
-      const chosenRoomId = selectedSupabaseRoom ? selectedSupabaseRoom.id : 1;
+      const spaceConfig = parsedAvailabilityData.find(s => s.id === formData.selectedRoomId);
+      const chosenBedSpaceId = spaceConfig?.bedSpaceId || (bedSpaces && bedSpaces.length > 0 ? bedSpaces.find(b => {
+        if (spaceConfig?.roomId && b.room_id !== spaceConfig.roomId) return false;
+        const bLabel = (b.label || '').toLowerCase();
+        const sLabel = (formData.bedSpaceName || '').toLowerCase();
+        return bLabel === sLabel || (bLabel.includes('bed a') && sLabel.includes('bed a')) || (bLabel.includes('bed b') && sLabel.includes('bed b')) || (bLabel.includes('single') && sLabel.includes('single'));
+      })?.id : undefined) || BED_SPACE_TO_ID_MAP[formData.selectedRoomId] || undefined;
+      const chosenRoomId = spaceConfig?.roomId || selectedSupabaseRoom?.id || 1;
 
       const isPremium = formData.category.toLowerCase().includes('premium');
       const isPrivate = formData.roomType.toLowerCase().includes('private');

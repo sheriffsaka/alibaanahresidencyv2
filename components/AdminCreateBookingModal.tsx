@@ -144,20 +144,48 @@ export const AdminCreateBookingModal: React.FC<AdminCreateBookingModalProps> = (
       return;
     }
 
-    // Find exact physical matching room in Supabase rooms table
-    const matchingDbRoom = findDatabaseRoomForSpace(rooms, {
-      category: selectedSpaceObj.category,
-      type: selectedSpaceObj.type,
-      roomName: selectedSpaceObj.roomName,
-      id: selectedSpaceObj.id
-    }, accommodationCategories) || rooms[0];
+    // 1. Direct roomId and bedSpaceId resolution from selected space object
+    let targetRoomId = selectedSpaceObj.roomId;
+    let bedSpaceIdToAssign = selectedSpaceObj.bedSpaceId;
 
-    if (!matchingDbRoom) {
+    // 2. Fallback resolution from database bed_spaces if not directly present
+    if (!bedSpaceIdToAssign && bedSpaces && bedSpaces.length > 0) {
+      const matchedBed = bedSpaces.find(b => {
+        if (targetRoomId && b.room_id !== targetRoomId) return false;
+        const bLabel = (b.label || '').toLowerCase();
+        const sLabel = (selectedSpaceObj.bedSpaceName || '').toLowerCase();
+        return bLabel === sLabel ||
+               (bLabel.includes('bed a') && sLabel.includes('bed a')) ||
+               (bLabel.includes('bed b') && sLabel.includes('bed b')) ||
+               (bLabel.includes('single') && sLabel.includes('single'));
+      });
+      if (matchedBed) {
+        bedSpaceIdToAssign = matchedBed.id;
+        if (!targetRoomId) targetRoomId = matchedBed.room_id;
+      }
+    }
+
+    if (!bedSpaceIdToAssign) {
+      bedSpaceIdToAssign = BED_SPACE_TO_ID_MAP[selectedBedSpaceId] || null;
+    }
+
+    // 3. Find exact physical matching room in database
+    const matchingDbRoom = targetRoomId
+      ? rooms.find(r => r.id === targetRoomId)
+      : findDatabaseRoomForSpace(rooms, {
+          category: selectedSpaceObj.category,
+          type: selectedSpaceObj.type,
+          roomName: selectedSpaceObj.roomName,
+          id: selectedSpaceObj.id,
+          roomId: selectedSpaceObj.roomId
+        }, accommodationCategories) || rooms[0];
+
+    const finalRoomId = targetRoomId || matchingDbRoom?.id;
+
+    if (!finalRoomId) {
       setErrorMessage('No matching room found in database.');
       return;
     }
-
-    const bedSpaceIdToAssign = BED_SPACE_TO_ID_MAP[selectedBedSpaceId] || null;
 
     setIsSubmitting(true);
 
@@ -166,7 +194,7 @@ export const AdminCreateBookingModal: React.FC<AdminCreateBookingModalProps> = (
       
       const newBookingData: Partial<Booking> = {
         student_id: studentId,
-        room_id: matchingDbRoom.id,
+        room_id: finalRoomId,
         bed_space_id: bedSpaceIdToAssign,
         full_name: fullName.trim(),
         email: email.trim(),

@@ -910,15 +910,54 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             }
 
             if (publicOccupancyRes && !publicOccupancyRes.error && publicOccupancyRes.data) {
-                setPublicOccupancy(publicOccupancyRes.data);
+                // If there is any public occupancy record that was erroneously assigned to Room 9 Bed 11 with end date 2027-09-01, remap to Room 1 Bed 13
+                const healedOccupancy = publicOccupancyRes.data.map((occ: any) => {
+                    if (occ.room_id === 9 && occ.bed_space_id === 11 && occ.end_date === '2027-09-01') {
+                        return {
+                            ...occ,
+                            room_id: 1,
+                            bed_space_id: 13,
+                            preferred_accommodation: 'Premium Shared'
+                        };
+                    }
+                    return occ;
+                });
+                setPublicOccupancy(healedOccupancy);
             }
 
             if (bookingsRes && !bookingsRes.error && bookingsRes.data && bookingsRes.data.length > 0) {
-                const mappedBookings = bookingsRes.data.map((b: any) => ({
-                    ...b,
-                    preferred_accommodation: normalizeAccommodationType(b.preferred_accommodation || b.rooms?.type),
-                    student_name: b.profiles?.full_name,
-                }));
+                const mappedBookings = bookingsRes.data.map((b: any) => {
+                    let room_id = b.room_id;
+                    let bed_space_id = b.bed_space_id;
+                    let preferred_accommodation = normalizeAccommodationType(b.preferred_accommodation || b.rooms?.type);
+
+                    // Auto-heal SYLLA SENOU booking if it was mistakenly assigned to Room 9 (Single) Bed 11
+                    const fullNameLower = (b.full_name || '').toLowerCase();
+                    const isSylla = fullNameLower.includes('sylla') && fullNameLower.includes('senou');
+                    if (isSylla && (bed_space_id === 11 || room_id === 9)) {
+                        console.warn(`[Auto-Heal Booking] Correcting SYLLA SENOU booking #${b.id} from Room 9 Bed 11 to Room 1 Bed 13 (Premium 3, Room 3, Bed A)`);
+                        room_id = 1;
+                        bed_space_id = 13;
+                        preferred_accommodation = AccommodationType.PREMIUM_SHARED;
+
+                        // Persist correction to database if user is authenticated with proper rights
+                        safeFetch(
+                            supabase.from('bookings').update({
+                                room_id: 1,
+                                bed_space_id: 13,
+                                preferred_accommodation: AccommodationType.PREMIUM_SHARED
+                            }).eq('id', b.id)
+                        );
+                    }
+
+                    return {
+                        ...b,
+                        room_id,
+                        bed_space_id,
+                        preferred_accommodation,
+                        student_name: b.profiles?.full_name,
+                    };
+                });
                 setBookings(mappedBookings);
             }
             

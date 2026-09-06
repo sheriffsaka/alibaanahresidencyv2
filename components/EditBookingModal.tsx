@@ -129,20 +129,21 @@ export const EditBookingModal: React.FC<EditBookingModalProps> = ({
     if (!targetBedSpaceId) {
       // Find matching space from liveDetails or edit form
       const matchingSpace = dynamicSpaces.find(s => s.id === editFormData.selectedSpaceId) || dynamicSpaces[0] || ALL_ROOM_SPACES[0];
-      const proposedBedSpaceId = BED_SPACE_TO_ID_MAP[matchingSpace.id];
-      const dbRoom = findDatabaseRoomForSpace(rooms, {
+      const proposedBedSpaceId = matchingSpace.bedSpaceId || (bedSpaces && matchingSpace.roomId ? bedSpaces.find(b => b.room_id === matchingSpace.roomId)?.id : undefined) || BED_SPACE_TO_ID_MAP[matchingSpace.id];
+      const dbRoom = matchingSpace.roomId ? rooms.find(r => r.id === matchingSpace.roomId) : findDatabaseRoomForSpace(rooms, {
         category: matchingSpace.category,
         type: matchingSpace.type,
         roomName: matchingSpace.roomName,
-        id: matchingSpace.id
+        id: matchingSpace.id,
+        roomId: matchingSpace.roomId
       });
 
       if (!confirm(`Approve booking BK${booking.id} for ${booking.full_name} with bed assignment "${matchingSpace.displayName}" (Bed ID: ${proposedBedSpaceId})?`)) {
         return;
       }
       targetBedSpaceId = proposedBedSpaceId;
-      if (dbRoom?.id) {
-        targetRoomId = dbRoom.id;
+      if (matchingSpace.roomId || dbRoom?.id) {
+        targetRoomId = matchingSpace.roomId || dbRoom?.id;
       }
     } else {
       if (!confirm(`Confirm payment and approve booking BK${booking.id} for ${booking.full_name}?`)) return;
