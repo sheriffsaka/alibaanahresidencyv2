@@ -487,6 +487,21 @@ export interface AppContextType {
     district_name?: string;
     state?: string;
   }) => Promise<{ success: boolean; error?: string; updatedStudent?: User }>;
+  createStudentProfile: (studentData: {
+    full_name: string;
+    email: string;
+    phone_number?: string;
+    gender?: 'Male' | 'Female';
+    nationality?: string;
+    passport_number?: string;
+    emergency_contact?: string;
+  }) => Promise<{
+    success: boolean;
+    error?: string;
+    student?: User;
+    duplicate?: boolean;
+    existingStudent?: User;
+  }>;
   deleteUser: (id: string) => Promise<{ success: boolean; error?: string }>;
   academicTerms: AcademicTerm[];
   bookingPackages: BookingPackage[];

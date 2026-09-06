@@ -570,17 +570,30 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         ]);
 
         if (studentsRes?.data) {
-          setStudents(studentsRes.data.map((p: any) => ({
-            id: p.id,
-            email: p.email || '',
-            full_name: p.full_name,
-            role: p.role,
-            gender: p.gender,
-            phone_number: p.phone_number,
-            passport_number: p.passport_number,
-            nationality: p.nationality,
-            created_at: p.created_at
-          })));
+          // Lookup map from bookings to enrich student email, phone, nationality, passport
+          const bookingStudentMap = new Map<string, any>();
+          if (bookings && bookings.length > 0) {
+            bookings.forEach(b => {
+              if (b.student_id && !bookingStudentMap.has(b.student_id)) {
+                bookingStudentMap.set(b.student_id, b);
+              }
+            });
+          }
+
+          setStudents(studentsRes.data.map((p: any) => {
+            const b = bookingStudentMap.get(p.id);
+            return {
+              id: p.id,
+              email: p.email || b?.email || '',
+              full_name: p.full_name || b?.full_name || '',
+              role: p.role || 'student',
+              gender: p.gender || b?.gender,
+              phone_number: p.phone_number || b?.phone_number || '',
+              passport_number: p.passport_number || b?.passport_number || '',
+              nationality: p.nationality || b?.nationality || '',
+              created_at: p.created_at
+            };
+          }));
         }
 
         if (staffRes?.data) {
@@ -2432,6 +2445,168 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     }
   };
 
+  const createStudentProfile = async (studentData: {
+    full_name: string;
+    email: string;
+    phone_number?: string;
+    gender?: 'Male' | 'Female';
+    nationality?: string;
+    passport_number?: string;
+    emergency_contact?: string;
+  }): Promise<{
+    success: boolean;
+    error?: string;
+    student?: User;
+    duplicate?: boolean;
+    existingStudent?: User;
+  }> => {
+    try {
+      const normalizedFullName = studentData.full_name?.trim();
+      const normalizedEmail = studentData.email?.trim().toLowerCase();
+      const normalizedPhone = studentData.phone_number?.trim() || '';
+      const normalizedGender = studentData.gender === 'Female' ? 'Female' : 'Male';
+      const normalizedNationality = studentData.nationality?.trim() || 'International';
+      const normalizedPassport = studentData.passport_number?.trim() || 'N/A';
+
+      if (!normalizedFullName) {
+        return { success: false, error: 'Full name is required.' };
+      }
+      if (!normalizedEmail || !normalizedEmail.includes('@')) {
+        return { success: false, error: 'A valid email address is required.' };
+      }
+
+      // 1. Client-Side Pre-validation & Duplicate Check
+      const existingInStudents = students.find(s => 
+        (s.email && s.email.toLowerCase() === normalizedEmail) ||
+        (normalizedPhone && s.phone_number && s.phone_number.replace(/\D/g, '') === normalizedPhone.replace(/\D/g, ''))
+      );
+
+      if (existingInStudents) {
+        return {
+          success: false,
+          duplicate: true,
+          existingStudent: existingInStudents,
+          error: `A student with this ${existingInStudents.email?.toLowerCase() === normalizedEmail ? 'email' : 'phone number'} already exists: ${existingInStudents.full_name} (${existingInStudents.email || existingInStudents.phone_number}).`
+        };
+      }
+
+      const existingInBookings = bookings.find(b =>
+        (b.email && b.email.toLowerCase() === normalizedEmail) ||
+        (normalizedPhone && b.phone_number && b.phone_number.replace(/\D/g, '') === normalizedPhone.replace(/\D/g, ''))
+      );
+
+      if (existingInBookings) {
+        const matchedUser: User = {
+          id: existingInBookings.student_id,
+          full_name: existingInBookings.full_name || existingInBookings.student_name || 'Existing Student',
+          email: existingInBookings.email,
+          phone_number: existingInBookings.phone_number,
+          nationality: existingInBookings.nationality,
+          passport_number: existingInBookings.passport_number,
+          gender: existingInBookings.gender === 'Female' ? 'Female' : 'Male',
+          role: 'student'
+        };
+
+        return {
+          success: false,
+          duplicate: true,
+          existingStudent: matchedUser,
+          error: `A student with this ${existingInBookings.email?.toLowerCase() === normalizedEmail ? 'email' : 'phone number'} already exists in records: ${matchedUser.full_name} (${matchedUser.email}).`
+        };
+      }
+
+      // 2. Call Server API endpoint
+      let newStudent: User | null = null;
+      try {
+        const res = await fetch('/api/admin/create-student', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            full_name: normalizedFullName,
+            email: normalizedEmail,
+            phone_number: normalizedPhone,
+            gender: normalizedGender,
+            nationality: normalizedNationality,
+            passport_number: normalizedPassport
+          })
+        });
+
+        const resData = await res.json();
+        if (resData.duplicate) {
+          return {
+            success: false,
+            duplicate: true,
+            existingStudent: resData.existingStudent,
+            error: resData.error || 'A student with this email address already exists.'
+          };
+        }
+
+        if (!res.ok || !resData.success) {
+          throw new Error(resData.error || `Server responded with status ${res.status}`);
+        }
+
+        newStudent = resData.student;
+      } catch (apiErr: any) {
+        console.warn('[createStudentProfile] Server API error, attempting direct Supabase RPC fallback:', apiErr.message);
+        
+        // Fallback: Try RPC directly from client
+        const { data: rpcData, error: rpcError } = await supabase.rpc('create_student_profile', {
+          p_full_name: normalizedFullName,
+          p_email: normalizedEmail,
+          p_phone_number: normalizedPhone,
+          p_gender: normalizedGender,
+          p_nationality: normalizedNationality,
+          p_passport_number: normalizedPassport
+        });
+
+        if (rpcError) {
+          throw new Error(apiErr.message || rpcError.message);
+        }
+
+        if (rpcData?.duplicate) {
+          return {
+            success: false,
+            duplicate: true,
+            existingStudent: {
+              id: rpcData.existing_student_id,
+              full_name: normalizedFullName,
+              email: normalizedEmail,
+              role: 'student'
+            },
+            error: rpcData.error || 'A student with this email already exists.'
+          };
+        }
+
+        if (rpcData?.success && rpcData.student) {
+          newStudent = rpcData.student;
+        } else {
+          throw new Error(rpcData?.error || 'Failed to create student profile.');
+        }
+      }
+
+      if (!newStudent || !newStudent.id) {
+        throw new Error('Failed to obtain new student record.');
+      }
+
+      // Add student to client state immediately without reloading whole dashboard
+      setStudents(prev => {
+        if (prev.some(s => s.id === newStudent!.id)) return prev;
+        return [newStudent!, ...prev];
+      });
+
+      return {
+        success: true,
+        student: newStudent
+      };
+    } catch (err: any) {
+      console.error('Error creating student profile:', err);
+      return {
+        success: false,
+        error: err.message || 'An unexpected error occurred while creating the student profile.'
+      };
+    }
+  };
+
   const addToWaitlist = async (entry: Omit<WaitlistEntry, 'id' | 'created_at' | 'status'> & { status?: WaitlistStatus }) => {
     try {
       const newEntryPayload: any = {
@@ -3329,6 +3504,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     addUser,
     updateUser,
     updateStudentProfile,
+    createStudentProfile,
     deleteUser,
     academicTerms,
     bookingPackages,
