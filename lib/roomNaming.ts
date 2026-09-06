@@ -568,20 +568,35 @@ export const getParsedRoomSpaces = (
   // Pass 0: Direct bed_space_id matching if bed_space_id exists on booking / public occupancy
   for (const b of activeBookings) {
     if (b.bed_space_id != null) {
-      // Find space by bed_space_id
+      // Find space by bed_space_id (prioritizing matching roomId if available)
       const matchedSpace = spacesList.find(space => {
-        if (space.bedSpaceId && space.bedSpaceId === b.bed_space_id) return true;
-        const expectedBedId = BED_SPACE_TO_ID_MAP[space.id];
-        return expectedBedId === b.bed_space_id;
+        const bedMatch = (space.bedSpaceId && space.bedSpaceId === b.bed_space_id) || BED_SPACE_TO_ID_MAP[space.id] === b.bed_space_id;
+        if (!bedMatch) return false;
+        if (b.room_id && space.roomId) {
+          return space.roomId === b.room_id;
+        }
+        return true;
+      }) || spacesList.find(space => {
+        return (space.bedSpaceId && space.bedSpaceId === b.bed_space_id) || BED_SPACE_TO_ID_MAP[space.id] === b.bed_space_id;
       });
-      if (matchedSpace) {
+
+      if (matchedSpace && !spaceBookingMap.has(matchedSpace.id)) {
         spaceBookingMap.set(matchedSpace.id, b);
+        continue;
+      }
+    } else if (b.room_id != null) {
+      // If only room_id is present and it is a Private room
+      const privateRoomSpace = spacesList.find(space => {
+        return space.roomId === b.room_id && space.type === 'Private' && !spaceBookingMap.has(space.id);
+      });
+      if (privateRoomSpace) {
+        spaceBookingMap.set(privateRoomSpace.id, b);
         continue;
       }
     }
 
     // Pass 1: Match bookings that specify their exact bed/room space
-    const details = getLiveStudentRoomDetails(b, rooms || [], undefined, knownCategories);
+    const details = getLiveStudentRoomDetails(b, rooms || [], undefined, knownCategories, bedSpaces);
     
     const exactMatch = spacesList.find(space => {
       const matchCat = space.category.toLowerCase().replace(/\s+/g, "") === details.category.toLowerCase().replace(/\s+/g, "");
