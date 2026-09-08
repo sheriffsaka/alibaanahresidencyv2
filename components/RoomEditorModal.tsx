@@ -4,6 +4,7 @@ import { useApp } from '../hooks/useApp';
 import { uploadFile, generateFileName } from '../lib/storage';
 import { generateUnitCode, normalizeCategory } from '../lib/roomNaming';
 import { ManageCategoryModal } from './admin/ManageCategoryModal';
+import { getRoomPrice } from '../lib/pricing';
 import { 
   Building2, 
   DoorClosed, 
@@ -48,7 +49,7 @@ const COMMON_AMENITIES = [
 ];
 
 export const RoomEditorModal: React.FC<RoomEditorModalProps> = ({ room, onClose, onSave }) => {
-  const { accommodationCategories, rooms, bedSpaces, bookings } = useApp();
+  const { accommodationCategories, rooms, bedSpaces, bookings, roomPricing } = useApp();
 
   const isEditing = !!room;
   const [currentStep, setCurrentStep] = useState<number>(1);
@@ -65,7 +66,7 @@ export const RoomEditorModal: React.FC<RoomEditorModalProps> = ({ room, onClose,
         category: defaultCategory,
         roomNumber: 'Room 1',
         roomType: 'Shared Room' as 'Shared Room' | 'Private Room',
-        price_per_month: categoryObj?.defaultPrice || 175,
+        price_per_month: categoryObj?.defaultPrice || getRoomPrice('Shared Room', 1, roomPricing),
         gender_restriction: 'Any' as 'Male' | 'Female' | 'Any',
         status: 'Active' as 'Active' | 'Inactive',
         bedLabels: ['Bed A', 'Bed B'],
@@ -151,6 +152,8 @@ export const RoomEditorModal: React.FC<RoomEditorModalProps> = ({ room, onClose,
       const catObj = accommodationCategories.find(c => c.name === catName);
       if (catObj?.defaultPrice) {
         setPricePerMonth(catObj.defaultPrice);
+      } else {
+        setPricePerMonth(getRoomPrice(roomType, 1, roomPricing));
       }
     }
   };
@@ -215,15 +218,27 @@ export const RoomEditorModal: React.FC<RoomEditorModalProps> = ({ room, onClose,
     if (preset === 'single') {
       setBedLabels(['Single']);
       setRoomType('Private Room');
+      if (!isEditing) {
+        setPricePerMonth(getRoomPrice('Private Room', 1, roomPricing));
+      }
     } else if (preset === '2beds') {
       setBedLabels(['Bed A', 'Bed B']);
       setRoomType('Shared Room');
+      if (!isEditing) {
+        setPricePerMonth(getRoomPrice('Shared Room', 1, roomPricing));
+      }
     } else if (preset === '3beds') {
       setBedLabels(['Bed A', 'Bed B', 'Bed C']);
       setRoomType('Shared Room');
+      if (!isEditing) {
+        setPricePerMonth(getRoomPrice('Shared Room', 1, roomPricing));
+      }
     } else if (preset === '4beds') {
       setBedLabels(['Bed A', 'Bed B', 'Bed C', 'Bed D']);
       setRoomType('Shared Room');
+      if (!isEditing) {
+        setPricePerMonth(getRoomPrice('Shared Room', 1, roomPricing));
+      }
     }
   };
 

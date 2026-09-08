@@ -4,6 +4,7 @@ import { BookingStatus, Booking, User, AccommodationType } from '../types';
 import { IconClose } from './Icon';
 import { ALL_ROOM_SPACES, RoomSpaceConfig, getUnifiedRoomName, getParsedRoomSpaces, BED_SPACE_TO_ID_MAP, findDatabaseRoomForSpace } from '../lib/roomNaming';
 import { supabase } from '../lib/supabaseClient';
+import { getRoomPrice } from '../lib/pricing';
 import { Search, UserPlus, UserCheck, AlertCircle, CheckCircle2, X, RefreshCw, ChevronRight, User as UserIcon } from 'lucide-react';
 
 interface AdminCreateBookingModalProps {
@@ -36,7 +37,8 @@ export const AdminCreateBookingModal: React.FC<AdminCreateBookingModalProps> = (
     addBooking,
     createStudentProfile,
     parsedRoomSpaces,
-    accommodationCategories
+    accommodationCategories,
+    roomPricing
   } = useApp();
 
   // Mode: 'existing' (search & select registered student) or 'new' (unregistered student)
@@ -272,8 +274,9 @@ export const AdminCreateBookingModal: React.FC<AdminCreateBookingModalProps> = (
   if (!isOpen) return null;
 
   const calculatedExpiryDate = calculateExpiryDate(arrivalDate, durationMonths);
-  const matchedCatObj = (accommodationCategories || []).find(c => c.name.toLowerCase() === selectedCategory.toLowerCase());
-  const monthlyRate = matchedCatObj?.defaultPrice || 175;
+  const currentSpace = parsedSpaces.find(s => s.id === selectedBedSpaceId) || ALL_ROOM_SPACES.find(s => s.id === selectedBedSpaceId);
+  const targetRoomType = currentSpace ? currentSpace.type : (selectedCategory.toLowerCase().includes('private') ? 'Private' : 'Shared');
+  const monthlyRate = getRoomPrice(targetRoomType, durationMonths, roomPricing);
   const securityDeposit = 100;
   const totalPrice = (monthlyRate * durationMonths) + securityDeposit;
 

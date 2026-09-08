@@ -6,6 +6,7 @@ export type AdminNavSection =
   | 'bookings'
   | 'students'
   | 'rooms_inventory'
+  | 'room_pricing'
   | 'waitlist'
   | 'email_logs'
   | 'maintenance'
@@ -73,6 +74,7 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
           badgeColor: 'bg-brand-100 text-brand-700 dark:bg-brand-900/40 dark:text-brand-300'
         },
         { id: 'rooms_inventory', label: 'Rooms & Inventory', icon: '🚪' },
+        { id: 'room_pricing', label: 'Room Pricing', icon: '🏷️' },
         { 
           id: 'waitlist', 
           label: 'Waitlist', 

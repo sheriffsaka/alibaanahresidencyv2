@@ -6,6 +6,7 @@ import { useApp } from '../hooks/useApp';
 import { normalizeAccommodationType } from '../contexts/AppContext';
 import { IconUpload } from './Icon';
 import { uploadFile, generateFileName } from '../lib/storage';
+import { getRoomPrice } from '../lib/pricing';
 
 import { COUNTRIES } from '../countries';
 
@@ -15,7 +16,7 @@ interface BookingFormProps {
 
 const BookingForm: React.FC<BookingFormProps> = ({ room }) => {
   const t = useTranslation();
-  const { user, setPage, addBooking, addActivity, students, bookings, extendingBooking } = useApp();
+  const { user, setPage, addBooking, addActivity, students, bookings, extendingBooking, roomPricing } = useApp();
   const [selectedStudentId, setSelectedStudentId] = useState<string>('');
   
   // Find latest booking for pre-filling (use extendingBooking if available)
@@ -96,7 +97,8 @@ const BookingForm: React.FC<BookingFormProps> = ({ room }) => {
       const endDate = new Date(startDate);
       endDate.setMonth(startDate.getMonth() + durationMonths);
       
-      const totalPrice = room.price_per_month * durationMonths;
+      const monthlyRate = getRoomPrice(room, durationMonths, roomPricing);
+      const totalPrice = monthlyRate * durationMonths;
 
       // 3. Create booking object
       const newBooking: Partial<Booking> = {

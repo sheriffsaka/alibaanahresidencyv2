@@ -1,4 +1,7 @@
 
+import { RoomPricingTier } from './lib/pricing';
+export type { RoomPricingTier };
+
 export type Language = 'en' | 'ar' | 'ru' | 'fr' | 'uz' | 'zh';
 
 export type Page = 'home' | 'booking' | 'dashboard' | 'auth' | 'support' | 'my-bookings' | 'documents' | 'messages' | 'notifications' | 'profile' | 'billing' | 'activate';
@@ -410,6 +413,7 @@ export interface CmsContent {
   supportContent?: SupportPageContent;
   contractTranslations?: any;
   studentDocuments?: StudentDocument[];
+  roomPricing?: RoomPricingTier[];
 }
 
 export interface StudentDocument {
@@ -563,6 +567,8 @@ export interface AppContextType {
   updateStudentDocument: (id: string, updates: Partial<StudentDocument>) => Promise<{ success: boolean; error?: string }>;
   deleteStudentDocument: (id: string) => Promise<{ success: boolean; error?: string }>;
   resetStudentDocumentsToDefault: () => Promise<{ success: boolean; error?: string }>;
+  roomPricing: RoomPricingTier[];
+  updateRoomPricing: (newTiers: RoomPricingTier[]) => Promise<{ success: boolean; error?: string }>;
 }
 
 export interface ChatMessage {

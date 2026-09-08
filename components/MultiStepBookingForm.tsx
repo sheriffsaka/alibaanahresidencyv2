@@ -17,6 +17,7 @@ import { useReactToPrint } from 'react-to-print';
 import TenancyAgreementDocument from './TenancyAgreementDocument';
 import { sendEmail, getAgreementSignedTemplate } from '../lib/email';
 import { ALL_ROOM_SPACES, BED_SPACE_TO_ID_MAP, getUnifiedRoomName, getParsedRoomSpaces, getAccommodationAddress, findDatabaseRoomForSpace } from '../lib/roomNaming';
+import { calculateStayPricing, getRoomPrice } from '../lib/pricing';
 import JoinWaitlistModal from './JoinWaitlistModal';
 
 // Swappable media assets (images, tour videos, and features) for each student accommodation category.
@@ -68,7 +69,7 @@ export const CATEGORY_MEDIA: Record<string, {
 
 const MultiStepBookingForm: React.FC = () => {
   const t = useTranslation();
-  const { user, setPage, addBooking, addActivity, rooms, bedSpaces, bookings, effectiveOccupancyBookings, extendingBooking, landlordDetails, cmsContent, accommodationAddresses, language, contractTranslations, accommodationCategories } = useApp();
+  const { user, setPage, addBooking, addActivity, rooms, bedSpaces, bookings, effectiveOccupancyBookings, extendingBooking, landlordDetails, cmsContent, accommodationAddresses, language, contractTranslations, accommodationCategories, roomPricing } = useApp();
 
   const availableCategories = useMemo(() => {
     if (accommodationCategories && accommodationCategories.length > 0) {
@@ -364,25 +365,10 @@ const MultiStepBookingForm: React.FC = () => {
     });
   }, [rooms, formData.category, formData.roomType, formData.roomName, formData.selectedRoomId]);
 
-  // Calculated Pricing Engine
+  // Centralized Pricing Engine using Supabase Single Source of Truth
   const pricing = useMemo(() => {
-    const isPremium = formData.category.startsWith('Premium');
-    const isPrivate = formData.roomType === 'Private';
-    const months = parseInt(formData.duration, 10);
-
-    let baseRate = isPremium ? 175 : 150;
-    if (isPrivate) baseRate += 50;
-
-    let discount = 0;
-    if (months >= 12) discount = 0.15;
-    else if (months >= 6) discount = 0.10;
-    else if (months >= 4) discount = 0.05;
-
-    const monthlyRate = Math.round(baseRate * (1 - discount));
-    const totalPrice = monthlyRate * months;
-
-    return { baseRate, discount: Math.round(discount * 100), monthlyRate, totalPrice };
-  }, [formData.category, formData.roomType, formData.duration]);
+    return calculateStayPricing(formData.roomType, formData.duration, roomPricing);
+  }, [formData.roomType, formData.duration, roomPricing]);
 
   // Dynamic start & calculated end date
   const startDate = formData.arrivalDate || todayStr;
@@ -855,21 +841,66 @@ const MultiStepBookingForm: React.FC = () => {
 
                   {/* 2. Duration of stay */}
                   <div className="space-y-3">
-                    <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">{t.step2_opt_duration_title || "B. Duration of Stay"}</label>
-                    <div className="grid grid-cols-4 gap-2">
-                      {['2', '4', '6', '12'].map(months => (
-                        <button
-                          key={months}
-                          onClick={() => setFormData(prev => ({ ...prev, duration: months }))}
-                          className={`p-3 rounded-lg border text-center text-xs transition-all ${
-                            formData.duration === months
-                              ? 'border-brand-500 bg-brand-50/20 text-brand-800 dark:text-brand-300 font-bold'
-                              : 'border-gray-200 dark:border-gray-700 bg-transparent text-gray-600'
-                          }`}
-                        >
-                          {(t.step2_duration_months_btn || "{months} Mos").replace('{months}', months)}
-                        </button>
-                      ))}
+                    <div className="flex items-center justify-between">
+                      <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                        {t.step2_opt_duration_title || "B. Duration of Stay"}
+                      </label>
+                      <span className="text-[11px] font-semibold text-brand-600 dark:text-brand-400">
+                        {formData.duration} Month{parseInt(formData.duration, 10) > 1 ? 's' : ''} Selected
+                      </span>
+                    </div>
+
+                    {/* Tiered Duration Quick Selectors */}
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+                      {[
+                        { months: '2', label: '1–2 Months', tierLabel: '1–2 mos' },
+                        { months: '4', label: '3–4 Months', tierLabel: '3–4 mos' },
+                        { months: '6', label: '5–6 Months', tierLabel: '5–6 mos' },
+                        { months: '12', label: '7+ Months', tierLabel: '7+ mos' }
+                      ].map(opt => {
+                        const optMonthly = getRoomPrice(formData.roomType, parseInt(opt.months, 10), roomPricing);
+                        const isSelected = formData.duration === opt.months;
+                        return (
+                          <button
+                            key={opt.months}
+                            type="button"
+                            onClick={() => setFormData(prev => ({ ...prev, duration: opt.months }))}
+                            className={`p-3 rounded-xl border text-center transition-all ${
+                              isSelected
+                                ? 'border-brand-500 bg-brand-50/50 dark:bg-brand-900/40 text-brand-900 dark:text-brand-200 ring-2 ring-brand-500/20 shadow-xs'
+                                : 'border-gray-200 dark:border-gray-700 bg-transparent text-gray-600 dark:text-gray-400 hover:border-gray-300 dark:hover:border-gray-600'
+                            }`}
+                          >
+                            <span className="block text-xs font-bold">{opt.label}</span>
+                            <span className="block text-sm font-black text-brand-700 dark:text-brand-400 mt-1">
+                              ${optMonthly}<span className="text-[10px] font-normal text-gray-400">/mo</span>
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+
+                    {/* Month selector 1 to 12 */}
+                    <div className="pt-2">
+                      <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-1.5">
+                        Specific Stay Months:
+                      </p>
+                      <div className="grid grid-cols-6 sm:grid-cols-12 gap-1">
+                        {['1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12'].map(m => (
+                          <button
+                            key={m}
+                            type="button"
+                            onClick={() => setFormData(prev => ({ ...prev, duration: m }))}
+                            className={`py-1.5 text-xs font-bold rounded-lg border transition-all ${
+                              formData.duration === m
+                                ? 'bg-brand-600 text-white border-brand-600 shadow-xs'
+                                : 'border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800'
+                            }`}
+                          >
+                            {m}m
+                          </button>
+                        ))}
+                      </div>
                     </div>
                   </div>
 

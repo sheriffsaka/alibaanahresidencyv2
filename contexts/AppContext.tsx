@@ -8,6 +8,7 @@ import { fetchConversationsList, fetchMessages, postMessage, markConversationAsR
 import { getParsedRoomSpaces, generateUnitCode } from '../lib/roomNaming';
 import { DEFAULT_CONTRACT_TRANSLATIONS, ContractTranslationsStore, LegalContractTranslation } from '../lib/contractTranslations';
 import { OFFICIAL_STUDENT_HANDBOOK_DOCUMENT } from '../lib/studentHandbookData';
+import { RoomPricingTier, DEFAULT_ROOM_PRICING_TIERS } from '../lib/pricing';
 
 export const AppContext = createContext<AppContextType | undefined>(undefined);
 
@@ -517,6 +518,18 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const [creditTransactions, setCreditTransactions] = useState<CreditTransaction[]>([]);
   const [contractTranslations, setContractTranslations] = useState<ContractTranslationsStore>(DEFAULT_CONTRACT_TRANSLATIONS);
   const [studentDocuments, setStudentDocuments] = useState<StudentDocument[]>(DEFAULT_STUDENT_DOCUMENTS);
+  const [roomPricing, setRoomPricing] = useState<RoomPricingTier[]>(() => {
+    try {
+      const cached = localStorage.getItem('al_ibaanah_room_pricing');
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch (e) {
+      // Ignore
+    }
+    return DEFAULT_ROOM_PRICING_TIERS;
+  });
   const isUpdatingSessionRef = useRef(false);
 
   const unreadMessagesCount = useMemo(() => {
@@ -978,7 +991,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const fetchPublicData = useCallback(async () => {
         try {
             console.log("Fetching public data...");
-            const [roomsRes, bedSpacesRes, bookingsRes, termsRes, packagesRes, cmsRes, activitiesRes, publicOccupancyRes, waitlistRes, categoriesRes, contractTranslationsRes] = await Promise.all([
+            const [roomsRes, bedSpacesRes, bookingsRes, termsRes, packagesRes, cmsRes, activitiesRes, publicOccupancyRes, waitlistRes, categoriesRes, contractTranslationsRes, roomPricingRes] = await Promise.all([
                 safeFetch(supabase.from('rooms').select('*')),
                 safeFetch(supabase.from('bed_spaces').select('*').order('id', { ascending: true })),
                 safeFetch(supabase.from('bookings').select('*, rooms(room_number, type, apartment_name, category), profiles:student_id(full_name)').order('booked_at', { ascending: false })),
@@ -989,8 +1002,29 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                 safeFetch(supabase.rpc('get_public_occupancy')),
                 safeFetch(supabase.from('waitlist').select('*, profiles:student_id(full_name, phone_number, nationality)').order('created_at', { ascending: false })),
                 safeFetch(supabase.from('accommodation_categories').select('*').order('display_order', { ascending: true })),
-                safeFetch(supabase.from('contract_translations').select('*'))
+                safeFetch(supabase.from('contract_translations').select('*')),
+                safeFetch(supabase.from('room_pricing').select('*').order('duration_min', { ascending: true }))
             ]);
+
+            // Room pricing from Supabase single source of truth
+            let hasLoadedPricing = false;
+            if (roomPricingRes && !roomPricingRes.error && Array.isArray(roomPricingRes.data) && roomPricingRes.data.length > 0) {
+                const loadedTiers: RoomPricingTier[] = roomPricingRes.data.map((r: any) => ({
+                    id: r.id,
+                    durationMin: Number(r.duration_min),
+                    durationMax: Number(r.duration_max),
+                    label: r.label,
+                    sharedPrice: Number(r.shared_price),
+                    privatePrice: Number(r.private_price)
+                }));
+                setRoomPricing(loadedTiers);
+                hasLoadedPricing = true;
+                try {
+                    localStorage.setItem('al_ibaanah_room_pricing', JSON.stringify(loadedTiers));
+                } catch (e) {
+                    // Ignore storage errors
+                }
+            }
             
             // Accommodation categories table data takes precedence
             let hasLoadedCategories = false;
@@ -1149,6 +1183,16 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
               if (!hasLoadedCategories && Array.isArray(cmsCategories) && cmsCategories.length > 0) {
                 setAccommodationCategories(cmsCategories);
+              }
+
+              const loadedPricing = (dbCms.how_to_videos || dbCms.howToVideos)?.roomPricing || (dbCms.how_to_videos || dbCms.howToVideos)?.room_pricing || dbCms.roomPricing;
+              if (!hasLoadedPricing && Array.isArray(loadedPricing) && loadedPricing.length > 0) {
+                setRoomPricing(loadedPricing);
+                try {
+                  localStorage.setItem('al_ibaanah_room_pricing', JSON.stringify(loadedPricing));
+                } catch (e) {
+                  // Ignore
+                }
               }
             }
         } catch (err) {
@@ -1569,6 +1613,9 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         if (content.studentDocuments) {
           setStudentDocuments(content.studentDocuments);
         }
+        if (content.roomPricing) {
+          setRoomPricing(content.roomPricing);
+        }
 
         // Get the property ID (assume the first one for now)
         const { data: propData } = await supabase.from('properties').select('id').limit(1).single();
@@ -1592,7 +1639,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                 accommodationAddresses: updatedCms.accommodationAddresses,
                 accommodationCategories: updatedCms.accommodationCategories || accommodationCategories,
                 supportContent: updatedCms.supportContent,
-                studentDocuments: updatedCms.studentDocuments || studentDocuments
+                studentDocuments: updatedCms.studentDocuments || studentDocuments,
+                roomPricing: updatedCms.roomPricing || roomPricing
             },
             updated_at: new Date().toISOString()
         };
@@ -3583,6 +3631,54 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     }
   };
 
+  const updateRoomPricing = async (newTiers: RoomPricingTier[]): Promise<{ success: boolean; error?: string }> => {
+    try {
+      setRoomPricing(newTiers);
+      try {
+        localStorage.setItem('al_ibaanah_room_pricing', JSON.stringify(newTiers));
+      } catch (e) {
+        // Ignore storage errors
+      }
+
+      // 1. Try to persist to room_pricing table if available in Supabase
+      try {
+        await Promise.all(newTiers.map(t =>
+          supabase.from('room_pricing').upsert({
+            id: t.id,
+            duration_min: t.durationMin,
+            duration_max: t.durationMax,
+            label: t.label,
+            shared_price: t.sharedPrice,
+            private_price: t.privatePrice,
+            updated_at: new Date().toISOString()
+          })
+        ));
+      } catch (tableErr) {
+        // Table fallback
+      }
+
+      // 2. Persist to CMS storage in Supabase for single source of truth durability
+      const cmsRes = await updateCmsContent({ roomPricing: newTiers });
+      if (!cmsRes.success && cmsRes.error) {
+        console.warn("Notice updating CMS storage for room pricing:", cmsRes.error);
+      }
+
+      if (user) {
+        addActivity({
+          user_id: user.id,
+          type: 'system',
+          description: `Updated room pricing matrix (${newTiers.map(t => `${t.label}: Shared $${t.sharedPrice}, Private $${t.privatePrice}`).join(' | ')})`,
+          timestamp: new Date().toISOString()
+        });
+      }
+
+      return { success: true };
+    } catch (err: any) {
+      console.error("Error updating room pricing:", err.message);
+      return { success: false, error: err.message };
+    }
+  };
+
   // Role-based occupancy bookings calculation:
   // For Admin / Staff: uses the full `bookings` array with student names, passport numbers, audit data.
   // For Students / Anonymous visitors: uses strictly the anonymized `publicOccupancy` list from get_public_occupancy() RPC.
@@ -3703,6 +3799,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     updateStudentDocument,
     deleteStudentDocument,
     resetStudentDocumentsToDefault,
+    roomPricing,
+    updateRoomPricing,
     loading,
     landlordDetails: cmsContent.landlordDetails || DEFAULT_LANDLORD_DETAILS,
     accommodationAddresses: cmsContent.accommodationAddresses || DEFAULT_ACCOMMODATION_ADDRESSES,

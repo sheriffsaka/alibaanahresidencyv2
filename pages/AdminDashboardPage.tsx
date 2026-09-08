@@ -27,6 +27,8 @@ import { EmailLogsView } from '../components/admin/EmailLogsView';
 import { ManageCategoryModal } from '../components/admin/ManageCategoryModal';
 import { ContractTranslationsReviewView } from '../components/admin/ContractTranslationsReviewView';
 import { ManageStudentDocumentsView } from '../components/admin/ManageStudentDocumentsView';
+import { RoomPricingView } from '../components/admin/RoomPricingView';
+import { getRoomPrice } from '../lib/pricing';
 import { Layers } from 'lucide-react';
 
 // A responsive, accessible SVG Bar Chart component for occupancy metrics
@@ -346,7 +348,7 @@ const SummaryCard: React.FC<SummaryCardProps> = ({ label, value, icon, trend, co
 
 const AdminDashboardPage: React.FC = () => {
   const t = useTranslation();
-  const { user, bookings, updateBookingStatus, deleteBooking, cmsContent, updateCmsContent, rooms, bedSpaces, addRoom, updateRoom, toggleRoomStatus, deleteRoom, activities, addActivity, language, setPage, users, addUser, updateUser, deleteUser, students, waitlist, refreshWaitlist, accommodationCategories, accommodationAddresses, unreadMessagesCount, parsedRoomSpaces: contextParsedRoomSpaces } = useApp();
+  const { user, bookings, updateBookingStatus, deleteBooking, cmsContent, updateCmsContent, rooms, bedSpaces, addRoom, updateRoom, toggleRoomStatus, deleteRoom, activities, addActivity, language, setPage, users, addUser, updateUser, deleteUser, students, waitlist, refreshWaitlist, accommodationCategories, accommodationAddresses, unreadMessagesCount, parsedRoomSpaces: contextParsedRoomSpaces, roomPricing } = useApp();
   const [activeSection, setActiveSection] = useState<AdminNavSection>('dashboard');
   const [isActivityDrawerOpen, setIsActivityDrawerOpen] = useState(false);
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
@@ -1724,7 +1726,7 @@ const AdminDashboardPage: React.FC = () => {
                             <div><span className="font-bold text-gray-400">Unit Code:</span> <span className="font-mono text-[11px] font-semibold">{room.room_number}</span></div>
                             <div><span className="font-bold text-gray-400">Type:</span> {room.type}</div>
                             <div><span className="font-bold text-gray-400">Bed Capacity:</span> {room.capacity}</div>
-                            <div><span className="font-bold text-gray-400">Price/Mo:</span> ${room.price_per_month}</div>
+                            <div><span className="font-bold text-gray-400">Price/Mo:</span> ${getRoomPrice(room, 1, roomPricing)}</div>
                             <div><span className="font-bold text-gray-400">Gender:</span> {room.gender_restriction}</div>
                             <div>
                               <span className="font-bold text-gray-400">Status:</span>{' '}
@@ -1815,6 +1817,11 @@ const AdminDashboardPage: React.FC = () => {
             )}
           </div>
         )}
+
+          {/* ROOM PRICING MATRIX VIEW */}
+          {activeSection === 'room_pricing' && (
+            <RoomPricingView />
+          )}
 
           {/* 11. LANDING & BRANDING CMS VIEW */}
           {activeSection === 'landing_branding' && (

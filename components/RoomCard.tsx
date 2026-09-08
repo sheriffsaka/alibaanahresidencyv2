@@ -4,6 +4,7 @@ import { Room } from '../types';
 import { useTranslation } from '../hooks/useTranslation';
 import { useApp } from '../hooks/useApp';
 import { IconCheckCircle } from './Icon';
+import { getRoomPrice } from '../lib/pricing';
 
 interface RoomCardProps {
   room: Room;
@@ -12,7 +13,7 @@ interface RoomCardProps {
 
 const RoomCard: React.FC<RoomCardProps> = ({ room, isOccupied: propIsOccupied }) => {
   const t = useTranslation();
-  const { setPage, roomOccupancyMap } = useApp();
+  const { setPage, roomOccupancyMap, roomPricing } = useApp();
 
   const occ = roomOccupancyMap ? roomOccupancyMap[room.id] : undefined;
   const occupiedSlots = occ ? occ.occupiedSlots : (room.occupied_slots || 0);
@@ -20,6 +21,9 @@ const RoomCard: React.FC<RoomCardProps> = ({ room, isOccupied: propIsOccupied })
   const slotsLeft = occ ? occ.slotsLeft : Math.max(0, capacity - occupiedSlots);
   const isInactive = room.status === 'Inactive';
   const isOccupied = propIsOccupied !== undefined ? propIsOccupied : (occ ? occ.isOccupied : (slotsLeft === 0 || isInactive));
+
+  const standardPrice = getRoomPrice(room, 1, roomPricing);
+  const longTermPrice = getRoomPrice(room, 7, roomPricing);
 
   return (
     <div className={`bg-white dark:bg-gray-800 rounded-2xl shadow-xl overflow-hidden transition-all duration-500 ${isOccupied ? 'filter grayscale cursor-not-allowed' : 'transform hover:-translate-y-2 hover:shadow-2xl'}`}>
@@ -45,9 +49,14 @@ const RoomCard: React.FC<RoomCardProps> = ({ room, isOccupied: propIsOccupied })
         <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
           {room.type?.toLowerCase().includes('private') ? 'Private Room' : 'Shared Room'}
         </h1>
-        <p className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
-            {room.price_per_month ? t.pricePerMonth.replace('{price}', room.price_per_month.toString()) : 'Price on request'}
-        </p>
+        <div className="mb-3">
+          <p className="text-2xl font-bold text-gray-900 dark:text-white">
+            {t.pricePerMonth.replace('{price}', standardPrice.toString())}
+          </p>
+          <p className="text-xs font-semibold text-brand-600 dark:text-brand-400 mt-0.5">
+            Starts from ${longTermPrice}/mo for 7+ month stays
+          </p>
+        </div>
         <div className="flex items-center gap-2 mb-6">
             <div className="flex-1 h-2 bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden">
                 <div 
