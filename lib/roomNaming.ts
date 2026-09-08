@@ -696,18 +696,20 @@ export const getLiveStudentRoomDetails = (
       const realBed = bedSpacesList.find(b => b.id === booking.bed_space_id);
       if (realBed) {
         const resolvedRoom = (roomsList || []).find(r => r.id === realBed.room_id) || dbRoom;
-        const category = resolvedRoom 
-          ? normalizeCategory(resolvedRoom.apartment_name, resolvedRoom.category, resolvedRoom.room_number, knownCategories)
-          : 'Standard';
-        const roomDigit = resolvedRoom ? extractRoomNumber(resolvedRoom.room_number || String(resolvedRoom.id)) : '1';
+        const staticFallbackSpace = ALL_ROOM_SPACES.find(s => s.bedSpaceId === realBed.id || s.id === ID_TO_BED_SPACE_MAP[realBed.id]);
+        const rawCategory = resolvedRoom?.apartment_name || resolvedRoom?.category || staticFallbackSpace?.category || (booking?.preferred_accommodation ? normalizeCategory('', '', booking.preferred_accommodation, knownCategories) : 'Premium 3');
+        const category = normalizeCategory(rawCategory, resolvedRoom?.category, resolvedRoom?.room_number, knownCategories);
+        const roomDigit = resolvedRoom 
+          ? extractRoomNumber(resolvedRoom.room_number || String(resolvedRoom.id)) 
+          : (staticFallbackSpace ? extractRoomNumber(staticFallbackSpace.roomName) : '1');
         const roomName = `Room ${roomDigit}`;
-        const bedSpaceName = realBed.label || 'Bed';
+        const bedSpaceName = realBed.label || staticFallbackSpace?.bedSpaceName || 'Bed';
         return {
           category,
           roomName,
           bedSpaceName,
           fullDisplay: getUnifiedRoomName(category, roomName, bedSpaceName),
-          address: getAccommodationAddress(category, customAddresses)
+          address: getAccommodationAddress(category, customAddresses, knownCategories as any)
         };
       }
     }
@@ -728,7 +730,7 @@ export const getLiveStudentRoomDetails = (
           roomName,
           bedSpaceName,
           fullDisplay: getUnifiedRoomName(category, roomName, bedSpaceName),
-          address: getAccommodationAddress(category, customAddresses)
+          address: getAccommodationAddress(category, customAddresses, knownCategories as any)
         };
       }
     }

@@ -1486,6 +1486,11 @@ const AdminDashboardPage: React.FC = () => {
                               <div className="font-bold text-gray-900 dark:text-white text-sm">{student.full_name}</div>
                               <div className="text-[11px] text-gray-500 font-mono">{student.email}</div>
                               {student.phone_number && <div className="text-[10px] text-gray-400">{student.phone_number}</div>}
+                              {student.is_pending_activation && (
+                                <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-amber-100 text-amber-800 dark:bg-amber-900/50 dark:text-amber-300 mt-1">
+                                  Pending Activation
+                                </span>
+                              )}
                             </td>
                             <td className="px-6 py-4">
                               <span className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-black bg-brand-50 text-brand-700 dark:bg-brand-950/40 dark:text-brand-300">

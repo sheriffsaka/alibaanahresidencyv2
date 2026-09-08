@@ -16,6 +16,7 @@ import MessagesPage from './pages/MessagesPage';
 import NotificationsPage from './pages/NotificationsPage';
 import ProfilePage from './pages/ProfilePage';
 import BillingPage from './pages/BillingPage';
+import ActivateAccountPage from './pages/ActivateAccountPage';
 import { sendEmail, getArrivalReminderTemplate, getRentReminderTemplate } from './lib/email';
 
 const DashboardLoadingFallback: React.FC<{ setPage: (page: any) => void }> = ({ setPage }) => {
@@ -130,6 +131,7 @@ const AppContent: React.FC = () => {
       return <HomePage />;
     }
     if (page === 'support') return <SupportPage />;
+    if (page === 'activate') return <ActivateAccountPage />;
     
     // Auth guard for protected pages
     if (!user) {

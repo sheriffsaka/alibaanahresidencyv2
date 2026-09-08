@@ -18,7 +18,7 @@ import JoinWaitlistModal from '../components/JoinWaitlistModal';
 
 const DashboardPage: React.FC = () => {
   const t = useTranslation();
-  const { user, bookings, setPage, cmsContent, addActivity, updateBooking, language, rooms, parsedRoomSpaces, landlordDetails, accommodationAddresses, accommodationCategories } = useApp();
+  const { user, bookings, setPage, cmsContent, addActivity, updateBooking, language, rooms, bedSpaces, parsedRoomSpaces, landlordDetails, accommodationAddresses, accommodationCategories } = useApp();
   
   const [selectedInvoice, setSelectedInvoice] = useState<Booking | null>(null);
   const [viewingAgreement, setViewingAgreement] = useState<Booking | null>(null);
@@ -40,8 +40,8 @@ const DashboardPage: React.FC = () => {
   const userBookings = (bookings || []).filter(b => b.student_id === user?.id);
   const activeBooking = userBookings.find(b => b.status !== BookingStatus.CANCELLED && b.status !== BookingStatus.COMPLETED) || userBookings[0];
   const liveRoomDetails = useMemo(() => {
-    return activeBooking ? getLiveStudentRoomDetails(activeBooking, rooms, accommodationAddresses, accommodationCategories) : null;
-  }, [activeBooking, rooms, accommodationAddresses, accommodationCategories]);
+    return activeBooking ? getLiveStudentRoomDetails(activeBooking, rooms, accommodationAddresses, accommodationCategories, bedSpaces) : null;
+  }, [activeBooking, rooms, accommodationAddresses, accommodationCategories, bedSpaces]);
 
   const dynamicCategoryTabs = useMemo(() => {
     const set = new Set<string>(['All']);

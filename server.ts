@@ -302,6 +302,200 @@ async function startServer() {
     }
   });
 
+  // Account Activation Link dispatch endpoint
+  app.post("/api/auth/send-activation-email", async (req, res) => {
+    const supabaseUrl = process.env.VITE_SUPABASE_URL || "https://lzibaammjwrmjqkqwdml.supabase.co";
+    const supabaseAnonKey = process.env.VITE_SUPABASE_ANON_KEY || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx6aWJhYW1tandybWpxa3F3ZG1sIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA0MDc3NjAsImV4cCI6MjA4NTk4Mzc2MH0.r9rtTQeGmJH5qZlq8DtAf0zhgnNwPelTnXMMtqY1hyI";
+
+    try {
+      const { email, full_name, room_info } = req.body;
+      if (!email || typeof email !== "string" || !email.includes("@")) {
+        return res.status(400).json({
+          success: false,
+          error: "A valid student email address is required."
+        });
+      }
+
+      const normalizedEmail = email.trim().toLowerCase();
+      const checkClient = createClient(supabaseUrl, supabaseAnonKey);
+
+      // Determine application origin for redirection
+      const origin = req.body.origin || req.headers.origin || (req.headers.host ? `${req.protocol || "http"}://${req.headers.host}` : "http://localhost:3000");
+      const activationRedirectUrl = `${origin}/?page=activate`;
+
+      // 1. Fetch student info from profiles or bookings if not passed
+      let studentName = full_name;
+      let roomDetails = room_info;
+
+      if (!studentName) {
+        const { data: profile } = await checkClient
+          .from("profiles")
+          .select("full_name")
+          .eq("email", normalizedEmail)
+          .maybeSingle();
+        if (profile?.full_name) {
+          studentName = profile.full_name;
+        }
+      }
+
+      if (!studentName || !roomDetails) {
+        const { data: booking } = await checkClient
+          .from("bookings")
+          .select("full_name, preferred_accommodation, rooms(room_number, category)")
+          .eq("email", normalizedEmail)
+          .order("id", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        if (booking) {
+          if (!studentName && booking.full_name) studentName = booking.full_name;
+          if (!roomDetails) {
+            const rNum = (booking.rooms as any)?.room_number;
+            const cat = booking.preferred_accommodation || (booking.rooms as any)?.category;
+            if (rNum && cat) roomDetails = `${cat} - Room ${rNum}`;
+            else if (rNum) roomDetails = `Room ${rNum}`;
+            else if (cat) roomDetails = cat;
+          }
+        }
+      }
+
+      studentName = studentName || "Student";
+
+      // 2. Trigger Supabase Auth password reset/invite to generate verification session
+      let supaResetSucceeded = false;
+      try {
+        const { error: resetErr } = await checkClient.auth.resetPasswordForEmail(normalizedEmail, {
+          redirectTo: activationRedirectUrl
+        });
+        if (!resetErr) {
+          supaResetSucceeded = true;
+          console.log(`[Activation API] Supabase resetPasswordForEmail initiated for ${normalizedEmail}`);
+        } else {
+          console.warn(`[Activation API] Supabase resetPasswordForEmail notice: ${resetErr.message}`);
+        }
+      } catch (authErr: any) {
+        console.warn(`[Activation API] Supabase resetPasswordForEmail exception:`, authErr?.message);
+      }
+
+      // 3. Dispatch branded Al-Ibaanah Student Residency activation email
+      const activationUrl = `${origin}/?page=activate&email=${encodeURIComponent(normalizedEmail)}`;
+      
+      const resendApiKey = process.env.RESEND_API_KEY;
+      const defaultFromEmail = process.env.RESEND_FROM_EMAIL || "Al-Ibaanah Student Residency <noreply@sharedhousing.ibaanah.com>";
+
+      let emailSent = false;
+      if (resendApiKey) {
+        try {
+          const htmlContent = `
+<div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 24px; color: #1e293b; background-color: #f8fafc; border-radius: 12px; border: 1px solid #e2e8f0;">
+  <div style="text-align: center; margin-bottom: 24px;">
+    <h1 style="color: #1b6441; font-size: 22px; font-weight: bold; margin: 0 0 6px 0;">Al-Ibaanah Student Residency</h1>
+    <p style="color: #64748b; font-size: 14px; margin: 0;">Automated Student Housing Management System</p>
+  </div>
+  
+  <div style="background-color: #ffffff; padding: 24px; border-radius: 8px; border: 1px solid #cbd5e1; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
+    <h2 style="color: #0f172a; font-size: 18px; font-weight: bold; margin-top: 0;">Welcome, ${studentName}!</h2>
+    <p style="font-size: 14px; line-height: 1.6; color: #334155;">
+      Your room reservation${roomDetails ? ` (<strong>${roomDetails}</strong>)` : ""} has been registered by the Al-Ibaanah residency administration.
+    </p>
+    <p style="font-size: 14px; line-height: 1.6; color: #334155;">
+      To access your student portal, view your room assignment, digitally sign your tenancy agreement, and track payments, please click the button below to set your personal account password:
+    </p>
+    
+    <div style="text-align: center; margin: 28px 0;">
+      <a href="${activationUrl}" style="background-color: #1b6441; color: #ffffff; padding: 12px 28px; text-decoration: none; font-weight: bold; border-radius: 8px; display: inline-block; font-size: 15px;">
+        Activate Account & Set Password
+      </a>
+    </div>
+
+    <p style="font-size: 12px; color: #64748b; line-height: 1.5;">
+      If the button above does not work, copy and paste this link into your browser:<br/>
+      <a href="${activationUrl}" style="color: #1b6441; word-break: break-all;">${activationUrl}</a>
+    </p>
+
+    <div style="margin-top: 24px; padding-top: 16px; border-top: 1px solid #e2e8f0; font-size: 12px; color: #64748b;">
+      <p style="margin: 0;"><strong>Security Notice:</strong> The administration will never ask for your password. Please keep your login credentials private.</p>
+    </div>
+  </div>
+
+  <div style="text-align: center; margin-top: 20px; font-size: 12px; color: #94a3b8;">
+    <p style="margin: 0;">Al-Ibaanah Student Residency • Cairo, Egypt</p>
+  </div>
+</div>
+          `.trim();
+
+          const payload = {
+            from: defaultFromEmail,
+            to: [normalizedEmail],
+            subject: "Welcome to Al-Ibaanah Student Residency — Activate Your Account",
+            html: htmlContent,
+            text: `Dear ${studentName},\n\nWelcome to Al-Ibaanah Student Residency! Your room reservation${roomDetails ? ` for ${roomDetails}` : "" } has been registered by the administration.\n\nPlease visit the following link to set your password and activate your account:\n${activationUrl}\n\nBest regards,\nAl-Ibaanah Residency Team`
+          };
+
+          let resendRes = await fetch("https://api.resend.com/emails", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "Authorization": `Bearer ${resendApiKey}`
+            },
+            body: JSON.stringify(payload)
+          });
+
+          if (resendRes.ok) {
+            emailSent = true;
+          } else {
+            // Try onboarding fallback
+            const fallbackPayload = { ...payload, from: "Al-Ibaanah Student Residency <onboarding@resend.dev>" };
+            const fallbackRes = await fetch("https://api.resend.com/emails", {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                "Authorization": `Bearer ${resendApiKey}`
+              },
+              body: JSON.stringify(fallbackPayload)
+            });
+            if (fallbackRes.ok) emailSent = true;
+          }
+        } catch (resendErr) {
+          console.warn("[Activation API] Resend email send warning:", resendErr);
+        }
+      }
+
+      // 4. Log in email_logs table
+      try {
+        await checkClient.from("email_logs").insert({
+          recipient: normalizedEmail,
+          subject: "Welcome to Al-Ibaanah Student Residency — Activate Your Account",
+          template_name: "account_activation",
+          status: (emailSent || supaResetSucceeded) ? "sent" : "simulated",
+          delivery_attempts: 1,
+          metadata: {
+            activation_url: activationUrl,
+            student_name: studentName,
+            room_info: roomDetails,
+            supabase_reset_succeeded: supaResetSucceeded
+          },
+          created_at: new Date().toISOString()
+        });
+      } catch (logErr) {
+        console.warn("[Activation API] Failed to write email log:", logErr);
+      }
+
+      return res.json({
+        success: true,
+        message: "Activation instructions dispatched successfully.",
+        activationUrl: activationUrl,
+        emailSent: emailSent || supaResetSucceeded
+      });
+    } catch (err: any) {
+      console.error("[Activation API Exception]", err);
+      return res.status(500).json({
+        success: false,
+        error: err.message || "An unexpected error occurred while dispatching the activation email."
+      });
+    }
+  });
+
   // Vite middleware in development; Static serving in production
   if (process.env.NODE_ENV !== "production") {
     const vite = await createViteServer({

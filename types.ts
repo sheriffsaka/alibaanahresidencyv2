@@ -1,7 +1,7 @@
 
 export type Language = 'en' | 'ar' | 'ru' | 'fr' | 'uz' | 'zh';
 
-export type Page = 'home' | 'booking' | 'dashboard' | 'auth' | 'support' | 'my-bookings' | 'documents' | 'messages' | 'notifications' | 'profile' | 'billing';
+export type Page = 'home' | 'booking' | 'dashboard' | 'auth' | 'support' | 'my-bookings' | 'documents' | 'messages' | 'notifications' | 'profile' | 'billing' | 'activate';
 
 export enum AccommodationType {
   STANDARD_SHARED = 'Standard Shared',
@@ -176,6 +176,8 @@ export interface User {
   nationality?: string;
   passport_number?: string;
   created_at?: string;
+  is_pending_activation?: boolean;
+  activated_at?: string;
 }
 
 export interface MessageItem {
@@ -440,6 +442,7 @@ export interface AppContextType {
   selectedRoom: Room | null;
   extendingBooking: Booking | null;
   session: any;
+  updateUserSession?: (session: any) => Promise<void>;
   loading: boolean;
   logout: () => Promise<void>;
   bookings: Booking[];
@@ -502,6 +505,11 @@ export interface AppContextType {
     duplicate?: boolean;
     existingStudent?: User;
   }>;
+  sendStudentActivationEmail: (params: {
+    email: string;
+    fullName?: string;
+    roomInfo?: string;
+  }) => Promise<{ success: boolean; error?: string; message?: string }>;
   deleteUser: (id: string) => Promise<{ success: boolean; error?: string }>;
   academicTerms: AcademicTerm[];
   bookingPackages: BookingPackage[];

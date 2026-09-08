@@ -299,6 +299,67 @@ export const fetchRecentEmailLogs = async (): Promise<EmailLogEntry[]> => {
 // Standardized Email Templates
 // ==========================================
 
+export const getAccountActivationTemplate = (studentName: string, activationUrl: string, roomDetails?: string) => {
+  return {
+    templateName: 'account_activation',
+    subject: 'Welcome to Al-Ibaanah Student Residency — Activate Your Account',
+    body: `
+Dear ${studentName},
+
+Welcome to Al-Ibaanah Student Residency! Your accommodation reservation${roomDetails ? ` for ${roomDetails}` : ''} has been registered by the residency administration.
+
+To access your student portal, view your room assignment, tenancy agreement, and invoices, please set your password and activate your account using the secure link below:
+
+${activationUrl}
+
+This secure activation link allows you to create your personal password.
+
+If you have any questions or need assistance, please contact the Al-Ibaanah Residency Administration.
+
+Best regards,
+Al-Ibaanah Student Residency Management Team
+Cairo, Egypt
+    `.trim(),
+    html: `
+<div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 24px; color: #1e293b; background-color: #f8fafc; border-radius: 12px; border: 1px solid #e2e8f0;">
+  <div style="text-align: center; margin-bottom: 24px;">
+    <h1 style="color: #1b6441; font-size: 22px; font-weight: bold; margin: 0 0 6px 0;">Al-Ibaanah Student Residency</h1>
+    <p style="color: #64748b; font-size: 14px; margin: 0;">Automated Student Housing Management System</p>
+  </div>
+  
+  <div style="background-color: #ffffff; padding: 24px; border-radius: 8px; border: 1px solid #cbd5e1; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
+    <h2 style="color: #0f172a; font-size: 18px; font-weight: bold; margin-top: 0;">Welcome, ${studentName}!</h2>
+    <p style="font-size: 14px; line-height: 1.6; color: #334155;">
+      Your room reservation${roomDetails ? ` (<strong>${roomDetails}</strong>)` : ''} has been prepared by our administration team.
+    </p>
+    <p style="font-size: 14px; line-height: 1.6; color: #334155;">
+      To complete your setup, access your room dashboard, review your tenancy agreement, and track your stay, please click the button below to set your personal account password:
+    </p>
+    
+    <div style="text-align: center; margin: 28px 0;">
+      <a href="${activationUrl}" style="background-color: #1b6441; color: #ffffff; padding: 12px 28px; text-decoration: none; font-weight: bold; border-radius: 8px; display: inline-block; font-size: 15px;">
+        Activate Account & Set Password
+      </a>
+    </div>
+
+    <p style="font-size: 12px; color: #64748b; line-height: 1.5;">
+      If the button above does not work, copy and paste this link into your browser:<br/>
+      <a href="${activationUrl}" style="color: #1b6441; word-break: break-all;">${activationUrl}</a>
+    </p>
+
+    <div style="margin-top: 24px; padding-top: 16px; border-top: 1px solid #e2e8f0; font-size: 12px; color: #64748b;">
+      <p style="margin: 0;"><strong>Security Notice:</strong> The administration will never ask for your password. Please keep your credentials confidential.</p>
+    </div>
+  </div>
+
+  <div style="text-align: center; margin-top: 20px; font-size: 12px; color: #94a3b8;">
+    <p style="margin: 0;">Al-Ibaanah Student Residency • Cairo, Egypt</p>
+  </div>
+</div>
+    `.trim()
+  };
+};
+
 export const getApprovalEmailTemplate = (studentName: string, bookingId: number, roomNumber: string) => {
   return {
     templateName: 'booking_approval',

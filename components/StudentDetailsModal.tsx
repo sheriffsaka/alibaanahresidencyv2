@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useApp } from '../hooks/useApp';
 import { User, BookingStatus } from '../types';
-import { IconClose, IconEdit, IconCheckCircle } from './Icon';
+import { IconClose, IconEdit, IconCheckCircle, IconMail } from './Icon';
 import BookingStatusBadge from './BookingStatusBadge';
 import { getDisplayFromRoom, getAccommodationAddress } from '../lib/roomNaming';
 
@@ -20,13 +20,15 @@ export const StudentDetailsModal: React.FC<StudentDetailsModalProps> = ({
   onViewPaymentProof,
   onStudentUpdated
 }) => {
-  const { user: currentUser, bookings, accommodationAddresses, updateStudentProfile, addActivity } = useApp();
+  const { user: currentUser, bookings, accommodationAddresses, updateStudentProfile, addActivity, sendStudentActivationEmail } = useApp();
 
   const [activeStudent, setActiveStudent] = useState<User | null>(student);
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [saveSuccessMsg, setSaveSuccessMsg] = useState<string | null>(null);
   const [saveErrorMsg, setSaveErrorMsg] = useState<string | null>(null);
+  const [isSendingActivation, setIsSendingActivation] = useState(false);
+  const [activationNotice, setActivationNotice] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
 
   // Editable Form Data State
   const [formData, setFormData] = useState({
@@ -205,6 +207,37 @@ export const StudentDetailsModal: React.FC<StudentDetailsModalProps> = ({
     });
     setSaveErrorMsg(null);
     setIsEditing(false);
+  };
+
+  const handleSendActivation = async () => {
+    if (!activeStudent?.email) return;
+    setIsSendingActivation(true);
+    setActivationNotice(null);
+    try {
+      const res = await sendStudentActivationEmail({
+        email: activeStudent.email,
+        fullName: activeStudent.full_name,
+        roomInfo: activeBooking?.rooms ? getDisplayFromRoom(activeBooking.rooms) : undefined
+      });
+      if (res.success) {
+        setActivationNotice({
+          text: `Secure activation email successfully dispatched to ${activeStudent.email}`,
+          type: 'success'
+        });
+      } else {
+        setActivationNotice({
+          text: res.error || 'Failed to dispatch activation email.',
+          type: 'error'
+        });
+      }
+    } catch (err: any) {
+      setActivationNotice({
+        text: err.message || 'Error dispatching activation email.',
+        type: 'error'
+      });
+    } finally {
+      setIsSendingActivation(false);
+    }
   };
 
   return (
@@ -509,6 +542,79 @@ export const StudentDetailsModal: React.FC<StudentDetailsModalProps> = ({
                   >
                     <IconEdit className="w-3 h-3" /> Edit Info
                   </button>
+                </div>
+
+                {activationNotice && (
+                  <div className={`mb-3 p-3 rounded-xl border text-xs flex items-center justify-between ${
+                    activationNotice.type === 'success' 
+                      ? 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-300 dark:border-emerald-800 text-emerald-800 dark:text-emerald-200'
+                      : 'bg-red-50 dark:bg-red-950/40 border-red-300 dark:border-red-800 text-red-800 dark:text-red-200'
+                  }`}>
+                    <span>{activationNotice.text}</span>
+                    <button onClick={() => setActivationNotice(null)} className="font-bold ml-2">✕</button>
+                  </div>
+                )}
+
+                {/* Account Activation Status & Action */}
+                <div className="mb-4">
+                  {activeStudent.is_pending_activation ? (
+                    <div className="p-3 rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-bold bg-amber-200 text-amber-900 dark:bg-amber-900 dark:text-amber-200">
+                            Pending Student Activation
+                          </span>
+                          <span className="text-xs text-amber-800 dark:text-amber-300">
+                            Student has not set their password yet.
+                          </span>
+                        </div>
+                        <p className="text-[11px] text-amber-700 dark:text-amber-400 mt-1">
+                          You can dispatch the secure account setup email with password activation instructions.
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={handleSendActivation}
+                        disabled={isSendingActivation || !activeStudent.email}
+                        className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white text-xs font-bold shrink-0 shadow-sm transition flex items-center gap-1.5"
+                      >
+                        {isSendingActivation ? (
+                          <>
+                            <span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
+                            <span>Sending Email...</span>
+                          </>
+                        ) : (
+                          <>
+                            <IconMail className="w-3.5 h-3.5" />
+                            <span>Send Activation Email</span>
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="p-2.5 rounded-xl bg-emerald-50/70 dark:bg-emerald-950/30 border border-emerald-200/80 dark:border-emerald-800/60 flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <IconCheckCircle className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                        <span className="text-xs font-semibold text-emerald-800 dark:text-emerald-300">
+                          Account Active & Verified
+                        </span>
+                        {activeStudent.activated_at && (
+                          <span className="text-[11px] text-emerald-600 dark:text-emerald-400">
+                            (Activated {new Date(activeStudent.activated_at).toLocaleDateString()})
+                          </span>
+                        )}
+                      </div>
+                      <button
+                        type="button"
+                        onClick={handleSendActivation}
+                        disabled={isSendingActivation || !activeStudent.email}
+                        className="text-xs text-gray-500 hover:text-emerald-600 dark:text-gray-400 dark:hover:text-emerald-400 underline font-medium"
+                        title="Send password reset link"
+                      >
+                        {isSendingActivation ? 'Sending...' : 'Send Password Reset Link'}
+                      </button>
+                    </div>
+                  )}
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 text-xs">
                   <div>

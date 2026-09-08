@@ -14,106 +14,218 @@ export const AppContext = createContext<AppContextType | undefined>(undefined);
 export const DEFAULT_ROOMS: Room[] = [
   {
     id: 1,
-    property_id: 'prop_1',
-    room_number: 'P3-R1',
+    property_id: '92b5b34c-c104-43a9-a959-60227d3d3eab',
+    room_number: 'Room 3',
     type: AccommodationType.PREMIUM_SHARED,
     apartment_name: 'Premium 3',
     category: 'Premium',
-    price_per_month: 350,
+    price_per_month: 200,
     capacity: 2,
-    occupied_slots: 0,
-    amenities: ['High-speed Wi-Fi', 'Air Conditioning', 'Study Desk'],
-    image_urls: ['https://res.cloudinary.com/di7okmjsx/image/upload/v1770388212/shared_bathroom1_hlxjdg.jpg'],
+    occupied_slots: 1,
+    amenities: ['Shared Bathroom', 'Kitchenette', 'Living Area', 'Premium Furnishing'],
+    image_urls: [
+      'https://lzibaammjwrmjqkqwdml.supabase.co/storage/v1/object/public/rooms/8xrxfq9-1776586653308.JPG',
+      'https://lzibaammjwrmjqkqwdml.supabase.co/storage/v1/object/public/rooms/hl0xxib6ey6-1776586654748.jpg',
+      'https://lzibaammjwrmjqkqwdml.supabase.co/storage/v1/object/public/rooms/ufhoxe62sbr-1776586656148.JPG'
+    ],
+    video_urls: ['https://res.cloudinary.com/di7okmjsx/video/upload/q_auto/f_auto/v1776584603/Apartment2_video_zy702b.mp4'],
     is_available: true,
     status: 'Active',
-    created_at: new Date().toISOString(),
+    created_at: '2026-03-26T09:15:43.360254+00:00',
     gender_restriction: 'Male'
   },
   {
     id: 2,
-    property_id: 'prop_1',
-    room_number: 'P3-R2',
-    type: AccommodationType.PREMIUM_PRIVATE,
-    apartment_name: 'Premium 3',
-    category: 'Premium',
-    price_per_month: 400,
-    capacity: 1,
-    occupied_slots: 0,
-    amenities: ['High-speed Wi-Fi', 'Air Conditioning', 'Private Desk'],
-    image_urls: ['https://res.cloudinary.com/di7okmjsx/image/upload/v1770388212/single_room2_zhd9uo.jpg'],
-    is_available: true,
-    status: 'Active',
-    created_at: new Date().toISOString(),
-    gender_restriction: 'Male'
-  },
-  {
-    id: 3,
-    property_id: 'prop_1',
-    room_number: 'Room 1 A',
+    property_id: '92b5b34c-c104-43a9-a959-60227d3d3eab',
+    room_number: 'P1-R1',
     type: AccommodationType.PREMIUM_SHARED,
     apartment_name: 'Premium 1',
     category: 'Premium',
-    price_per_month: 350,
+    price_per_month: 200,
     capacity: 2,
-    occupied_slots: 0,
-    amenities: ['High-speed Wi-Fi', 'Air Conditioning', 'En-suite Bathroom'],
-    image_urls: ['https://res.cloudinary.com/di7okmjsx/image/upload/v1770388212/Suite2_q62y4w.jpg'],
-    is_available: true,
+    occupied_slots: 2,
+    amenities: ['Shared Bathroom', 'Kitchenette', 'Living Area', 'Premium Furnishing'],
+    image_urls: [
+      'https://lzibaammjwrmjqkqwdml.supabase.co/storage/v1/object/public/rooms/jt4gk2ja3x-1776587730088.JPG',
+      'https://lzibaammjwrmjqkqwdml.supabase.co/storage/v1/object/public/rooms/7y6of8cb8zc-1776587731704.JPG',
+      'https://lzibaammjwrmjqkqwdml.supabase.co/storage/v1/object/public/rooms/gkywk866x1j-1776587732555.JPG',
+      'https://lzibaammjwrmjqkqwdml.supabase.co/storage/v1/object/public/rooms/gc6qfapn9z8-1776587733270.JPG'
+    ],
+    video_urls: ['https://res.cloudinary.com/di7okmjsx/video/upload/q_auto/f_auto/v1776504008/Apartment_1_video_fpin5l.mp4'],
+    is_available: false,
     status: 'Active',
-    created_at: new Date().toISOString(),
+    created_at: '2026-03-26T09:15:43.360254+00:00',
+    gender_restriction: 'Any'
+  },
+  {
+    id: 3,
+    property_id: '92b5b34c-c104-43a9-a959-60227d3d3eab',
+    room_number: 'P3-R1',
+    type: AccommodationType.PREMIUM_SHARED,
+    apartment_name: 'Premium 3',
+    category: 'Premium',
+    price_per_month: 175,
+    capacity: 2,
+    occupied_slots: 2,
+    amenities: ['Shared Bathroom', 'Premium Furnishing', 'Air Conditioning'],
+    image_urls: [
+      'https://lzibaammjwrmjqkqwdml.supabase.co/storage/v1/object/public/rooms/0tvbla90kqe-1776587157546.jpg',
+      'https://lzibaammjwrmjqkqwdml.supabase.co/storage/v1/object/public/rooms/286im7xsb7s-1776587159405.JPG',
+      'https://lzibaammjwrmjqkqwdml.supabase.co/storage/v1/object/public/rooms/3rjypedi8oc-1776587160218.jpg',
+      'https://lzibaammjwrmjqkqwdml.supabase.co/storage/v1/object/public/rooms/u1nftmfxv-1776587161126.JPG'
+    ],
+    video_urls: ['https://res.cloudinary.com/di7okmjsx/video/upload/q_auto/f_auto/v1776584603/Apartment2_video_zy702b.mp4'],
+    is_available: false,
+    status: 'Active',
+    created_at: '2026-03-26T09:15:43.360254+00:00',
     gender_restriction: 'Male'
   },
   {
     id: 4,
-    property_id: 'prop_1',
-    room_number: 'Room 2',
+    property_id: '92b5b34c-c104-43a9-a959-60227d3d3eab',
+    room_number: 'P1-R3',
     type: AccommodationType.PREMIUM_PRIVATE,
     apartment_name: 'Premium 1',
     category: 'Premium',
     price_per_month: 400,
     capacity: 1,
-    occupied_slots: 0,
-    amenities: ['High-speed Wi-Fi', 'Air Conditioning', 'Private Balcony'],
-    image_urls: ['https://res.cloudinary.com/di7okmjsx/image/upload/v1770388212/Suite1_t4dczv.jpg'],
-    is_available: true,
+    occupied_slots: 1,
+    amenities: ['Private Bathroom', 'Kitchenette', 'Living Area', 'Premium Furnishing', 'Air Conditioning'],
+    image_urls: [
+      'https://lzibaammjwrmjqkqwdml.supabase.co/storage/v1/object/public/rooms/hfrxs2rt9f-1776689005667.JPG',
+      'https://lzibaammjwrmjqkqwdml.supabase.co/storage/v1/object/public/rooms/npye72bzyx-1776689044582.JPG',
+      'https://lzibaammjwrmjqkqwdml.supabase.co/storage/v1/object/public/rooms/0de5j3wrfg7n-1776689046487.JPG',
+      'https://lzibaammjwrmjqkqwdml.supabase.co/storage/v1/object/public/rooms/4nv4eiqxwum-1776689049612.JPG'
+    ],
+    video_urls: ['https://res.cloudinary.com/di7okmjsx/video/upload/q_auto/f_auto/v1776504008/Apartment_1_video_fpin5l.mp4'],
+    is_available: false,
     status: 'Active',
-    created_at: new Date().toISOString(),
-    gender_restriction: 'Female'
+    created_at: '2026-03-26T09:15:43.360254+00:00',
+    gender_restriction: 'Any'
   },
   {
     id: 5,
-    property_id: 'prop_1',
-    room_number: 'Room 1 A',
+    property_id: '92b5b34c-c104-43a9-a959-60227d3d3eab',
+    room_number: 'P2-R1',
     type: AccommodationType.PREMIUM_SHARED,
     apartment_name: 'Premium 2',
     category: 'Premium',
-    price_per_month: 380,
+    price_per_month: 200,
     capacity: 2,
     occupied_slots: 0,
-    amenities: ['High-speed Wi-Fi', 'In-room AC', 'Modern Kitchenette'],
-    image_urls: ['https://res.cloudinary.com/di7okmjsx/image/upload/v1770388212/Suite2_q62y4w.jpg'],
+    amenities: ['Shared Bathroom', 'Kitchenette', 'Living Area', 'Premium Furnishing'],
+    image_urls: [
+      'https://lzibaammjwrmjqkqwdml.supabase.co/storage/v1/object/public/rooms/o62x87qvxq-1776585967566.jpg',
+      'https://lzibaammjwrmjqkqwdml.supabase.co/storage/v1/object/public/rooms/k7hypquyej-1776585969214.JPG',
+      'https://lzibaammjwrmjqkqwdml.supabase.co/storage/v1/object/public/rooms/glebjm1neh-1776585970386.jpg',
+      'https://lzibaammjwrmjqkqwdml.supabase.co/storage/v1/object/public/rooms/2pjvfizgwwq-1776585971540.jpg'
+    ],
+    video_urls: ['https://res.cloudinary.com/di7okmjsx/video/upload/q_auto/f_auto/v1776584603/Apartment2_video_zy702b.mp4'],
     is_available: true,
     status: 'Active',
-    created_at: new Date().toISOString(),
-    gender_restriction: 'Female'
+    created_at: '2026-04-19T08:06:12.438146+00:00',
+    gender_restriction: 'Any'
   },
   {
     id: 6,
-    property_id: 'prop_1',
-    room_number: 'Room 2',
+    property_id: '92b5b34c-c104-43a9-a959-60227d3d3eab',
+    room_number: 'P2-R3',
     type: AccommodationType.PREMIUM_PRIVATE,
     apartment_name: 'Premium 2',
     category: 'Premium',
-    price_per_month: 450,
+    price_per_month: 350,
     capacity: 1,
     occupied_slots: 0,
-    amenities: ['High-speed Wi-Fi', 'In-room AC', 'Resident Lounge Access'],
-    image_urls: ['https://res.cloudinary.com/di7okmjsx/image/upload/v1770388212/Suite1_t4dczv.jpg'],
+    amenities: ['Private Bathroom', 'Kitchenette', 'Living Area', 'Premium Furnishing'],
+    image_urls: [
+      'https://lzibaammjwrmjqkqwdml.supabase.co/storage/v1/object/public/rooms/guzejsy23f9-1776588497974.jpg',
+      'https://lzibaammjwrmjqkqwdml.supabase.co/storage/v1/object/public/rooms/2tcapz8wog9-1776588502338.jpg',
+      'https://lzibaammjwrmjqkqwdml.supabase.co/storage/v1/object/public/rooms/ex7weoqx4ne-1776588505873.jpg',
+      'https://lzibaammjwrmjqkqwdml.supabase.co/storage/v1/object/public/rooms/dpr2ua8pmll-1776588509040.jpg'
+    ],
+    video_urls: ['https://drive.google.com/file/d/1AAtsugkYqohDKgKiblG947qZMdHsNEco/view?usp=drive_link'],
     is_available: true,
     status: 'Active',
-    created_at: new Date().toISOString(),
+    created_at: '2026-04-19T08:48:31.578323+00:00',
+    gender_restriction: 'Any'
+  },
+  {
+    id: 7,
+    property_id: '92b5b34c-c104-43a9-a959-60227d3d3eab',
+    room_number: 'P1-R2',
+    type: AccommodationType.PREMIUM_PRIVATE,
+    apartment_name: 'Premium 1',
+    category: 'Premium',
+    price_per_month: 400,
+    capacity: 1,
+    occupied_slots: 1,
+    amenities: ['High-speed Wi-Fi', 'Air Conditioning', 'Private Desk'],
+    image_urls: ['https://res.cloudinary.com/di7okmjsx/image/upload/v1770388212/Suite1_t4dczv.jpg'],
+    video_urls: [],
+    is_available: false,
+    status: 'Active',
+    created_at: '2026-08-16T00:39:11.579012+00:00',
+    gender_restriction: 'Any'
+  },
+  {
+    id: 8,
+    property_id: '92b5b34c-c104-43a9-a959-60227d3d3eab',
+    room_number: 'P2-R2',
+    type: AccommodationType.PREMIUM_SHARED,
+    apartment_name: 'Premium 2',
+    category: 'Premium',
+    price_per_month: 200,
+    capacity: 2,
+    occupied_slots: 0,
+    amenities: [
+      'The apartment is on the 10th floor with 2 elevators with access control. Masjid Just downstairs accross the building',
+      'Well maintained cozy',
+      'High-speed Wi-Fi',
+      'Air Conditioning',
+      'Private Desk'
+    ],
+    image_urls: ['https://res.cloudinary.com/di7okmjsx/image/upload/v1770388212/Suite1_t4dczv.jpg'],
+    video_urls: [],
+    is_available: true,
+    status: 'Active',
+    created_at: '2026-08-16T00:39:11.579012+00:00',
+    gender_restriction: 'Male'
+  },
+  {
+    id: 9,
+    property_id: '92b5b34c-c104-43a9-a959-60227d3d3eab',
+    room_number: 'P3-R2',
+    type: AccommodationType.PREMIUM_PRIVATE,
+    apartment_name: 'Premium 3',
+    category: 'Premium',
+    price_per_month: 350,
+    capacity: 1,
+    occupied_slots: 1,
+    amenities: ['High-speed Wi-Fi', 'Air Conditioning', 'Study Desk'],
+    image_urls: ['https://res.cloudinary.com/di7okmjsx/image/upload/v1770388212/shared_bathroom1_hlxjdg.jpg'],
+    video_urls: [],
+    is_available: false,
+    status: 'Active',
+    created_at: '2026-08-16T00:39:11.579012+00:00',
     gender_restriction: 'Any'
   }
+];
+
+export const DEFAULT_BED_SPACES: BedSpace[] = [
+  { id: 1, room_id: 2, label: 'Bed A', created_at: '2026-08-16T00:39:11.579012+00:00' },
+  { id: 2, room_id: 2, label: 'Bed B', created_at: '2026-08-16T00:39:11.579012+00:00' },
+  { id: 3, room_id: 7, label: 'Single', created_at: '2026-08-16T00:39:11.579012+00:00' },
+  { id: 4, room_id: 4, label: 'Single', created_at: '2026-08-16T00:39:11.579012+00:00' },
+  { id: 5, room_id: 5, label: 'Bed A', created_at: '2026-08-16T00:39:11.579012+00:00' },
+  { id: 6, room_id: 5, label: 'Bed B', created_at: '2026-08-16T00:39:11.579012+00:00' },
+  { id: 7, room_id: 8, label: 'Bed A', created_at: '2026-08-16T00:39:11.579012+00:00' },
+  { id: 8, room_id: 6, label: 'Single', created_at: '2026-08-16T00:39:11.579012+00:00' },
+  { id: 9, room_id: 3, label: 'Bed A', created_at: '2026-08-16T00:39:11.579012+00:00' },
+  { id: 10, room_id: 3, label: 'Bed B', created_at: '2026-08-16T00:39:11.579012+00:00' },
+  { id: 11, room_id: 9, label: 'Single', created_at: '2026-08-16T00:39:11.579012+00:00' },
+  { id: 13, room_id: 1, label: 'Bed A', created_at: '2026-08-16T00:39:11.579012+00:00' },
+  { id: 18, room_id: 8, label: 'Bed B', created_at: '2026-08-27T06:38:52.848072+00:00' },
+  { id: 21, room_id: 1, label: 'Bed B', created_at: '2026-09-01T06:00:11.89068+00:00' }
 ];
 
 export const DEFAULT_ACADEMIC_TERMS: AcademicTerm[] = [
@@ -390,7 +502,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [publicOccupancy, setPublicOccupancy] = useState<PublicOccupancy[]>([]);
   const [rooms, setRooms] = useState<Room[]>(DEFAULT_ROOMS);
-  const [bedSpaces, setBedSpaces] = useState<BedSpace[]>([]);
+  const [bedSpaces, setBedSpaces] = useState<BedSpace[]>(DEFAULT_BED_SPACES);
   const [academicTerms, setAcademicTerms] = useState<AcademicTerm[]>(DEFAULT_ACADEMIC_TERMS);
   const [bookingPackages, setBookingPackages] = useState<BookingPackage[]>(DEFAULT_BOOKING_PACKAGES);
   const [cmsContent, setCmsContent] = useState<CmsContent>(INITIAL_CMS);
@@ -556,7 +668,9 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         gender: activeProfile.gender,
         phone_number: activeProfile.phone_number,
         passport_number: activeProfile.passport_number,
-        nationality: activeProfile.nationality
+        nationality: activeProfile.nationality,
+        is_pending_activation: session.user.user_metadata?.is_pending_activation ?? activeProfile.is_pending_activation,
+        activated_at: session.user.user_metadata?.activated_at ?? activeProfile.activated_at
       };
       setUser(loggedInUser);
 
@@ -920,6 +1034,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
             if (bedSpacesRes && !bedSpacesRes.error && bedSpacesRes.data && bedSpacesRes.data.length > 0) {
                 setBedSpaces(bedSpacesRes.data);
+            } else {
+                setBedSpaces(prev => prev && prev.length > 0 ? prev : DEFAULT_BED_SPACES);
             }
 
             if (publicOccupancyRes && !publicOccupancyRes.error && publicOccupancyRes.data) {
@@ -1074,7 +1190,20 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       }
     }, 10000);
 
+    try {
+      const urlParams = new URLSearchParams(window.location.search);
+      const hash = window.location.hash || '';
+      if (urlParams.get('page') === 'activate' || urlParams.get('type') === 'recovery' || hash.includes('type=recovery') || hash.includes('access_token')) {
+        setPageState('activate');
+      }
+    } catch {
+      // Non-blocking URL check
+    }
+
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (_event === 'PASSWORD_RECOVERY') {
+        setPageState('activate');
+      }
       updateUserSession(session);
     });
 
@@ -2607,6 +2736,41 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     }
   };
 
+  const sendStudentActivationEmail = async (params: {
+    email: string;
+    fullName?: string;
+    roomInfo?: string;
+  }): Promise<{ success: boolean; error?: string; message?: string }> => {
+    try {
+      const response = await fetch('/api/auth/send-activation-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: params.email,
+          full_name: params.fullName,
+          room_info: params.roomInfo,
+          origin: window.location.origin
+        })
+      });
+
+      const resData = await response.json().catch(() => ({}));
+      if (!response.ok || resData.success === false) {
+        throw new Error(resData.error || 'Failed to dispatch activation email.');
+      }
+
+      return {
+        success: true,
+        message: resData.message || 'Activation email sent successfully.'
+      };
+    } catch (err: any) {
+      console.error('[sendStudentActivationEmail] Error:', err);
+      return {
+        success: false,
+        error: err.message || 'Failed to send activation email.'
+      };
+    }
+  };
+
   const addToWaitlist = async (entry: Omit<WaitlistEntry, 'id' | 'created_at' | 'status'> & { status?: WaitlistStatus }) => {
     try {
       const newEntryPayload: any = {
@@ -3479,6 +3643,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     selectedRoom,
     extendingBooking,
     session,
+    updateUserSession,
     logout,
     bookings,
     publicOccupancy,
@@ -3505,6 +3670,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     updateUser,
     updateStudentProfile,
     createStudentProfile,
+    sendStudentActivationEmail,
     deleteUser,
     academicTerms,
     bookingPackages,

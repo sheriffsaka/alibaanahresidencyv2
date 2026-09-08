@@ -36,7 +36,7 @@ const AuthForm: React.FC<AuthFormProps> = ({ isLogin, setIsLogin }) => {
                 throw new Error(`Your email address has not been verified yet. Please check your email inbox (and spam folder) at ${email.trim()} for the verification link before logging in.`);
             }
             if (msgLower.includes('invalid login credentials')) {
-                throw new Error('Invalid email or password. Please check your credentials and try again.');
+                throw new Error('Invalid email or password. If your room was booked by the administration, please use the "Activate Account" option below to set your personal password.');
             }
             throw error;
         }
@@ -45,8 +45,25 @@ const AuthForm: React.FC<AuthFormProps> = ({ isLogin, setIsLogin }) => {
     };
     
     const handleRegister = async () => {
-        const cleanEmail = email.trim();
+        const cleanEmail = email.trim().toLowerCase();
         console.log("Attempting registration for:", cleanEmail);
+
+        // Pre-check if email already exists in profiles or bookings to provide immediate helpful guidance
+        try {
+            const { data: existingProf } = await supabase
+                .from('profiles')
+                .select('id, full_name')
+                .eq('email', cleanEmail)
+                .maybeSingle();
+
+            if (existingProf) {
+                setIsDuplicateEmail(true);
+                throw new Error('An account already exists for this email address. If your room was booked by the administration, please activate your account to set your personal password.');
+            }
+        } catch (checkErr: any) {
+            if (checkErr.message?.includes('already exists')) throw checkErr;
+        }
+
         const { data, error } = await supabase.auth.signUp({
             email: cleanEmail,
             password,
@@ -165,9 +182,16 @@ const AuthForm: React.FC<AuthFormProps> = ({ isLogin, setIsLogin }) => {
                                 Account Already Exists
                             </h4>
                             <p className="text-red-800 dark:text-red-300 font-medium">
-                                An account with the email <strong className="font-mono">{email}</strong> already exists in our system.
+                                An account with the email <strong className="font-mono">{email}</strong> already exists in our system. If your room was booked by administration, please activate your account to set your personal password.
                             </p>
-                            <div className="pt-1">
+                            <div className="pt-2 flex flex-wrap items-center gap-2">
+                                <button
+                                    type="button"
+                                    onClick={() => setPage('activate')}
+                                    className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-lg shadow-sm transition-colors"
+                                >
+                                    Activate Account / Set Password →
+                                </button>
                                 <button
                                     type="button"
                                     onClick={() => {
@@ -175,9 +199,9 @@ const AuthForm: React.FC<AuthFormProps> = ({ isLogin, setIsLogin }) => {
                                         setError(null);
                                         setIsDuplicateEmail(false);
                                     }}
-                                    className="px-3.5 py-1.5 bg-brand-600 hover:bg-brand-700 text-white font-bold text-xs rounded-lg shadow-sm transition-colors"
+                                    className="px-3.5 py-1.5 bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-800 dark:text-gray-200 font-bold text-xs rounded-lg transition-colors"
                                 >
-                                    Log In with This Email →
+                                    Log In with This Email
                                 </button>
                             </div>
                         </div>
@@ -258,7 +282,7 @@ const AuthForm: React.FC<AuthFormProps> = ({ isLogin, setIsLogin }) => {
                     </button>
                 </div>
             </form>
-            <div className="text-sm text-center mt-4">
+            <div className="text-sm text-center mt-4 space-y-3">
                 <button 
                     onClick={() => {
                         setIsLogin(!isLogin);
@@ -269,6 +293,16 @@ const AuthForm: React.FC<AuthFormProps> = ({ isLogin, setIsLogin }) => {
                 >
                     {isLogin ? t.switchToRegister : t.switchToLogin}
                 </button>
+
+                <div className="pt-3 border-t border-gray-100 dark:border-gray-800">
+                    <button
+                        type="button"
+                        onClick={() => setPage('activate')}
+                        className="text-xs text-gray-500 hover:text-emerald-600 dark:text-gray-400 dark:hover:text-emerald-400 transition"
+                    >
+                        Booked by Admin? Or didn't receive your activation email? <span className="font-semibold text-emerald-600 dark:text-emerald-400 underline">Activate Account & Set Password</span>
+                    </button>
+                </div>
             </div>
         </div>
     );
