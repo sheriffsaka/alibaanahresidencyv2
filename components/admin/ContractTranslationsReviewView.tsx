@@ -44,16 +44,31 @@ export const ContractTranslationsReviewView: React.FC = () => {
 
   const englishSource: LegalContractTranslation = contractTranslations?.en || DEFAULT_CONTRACT_TRANSLATIONS.en;
   
-  // Active translation state
-  const currentTranslation: LegalContractTranslation = 
-    contractTranslations?.[selectedLang] || DEFAULT_CONTRACT_TRANSLATIONS[selectedLang] || DEFAULT_CONTRACT_TRANSLATIONS.en;
+  // Active translation state with merged witness defaults
+  const getMergedTranslation = (lang: string): LegalContractTranslation => {
+    const raw = contractTranslations?.[lang] || DEFAULT_CONTRACT_TRANSLATIONS[lang] || DEFAULT_CONTRACT_TRANSLATIONS.en;
+    const defaults = DEFAULT_CONTRACT_TRANSLATIONS[lang] || DEFAULT_CONTRACT_TRANSLATIONS.en;
+    const cloned: LegalContractTranslation = JSON.parse(JSON.stringify(raw));
+    if (!cloned.sections) (cloned as any).sections = {};
+    if (!cloned.sections.signatures) (cloned.sections as any).signatures = {};
+    const sigs = cloned.sections.signatures;
+    const defaultSigs = defaults.sections.signatures || ({} as any);
+    if (!sigs.witnessesTitle) sigs.witnessesTitle = defaultSigs.witnessesTitle || 'WITNESSES';
+    if (!sigs.witness1Label) sigs.witness1Label = defaultSigs.witness1Label || 'WITNESS 1';
+    if (!sigs.witness2Label) sigs.witness2Label = defaultSigs.witness2Label || 'WITNESS 2';
+    if (!sigs.witnessNameLabel) sigs.witnessNameLabel = defaultSigs.witnessNameLabel || 'NAME';
+    if (!sigs.witnessDateLabel) sigs.witnessDateLabel = defaultSigs.witnessDateLabel || 'DATE';
+    return cloned;
+  };
+
+  const currentTranslation: LegalContractTranslation = getMergedTranslation(selectedLang);
 
   // Local draft state for editing
-  const [editForm, setEditForm] = useState<LegalContractTranslation>(() => JSON.parse(JSON.stringify(currentTranslation)));
+  const [editForm, setEditForm] = useState<LegalContractTranslation>(() => getMergedTranslation(selectedLang));
 
   // Synchronize editForm when selectedLang or server translation changes and no dirty edits
   useEffect(() => {
-    setEditForm(JSON.parse(JSON.stringify(currentTranslation)));
+    setEditForm(getMergedTranslation(selectedLang));
     setHasUnsavedChanges(false);
   }, [selectedLang, contractTranslations]);
 
@@ -1285,9 +1300,14 @@ export const ContractTranslationsReviewView: React.FC = () => {
 
                 {/* WITNESSES TRANSLATION CONTROLS */}
                 <div className="pt-4 border-t border-gray-200 dark:border-gray-700 space-y-4">
-                  <h5 className="text-xs font-bold text-gray-900 dark:text-white uppercase tracking-wider">
-                    Witnesses Section (Official Document Requirement)
-                  </h5>
+                  <div>
+                    <h5 className="text-xs font-bold text-gray-900 dark:text-white uppercase tracking-wider">
+                      Witnesses Section (Official Document Requirement)
+                    </h5>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                      The fields below are populated with standard template labels and will be saved directly into the tenancy agreement.
+                    </p>
+                  </div>
 
                   <div>
                     <label className="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">

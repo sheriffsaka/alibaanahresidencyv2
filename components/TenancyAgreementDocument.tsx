@@ -220,7 +220,32 @@ const TenancyAgreementDocument: React.ForwardRefRenderFunction<HTMLDivElement, T
 
               <div>
                 <h3 className="font-bold text-gray-900">{sec.useOccupancy.occupancyTitle}</h3>
-                <p className="text-gray-700 mt-1">{sec.useOccupancy.occupancyIntro.replace('{maxResidents}', String((formData?.category === 'Premium 3' || formData?.category === 'Standard') ? 7 : 4))}</p>
+                <p className="text-gray-700 mt-1">
+                  {(() => {
+                    const capacityRange = (formData?.category === 'Premium 2' || formData?.category === 'Premium 3') ? '4–5' : '3–4';
+                    let intro = (sec.useOccupancy.occupancyIntro || '').replace('{maxResidents}', capacityRange);
+                    const hasBreakdown = 
+                      intro.includes('shared room') || 
+                      intro.includes('غرفة مشتركة') || 
+                      intro.includes('общей комнате') || 
+                      intro.includes('chambre partagée') || 
+                      intro.includes('umumiy xonada') || 
+                      intro.includes('合住房');
+                    if (!hasBreakdown) {
+                      const breakdowns: Record<string, string> = {
+                        en: ': two residents per shared room and one per private room.',
+                        ar: ': مقيمان في كل غرفة مشتركة ومقيم واحد في الغرفة الخاصة.',
+                        ru: ': по два человека в общей комнате и один в отдельной комнате.',
+                        fr: ' : deux résidents par chambre partagée et un par chambre privée.',
+                        uz: ': umumiy xonada ikki kishi va alohida xonada bir kishi.',
+                        zh: '：合住房每间两人，单人间每间一人。'
+                      };
+                      const suffix = breakdowns[language] || breakdowns.en;
+                      intro = intro.replace(/[.:]?\s*$/, '') + suffix;
+                    }
+                    return intro;
+                  })()}
+                </p>
                 <ul className="list-disc list-inside mt-2 space-y-1 text-gray-600 pl-2">
                   {sec.useOccupancy.occupancyPoints.map((pt, idx) => (
                     <li key={idx}>{pt}</li>
