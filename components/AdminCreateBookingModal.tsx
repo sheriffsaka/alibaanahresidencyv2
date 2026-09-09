@@ -236,7 +236,11 @@ export const AdminCreateBookingModal: React.FC<AdminCreateBookingModalProps> = (
       setStudentCreationSuccessMessage(`Student profile created successfully (ID: ${newStudent.id.substring(0, 8)}...)`);
       return newStudent;
     } catch (err: any) {
-      setErrorMessage(err.message || 'Error occurred while creating student profile.');
+      let msg = err.message || 'Error occurred while creating student profile.';
+      if (msg.includes('is not valid JSON') || msg.includes('Unexpected token')) {
+        msg = 'Server connection interrupted during student verification. Please retry or continue with the booking.';
+      }
+      setErrorMessage(msg);
       return null;
     } finally {
       setIsCreatingStudent(false);

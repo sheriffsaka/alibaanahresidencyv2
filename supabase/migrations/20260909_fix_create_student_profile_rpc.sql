@@ -1,6 +1,5 @@
--- Migration: Create RPC function for Admin to create student profile with account activation preparation
--- Enables Admin (Staff / Proprietor) to create a student profile safely in PostgreSQL/Supabase
--- without requiring or exposing a password.
+-- Migration: Fix create_student_profile RPC function
+-- Ensures pgcrypto/extensions search_path is included and avoids hard failure on gen_random_bytes.
 
 CREATE OR REPLACE FUNCTION public.create_student_profile(
     p_full_name TEXT,
