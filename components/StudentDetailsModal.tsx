@@ -240,6 +240,23 @@ export const StudentDetailsModal: React.FC<StudentDetailsModalProps> = ({
     }
   };
 
+  const handleCopyActivationLink = async () => {
+    if (!activeStudent?.email) return;
+    const link = `${window.location.origin}/?page=activate&email=${encodeURIComponent(activeStudent.email.trim().toLowerCase())}`;
+    try {
+      await navigator.clipboard.writeText(link);
+      setActivationNotice({
+        text: `Activation link copied: ${link}`,
+        type: 'success'
+      });
+    } catch {
+      setActivationNotice({
+        text: `Link: ${link}`,
+        type: 'success'
+      });
+    }
+  };
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs overflow-y-auto">
       <div className="bg-white dark:bg-gray-800 rounded-2xl max-w-3xl w-full p-6 shadow-2xl border border-gray-200 dark:border-gray-700 my-8 max-h-[90vh] flex flex-col">
@@ -572,24 +589,35 @@ export const StudentDetailsModal: React.FC<StudentDetailsModalProps> = ({
                           You can dispatch the secure account setup email with password activation instructions.
                         </p>
                       </div>
-                      <button
-                        type="button"
-                        onClick={handleSendActivation}
-                        disabled={isSendingActivation || !activeStudent.email}
-                        className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white text-xs font-bold shrink-0 shadow-sm transition flex items-center gap-1.5"
-                      >
-                        {isSendingActivation ? (
-                          <>
-                            <span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
-                            <span>Sending Email...</span>
-                          </>
-                        ) : (
-                          <>
-                            <IconMail className="w-3.5 h-3.5" />
-                            <span>Send Activation Email</span>
-                          </>
-                        )}
-                      </button>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <button
+                          type="button"
+                          onClick={handleCopyActivationLink}
+                          disabled={!activeStudent.email}
+                          className="px-2.5 py-1.5 rounded-lg border border-emerald-300 dark:border-emerald-700 bg-white dark:bg-gray-800 hover:bg-emerald-50 dark:hover:bg-gray-700 text-emerald-800 dark:text-emerald-300 text-xs font-semibold shadow-xs transition"
+                          title="Copy setup link to send via WhatsApp or SMS"
+                        >
+                          Copy Link
+                        </button>
+                        <button
+                          type="button"
+                          onClick={handleSendActivation}
+                          disabled={isSendingActivation || !activeStudent.email}
+                          className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white text-xs font-bold shadow-sm transition flex items-center gap-1.5"
+                        >
+                          {isSendingActivation ? (
+                            <>
+                              <span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
+                              <span>Sending Email...</span>
+                            </>
+                          ) : (
+                            <>
+                              <IconMail className="w-3.5 h-3.5" />
+                              <span>Send Activation Email</span>
+                            </>
+                          )}
+                        </button>
+                      </div>
                     </div>
                   ) : (
                     <div className="p-2.5 rounded-xl bg-emerald-50/70 dark:bg-emerald-950/30 border border-emerald-200/80 dark:border-emerald-800/60 flex items-center justify-between">

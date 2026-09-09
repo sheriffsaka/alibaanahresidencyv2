@@ -50,6 +50,35 @@ export const ActivateAccountPage: React.FC = () => {
 
     const checkSession = async () => {
       try {
+        const urlParams = new URLSearchParams(window.location.search);
+        const code = urlParams.get('code');
+        const tokenHash = urlParams.get('token_hash');
+        const type = (urlParams.get('type') as any) || 'recovery';
+
+        // 1. Handle PKCE code exchange if present
+        if (code) {
+          try {
+            await supabase.auth.exchangeCodeForSession(code);
+            // Clean up URL parameter to avoid re-exchanging on page reload
+            const cleanUrl = window.location.origin + window.location.pathname + '?page=activate';
+            window.history.replaceState({}, document.title, cleanUrl);
+          } catch (codeErr) {
+            console.warn('[ActivateAccountPage] Code exchange notice:', codeErr);
+          }
+        }
+
+        // 2. Handle token_hash verification if present
+        if (tokenHash) {
+          try {
+            await supabase.auth.verifyOtp({ token_hash: tokenHash, type });
+            const cleanUrl = window.location.origin + window.location.pathname + '?page=activate';
+            window.history.replaceState({}, document.title, cleanUrl);
+          } catch (otpErr) {
+            console.warn('[ActivateAccountPage] OTP verify notice:', otpErr);
+          }
+        }
+
+        // 3. Inspect active session
         const { data: { session } } = await supabase.auth.getSession();
         if (!isMounted) return;
 

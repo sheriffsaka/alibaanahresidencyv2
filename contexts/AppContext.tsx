@@ -687,6 +687,36 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       };
       setUser(loggedInUser);
 
+      // Reconcile and link existing Admin-created bookings for this student
+      if (activeProfile.role === 'student' && session.user.email) {
+        const studentEmail = session.user.email.toLowerCase().trim();
+        try {
+          const { data: matchingBookings } = await supabase
+            .from('bookings')
+            .select('id, student_id')
+            .ilike('email', studentEmail);
+
+          if (matchingBookings && matchingBookings.length > 0) {
+            const needLinking = matchingBookings.filter(b => b.student_id !== activeProfile.id);
+            if (needLinking.length > 0) {
+              console.log(`[updateUserSession] Reconciling and linking ${needLinking.length} booking(s) to student ID ${activeProfile.id}`);
+              await supabase
+                .from('bookings')
+                .update({ student_id: activeProfile.id })
+                .ilike('email', studentEmail);
+
+              setBookings(prev => prev.map(b => 
+                (b.email && b.email.toLowerCase().trim() === studentEmail) 
+                  ? { ...b, student_id: activeProfile.id } 
+                  : b
+              ));
+            }
+          }
+        } catch (linkErr) {
+          console.warn('[updateUserSession] Booking reconciliation notice:', linkErr);
+        }
+      }
+
       // 2. Fetch role-dependent data in parallel
       const isStaffOrAdmin = activeProfile.role === 'staff' || activeProfile.role === 'proprietor';
       if (isStaffOrAdmin) {

@@ -187,7 +187,12 @@ const AuthForm: React.FC<AuthFormProps> = ({ isLogin, setIsLogin }) => {
                             <div className="pt-2 flex flex-wrap items-center gap-2">
                                 <button
                                     type="button"
-                                    onClick={() => setPage('activate')}
+                                    onClick={() => {
+                                        if (email?.trim()) {
+                                            window.history.replaceState({}, '', '/?page=activate&email=' + encodeURIComponent(email.trim()));
+                                        }
+                                        setPage('activate');
+                                    }}
                                     className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-lg shadow-sm transition-colors"
                                 >
                                     Activate Account / Set Password →

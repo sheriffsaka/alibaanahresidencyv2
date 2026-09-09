@@ -276,6 +276,22 @@ async function startServer() {
         });
       }
 
+      // Explicitly upsert profile to guarantee profiles table record exists
+      try {
+        await checkClient.from("profiles").upsert({
+          id: newUserId,
+          full_name: normalizedFullName,
+          role: "student",
+          gender: normalizedGender,
+          phone_number: normalizedPhone,
+          nationality: normalizedNationality,
+          passport_number: normalizedPassport,
+          updated_at: new Date().toISOString()
+        });
+      } catch (profUpsertErr) {
+        console.warn("[Server Admin Create Student] Profile upsert notice:", profUpsertErr);
+      }
+
       const studentObject = {
         id: newUserId,
         full_name: normalizedFullName,
@@ -323,26 +339,16 @@ async function startServer() {
       const origin = req.body.origin || req.headers.origin || (req.headers.host ? `${req.protocol || "http"}://${req.headers.host}` : "http://localhost:3000");
       const activationRedirectUrl = `${origin}/?page=activate`;
 
-      // 1. Fetch student info from profiles or bookings if not passed
+      // 1. Fetch student info from bookings or profiles if not passed
       let studentName = full_name;
       let roomDetails = room_info;
 
-      if (!studentName) {
-        const { data: profile } = await checkClient
-          .from("profiles")
-          .select("full_name")
-          .eq("email", normalizedEmail)
-          .maybeSingle();
-        if (profile?.full_name) {
-          studentName = profile.full_name;
-        }
-      }
-
-      if (!studentName || !roomDetails) {
+      // Check bookings table first since it reliably contains email, student full name, and room
+      try {
         const { data: booking } = await checkClient
           .from("bookings")
           .select("full_name, preferred_accommodation, rooms(room_number, category)")
-          .eq("email", normalizedEmail)
+          .ilike("email", normalizedEmail)
           .order("id", { ascending: false })
           .limit(1)
           .maybeSingle();
@@ -356,6 +362,23 @@ async function startServer() {
             else if (rNum) roomDetails = `Room ${rNum}`;
             else if (cat) roomDetails = cat;
           }
+        }
+      } catch (bookErr) {
+        console.warn("[Activation API] Booking lookup notice:", bookErr);
+      }
+
+      if (!studentName) {
+        try {
+          const { data: profile } = await checkClient
+            .from("profiles")
+            .select("full_name")
+            .eq("id", normalizedEmail)
+            .maybeSingle();
+          if (profile?.full_name) {
+            studentName = profile.full_name;
+          }
+        } catch {
+          // Non-blocking lookup
         }
       }
 

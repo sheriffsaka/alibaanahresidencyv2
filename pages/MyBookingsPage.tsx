@@ -20,7 +20,7 @@ const MyBookingsPage: React.FC = () => {
   const [signingBooking, setSigningBooking] = useState<Booking | null>(null);
   const [uploadingProofBooking, setUploadingProofBooking] = useState<Booking | null>(null);
   
-  const userBookings = (bookings || []).filter(b => b.student_id === user?.id);
+  const userBookings = (bookings || []).filter(b => b.student_id === user?.id || (b.email && user?.email && b.email.toLowerCase().trim() === user.email.toLowerCase().trim()));
   const userActivities = (activities || []).filter(a => a.user_id === user?.id).slice(0, 8);
 
   const handleSignContract = async (signatureData: string) => {

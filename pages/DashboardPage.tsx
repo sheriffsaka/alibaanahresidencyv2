@@ -37,7 +37,7 @@ const DashboardPage: React.FC = () => {
     type: 'Shared',
   });
   
-  const userBookings = (bookings || []).filter(b => b.student_id === user?.id);
+  const userBookings = (bookings || []).filter(b => b.student_id === user?.id || (b.email && user?.email && b.email.toLowerCase().trim() === user.email.toLowerCase().trim()));
   const activeBooking = userBookings.find(b => b.status !== BookingStatus.CANCELLED && b.status !== BookingStatus.COMPLETED) || userBookings[0];
   const liveRoomDetails = useMemo(() => {
     return activeBooking ? getLiveStudentRoomDetails(activeBooking, rooms, accommodationAddresses, accommodationCategories, bedSpaces) : null;

@@ -36,6 +36,7 @@ export const AdminCreateBookingModal: React.FC<AdminCreateBookingModalProps> = (
     bookings,
     addBooking,
     createStudentProfile,
+    sendStudentActivationEmail,
     parsedRoomSpaces,
     accommodationCategories,
     roomPricing
@@ -48,6 +49,7 @@ export const AdminCreateBookingModal: React.FC<AdminCreateBookingModalProps> = (
   const [createdStudent, setCreatedStudent] = useState<User | null>(null);
   const [isCreatingStudent, setIsCreatingStudent] = useState(false);
   const [studentCreationSuccessMessage, setStudentCreationSuccessMessage] = useState('');
+  const [sendActivationEmail, setSendActivationEmail] = useState(true);
 
   // Student form details
   const [fullName, setFullName] = useState('');
@@ -412,11 +414,30 @@ export const AdminCreateBookingModal: React.FC<AdminCreateBookingModalProps> = (
       const result = await addBooking(newBookingData as Booking);
 
       if (result.success) {
-        setSuccessMessage('Booking created and verified successfully!');
+        let emailNote = '';
+        if (sendActivationEmail && email?.trim()) {
+          try {
+            const roomDisplay = `${matchingDbRoom.apartment_name || selectedCategory} - Room ${matchingDbRoom.room_number || ''} (${selectedSpaceObj.type === 'Private' ? 'Private Room' : (selectedSpaceObj.bedLabel || 'Shared Bed')})`;
+            const emailRes = await sendStudentActivationEmail({
+              email: email.trim().toLowerCase(),
+              fullName: fullName.trim(),
+              roomInfo: roomDisplay
+            });
+            if (emailRes.success) {
+              emailNote = ` Activation link dispatched to ${email.trim().toLowerCase()}.`;
+            } else {
+              emailNote = ` (Note: Could not send activation email: ${emailRes.error || 'delivery issue'}. You can resend anytime from Student Details).`;
+            }
+          } catch (mailErr: any) {
+            emailNote = ` (Note: Could not send activation email: ${mailErr.message || 'delivery issue'}. You can resend anytime from Student Details).`;
+          }
+        }
+
+        setSuccessMessage(`Booking created and verified successfully!${emailNote}`);
         setTimeout(() => {
           onSuccess();
           onClose();
-        }, 600);
+        }, 1200);
       } else {
         setErrorMessage(result.error || 'Failed to create booking.');
       }
@@ -903,6 +924,23 @@ export const AdminCreateBookingModal: React.FC<AdminCreateBookingModalProps> = (
               </div>
               <p className="text-xl font-black text-brand-700 dark:text-brand-300">${totalPrice}</p>
             </div>
+          </div>
+
+          {/* Account Activation Option */}
+          <div className="bg-emerald-50/70 dark:bg-emerald-950/30 p-3 rounded-xl border border-emerald-200/80 dark:border-emerald-800/60 flex items-start gap-3">
+            <input
+              type="checkbox"
+              id="dispatch-activation-email"
+              checked={sendActivationEmail}
+              onChange={(e) => setSendActivationEmail(e.target.checked)}
+              className="mt-0.5 h-4 w-4 text-emerald-600 rounded border-gray-300 dark:border-gray-600 focus:ring-emerald-500 cursor-pointer"
+            />
+            <label htmlFor="dispatch-activation-email" className="text-xs text-gray-700 dark:text-gray-300 cursor-pointer select-none">
+              <span className="font-bold text-emerald-900 dark:text-emerald-300 block">
+                Dispatch Account Activation Email to Student
+              </span>
+              Sends a secure link to <span className="font-mono font-semibold">{email || 'student email'}</span> so the student can set their password and view this booking upon login.
+            </label>
           </div>
 
           {/* Buttons */}
