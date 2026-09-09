@@ -17,7 +17,7 @@ import { useReactToPrint } from 'react-to-print';
 import TenancyAgreementDocument from './TenancyAgreementDocument';
 import { sendEmail, getAgreementSignedTemplate } from '../lib/email';
 import { ALL_ROOM_SPACES, BED_SPACE_TO_ID_MAP, getUnifiedRoomName, getParsedRoomSpaces, getAccommodationAddress, findDatabaseRoomForSpace } from '../lib/roomNaming';
-import { calculateStayPricing, getRoomPrice } from '../lib/pricing';
+import { calculateStayPricing, getRoomPrice, getLowestAvailableMonthlyPrice } from '../lib/pricing';
 import JoinWaitlistModal from './JoinWaitlistModal';
 
 // Swappable media assets (images, tour videos, and features) for each student accommodation category.
@@ -567,7 +567,8 @@ const MultiStepBookingForm: React.FC = () => {
             <div className={`grid grid-cols-1 md:grid-cols-${Math.min(availableCategories.length, 4)} gap-4`}>
               {availableCategories.map(cat => {
                 const catObj = accommodationCategories?.find(c => c.name.toLowerCase() === cat.toLowerCase() || c.id.toLowerCase() === cat.toLowerCase());
-                const price = catObj?.defaultPrice || 175;
+                // The "From" price dynamically displays the lowest available monthly room price ($175/month) from the centralized pricing engine
+                const price = getLowestAvailableMonthlyPrice(roomPricing, cat, rooms, catObj?.defaultPrice);
                 return (
                   <button
                     key={cat}

@@ -108,3 +108,60 @@ export function calculateStayPricing(
     roomType: isPrivate ? ('Private' as const) : ('Shared' as const)
   };
 }
+
+/**
+ * Dynamic Starting Price ("From" price)
+ * Returns the lowest available monthly room price across duration tiers and room configurations.
+ * The "From" price must always show the lowest available monthly room price ($175/month),
+ * not the highest/private-room price ($350/month).
+ *
+ * @param tiers - Centralized pricing tiers (from DB or default)
+ * @param categoryName - Optional category name to find category-specific room prices
+ * @param rooms - Optional room list to inspect actual room pricing
+ * @param categoryDefaultPrice - Optional category default price to consider if lower
+ */
+export function getLowestAvailableMonthlyPrice(
+  tiers: RoomPricingTier[] = DEFAULT_ROOM_PRICING_TIERS,
+  categoryName?: string,
+  rooms?: any[],
+  categoryDefaultPrice?: number
+): number {
+  const activeTiers = (Array.isArray(tiers) && tiers.length > 0) ? tiers : DEFAULT_ROOM_PRICING_TIERS;
+
+  // 1. Across all pricing tiers, shared room prices are the lowest monthly rates (e.g. $175/mo for 7+ mo)
+  const tierLowest = Math.min(
+    ...activeTiers.map(t => Math.min(t.sharedPrice, t.privatePrice))
+  );
+
+  let lowest = tierLowest;
+
+  // 2. Check active rooms for this category (or globally) from the database
+  if (Array.isArray(rooms) && rooms.length > 0) {
+    const matchingRooms = categoryName
+      ? rooms.filter(r => {
+          if (r.status === 'Inactive') return false;
+          const cat = String(r.apartment_name || r.category || '').toLowerCase();
+          const target = categoryName.toLowerCase();
+          return cat === target || cat.includes(target) || target.includes(cat);
+        })
+      : rooms.filter(r => r.status !== 'Inactive');
+
+    const roomPrices = matchingRooms
+      .map(r => Number(r.price_per_month))
+      .filter((p): p is number => typeof p === 'number' && !isNaN(p) && p > 0);
+
+    if (roomPrices.length > 0) {
+      lowest = Math.min(lowest, ...roomPrices);
+    }
+  }
+
+  // 3. If category default price is provided and is lower than or equal to lowest, respect it
+  // (Avoid using it if it represents the higher/private room rate)
+  if (typeof categoryDefaultPrice === 'number' && !isNaN(categoryDefaultPrice) && categoryDefaultPrice > 0) {
+    if (categoryDefaultPrice <= lowest) {
+      lowest = categoryDefaultPrice;
+    }
+  }
+
+  return lowest;
+}

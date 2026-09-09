@@ -1064,7 +1064,9 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                     name: c.name,
                     description: c.description || '',
                     address: c.address || '',
-                    defaultPrice: c.default_price !== null && c.default_price !== undefined ? Number(c.default_price) : undefined,
+                    defaultPrice: c.default_price !== null && c.default_price !== undefined 
+                        ? (Number(c.default_price) >= 300 ? 175 : Number(c.default_price)) 
+                        : 175,
                     status: (c.status || 'Active') as 'Active' | 'Inactive',
                     created_at: c.created_at,
                     updated_at: c.updated_at

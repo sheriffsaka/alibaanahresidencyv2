@@ -242,7 +242,7 @@ export const DEFAULT_ACCOMMODATION_CATEGORIES: AccommodationCategory[] = [
     name: 'Premium 1',
     description: 'Luxury student suites with premium furnishings and study areas.',
     address: '11, Samir Moursey Street, Nasr City, Cairo.',
-    defaultPrice: 350,
+    defaultPrice: 175,
     status: 'Active',
     created_at: '2026-01-01T00:00:00.000Z'
   },
@@ -251,7 +251,7 @@ export const DEFAULT_ACCOMMODATION_CATEGORIES: AccommodationCategory[] = [
     name: 'Premium 2',
     description: 'High-end shared and private suites with modern kitchen and resident lounge.',
     address: '2 Ezzat Salamat Street, Off Kaabool, Makram Ebeid, Nasr City, Cairo.',
-    defaultPrice: 350,
+    defaultPrice: 175,
     status: 'Active',
     created_at: '2026-01-01T00:00:00.000Z'
   },
@@ -260,7 +260,7 @@ export const DEFAULT_ACCOMMODATION_CATEGORIES: AccommodationCategory[] = [
     name: 'Premium 3',
     description: 'Comfortable, student housing near the Arabic center with dedicated study facilities.',
     address: '24 Saqaliyyah Street, Off Kaabool, Makram Ebeid, Nasr City, Cairo.',
-    defaultPrice: 350,
+    defaultPrice: 175,
     status: 'Active',
     created_at: '2026-01-01T00:00:00.000Z'
   },
@@ -269,7 +269,7 @@ export const DEFAULT_ACCOMMODATION_CATEGORIES: AccommodationCategory[] = [
     name: 'Premium 4',
     description: 'Fully Air-Conditioned residency accommodation.',
     address: '11, Samir Moursey Street, Nasr City, Cairo.',
-    defaultPrice: 200,
+    defaultPrice: 175,
     status: 'Active',
     created_at: '2026-01-01T00:00:00.000Z'
   }

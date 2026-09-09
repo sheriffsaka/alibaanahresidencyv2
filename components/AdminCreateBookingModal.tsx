@@ -840,7 +840,7 @@ export const AdminCreateBookingModal: React.FC<AdminCreateBookingModalProps> = (
                   <div className="pr-2">
                     <p className="text-xs font-semibold">{space.displayName}</p>
                     <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-0.5">
-                      {space.type} • ${(accommodationCategories?.find(c => c.name.toLowerCase() === selectedCategory.toLowerCase())?.defaultPrice || 175)}/mo
+                      {space.type} • ${getRoomPrice(space.type, durationMonths, roomPricing)}/mo
                     </p>
                   </div>
                   {isOccupied ? (
