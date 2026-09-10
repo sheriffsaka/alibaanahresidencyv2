@@ -8,7 +8,7 @@ import { fetchConversationsList, fetchMessages, postMessage, markConversationAsR
 import { getParsedRoomSpaces, generateUnitCode } from '../lib/roomNaming';
 import { DEFAULT_CONTRACT_TRANSLATIONS, ContractTranslationsStore, LegalContractTranslation } from '../lib/contractTranslations';
 import { OFFICIAL_STUDENT_HANDBOOK_DOCUMENT } from '../lib/studentHandbookData';
-import { RoomPricingTier, DEFAULT_ROOM_PRICING_TIERS } from '../lib/pricing';
+import { RoomPricingTier, DEFAULT_ROOM_PRICING_TIERS, formatTierLabel } from '../lib/pricing';
 
 export const AppContext = createContext<AppContextType | undefined>(undefined);
 
@@ -523,7 +523,13 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       const cached = localStorage.getItem('al_ibaanah_room_pricing');
       if (cached) {
         const parsed = JSON.parse(cached);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return parsed.map((t: any) => ({
+            ...t,
+            durationMin: Math.max(2, Number(t.durationMin || 2)),
+            label: formatTierLabel(t.label)
+          }));
+        }
       }
     } catch (e) {
       // Ignore
@@ -1041,9 +1047,9 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             if (roomPricingRes && !roomPricingRes.error && Array.isArray(roomPricingRes.data) && roomPricingRes.data.length > 0) {
                 const loadedTiers: RoomPricingTier[] = roomPricingRes.data.map((r: any) => ({
                     id: r.id,
-                    durationMin: Number(r.duration_min),
+                    durationMin: Math.max(2, Number(r.duration_min || 2)),
                     durationMax: Number(r.duration_max),
-                    label: r.label,
+                    label: formatTierLabel(r.label),
                     sharedPrice: Number(r.shared_price),
                     privatePrice: Number(r.private_price)
                 }));
@@ -1236,9 +1242,14 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
               const loadedPricing = (dbCms.how_to_videos || dbCms.howToVideos)?.roomPricing || (dbCms.how_to_videos || dbCms.howToVideos)?.room_pricing || dbCms.roomPricing;
               if (!hasLoadedPricing && Array.isArray(loadedPricing) && loadedPricing.length > 0) {
-                setRoomPricing(loadedPricing);
+                const sanitizedLoaded = loadedPricing.map((t: any) => ({
+                  ...t,
+                  durationMin: Math.max(2, Number(t.durationMin || t.duration_min || 2)),
+                  label: formatTierLabel(t.label)
+                }));
+                setRoomPricing(sanitizedLoaded);
                 try {
-                  localStorage.setItem('al_ibaanah_room_pricing', JSON.stringify(loadedPricing));
+                  localStorage.setItem('al_ibaanah_room_pricing', JSON.stringify(sanitizedLoaded));
                 } catch (e) {
                   // Ignore
                 }
@@ -3756,16 +3767,21 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
   const updateRoomPricing = async (newTiers: RoomPricingTier[]): Promise<{ success: boolean; error?: string }> => {
     try {
-      setRoomPricing(newTiers);
+      const sanitizedTiers = newTiers.map(t => ({
+        ...t,
+        durationMin: Math.max(2, Number(t.durationMin || 2)),
+        label: formatTierLabel(t.label)
+      }));
+      setRoomPricing(sanitizedTiers);
       try {
-        localStorage.setItem('al_ibaanah_room_pricing', JSON.stringify(newTiers));
+        localStorage.setItem('al_ibaanah_room_pricing', JSON.stringify(sanitizedTiers));
       } catch (e) {
         // Ignore storage errors
       }
 
       // 1. Try to persist to room_pricing table if available in Supabase
       try {
-        await Promise.all(newTiers.map(t =>
+        await Promise.all(sanitizedTiers.map(t =>
           supabase.from('room_pricing').upsert({
             id: t.id,
             duration_min: t.durationMin,

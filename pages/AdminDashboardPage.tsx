@@ -1726,7 +1726,7 @@ const AdminDashboardPage: React.FC = () => {
                             <div><span className="font-bold text-gray-400">Unit Code:</span> <span className="font-mono text-[11px] font-semibold">{room.room_number}</span></div>
                             <div><span className="font-bold text-gray-400">Type:</span> {room.type}</div>
                             <div><span className="font-bold text-gray-400">Bed Capacity:</span> {room.capacity}</div>
-                            <div><span className="font-bold text-gray-400">Price/Mo:</span> ${getRoomPrice(room, 1, roomPricing)}</div>
+                            <div><span className="font-bold text-gray-400">Price/Mo:</span> ${getRoomPrice(room, 2, roomPricing)}</div>
                             <div><span className="font-bold text-gray-400">Gender:</span> {room.gender_restriction}</div>
                             <div>
                               <span className="font-bold text-gray-400">Status:</span>{' '}

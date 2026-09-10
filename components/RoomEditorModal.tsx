@@ -66,7 +66,7 @@ export const RoomEditorModal: React.FC<RoomEditorModalProps> = ({ room, onClose,
         category: defaultCategory,
         roomNumber: 'Room 1',
         roomType: 'Shared Room' as 'Shared Room' | 'Private Room',
-        price_per_month: categoryObj?.defaultPrice || getRoomPrice('Shared Room', 1, roomPricing),
+        price_per_month: categoryObj?.defaultPrice || getRoomPrice('Shared Room', 2, roomPricing),
         gender_restriction: 'Any' as 'Male' | 'Female' | 'Any',
         status: 'Active' as 'Active' | 'Inactive',
         bedLabels: ['Bed A', 'Bed B'],
@@ -153,7 +153,7 @@ export const RoomEditorModal: React.FC<RoomEditorModalProps> = ({ room, onClose,
       if (catObj?.defaultPrice) {
         setPricePerMonth(catObj.defaultPrice);
       } else {
-        setPricePerMonth(getRoomPrice(roomType, 1, roomPricing));
+        setPricePerMonth(getRoomPrice(roomType, 2, roomPricing));
       }
     }
   };
@@ -219,25 +219,25 @@ export const RoomEditorModal: React.FC<RoomEditorModalProps> = ({ room, onClose,
       setBedLabels(['Single']);
       setRoomType('Private Room');
       if (!isEditing) {
-        setPricePerMonth(getRoomPrice('Private Room', 1, roomPricing));
+        setPricePerMonth(getRoomPrice('Private Room', 2, roomPricing));
       }
     } else if (preset === '2beds') {
       setBedLabels(['Bed A', 'Bed B']);
       setRoomType('Shared Room');
       if (!isEditing) {
-        setPricePerMonth(getRoomPrice('Shared Room', 1, roomPricing));
+        setPricePerMonth(getRoomPrice('Shared Room', 2, roomPricing));
       }
     } else if (preset === '3beds') {
       setBedLabels(['Bed A', 'Bed B', 'Bed C']);
       setRoomType('Shared Room');
       if (!isEditing) {
-        setPricePerMonth(getRoomPrice('Shared Room', 1, roomPricing));
+        setPricePerMonth(getRoomPrice('Shared Room', 2, roomPricing));
       }
     } else if (preset === '4beds') {
       setBedLabels(['Bed A', 'Bed B', 'Bed C', 'Bed D']);
       setRoomType('Shared Room');
       if (!isEditing) {
-        setPricePerMonth(getRoomPrice('Shared Room', 1, roomPricing));
+        setPricePerMonth(getRoomPrice('Shared Room', 2, roomPricing));
       }
     }
   };

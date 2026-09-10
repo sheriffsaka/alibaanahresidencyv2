@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useApp } from '../../hooks/useApp';
-import { RoomPricingTier, DEFAULT_ROOM_PRICING_TIERS, getRoomPrice, calculateStayPricing } from '../../lib/pricing';
+import { RoomPricingTier, DEFAULT_ROOM_PRICING_TIERS, getRoomPrice, calculateStayPricing, formatTierLabel } from '../../lib/pricing';
 import { 
   CheckCircle2, 
   RefreshCw, 
@@ -187,13 +187,13 @@ export const RoomPricingView: React.FC = () => {
                       <td className="px-6 py-4 font-bold text-gray-900 dark:text-white">
                         <div className="flex items-center gap-2">
                           <span className="font-mono text-xs px-2 py-0.5 bg-gray-100 dark:bg-gray-700 rounded text-gray-600 dark:text-gray-300">
-                            {tier.label}
+                            {formatTierLabel(tier.label)}
                           </span>
                         </div>
                       </td>
 
                       <td className="px-6 py-4 text-xs text-gray-500 dark:text-gray-400">
-                        {tier.durationMin} to {tier.durationMax === 999 ? '∞' : tier.durationMax} months
+                        {Math.max(2, tier.durationMin)} to {tier.durationMax === 999 ? '∞' : tier.durationMax} months
                       </td>
 
                       <td className="px-6 py-4">
@@ -354,8 +354,8 @@ export const RoomPricingView: React.FC = () => {
                   {simDuration} Month{simDuration > 1 ? 's' : ''}
                 </span>
               </div>
-              <div className="grid grid-cols-6 sm:grid-cols-12 gap-1.5">
-                {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map(m => (
+              <div className="grid grid-cols-6 sm:grid-cols-11 gap-1.5">
+                {[2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map(m => (
                   <button
                     key={m}
                     type="button"

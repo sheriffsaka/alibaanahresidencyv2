@@ -92,7 +92,7 @@ const BookingForm: React.FC<BookingFormProps> = ({ room }) => {
       // 2. Calculate end date and total price
       const startDate = new Date(formData.arrivalDate);
       const durationMatch = formData.duration.match(/(\d+)/);
-      const durationMonths = durationMatch ? parseInt(durationMatch[1]) : 1;
+      const durationMonths = durationMatch ? Math.max(2, parseInt(durationMatch[1])) : 2;
       
       const endDate = new Date(startDate);
       endDate.setMonth(startDate.getMonth() + durationMonths);

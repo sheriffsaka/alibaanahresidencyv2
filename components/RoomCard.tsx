@@ -22,7 +22,7 @@ const RoomCard: React.FC<RoomCardProps> = ({ room, isOccupied: propIsOccupied })
   const isInactive = room.status === 'Inactive';
   const isOccupied = propIsOccupied !== undefined ? propIsOccupied : (occ ? occ.isOccupied : (slotsLeft === 0 || isInactive));
 
-  const standardPrice = getRoomPrice(room, 1, roomPricing);
+  const standardPrice = getRoomPrice(room, 2, roomPricing);
   const longTermPrice = getRoomPrice(room, 7, roomPricing);
 
   return (

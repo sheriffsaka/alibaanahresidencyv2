@@ -54,7 +54,7 @@ const RoomGallery: React.FC<RoomGalleryProps> = ({ rooms }) => {
                             <div className="transform-gpu text-white transition-all duration-500 group-hover:translate-y-0 translate-y-4">
                                 <p className="text-3xl font-bold tracking-tight">{room.type}</p>
                                 <p className="text-lg font-medium text-brand-300 mt-2">
-                                    {t.pricePerMonth.replace('{price}', getRoomPrice(room, 1, roomPricing).toString())}
+                                    {t.pricePerMonth.replace('{price}', getRoomPrice(room, 2, roomPricing).toString())}
                                 </p>
                             </div>
                         </div>

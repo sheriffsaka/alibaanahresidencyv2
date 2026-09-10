@@ -28,7 +28,7 @@ CREATE POLICY "Allow authenticated staff to update room_pricing"
 -- Seed with official room pricing matrix
 INSERT INTO public.room_pricing (id, duration_min, duration_max, label, shared_price, private_price)
 VALUES
-    ('tier_1_2', 1, 2, '1–2 months', 200, 350),
+    ('tier_1_2', 2, 2, '2 months', 200, 350),
     ('tier_3_4', 3, 4, '3–4 months', 190, 330),
     ('tier_5_6', 5, 6, '5–6 months', 180, 315),
     ('tier_7_plus', 7, 999, '7+ months', 175, 300)

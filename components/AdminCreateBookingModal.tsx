@@ -885,9 +885,9 @@ export const AdminCreateBookingModal: React.FC<AdminCreateBookingModalProps> = (
                   onChange={(e) => setDurationMonths(parseInt(e.target.value))}
                   className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
                 >
-                  <option value={1}>1 Month</option>
-                  <option value={2}>2 Months</option>
+                  <option value={2}>2 Months (Minimum Stay)</option>
                   <option value={3}>3 Months</option>
+                  <option value={4}>4 Months</option>
                   <option value={6}>6 Months</option>
                   <option value={12}>12 Months (1 Year)</option>
                 </select>

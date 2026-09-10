@@ -12,8 +12,17 @@ export interface RoomPricingTier {
   privatePrice: number;
 }
 
+export function formatTierLabel(label: string): string {
+  if (!label) return '2 months';
+  return label
+    .replace(/^1[–\-]2\s*months?$/i, '2 months')
+    .replace(/^1[–\-]2\s*mos?$/i, '2 mos')
+    .replace(/1[–\-]2\s*months/gi, '2 months')
+    .replace(/1[–\-]2\s*mos/gi, '2 mos');
+}
+
 export const DEFAULT_ROOM_PRICING_TIERS: RoomPricingTier[] = [
-  { id: 'tier_1_2', durationMin: 1, durationMax: 2, label: '1–2 months', sharedPrice: 200, privatePrice: 350 },
+  { id: 'tier_1_2', durationMin: 2, durationMax: 2, label: '2 months', sharedPrice: 200, privatePrice: 350 },
   { id: 'tier_3_4', durationMin: 3, durationMax: 4, label: '3–4 months', sharedPrice: 190, privatePrice: 330 },
   { id: 'tier_5_6', durationMin: 5, durationMax: 6, label: '5–6 months', sharedPrice: 180, privatePrice: 315 },
   { id: 'tier_7_plus', durationMin: 7, durationMax: 999, label: '7+ months', sharedPrice: 175, privatePrice: 300 }
@@ -66,7 +75,8 @@ export function getRoomPrice(
 ): number {
   const activeTiers = (Array.isArray(tiers) && tiers.length > 0) ? tiers : DEFAULT_ROOM_PRICING_TIERS;
   const isPrivate = normalizeRoomType(roomType) === 'Private';
-  const months = Math.max(1, Math.round(Number(durationMonths) || 1));
+  // Minimum stay duration is 2 months across student and public interfaces
+  const months = Math.max(2, Math.round(Number(durationMonths) || 2));
 
   // Find tier where durationMonths is within range
   const matchedTier = activeTiers.find(t => months >= t.durationMin && months <= t.durationMax);
@@ -95,7 +105,8 @@ export function calculateStayPricing(
   durationMonths: number | string,
   tiers: RoomPricingTier[] = DEFAULT_ROOM_PRICING_TIERS
 ) {
-  const months = Math.max(1, Math.round(Number(durationMonths) || 1));
+  // Enforce minimum 2-months duration for pricing calculations
+  const months = Math.max(2, Math.round(Number(durationMonths) || 2));
   const isPrivate = normalizeRoomType(roomType) === 'Private';
   const monthlyRate = getRoomPrice(roomType, months, tiers);
   const totalPrice = monthlyRate * months;

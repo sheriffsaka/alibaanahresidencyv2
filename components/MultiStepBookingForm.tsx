@@ -324,6 +324,13 @@ const MultiStepBookingForm: React.FC = () => {
     }
   }, [extendingBooking, parsedAvailabilityData, accommodationsSelection, availableCategories]);
 
+  // Guard duration to ensure it is always from 2-months selection and not 1-month
+  useEffect(() => {
+    if (parseInt(formData.duration, 10) < 2) {
+      setFormData(prev => ({ ...prev, duration: '2' }));
+    }
+  }, [formData.duration]);
+
   // Navigation handlers: seamlessly skip Step 3 if extending existing lease
   const nextStep = () => {
     setError(null);
@@ -855,7 +862,7 @@ const MultiStepBookingForm: React.FC = () => {
                     {/* Tiered Duration Quick Selectors */}
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
                       {[
-                        { months: '2', label: '1–2 Months', tierLabel: '1–2 mos' },
+                        { months: '2', label: '2 Months', tierLabel: '2 mos' },
                         { months: '4', label: '3–4 Months', tierLabel: '3–4 mos' },
                         { months: '6', label: '5–6 Months', tierLabel: '5–6 mos' },
                         { months: '12', label: '7+ Months', tierLabel: '7+ mos' }
@@ -882,13 +889,13 @@ const MultiStepBookingForm: React.FC = () => {
                       })}
                     </div>
 
-                    {/* Month selector 1 to 12 */}
+                    {/* Month selector 2 to 12 (Minimum 2-months stay) */}
                     <div className="pt-2">
                       <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-1.5">
-                        Specific Stay Months:
+                        Specific Stay Months (2–12 Months):
                       </p>
-                      <div className="grid grid-cols-6 sm:grid-cols-12 gap-1">
-                        {['1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12'].map(m => (
+                      <div className="grid grid-cols-6 sm:grid-cols-11 gap-1">
+                        {['2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12'].map(m => (
                           <button
                             key={m}
                             type="button"
