@@ -1107,7 +1107,12 @@ const MultiStepBookingForm: React.FC = () => {
               <div className="max-h-[500px] overflow-y-auto rounded-xl shadow-inner bg-white border border-gray-200 dark:border-gray-700 p-1">
                  <TenancyAgreementDocument 
                     ref={agreementRef}
-                    formData={formData}
+                    formData={{
+                      ...formData,
+                      roomId: selectedSupabaseRoom?.id,
+                      roomNumber: selectedSupabaseRoom?.room_number || formData.roomName,
+                      assignedRoom: selectedSupabaseRoom,
+                    }}
                     monthlyRate={pricing.monthlyRate}
                     startDate={startDate}
                     endDate={endDate}

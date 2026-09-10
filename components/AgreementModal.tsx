@@ -44,6 +44,10 @@ const AgreementModal: React.FC<AgreementModalProps> = ({ booking, onSign, onClos
     roomType: booking.rooms?.type || booking.preferred_accommodation,
     duration: booking.duration_of_stay?.split(' ')[0],
     bookingId: booking.id,
+    roomId: booking.room_id,
+    bedSpaceId: booking.bed_space_id,
+    roomNumber: booking.rooms?.room_number,
+    assignedRoom: booking.rooms,
   };
 
   const monthlyRate = booking.total_price && formData.duration 

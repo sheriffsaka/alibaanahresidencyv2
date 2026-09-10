@@ -3,6 +3,7 @@ import { getUnifiedRoomName, getAccommodationAddress } from '../lib/roomNaming';
 import { AccommodationAddresses, Language } from '../types';
 import { getActiveContractTranslation, ContractTranslationsStore } from '../lib/contractTranslations';
 import { IconAlertTriangle } from './Icon';
+import { supabase } from '../lib/supabaseClient';
 
 interface TenancyAgreementDocumentProps {
   formData: any;
@@ -32,6 +33,105 @@ const TenancyAgreementDocument: React.ForwardRefRenderFunction<HTMLDivElement, T
 
   const sec = activeTranslation.sections;
   const isPrivate = formData.roomType?.toLowerCase().includes('private');
+
+  // Live state for the signing student's assigned room and bed spaces
+  const [liveAssignedRoom, setLiveAssignedRoom] = React.useState<{
+    capacity: number;
+    bedSpacesCount: number;
+    roomType: string;
+    roomNumber?: string;
+  } | null>(null);
+
+  React.useEffect(() => {
+    let isCancelled = false;
+
+    async function fetchLiveRoomData() {
+      try {
+        const roomId = formData?.roomId || formData?.assignedRoom?.id;
+        const bedSpaceId = formData?.bedSpaceId;
+        const bookingId = formData?.bookingId;
+        const roomNumber = formData?.roomNumber || formData?.roomName;
+
+        let targetRoomId = roomId;
+
+        // If booking ID is provided, look up booking's room_id
+        if (!targetRoomId && bookingId) {
+          const { data: bData } = await supabase
+            .from('bookings')
+            .select('room_id, bed_space_id')
+            .eq('id', bookingId)
+            .maybeSingle();
+          if (bData?.room_id) targetRoomId = bData.room_id;
+        }
+
+        // If bed space ID is provided, look up bed_space's room_id
+        if (!targetRoomId && bedSpaceId) {
+          const { data: bsData } = await supabase
+            .from('bed_spaces')
+            .select('room_id')
+            .eq('id', bedSpaceId)
+            .maybeSingle();
+          if (bsData?.room_id) targetRoomId = bsData.room_id;
+        }
+
+        let queriedRoom: any = null;
+        if (targetRoomId) {
+          const { data: rData } = await supabase
+            .from('rooms')
+            .select('id, room_number, type, capacity, bed_spaces(id, label)')
+            .eq('id', targetRoomId)
+            .maybeSingle();
+          queriedRoom = rData;
+        } else if (roomNumber) {
+          const { data: rData } = await supabase
+            .from('rooms')
+            .select('id, room_number, type, capacity, bed_spaces(id, label)')
+            .or(`room_number.eq.${roomNumber},room_number.eq.${roomNumber.toUpperCase()}`)
+            .limit(1)
+            .maybeSingle();
+          queriedRoom = rData;
+        }
+
+        // Fallback scoped to room type / category
+        if (!queriedRoom && (formData?.roomType || formData?.category)) {
+          const isPriv = formData.roomType?.toLowerCase().includes('private');
+          let query = supabase.from('rooms').select('id, room_number, type, capacity, bed_spaces(id, label)');
+          if (formData.category) {
+            query = query.eq('apartment_name', formData.category);
+          }
+          const { data: rList } = await query;
+          if (rList && rList.length > 0) {
+            queriedRoom = rList.find((r: any) => isPriv ? r.type?.toLowerCase().includes('private') : !r.type?.toLowerCase().includes('private')) || rList[0];
+          }
+        }
+
+        if (!isCancelled && queriedRoom) {
+          const beds = Array.isArray(queriedRoom.bed_spaces) ? queriedRoom.bed_spaces : [];
+          const cap = queriedRoom.capacity || (beds.length > 0 ? beds.length : (queriedRoom.type?.toLowerCase().includes('private') ? 1 : 2));
+          setLiveAssignedRoom({
+            capacity: cap,
+            bedSpacesCount: beds.length,
+            roomType: queriedRoom.type,
+            roomNumber: queriedRoom.room_number
+          });
+        }
+      } catch (err) {
+        console.warn('Live room query in TenancyAgreementDocument error:', err);
+      }
+    }
+
+    fetchLiveRoomData();
+    return () => { isCancelled = true; };
+  }, [formData?.roomId, formData?.bedSpaceId, formData?.bookingId, formData?.roomNumber, formData?.roomName, formData?.roomType, formData?.category]);
+
+  // Authoritatively compute real capacity scoped to the specific assigned room
+  const liveCapacity = liveAssignedRoom?.capacity 
+    ?? formData?.assignedRoom?.capacity 
+    ?? (formData.roomType?.toLowerCase().includes('private') ? 1 : 2);
+
+  const isLivePrivate = liveAssignedRoom 
+    ? (liveAssignedRoom.capacity === 1 || liveAssignedRoom.roomType?.toLowerCase().includes('private'))
+    : (isPrivate || liveCapacity === 1);
 
   return (
     <div 
@@ -222,27 +322,97 @@ const TenancyAgreementDocument: React.ForwardRefRenderFunction<HTMLDivElement, T
                 <h3 className="font-bold text-gray-900">{sec.useOccupancy.occupancyTitle}</h3>
                 <p className="text-gray-700 mt-1">
                   {(() => {
-                    const capacityRange = (formData?.category === 'Premium 2' || formData?.category === 'Premium 3') ? '4–5' : '3–4';
-                    let intro = (sec.useOccupancy.occupancyIntro || '').replace('{maxResidents}', capacityRange);
-                    const hasBreakdown = 
-                      intro.includes('shared room') || 
-                      intro.includes('غرفة مشتركة') || 
-                      intro.includes('общей комнате') || 
-                      intro.includes('chambre partagée') || 
-                      intro.includes('umumiy xonada') || 
-                      intro.includes('合住房');
-                    if (!hasBreakdown) {
-                      const breakdowns: Record<string, string> = {
-                        en: ': two residents per shared room and one per private room.',
-                        ar: ': مقيمان في كل غرفة مشتركة ومقيم واحد في الغرفة الخاصة.',
-                        ru: ': по два человека в общей комнате и один в отдельной комнате.',
-                        fr: ' : deux résidents par chambre partagée et un par chambre privée.',
-                        uz: ': umumiy xonada ikki kishi va alohida xonada bir kishi.',
-                        zh: '：合住房每间两人，单人间每间一人。'
-                      };
-                      const suffix = breakdowns[language] || breakdowns.en;
-                      intro = intro.replace(/[.:]?\s*$/, '') + suffix;
+                    // Concise, room-scoped text definitions by language
+                    const roomOccupancyConfig: Record<string, {
+                      sharedIntro: string;
+                      privateIntro: string;
+                      sharedCapacityLabel: string;
+                      privateCapacityLabel: string;
+                    }> = {
+                      en: {
+                        sharedIntro: 'The assigned room will accommodate up to 2 residents.',
+                        privateIntro: 'The assigned room will accommodate 1 resident.',
+                        sharedCapacityLabel: 'up to 2 residents',
+                        privateCapacityLabel: '1 resident'
+                      },
+                      ar: {
+                        sharedIntro: 'تتسع الغرفة المخصصة لشخصين (٢ مقيمين).',
+                        privateIntro: 'تتسع الغرفة المخصصة لمقيم واحد (١).',
+                        sharedCapacityLabel: 'شخصين (٢ مقيمين)',
+                        privateCapacityLabel: 'مقيم واحد (١)'
+                      },
+                      ru: {
+                        sharedIntro: 'Выделенная комната рассчитана на проживание до 2 человек.',
+                        privateIntro: 'Выделенная комната рассчитана на проживание 1 человека.',
+                        sharedCapacityLabel: 'до 2 человек',
+                        privateCapacityLabel: '1 человека'
+                      },
+                      fr: {
+                        sharedIntro: 'La chambre attribuée peut accueillir jusqu’à 2 résidents.',
+                        privateIntro: 'La chambre attribuée peut accueillir 1 résident.',
+                        sharedCapacityLabel: 'jusqu’à 2 résidents',
+                        privateCapacityLabel: '1 résident'
+                      },
+                      uz: {
+                        sharedIntro: 'Biriktirilgan xona 2 nafargacha yashovchiga mo‘ljallangan.',
+                        privateIntro: 'Biriktirilgan xona 1 nafar yashovchiga mo‘ljallangan.',
+                        sharedCapacityLabel: '2 nafargacha yashovchiga',
+                        privateCapacityLabel: '1 nafar yashovchiga'
+                      },
+                      zh: {
+                        sharedIntro: '所分配房间最多可容纳 2 名住户。',
+                        privateIntro: '所分配房间可容纳 1 名住户。',
+                        sharedCapacityLabel: '最多可容纳 2 名住户',
+                        privateCapacityLabel: '可容纳 1 名住户'
+                      }
+                    };
+
+                    const currentConfig = roomOccupancyConfig[language] || roomOccupancyConfig.en;
+                    let intro = sec.useOccupancy.occupancyIntro || '';
+
+                    const capValue = isLivePrivate ? '1' : '2';
+                    const capLabel = isLivePrivate ? currentConfig.privateCapacityLabel : currentConfig.sharedCapacityLabel;
+
+                    if (intro.includes('{roomCapacity}') || intro.includes('{maxResidents}')) {
+                      intro = intro
+                        .replace('{roomCapacity}', capLabel)
+                        .replace('{maxResidents}', capValue);
                     }
+
+                    // Remove redundant legacy cross-room breakdown clauses if present in stored template
+                    intro = intro
+                      .replace(/[:;]?\s*(two residents per shared room and one per private room|one resident per private room and two residents per shared room)[.]?/gi, '.')
+                      .replace(/[:;]?\s*(مقيمان في كل غرفة مشتركة ومقيم واحد في الغرفة الخاصة|مقيم واحد في الغرفة الخاصة ومقيمان في كل غرفة مشتركة)[.]?/g, '.')
+                      .replace(/[:;]?\s*(по два человека в общей комнате и один в отдельной комнате|один человек в отдельной комнате и по два человека в общей комнате)[.]?/g, '.')
+                      .replace(/[:;]?\s*(deux résidents par chambre partagée et un par chambre privée|un résident par chambre privée et deux résidents par chambre partagée)[.]?/g, '.')
+                      .replace(/[:;]?\s*(umumiy xonada ikki kishi va alohida xonada bir kishi|alohida xonada bir kishi va umumiy xonada ikki kishi)[.]?/g, '.')
+                      .replace(/[:;]?\s*(合住房每间两人，单人间每间一人|单人间每间一人，合住房每间两人)[。.]?/g, '。');
+
+                    // Scope opening phrasing strictly to the assigned room rather than generic apartment table
+                    intro = intro
+                      .replace(/^The apartment (may|will) accommodate up to \d residents/i, `The assigned room will accommodate ${isLivePrivate ? '1 resident' : 'up to 2 residents'}`)
+                      .replace(/^The apartment (may|will) accommodate/i, 'The assigned room will accommodate');
+
+                    // If intro contains old static range placeholders or is empty, use authoritative live room clause
+                    if (
+                      intro.includes('3–4') || 
+                      intro.includes('4–5') || 
+                      intro.includes('3-4') || 
+                      intro.includes('4-5') || 
+                      intro.includes('٣ إلى ٤') || 
+                      intro.includes('3 至 4') ||
+                      intro.includes('3 à 4') ||
+                      !intro.trim()
+                    ) {
+                      intro = isLivePrivate ? currentConfig.privateIntro : currentConfig.sharedIntro;
+                    }
+
+                    // Ensure clean trailing period
+                    intro = intro.trim();
+                    if (!intro.endsWith('.') && !intro.endsWith('。')) {
+                      intro += language === 'zh' ? '。' : '.';
+                    }
+
                     return intro;
                   })()}
                 </p>

@@ -65,6 +65,7 @@ export const ContractTranslationsReviewView: React.FC = () => {
 
   // Local draft state for editing
   const [editForm, setEditForm] = useState<LegalContractTranslation>(() => getMergedTranslation(selectedLang));
+  const [previewRoomType, setPreviewRoomType] = useState<'Shared' | 'Private'>('Shared');
 
   // Synchronize editForm when selectedLang or server translation changes and no dirty edits
   useEffect(() => {
@@ -253,7 +254,7 @@ export const ContractTranslationsReviewView: React.FC = () => {
     });
   };
 
-  // Sample mock form data for the document preview mode
+  // Sample mock form data for the document preview mode (allows live testing Shared vs Private room clauses)
   const previewFormData = {
     fullName: 'Abdullah Al-Mansoor (Sample Student)',
     nationality: 'United Kingdom',
@@ -261,9 +262,10 @@ export const ContractTranslationsReviewView: React.FC = () => {
     homeAddress: 'Flat 4B, 12 Al-Nasr Road, Nasr City, Cairo',
     whatsappNumber: '+20 100 123 4567',
     email: 'abdullah.student@example.com',
-    category: 'Premium 1',
-    roomName: 'Room 1',
-    bedSpaceName: 'Bed 1',
+    category: 'Premium 3',
+    roomType: previewRoomType === 'Shared' ? 'Premium Shared' : 'Premium Private',
+    roomName: previewRoomType === 'Shared' ? 'P3-R1' : 'P3-R2',
+    bedSpaceName: previewRoomType === 'Shared' ? 'Bed A' : 'Single Bed',
     duration: '2 Months',
   };
 
@@ -1434,10 +1436,28 @@ export const ContractTranslationsReviewView: React.FC = () => {
       ) : viewMode === 'full-document' ? (
         /* ==================== FULL 4-PAGE PREVIEW ==================== */
         <div className="bg-gray-100 dark:bg-gray-900 p-6 rounded-2xl border border-gray-200 dark:border-gray-800">
-          <div className="mb-4 flex items-center justify-between">
-            <span className="text-xs font-bold text-gray-600 dark:text-gray-400">
-              Interactive 4-Page PDF/Sign Document Preview:
-            </span>
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+            <div className="flex flex-wrap items-center gap-3">
+              <span className="text-xs font-bold text-gray-600 dark:text-gray-400">
+                Interactive 4-Page PDF/Sign Document Preview:
+              </span>
+              <div className="inline-flex rounded-lg bg-gray-200 dark:bg-gray-800 p-0.5 text-xs">
+                <button
+                  type="button"
+                  onClick={() => setPreviewRoomType('Shared')}
+                  className={`px-3 py-1 rounded-md font-bold transition-all ${previewRoomType === 'Shared' ? 'bg-white dark:bg-gray-700 text-brand-600 shadow-sm' : 'text-gray-600 dark:text-gray-400 hover:text-gray-900'}`}
+                >
+                  Shared Room (P3-R1, Cap: 2)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPreviewRoomType('Private')}
+                  className={`px-3 py-1 rounded-md font-bold transition-all ${previewRoomType === 'Private' ? 'bg-white dark:bg-gray-700 text-brand-600 shadow-sm' : 'text-gray-600 dark:text-gray-400 hover:text-gray-900'}`}
+                >
+                  Private Room (P3-R2, Cap: 1)
+                </button>
+              </div>
+            </div>
             <span className="text-xs text-brand-600 dark:text-brand-400 font-semibold">
               Mode: {selectedLang.toUpperCase()} ({currentTranslation.direction.toUpperCase()})
             </span>

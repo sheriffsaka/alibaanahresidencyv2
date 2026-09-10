@@ -246,7 +246,7 @@ export const DEFAULT_CONTRACT_TRANSLATIONS: ContractTranslationsStore = {
         useTitle: '1.1 Use of Property',
         useBody: 'Reflects hostel accommodation: The property shall be used exclusively as shared hostel/dormitory accommodation. All residents must adhere to the terms of this Agreement and House Rules provided by the landlord. The landlord retains the right to oversee the property and ensure it is kept in clean, safe and lawful conditions at all times.',
         occupancyTitle: '1.2 Occupancy',
-        occupancyIntro: 'The apartment may accommodate up to 3-4 residents: two residents per shared room and one per private room.',
+        occupancyIntro: 'The assigned room will accommodate {roomCapacity}.',
         occupancyPoints: [
           'Each resident must provide a valid passport copy and sign an internal occupancy form.',
           'Subletting or reassignment of any kind is strictly prohibited under any circumstances.'
@@ -445,7 +445,7 @@ export const DEFAULT_CONTRACT_TRANSLATIONS: ContractTranslationsStore = {
         useTitle: '١.١ استخدام العقار',
         useBody: 'نظام السكن الطلابي المشترك: يُستخدم العقار حصرياً كسكن طلابي مشترك. يجب على جميع المقيمين الالتزام ببنود هذا العقد والقواعد الداخلية المحددة من قبل المؤجر. يحتفظ المؤجر بالحق في الإشراف على العقار وضمان الحفاظ عليه نظيفاً وآمناً وقانونياً في جميع الأوقات.',
         occupancyTitle: '١.٢ السعة الإشغالية',
-        occupancyIntro: 'قد تستوعب الشقة ما بين ٣ إلى ٤ مقيمين: مقيمان في كل غرفة مشتركة ومقيم واحد في الغرفة الخاصة.',
+        occupancyIntro: 'تتسع الغرفة المخصصة لـ {roomCapacity}.',
         occupancyPoints: [
           'يجب على كل مقيم تقديم نسخة سارية من جواز السفر والتوقيع على استمارة الإشغال الداخلية.',
           'يُحظر منعاً باتاً التأجير من الباطن أو التنازل عن السكن للغير تحت أي ظرف من الظروف.'
@@ -644,7 +644,7 @@ export const DEFAULT_CONTRACT_TRANSLATIONS: ContractTranslationsStore = {
         useTitle: '1.1 Назначение жилья',
         useBody: 'Студенческое общежитие: помещение используется исключительно для совместного студенческого проживания. Все жильцы обязаны соблюдать условия настоящего Договора и Правила внутреннего распорядка. Арендодатель сохраняет право контроля за надлежащим санитарным и безопасным состоянием жилья.',
         occupancyTitle: '1.2 Вместимость квартиры',
-        occupancyIntro: 'Квартира рассчитана на проживание до 3–4 человек: по два человека в общей комнате и один в отдельной комнате.',
+        occupancyIntro: 'Выделенная комната рассчитана на проживание {roomCapacity}.',
         occupancyPoints: [
           'Каждый жилец обязан предоставить копию действующего загранпаспорта и подписать внутреннюю форму заселения.',
           'Субаренда, передача места третьим лицам или переуступка категорически запрещены.'
@@ -843,7 +843,7 @@ export const DEFAULT_CONTRACT_TRANSLATIONS: ContractTranslationsStore = {
         useTitle: '1.1 Usage des lieux',
         useBody: 'Hébergement étudiant partagé : le bien est exclusivement destiné à un usage d’hébergement étudiant collectif. Tous les résidents doivent se conformer aux termes du contrat et au règlement intérieur. Le bailleur se réserve le droit d’assurer la supervision des lieux afin de garantir leur propreté et sécurité.',
         occupancyTitle: '1.2 Capacité d’occupation',
-        occupancyIntro: 'L’appartement peut accueillir jusqu’à 3 à 4 résidents : deux résidents par chambre partagée et un par chambre privée.',
+        occupancyIntro: 'La chambre attribuée peut accueillir {roomCapacity}.',
         occupancyPoints: [
           'Chaque résident doit fournir une copie de son passeport en cours de validité et signer la fiche d’occupation.',
           'La sous-location ou la cession de bail est strictement interdite en toutes circonstances.'
@@ -1042,7 +1042,7 @@ export const DEFAULT_CONTRACT_TRANSLATIONS: ContractTranslationsStore = {
         useTitle: '1.1 Turar-joydan foydalanish',
         useBody: 'Talabalar yotoqxonasi: xonadon faqat talabalarning birgalikda yashashi uchun mo‘ljallangan. Barcha istiqomat qiluvchilar ushbu Shartnoma va Ichki tartib qoidalariga rioya qilishlari shart. Ijaraga beruvchi xonadonning tozaligi va xavfsizligini nazorat qilish huquqini saqlab qoladi.',
         occupancyTitle: '1.2 Yashovchilar soni',
-        occupancyIntro: 'Xonadon 3–4 nafargacha yashovchini sig‘dira oladi: umumiy xonada ikki kishi va alohida xonada bir kishi.',
+        occupancyIntro: 'Biriktirilgan xona {roomCapacity} mo‘ljallangan.',
         occupancyPoints: [
           'Har bir talaba pasport nusxasini topshirishi va ichki ro‘yxatga olish varaqasini imzolashi shart.',
           'Xonani yoki joyni boshqa shaxslarga qayta ijaraga berish qat’iyan man etiladi.'
@@ -1241,7 +1241,7 @@ export const DEFAULT_CONTRACT_TRANSLATIONS: ContractTranslationsStore = {
         useTitle: '1.1 物业使用性质',
         useBody: '学生合住公寓性质：本物业仅作为学生合住宿舍使用。所有住户必须严格遵守本协议条款及房东制定的房屋守则。房东保留对物业的管理监督权，确保房屋始终处于整洁、安全及合法状态。',
         occupancyTitle: '1.2 入住人数限制',
-        occupancyIntro: '本公寓最多可容纳 3 至 4 名住户：合住房每间两人，单人间每间一人。',
+        occupancyIntro: '所分配房间{roomCapacity}。',
         occupancyPoints: [
           '每位住户须提供有效的护照复印件并签署内部入住登记表。',
           '在任何情况下均严禁转租、分租或出借床位给第三方。'
