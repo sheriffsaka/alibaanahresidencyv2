@@ -67,11 +67,18 @@ export const ContractTranslationsReviewView: React.FC = () => {
   const [editForm, setEditForm] = useState<LegalContractTranslation>(() => getMergedTranslation(selectedLang));
   const [previewRoomType, setPreviewRoomType] = useState<'Shared' | 'Private'>('Shared');
 
-  // Synchronize editForm when selectedLang or server translation changes and no dirty edits
+  // Synchronize editForm when selectedLang changes
   useEffect(() => {
     setEditForm(getMergedTranslation(selectedLang));
     setHasUnsavedChanges(false);
-  }, [selectedLang, contractTranslations]);
+  }, [selectedLang]);
+
+  // Synchronize editForm when server translation changes and user hasn't made unsaved edits
+  useEffect(() => {
+    if (!hasUnsavedChanges) {
+      setEditForm(getMergedTranslation(selectedLang));
+    }
+  }, [contractTranslations]);
 
   const isApproved = currentTranslation.status === 'approved';
   const isEnglish = selectedLang === 'en';
@@ -129,7 +136,11 @@ export const ContractTranslationsReviewView: React.FC = () => {
     setIsSaving(true);
     setFeedbackMessage(null);
     try {
-      const res = await updateContractTranslation(selectedLang, editForm);
+      const payloadToSave: LegalContractTranslation = {
+        ...editForm,
+        status: (andApprove || isApproved || editForm.status === 'approved') ? 'approved' : editForm.status
+      };
+      const res = await updateContractTranslation(selectedLang, payloadToSave);
       if (res.success) {
         if (andApprove && !isApproved) {
           const reviewerName = user?.full_name || user?.email || 'Staff Reviewer';
@@ -141,7 +152,7 @@ export const ContractTranslationsReviewView: React.FC = () => {
         } else {
           setFeedbackMessage({
             type: 'success',
-            text: `Successfully saved updates to ${editForm.languageName} Tenancy Agreement.`
+            text: `Successfully saved and synchronized updates to ${editForm.languageName} Tenancy Agreement.`
           });
         }
         setHasUnsavedChanges(false);

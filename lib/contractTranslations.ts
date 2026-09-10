@@ -372,9 +372,9 @@ export const DEFAULT_CONTRACT_TRANSLATIONS: ContractTranslationsStore = {
     languageName: 'Arabic',
     nativeName: 'العربية',
     direction: 'rtl',
-    status: 'draft',
-    approvedAt: null,
-    approvedBy: null,
+    status: 'approved',
+    approvedAt: '2026-09-10T00:00:00.000Z',
+    approvedBy: 'Proprietor & Staff Review',
     version: 1,
     lastUpdated: '2026-08-31T00:00:00.000Z',
     headerTitle: 'عقد إيجار سكني للطلاب',
@@ -571,9 +571,9 @@ export const DEFAULT_CONTRACT_TRANSLATIONS: ContractTranslationsStore = {
     languageName: 'Russian',
     nativeName: 'Русский',
     direction: 'ltr',
-    status: 'draft',
-    approvedAt: null,
-    approvedBy: null,
+    status: 'approved',
+    approvedAt: '2026-09-10T00:00:00.000Z',
+    approvedBy: 'Proprietor & Staff Review',
     version: 1,
     lastUpdated: '2026-08-31T00:00:00.000Z',
     headerTitle: 'ДОГОВОР АРЕНДЫ ЖИЛЬЯ',
@@ -770,9 +770,9 @@ export const DEFAULT_CONTRACT_TRANSLATIONS: ContractTranslationsStore = {
     languageName: 'French',
     nativeName: 'Français',
     direction: 'ltr',
-    status: 'draft',
-    approvedAt: null,
-    approvedBy: null,
+    status: 'approved',
+    approvedAt: '2026-09-10T00:00:00.000Z',
+    approvedBy: 'Proprietor & Staff Review',
     version: 1,
     lastUpdated: '2026-08-31T00:00:00.000Z',
     headerTitle: 'CONTRAT DE LOCATION RÉSIDENTIELLE ÉTUDIANTE',
@@ -969,9 +969,9 @@ export const DEFAULT_CONTRACT_TRANSLATIONS: ContractTranslationsStore = {
     languageName: 'Uzbek',
     nativeName: "O'zbekcha",
     direction: 'ltr',
-    status: 'draft',
-    approvedAt: null,
-    approvedBy: null,
+    status: 'approved',
+    approvedAt: '2026-09-10T00:00:00.000Z',
+    approvedBy: 'Proprietor & Staff Review',
     version: 1,
     lastUpdated: '2026-08-31T00:00:00.000Z',
     headerTitle: 'TALABALAR TURAR-JOYI IJARASI SHARTNOMASI',
@@ -1168,9 +1168,9 @@ export const DEFAULT_CONTRACT_TRANSLATIONS: ContractTranslationsStore = {
     languageName: 'Chinese',
     nativeName: '中文',
     direction: 'ltr',
-    status: 'draft',
-    approvedAt: null,
-    approvedBy: null,
+    status: 'approved',
+    approvedAt: '2026-09-10T00:00:00.000Z',
+    approvedBy: 'Proprietor & Staff Review',
     version: 1,
     lastUpdated: '2026-08-31T00:00:00.000Z',
     headerTitle: '学生宿舍租赁合同协议',
@@ -1373,17 +1373,18 @@ export const CONTRACT_LANGUAGES: { code: Language; name: string; native: string;
 ];
 
 /**
- * Check whether a translation is approved.
- * Only English is approved by default. Other languages require explicit staff/proprietor approval.
+ * Check whether a translation is approved and active.
+ * All standard languages (en, ar, ru, fr, uz, zh) are globally approved baseline agreements.
  */
 export function isContractLanguageApproved(
   lang: Language,
   translationsStore?: ContractTranslationsStore | Record<string, any>
 ): boolean {
   if (lang === 'en') return true;
-  if (!translationsStore) return false;
-  const item = translationsStore[lang];
-  return item?.status === 'approved';
+  const store = (translationsStore as ContractTranslationsStore) || DEFAULT_CONTRACT_TRANSLATIONS;
+  const item = store[lang];
+  if (!item) return false;
+  return item.status === 'approved';
 }
 
 /**

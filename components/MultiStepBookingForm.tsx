@@ -15,6 +15,7 @@ import {
 import SignaturePad from 'react-signature-canvas';
 import { useReactToPrint } from 'react-to-print';
 import TenancyAgreementDocument from './TenancyAgreementDocument';
+import LanguageSwitcher from './LanguageSwitcher';
 import { sendEmail, getAgreementSignedTemplate } from '../lib/email';
 import { ALL_ROOM_SPACES, BED_SPACE_TO_ID_MAP, getUnifiedRoomName, getParsedRoomSpaces, getAccommodationAddress, findDatabaseRoomForSpace } from '../lib/roomNaming';
 import { calculateStayPricing, getRoomPrice, getLowestAvailableMonthlyPrice } from '../lib/pricing';
@@ -1101,6 +1102,19 @@ const MultiStepBookingForm: React.FC = () => {
             <div className="text-center">
               <h2 className="text-2xl font-black text-gray-900 dark:text-white uppercase tracking-tight">{t.step5_header || "Official Tenancy Agreement"}</h2>
               <p className="text-gray-500 dark:text-gray-400 text-sm mt-1">{t.step5_sub || "Review the complete document contents in conformity with Cairo residency files and digital sign."}</p>
+            </div>
+
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-3 bg-brand-50/60 dark:bg-brand-950/30 p-3.5 rounded-2xl border border-brand-200/70 dark:border-brand-800/50">
+              <div className="flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                <span className="text-xs font-bold text-gray-800 dark:text-gray-200">
+                  Select Tenancy Agreement Language:
+                </span>
+                <span className="text-[11px] font-semibold text-brand-700 dark:text-brand-300 uppercase bg-white dark:bg-gray-800 px-2 py-0.5 rounded-md border border-brand-200/50">
+                  {language}
+                </span>
+              </div>
+              <LanguageSwitcher />
             </div>
 
             <div className="bg-gray-100 dark:bg-gray-900 p-4 rounded-2xl border border-gray-200 dark:border-gray-800">

@@ -3,6 +3,7 @@ import React, { useRef, useState } from 'react';
 import SignaturePad from 'react-signature-canvas';
 import { useReactToPrint } from 'react-to-print';
 import TenancyAgreementDocument from './TenancyAgreementDocument';
+import LanguageSwitcher from './LanguageSwitcher';
 import { IconClose, IconSignature, IconCheck } from './Icon';
 import { Booking } from '../types';
 import { useApp } from '../hooks/useApp';
@@ -64,9 +65,12 @@ const AgreementModal: React.FC<AgreementModalProps> = ({ booking, onSign, onClos
             </h2>
             <p className="text-sm text-gray-500">Booking Reference: <span className="font-bold text-brand-600">BK{booking.id}</span></p>
           </div>
-          <button onClick={onClose} className="p-3 hover:bg-gray-200 dark:hover:bg-gray-800 rounded-full transition-all">
-            <IconClose className="w-6 h-6" />
-          </button>
+          <div className="flex items-center gap-3">
+            <LanguageSwitcher />
+            <button onClick={onClose} className="p-3 hover:bg-gray-200 dark:hover:bg-gray-800 rounded-full transition-all cursor-pointer" title="Close">
+              <IconClose className="w-6 h-6" />
+            </button>
+          </div>
         </div>
 
         <div className="flex-1 overflow-y-auto p-4 sm:p-8 bg-gray-100 dark:bg-black/40">

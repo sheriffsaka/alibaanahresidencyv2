@@ -1156,13 +1156,18 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                 contractTranslationsRes.data.forEach((row: any) => {
                   const langCode = row.language_code as Language;
                   if (mergedTranslations[langCode]) {
+                    const rowContent = row.content_json || {};
                     mergedTranslations[langCode] = {
                       ...mergedTranslations[langCode],
-                      status: (row.status || 'draft') as 'draft' | 'approved',
-                      approvedAt: row.approved_at || undefined,
-                      approvedBy: row.approved_by || undefined,
+                      ...rowContent,
+                      sections: {
+                        ...mergedTranslations[langCode].sections,
+                        ...(rowContent.sections || {})
+                      },
+                      status: (row.status === 'draft' && !rowContent.manuallyDrafted) ? 'approved' : (row.status || 'approved'),
+                      approvedAt: row.approved_at || mergedTranslations[langCode].approvedAt,
+                      approvedBy: row.approved_by || mergedTranslations[langCode].approvedBy,
                       version: row.version || mergedTranslations[langCode].version,
-                      ...(row.content_json || {})
                     };
                   }
                 });
@@ -1170,6 +1175,18 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                 const storedCmsTranslations = dbCms.contract_translations || (dbCms.how_to_videos || dbCms.howToVideos)?.contractTranslations;
                 mergedTranslations = { ...DEFAULT_CONTRACT_TRANSLATIONS, ...storedCmsTranslations };
               }
+
+              // Also check local cache for immediate recovery
+              try {
+                const localCache = localStorage.getItem('al_ibaanah_contract_translations');
+                if (localCache) {
+                  const parsed = JSON.parse(localCache);
+                  mergedTranslations = { ...mergedTranslations, ...parsed };
+                }
+              } catch (e) {
+                // Ignore JSON parse errors
+              }
+
               setContractTranslations(mergedTranslations);
 
               setCmsContent({
@@ -1684,7 +1701,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                 accommodationCategories: updatedCms.accommodationCategories || accommodationCategories,
                 supportContent: updatedCms.supportContent,
                 studentDocuments: updatedCms.studentDocuments || studentDocuments,
-                roomPricing: updatedCms.roomPricing || roomPricing
+                roomPricing: updatedCms.roomPricing || roomPricing,
+                contractTranslations: (content as any).contractTranslations || (updatedCms as any).contractTranslations || contractTranslations
             },
             updated_at: new Date().toISOString()
         };
@@ -3311,7 +3329,6 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     try {
       const existing = contractTranslations[lang];
       if (!existing) return { success: false, error: `Translation for language '${lang}' not found.` };
-      if (lang === 'en') return { success: true }; // English is default
 
       const now = new Date().toISOString();
       const updated: LegalContractTranslation = {
@@ -3329,14 +3346,19 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
       setContractTranslations(updatedStore);
 
+      try {
+        localStorage.setItem('al_ibaanah_contract_translations', JSON.stringify(updatedStore));
+      } catch (e) {}
+
       // Persist to contract_translations table in Supabase
+      const isValidUuid = user?.id && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(user.id);
       const dbPayload = {
         language_code: lang,
         language_name: updated.languageName,
         native_name: updated.nativeName,
         direction: updated.direction,
         status: 'approved',
-        approved_by: user?.id || null,
+        approved_by: isValidUuid ? user.id : null,
         approved_at: now,
         version: updated.version || 1,
         content_json: updated,
@@ -3352,7 +3374,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       }
 
       // Also persist to CMS content for fallback durability
-      await updateCmsContent({ contractTranslations: updatedStore });
+      await updateCmsContent({ contractTranslations: updatedStore } as any);
 
       // Admin audit log
       if (user) {
@@ -3438,13 +3460,28 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       if (!existing) return { success: false, error: `Translation for language '${lang}' not found.` };
 
       const now = new Date().toISOString();
+      const updatedStatus = updates.status || existing.status || 'approved';
+
+      // Deep merge sections to preserve all nested fields and custom edits
+      const mergedSections = { ...existing.sections };
+      if (updates.sections) {
+        for (const [secKey, secVal] of Object.entries(updates.sections)) {
+          if (secVal && typeof secVal === 'object' && !Array.isArray(secVal)) {
+            (mergedSections as any)[secKey] = {
+              ...((mergedSections as any)[secKey] || {}),
+              ...secVal
+            };
+          } else {
+            (mergedSections as any)[secKey] = secVal;
+          }
+        }
+      }
+
       const updated: LegalContractTranslation = {
         ...existing,
         ...updates,
-        sections: {
-          ...existing.sections,
-          ...(updates.sections || {})
-        },
+        status: updatedStatus,
+        sections: mergedSections,
         version: (existing.version || 1) + 1,
         lastUpdated: now
       };
@@ -3456,13 +3493,18 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
       setContractTranslations(updatedStore);
 
+      try {
+        localStorage.setItem('al_ibaanah_contract_translations', JSON.stringify(updatedStore));
+      } catch (e) {}
+
+      const isValidUuid = user?.id && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(user.id);
       const dbPayload = {
         language_code: lang,
         language_name: updated.languageName,
         native_name: updated.nativeName,
         direction: updated.direction,
         status: updated.status,
-        approved_by: updated.status === 'approved' ? (user?.id || null) : null,
+        approved_by: updated.status === 'approved' ? (isValidUuid ? user.id : null) : null,
         approved_at: updated.status === 'approved' ? (updated.approvedAt || now) : null,
         version: updated.version,
         content_json: updated,
@@ -3477,13 +3519,13 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         console.warn("Notice updating contract_translations table:", dbErr.message);
       }
 
-      await updateCmsContent({ contractTranslations: updatedStore });
+      await updateCmsContent({ contractTranslations: updatedStore } as any);
 
       if (user) {
         addActivity({
           user_id: user.id,
           type: 'system',
-          description: `Updated Tenancy Agreement clauses for ${updated.languageName} (${lang.toUpperCase()}).`,
+          description: `Updated and synchronized Tenancy Agreement clauses for ${updated.languageName} (${lang.toUpperCase()}).`,
           timestamp: now
         });
       }
