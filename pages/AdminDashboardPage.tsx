@@ -28,8 +28,10 @@ import { ManageCategoryModal } from '../components/admin/ManageCategoryModal';
 import { ContractTranslationsReviewView } from '../components/admin/ContractTranslationsReviewView';
 import { ManageStudentDocumentsView } from '../components/admin/ManageStudentDocumentsView';
 import { RoomPricingView } from '../components/admin/RoomPricingView';
+import { RoomMediaModal } from '../components/admin/RoomMediaModal';
+import { ApartmentMediaManager } from '../components/admin/ApartmentMediaManager';
 import { getRoomPrice } from '../lib/pricing';
-import { Layers } from 'lucide-react';
+import { Layers, Video, Image as ImageIconLucide } from 'lucide-react';
 
 // A responsive, accessible SVG Bar Chart component for occupancy metrics
 const OccupancyChart = ({ data }: { data: { name: string; value: number }[] }) => {
@@ -367,6 +369,14 @@ const AdminDashboardPage: React.FC = () => {
   
   const [isRoomModalOpen, setIsRoomModalOpen] = useState(false);
   const [selectedRoomForEdit, setSelectedRoomForEdit] = useState<Room | null>(null);
+
+  const [isRoomMediaModalOpen, setIsRoomMediaModalOpen] = useState(false);
+  const [selectedRoomForMedia, setSelectedRoomForMedia] = useState<Room | null>(null);
+
+  const handleOpenRoomMediaModal = (room: Room) => {
+    setSelectedRoomForMedia(room);
+    setIsRoomMediaModalOpen(true);
+  };
   
   const [isAdminBookingModalOpen, setIsAdminBookingModalOpen] = useState(false);
   const [isManageCategoryModalOpen, setIsManageCategoryModalOpen] = useState(false);
@@ -1600,7 +1610,14 @@ const AdminDashboardPage: React.FC = () => {
                       : 'Sorted by Category and Room Number'}
                   </p>
                 </div>
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-2.5">
+                  <button
+                    onClick={() => setActiveSection('apartment_media')}
+                    className="bg-purple-50 hover:bg-purple-100 text-purple-700 dark:bg-purple-950/40 dark:text-purple-300 border border-purple-200 dark:border-purple-800 px-4 py-2.5 rounded-xl text-xs font-bold flex items-center gap-2 transition-all shadow-xs"
+                    title="Manage apartment videos, photo galleries, and included perks"
+                  >
+                    <Video className="w-4 h-4" /> Apartment Media & Virtual Tours
+                  </button>
                   <button
                     onClick={() => handleOpenRoomModal(null)}
                     className="bg-brand-600 hover:bg-brand-700 text-white px-5 py-2.5 rounded-xl text-xs font-bold flex items-center gap-2 shadow-md transition-all"
@@ -1715,6 +1732,36 @@ const AdminDashboardPage: React.FC = () => {
                             </span>
                           </div>
 
+                          {/* Media Preview & Quick Link */}
+                          <div className="flex items-center gap-3 p-2 bg-gray-50 dark:bg-gray-800/60 rounded-xl border border-gray-200 dark:border-gray-700/60">
+                            {room.image_urls && room.image_urls.length > 0 ? (
+                              <div className="relative w-14 h-11 rounded-lg overflow-hidden shrink-0 border border-gray-200 dark:border-gray-700 bg-gray-200">
+                                <img src={room.image_urls[0]} alt={room.room_number} className="w-full h-full object-cover" />
+                              </div>
+                            ) : (
+                              <div className="w-14 h-11 rounded-lg bg-gray-100 dark:bg-gray-800 flex items-center justify-center text-gray-400 shrink-0 border border-dashed border-gray-300 dark:border-gray-700">
+                                <ImageIconLucide className="w-4 h-4 text-gray-400" />
+                              </div>
+                            )}
+                            <div className="text-[11px] leading-tight flex-1">
+                              <div className="font-bold text-gray-700 dark:text-gray-300 flex items-center gap-1.5">
+                                <span>{room.image_urls?.length || 0} Photos</span>
+                                {room.video_urls && room.video_urls.length > 0 && (
+                                  <span className="text-[9px] bg-purple-100 text-purple-700 dark:bg-purple-950/40 dark:text-purple-300 px-1.5 py-0.2 rounded-full font-black flex items-center gap-0.5">
+                                    <Video className="w-2.5 h-2.5" /> Video Tour
+                                  </span>
+                                )}
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() => handleOpenRoomMediaModal(room)}
+                                className="text-[11px] font-bold text-brand-600 hover:text-brand-700 dark:text-brand-400 hover:underline mt-0.5 inline-flex items-center gap-1"
+                              >
+                                Edit Photos & Tour →
+                              </button>
+                            </div>
+                          </div>
+
                           {!isRoomActive && (
                             <div className="bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900/40 rounded-xl px-3 py-1.5 text-[11px] text-amber-800 dark:text-amber-300 flex items-center gap-1.5">
                               <span>⚠️</span>
@@ -1797,6 +1844,13 @@ const AdminDashboardPage: React.FC = () => {
                             )}
                           </button>
                           <button
+                            onClick={() => handleOpenRoomMediaModal(room)}
+                            className="bg-purple-50 text-purple-700 hover:bg-purple-100 dark:bg-purple-950/40 dark:text-purple-300 px-2.5 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1 border border-purple-200 dark:border-purple-800"
+                            title="Manage room photos and virtual tour video"
+                          >
+                            <Video className="w-3.5 h-3.5" /> Media
+                          </button>
+                          <button
                             onClick={() => handleOpenRoomModal(room)}
                             className="bg-brand-50 text-brand-600 hover:bg-brand-100 dark:bg-brand-950/40 dark:text-brand-300 px-2.5 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1"
                           >
@@ -1821,6 +1875,13 @@ const AdminDashboardPage: React.FC = () => {
           {/* ROOM PRICING MATRIX VIEW */}
           {activeSection === 'room_pricing' && (
             <RoomPricingView />
+          )}
+
+          {/* APARTMENT MEDIA & VIRTUAL TOURS VIEW */}
+          {activeSection === 'apartment_media' && (
+            <ApartmentMediaManager
+              onOpenManageCategories={() => setIsManageCategoryModalOpen(true)}
+            />
           )}
 
           {/* 11. LANDING & BRANDING CMS VIEW */}
@@ -1860,51 +1921,10 @@ const AdminDashboardPage: React.FC = () => {
               </div>
 
               {/* Accommodation Media & Category Perks */}
-              <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 overflow-hidden">
-                <div className="p-6 border-b dark:border-gray-700 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-                  <div>
-                    <h2 className="text-xl font-bold text-gray-900 dark:text-white">Accommodation Categories & Media Perks</h2>
-                    <p className="text-xs text-gray-500 mt-0.5">Customize display titles, photos gallery, floor plans, and included perks per category</p>
-                  </div>
-                  <button
-                    id="manage-categories-btn-cms"
-                    type="button"
-                    onClick={() => setIsManageCategoryModalOpen(true)}
-                    className="bg-brand-50 hover:bg-brand-100 text-brand-700 dark:bg-brand-950/40 dark:text-brand-300 px-4 py-2.5 rounded-xl text-xs font-bold flex items-center gap-2 border border-brand-200/60 dark:border-brand-800 transition-all shadow-xs shrink-0"
-                  >
-                    <Layers className="w-4 h-4 text-brand-600 dark:text-brand-400" /> Manage Categories
-                  </button>
-                </div>
-
-                <div className="border border-gray-150 dark:border-gray-750 rounded-xl overflow-hidden m-6">
-                  <div className="flex border-b border-gray-200 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-900/50 overflow-x-auto">
-                    {(accommodationCategories || []).map(cat => {
-                      const isActive = activeCategoryConfig === cat.name;
-                      return (
-                        <button
-                          key={cat.id}
-                          type="button"
-                          onClick={() => setActiveCategoryConfig(cat.name)}
-                          className={`flex-1 min-w-[120px] py-3 px-4 text-xs font-black uppercase tracking-wider transition-all border-b-2 whitespace-nowrap ${
-                            isActive
-                              ? 'border-brand-600 bg-white dark:bg-gray-800 text-brand-600 border-b-brand-600'
-                              : 'border-transparent text-gray-500 hover:text-gray-800 dark:hover:text-gray-200'
-                          }`}
-                        >
-                          {cat.name} Config
-                        </button>
-                      );
-                    })}
-                  </div>
-
-                  <div className="p-6 bg-white dark:bg-gray-800">
-                    <CategoryMediaEditor 
-                      category={activeCategoryConfig || (accommodationCategories[0]?.name || 'Premium 1')} 
-                      cmsContent={cmsContent} 
-                      updateCmsContent={updateCmsContent} 
-                    />
-                  </div>
-                </div>
+              <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 p-6">
+                <ApartmentMediaManager 
+                  onOpenManageCategories={() => setIsManageCategoryModalOpen(true)}
+                />
               </div>
             </div>
           )}
@@ -2105,6 +2125,20 @@ const AdminDashboardPage: React.FC = () => {
 
       {isRoomModalOpen && (
         <RoomEditorModal room={selectedRoomForEdit} onClose={() => setIsRoomModalOpen(false)} onSave={handleSaveRoom} />
+      )}
+
+      {/* Quick Room Media (Photos & Video Tour) Modal */}
+      {isRoomMediaModalOpen && selectedRoomForMedia && (
+        <RoomMediaModal
+          room={selectedRoomForMedia}
+          onClose={() => {
+            setIsRoomMediaModalOpen(false);
+            setSelectedRoomForMedia(null);
+          }}
+          onSave={async (updatedRoom) => {
+            await handleSaveRoom(updatedRoom);
+          }}
+        />
       )}
 
       {/* Manage Accommodation Categories Modal */}

@@ -5,6 +5,7 @@ import { uploadFile, generateFileName } from '../lib/storage';
 import { generateUnitCode, normalizeCategory } from '../lib/roomNaming';
 import { ManageCategoryModal } from './admin/ManageCategoryModal';
 import { getRoomPrice } from '../lib/pricing';
+import { UniversalVideoPlayer } from './UniversalVideoPlayer';
 import { 
   Building2, 
   DoorClosed, 
@@ -987,14 +988,45 @@ export const RoomEditorModal: React.FC<RoomEditorModalProps> = ({ room, onClose,
                     )}
                   </div>
 
-                  <div>
+                  <div className="space-y-2">
                     <input 
                       type="text" 
                       value={videoUrl} 
                       onChange={(e) => setVideoUrl(e.target.value)}
-                      placeholder="YouTube or Vimeo tour video URL (optional)..."
-                      className="w-full text-xs p-2.5 border rounded-xl dark:bg-gray-800 dark:border-gray-700 dark:text-white"
+                      placeholder="YouTube, Vimeo, or direct Cloudinary MP4 video URL..."
+                      className="w-full text-xs p-2.5 border rounded-xl dark:bg-gray-800 dark:border-gray-700 dark:text-white font-mono"
                     />
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <span className="text-[10px] font-bold text-gray-400">Presets:</span>
+                      <button
+                        type="button"
+                        onClick={() => setVideoUrl('https://res.cloudinary.com/di7okmjsx/video/upload/q_auto/f_auto/v1776504008/Apartment_1_video_fpin5l.mp4')}
+                        className="text-[10px] bg-gray-100 dark:bg-gray-800 hover:bg-brand-50 hover:text-brand-600 px-2 py-0.5 rounded border border-gray-200 dark:border-gray-700"
+                      >
+                        Apt 1 Video
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setVideoUrl('https://res.cloudinary.com/di7okmjsx/video/upload/q_auto/f_auto/v1776584603/Apartment2_video_zy702b.mp4')}
+                        className="text-[10px] bg-gray-100 dark:bg-gray-800 hover:bg-brand-50 hover:text-brand-600 px-2 py-0.5 rounded border border-gray-200 dark:border-gray-700"
+                      >
+                        Apt 2 Video
+                      </button>
+                      {videoUrl && (
+                        <button
+                          type="button"
+                          onClick={() => setVideoUrl('')}
+                          className="text-[10px] text-red-500 hover:underline px-1"
+                        >
+                          Clear
+                        </button>
+                      )}
+                    </div>
+                    {videoUrl && (
+                      <div className="aspect-video w-full rounded-xl overflow-hidden border border-gray-200 dark:border-gray-700 bg-black mt-2">
+                        <UniversalVideoPlayer url={videoUrl} title="Room Tour Preview" />
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>

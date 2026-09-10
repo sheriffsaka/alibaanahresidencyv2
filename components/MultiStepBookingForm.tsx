@@ -20,6 +20,7 @@ import { sendEmail, getAgreementSignedTemplate } from '../lib/email';
 import { ALL_ROOM_SPACES, BED_SPACE_TO_ID_MAP, getUnifiedRoomName, getParsedRoomSpaces, getAccommodationAddress, findDatabaseRoomForSpace } from '../lib/roomNaming';
 import { calculateStayPricing, getRoomPrice, getLowestAvailableMonthlyPrice } from '../lib/pricing';
 import JoinWaitlistModal from './JoinWaitlistModal';
+import { UniversalVideoPlayer } from './UniversalVideoPlayer';
 
 // Swappable media assets (images, tour videos, and features) for each student accommodation category.
 export const CATEGORY_MEDIA: Record<string, {
@@ -28,7 +29,7 @@ export const CATEGORY_MEDIA: Record<string, {
   features: string[];
 }> = {
   'Premium 1': {
-    videoUrl: 'https://www.youtube.com/embed/dQw4w9WgXcQ', // Embed YouTube or Vimeo video ID
+    videoUrl: 'https://res.cloudinary.com/di7okmjsx/video/upload/q_auto/f_auto/v1776504008/Apartment_1_video_fpin5l.mp4',
     images: [
       'https://res.cloudinary.com/di7okmjsx/image/upload/v1770388212/Suite2_q62y4w.jpg',
       'https://res.cloudinary.com/di7okmjsx/image/upload/v1770388212/Suite1_t4dczv.jpg'
@@ -36,30 +37,30 @@ export const CATEGORY_MEDIA: Record<string, {
     features: ['High-speed student Wi-Fi', 'In-room Air Conditioning', 'En-suite Luxury Bathroom option', 'Private Room option', 'Cozy premium furniture layout', 'Access to Elite Study common areas']
   },
   'Premium 2': {
-    videoUrl: 'https://www.youtube.com/embed/dQw4w9WgXcQ', // Embed YouTube or Vimeo video ID
+    videoUrl: 'https://res.cloudinary.com/di7okmjsx/video/upload/q_auto/f_auto/v1776584603/Apartment2_video_zy702b.mp4',
     images: [
-      'https://res.cloudinary.com/di7okmjsx/image/upload/v1776582417/apt3_shared_room1_ygv63q.jpg',
-      'https://res.cloudinary.com/di7okmjsx/image/upload/q_auto/f_auto/v1776582417/apt3_kitchen_oukmia.jpg'
+      'https://lzibaammjwrmjqkqwdml.supabase.co/storage/v1/object/public/rooms/o62x87qvxq-1776585967566.jpg',
+      'https://lzibaammjwrmjqkqwdml.supabase.co/storage/v1/object/public/rooms/k7hypquyej-1776585969214.JPG'
     ],
     features: ['Premium Suite features', 'Modern kitchen accessibility', 'Spacious study areas', 'In-room high capacity AC', 'Dedicated Resident Lounge Area', 'Weekly student helper laundry cleaning']
   },
   'Premium 3': {
-    videoUrl: 'https://www.youtube.com/embed/dQw4w9WgXcQ', // Embed YouTube or Vimeo video ID
+    videoUrl: 'https://res.cloudinary.com/di7okmjsx/video/upload/q_auto/f_auto/v1776584603/Apartment2_video_zy702b.mp4',
     images: [
-      'https://res.cloudinary.com/di7okmjsx/image/upload/v1770388212/shared_bathroom1_hlxjdg.jpg',
-      'https://res.cloudinary.com/di7okmjsx/image/upload/v1770388212/single_room2_zhd9uo.jpg'
+      'https://lzibaammjwrmjqkqwdml.supabase.co/storage/v1/object/public/rooms/0tvbla90kqe-1776587157546.jpg',
+      'https://lzibaammjwrmjqkqwdml.supabase.co/storage/v1/object/public/rooms/8xrxfq9-1776586653308.JPG'
     ],
     features: ['Shared bathroom area', 'High-speed student Wi-Fi', 'Air conditioning unit', 'Fully furnished student kitchen', 'Automatic washing machine access', 'Tranquil student community focus']
   },
   'Premium 4': {
-    videoUrl: 'https://www.youtube.com/embed/dQw4w9WgXcQ',
+    videoUrl: 'https://res.cloudinary.com/di7okmjsx/video/upload/q_auto/f_auto/v1776504008/Apartment_1_video_fpin5l.mp4',
     images: [
       'https://res.cloudinary.com/di7okmjsx/image/upload/v1770388212/Suite2_q62y4w.jpg'
     ],
     features: ['Fully Air-Conditioned', 'High-speed student Wi-Fi', 'Dedicated study desk', 'Modern furnishings']
   },
   'Standard': {
-    videoUrl: 'https://www.youtube.com/embed/dQw4w9WgXcQ',
+    videoUrl: 'https://res.cloudinary.com/di7okmjsx/video/upload/q_auto/f_auto/v1776504008/Apartment_1_video_fpin5l.mp4',
     images: [
       'https://res.cloudinary.com/di7okmjsx/image/upload/v1770388212/shared_bathroom1_hlxjdg.jpg',
       'https://res.cloudinary.com/di7okmjsx/image/upload/v1770388212/single_room2_zhd9uo.jpg'
@@ -752,22 +753,6 @@ const MultiStepBookingForm: React.FC = () => {
               videoUrl = rawVideoUrl;
             }
           }
-          
-          const getEmbedUrl = (url: string) => {
-            if (!url) return '';
-            if (url.includes('youtube.com/embed/')) return url;
-            if (url.includes('youtube.com/watch?v=')) {
-              const id = url.split('v=')[1]?.split('&')[0];
-              return `https://www.youtube.com/embed/${id}`;
-            }
-            if (url.includes('youtu.be/')) {
-              const id = url.split('youtu.be/')[1]?.split('?')[0];
-              return `https://www.youtube.com/embed/${id}`;
-            }
-            return url;
-          };
-
-          const finalVideoUrl = getEmbedUrl(videoUrl);
 
           let imagesToUse = media.images || [];
           if (selectedSupabaseRoom?.image_urls && selectedSupabaseRoom.image_urls.length > 0) {
@@ -787,39 +772,28 @@ const MultiStepBookingForm: React.FC = () => {
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                 {/* Left Column: Visuals & Embed */}
                 <div className="space-y-6">
-                  {finalVideoUrl && (
+                  {videoUrl && (
                     <div className="aspect-video rounded-2xl overflow-hidden shadow-lg border border-gray-200 dark:border-gray-700 bg-black relative">
-                      <iframe
-                        className="w-full h-full"
-                        src={finalVideoUrl}
-                        title={`${formData.category} Room Tour Video`}
-                        frameBorder="0"
-                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                        allowFullScreen
-                      ></iframe>
+                      <UniversalVideoPlayer
+                        url={videoUrl}
+                        title={`${formData.category} Apartment Tour Video`}
+                      />
                     </div>
                   )}
 
-                  <div className="grid grid-cols-2 gap-3">
-                    {imagesToUse[0] && (
-                      <div className="aspect-square rounded-xl overflow-hidden shadow-sm border dark:border-gray-700 bg-gray-50">
-                        <img 
-                          src={imagesToUse[0]} 
-                          alt={`${formData.category} Apartment feature 1`} 
-                          className="w-full h-full object-cover" 
-                        />
-                      </div>
-                    )}
-                    {imagesToUse[1] && (
-                      <div className="aspect-square rounded-xl overflow-hidden shadow-sm border dark:border-gray-700 bg-gray-50">
-                        <img 
-                          src={imagesToUse[1]} 
-                          alt={`${formData.category} Apartment feature 2`} 
-                          className="w-full h-full object-cover" 
-                        />
-                      </div>
-                    )}
-                  </div>
+                  {imagesToUse.length > 0 && (
+                    <div className={`grid ${imagesToUse.length === 1 ? 'grid-cols-1' : 'grid-cols-2'} gap-3`}>
+                      {imagesToUse.slice(0, 4).map((imgUrl, imgIdx) => (
+                        <div key={imgIdx} className="aspect-square rounded-xl overflow-hidden shadow-sm border dark:border-gray-700 bg-gray-50 dark:bg-gray-800">
+                          <img 
+                            src={imgUrl} 
+                            alt={`${formData.category} Apartment photo ${imgIdx + 1}`} 
+                            className="w-full h-full object-cover" 
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
 
                 {/* Right Column: Preferences Selection */}

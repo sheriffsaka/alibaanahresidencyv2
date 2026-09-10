@@ -313,7 +313,7 @@ export type CategoryMediaConfig = Record<string, CategoryMediaItem>;
 
 export const DEFAULT_CATEGORY_MEDIA: CategoryMediaConfig = {
   'Premium 1': {
-    videoUrl: 'https://www.youtube.com/embed/dQw4w9WgXcQ',
+    videoUrl: 'https://res.cloudinary.com/di7okmjsx/video/upload/q_auto/f_auto/v1776504008/Apartment_1_video_fpin5l.mp4',
     images: [
       'https://res.cloudinary.com/di7okmjsx/image/upload/v1770388212/Suite2_q62y4w.jpg',
       'https://res.cloudinary.com/di7okmjsx/image/upload/v1770388212/Suite1_t4dczv.jpg'
@@ -321,23 +321,23 @@ export const DEFAULT_CATEGORY_MEDIA: CategoryMediaConfig = {
     features: ['High-speed student Wi-Fi', 'In-room Air Conditioning', 'En-suite Luxury Bathroom option', 'Private Room option', 'Cozy premium furniture layout', 'Access to Elite Study common areas']
   },
   'Premium 2': {
-    videoUrl: 'https://www.youtube.com/embed/dQw4w9WgXcQ',
+    videoUrl: 'https://res.cloudinary.com/di7okmjsx/video/upload/q_auto/f_auto/v1776584603/Apartment2_video_zy702b.mp4',
     images: [
-      'https://res.cloudinary.com/di7okmjsx/image/upload/v1770388212/Suite2_q62y4w.jpg',
-      'https://res.cloudinary.com/di7okmjsx/image/upload/v1770388212/Suite1_t4dczv.jpg'
+      'https://lzibaammjwrmjqkqwdml.supabase.co/storage/v1/object/public/rooms/o62x87qvxq-1776585967566.jpg',
+      'https://lzibaammjwrmjqkqwdml.supabase.co/storage/v1/object/public/rooms/k7hypquyej-1776585969214.JPG'
     ],
     features: ['Premium Suite features', 'Modern kitchen accessibility', 'Spacious study areas', 'In-room high capacity AC', 'Dedicated Resident Lounge Area', 'Weekly student helper laundry cleaning']
   },
   'Premium 3': {
-    videoUrl: 'https://www.youtube.com/embed/dQw4w9WgXcQ',
+    videoUrl: 'https://res.cloudinary.com/di7okmjsx/video/upload/q_auto/f_auto/v1776584603/Apartment2_video_zy702b.mp4',
     images: [
-      'https://res.cloudinary.com/di7okmjsx/image/upload/v1770388212/shared_bathroom1_hlxjdg.jpg',
-      'https://res.cloudinary.com/di7okmjsx/image/upload/v1770388212/single_room2_zhd9uo.jpg'
+      'https://lzibaammjwrmjqkqwdml.supabase.co/storage/v1/object/public/rooms/0tvbla90kqe-1776587157546.jpg',
+      'https://lzibaammjwrmjqkqwdml.supabase.co/storage/v1/object/public/rooms/8xrxfq9-1776586653308.JPG'
     ],
     features: ['Shared bathroom area', 'High-speed student Wi-Fi', 'Air conditioning unit', 'Fully furnished student kitchen', 'Automatic washing machine access', 'Tranquil student community focus']
   },
   'Premium 4': {
-    videoUrl: 'https://www.youtube.com/embed/dQw4w9WgXcQ',
+    videoUrl: 'https://res.cloudinary.com/di7okmjsx/video/upload/q_auto/f_auto/v1776504008/Apartment_1_video_fpin5l.mp4',
     images: [
       'https://res.cloudinary.com/di7okmjsx/image/upload/v1770388212/Suite2_q62y4w.jpg'
     ],
