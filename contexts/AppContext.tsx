@@ -8,7 +8,7 @@ import { fetchConversationsList, fetchMessages, postMessage, markConversationAsR
 import { getParsedRoomSpaces, generateUnitCode } from '../lib/roomNaming';
 import { DEFAULT_CONTRACT_TRANSLATIONS, ContractTranslationsStore, LegalContractTranslation } from '../lib/contractTranslations';
 import { OFFICIAL_STUDENT_HANDBOOK_DOCUMENT } from '../lib/studentHandbookData';
-import { RoomPricingTier, DEFAULT_ROOM_PRICING_TIERS, formatTierLabel } from '../lib/pricing';
+import { RoomPricingTier, DEFAULT_ROOM_PRICING_TIERS, formatTierLabel, calculateExtensionPricing, calculateExtendedExpiryDate, normalizeRoomType } from '../lib/pricing';
 
 export const AppContext = createContext<AppContextType | undefined>(undefined);
 
@@ -1005,6 +1005,45 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         })
         .subscribe();
 
+    // Real-time subscription for CMS content changes (Category Media, Tours, Galleries, Announcements)
+    const cmsContentChannel = supabase
+        .channel('global-cms-content-changes')
+        .on('postgres_changes', {
+            event: '*',
+            schema: 'public',
+            table: 'cms_content'
+        }, async (payload) => {
+            console.log('Real-time CMS content update from database:', payload);
+            if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
+                const dbCms = payload.new as any;
+                if (dbCms) {
+                    const howToVideos = dbCms.how_to_videos || dbCms.howToVideos || {};
+                    const categoryMedia = howToVideos.categoryMedia;
+
+                    setCmsContent(prev => ({
+                        ...prev,
+                        logoUrl: dbCms.logo_url || dbCms.logoUrl || prev.logoUrl,
+                        heroImageUrl: dbCms.hero_image_url || dbCms.heroImageUrl || prev.heroImageUrl,
+                        categoryMedia: categoryMedia ? { ...prev.categoryMedia, ...categoryMedia } : prev.categoryMedia,
+                        howToVideos: (howToVideos && Object.keys(howToVideos).length > 0) ? { ...prev.howToVideos, ...howToVideos } : prev.howToVideos,
+                        announcements: howToVideos.announcements || prev.announcements,
+                        landlordDetails: howToVideos.landlordDetails || prev.landlordDetails,
+                        accommodationAddresses: howToVideos.accommodationAddresses || prev.accommodationAddresses,
+                        supportContent: howToVideos.supportContent || prev.supportContent,
+                        studentDocuments: howToVideos.studentDocuments || prev.studentDocuments
+                    }));
+
+                    if (Array.isArray(howToVideos.accommodationCategories) && howToVideos.accommodationCategories.length > 0) {
+                        setAccommodationCategories(howToVideos.accommodationCategories);
+                    }
+                    if (Array.isArray(howToVideos.studentDocuments) && howToVideos.studentDocuments.length > 0) {
+                        setStudentDocuments(howToVideos.studentDocuments);
+                    }
+                }
+            }
+        })
+        .subscribe();
+
     return () => {
         supabase.removeChannel(bookingsChannel);
         supabase.removeChannel(roomsChannel);
@@ -1013,6 +1052,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         supabase.removeChannel(emailLogsChannel);
         supabase.removeChannel(categoriesChannel);
         supabase.removeChannel(contractTranslationsChannel);
+        supabase.removeChannel(cmsContentChannel);
     };
   }, []);
 
@@ -1619,6 +1659,151 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     } catch (err: any) {
         console.error("Error updating booking in Supabase:", err.message);
         return { success: false, error: err.message };
+    }
+  };
+
+  const extendBookingStay = async (
+    bookingId: number,
+    additionalMonths: number,
+    options?: { customNotes?: string }
+  ): Promise<{ success: boolean; error?: string; updatedBooking?: Booking }> => {
+    try {
+      if (!bookingId || isNaN(Number(bookingId))) {
+        return { success: false, error: 'Invalid booking ID provided.' };
+      }
+      const months = Math.max(1, Math.round(Number(additionalMonths) || 1));
+
+      // 1. Fetch latest booking directly from Supabase to guarantee fresh state
+      const { data: currentBooking, error: fetchErr } = await supabase
+        .from('bookings')
+        .select('*')
+        .eq('id', bookingId)
+        .single();
+
+      if (fetchErr || !currentBooking) {
+        return { success: false, error: 'The booking record could not be found in the database.' };
+      }
+
+      // 2. Validate current booking status (cannot extend cancelled booking)
+      if (currentBooking.status === BookingStatus.CANCELLED) {
+        return { success: false, error: 'Cannot extend stay: This booking has been cancelled.' };
+      }
+
+      // 3. Validate that the current room and bed booking are still valid in Supabase
+      const currentRoomId = currentBooking.room_id;
+      const currentBedSpaceId = currentBooking.bed_space_id;
+
+      if (!currentRoomId) {
+        return { success: false, error: 'Cannot extend: No room is currently assigned to this booking.' };
+      }
+
+      const { data: roomData, error: roomErr } = await supabase
+        .from('rooms')
+        .select('id, room_number, apartment_name, type, category, status')
+        .eq('id', currentRoomId)
+        .maybeSingle();
+
+      if (roomErr || !roomData) {
+        return { success: false, error: `Assigned Room #${currentRoomId} does not exist in the database.` };
+      }
+
+      if (roomData.status === 'Inactive') {
+        return { success: false, error: `Assigned Room #${currentRoomId} is currently inactive and cannot be extended.` };
+      }
+
+      // Validate assigned bed space if present
+      if (currentBedSpaceId) {
+        const { data: bedData, error: bedErr } = await supabase
+          .from('bed_spaces')
+          .select('id, room_id, label')
+          .eq('id', currentBedSpaceId)
+          .maybeSingle();
+
+        if (bedErr || !bedData) {
+          return { success: false, error: `Assigned Bed Space #${currentBedSpaceId} is not valid in the database.` };
+        }
+      }
+
+      // 4. Calculate new expiry date correctly using UTC date arithmetic
+      const previousEndDate = currentBooking.end_date || currentBooking.expected_arrival_date || new Date().toISOString().split('T')[0];
+      const newEndDate = calculateExtendedExpiryDate(previousEndDate, months);
+
+      // 5. Verify no conflicting bookings on the same bed space for the extended window
+      if (currentBedSpaceId) {
+        const { data: conflicts, error: conflictErr } = await supabase
+          .from('bookings')
+          .select('id, full_name, start_date, end_date, status')
+          .eq('bed_space_id', currentBedSpaceId)
+          .neq('id', bookingId)
+          .in('status', [BookingStatus.CONFIRMED, BookingStatus.OCCUPIED, BookingStatus.PENDING_PAYMENT, BookingStatus.PENDING_VERIFICATION]);
+
+        if (!conflictErr && conflicts && conflicts.length > 0) {
+          const conflicting = conflicts.find(c => {
+            const cStart = c.start_date ? c.start_date.split('T')[0] : '';
+            const cEnd = c.end_date ? c.end_date.split('T')[0] : '';
+            return cStart < newEndDate && cEnd > previousEndDate;
+          });
+          if (conflicting) {
+            return {
+              success: false,
+              error: `Bed space #${currentBedSpaceId} has a conflicting booking (#${conflicting.id} for ${conflicting.full_name}) scheduled from ${conflicting.start_date}.`
+            };
+          }
+        }
+      }
+
+      // 6. Calculate extension cost using centralized pricing and current room type (Shared/Private)
+      const currentRoomType = currentBooking.preferred_accommodation || roomData.type;
+      const pricing = calculateExtensionPricing(currentRoomType, months, roomPricing);
+      const extensionFee = pricing.totalPrice;
+
+      // 7. Calculate updated total price and duration string
+      const previousTotalPrice = Number(currentBooking.total_price || 0);
+      const newTotalPrice = previousTotalPrice + extensionFee;
+
+      const prevDurationMatch = (currentBooking.duration_of_stay || '').match(/(\d+)/);
+      const prevMonthsCount = prevDurationMatch ? parseInt(prevDurationMatch[1], 10) : 0;
+      const updatedTotalMonths = prevMonthsCount > 0 ? prevMonthsCount + months : months;
+      const newDurationOfStay = `${updatedTotalMonths} Months`;
+
+      // 8. Save the extension/updated stay information to Supabase
+      const dbUpdates: Record<string, any> = {
+        end_date: newEndDate,
+        duration_of_stay: newDurationOfStay,
+        total_price: newTotalPrice
+      };
+
+      const { error: updateErr } = await supabase
+        .from('bookings')
+        .update(dbUpdates)
+        .eq('id', bookingId);
+
+      if (updateErr) throw updateErr;
+
+      // 9. Preserve original booking history in the audit log & activities
+      await addActivity({
+        user_id: user?.id || currentBooking.student_id || 'system',
+        type: 'booking',
+        description: `Stay extended for BK${bookingId} (${currentBooking.full_name}): +${months} month${months > 1 ? 's' : ''} (new expiry: ${newEndDate}). Extension fee: $${extensionFee} USD (previous expiry was ${previousEndDate}, previous total: $${previousTotalPrice} USD). Kept same room #${currentRoomId} and bed #${currentBedSpaceId || 'N/A'}.${options?.customNotes ? ` Note: ${options.customNotes}` : ''}`,
+        timestamp: new Date().toISOString()
+      });
+
+      // 10. Update local state
+      const updatedBooking: Booking = {
+        ...currentBooking,
+        ...dbUpdates
+      };
+
+      const updatedBookings = bookings.map(b => b.id === bookingId ? { ...b, ...dbUpdates } : b);
+      setBookings(updatedBookings);
+
+      // Keep occupancy synced
+      await syncRoomOccupancyToDb([currentRoomId], updatedBookings);
+
+      return { success: true, updatedBooking };
+    } catch (err: any) {
+      console.error('Error extending booking stay in Supabase:', err);
+      return { success: false, error: err.message || 'Failed to extend stay in database.' };
     }
   };
 
@@ -3888,6 +4073,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     addBooking,
     updateBookingStatus,
     updateBooking,
+    extendBookingStay,
     deleteBooking,
     cmsContent,
     updateCmsContent,

@@ -15,6 +15,7 @@ import AgreementModal from '../components/AgreementModal';
 import { sendEmail, getAgreementSignedTemplate, getPaymentProofUploadedAdminTemplate } from '../lib/email';
 import { formatStoredRoomString, getAccommodationAddress, getLiveStudentRoomDetails } from '../lib/roomNaming';
 import JoinWaitlistModal from '../components/JoinWaitlistModal';
+import { ExtendStayModal } from '../components/ExtendStayModal';
 
 const DashboardPage: React.FC = () => {
   const t = useTranslation();
@@ -24,6 +25,7 @@ const DashboardPage: React.FC = () => {
   const [viewingAgreement, setViewingAgreement] = useState<Booking | null>(null);
   const [signingBooking, setSigningBooking] = useState<Booking | null>(null);
   const [uploadingProofBooking, setUploadingProofBooking] = useState<Booking | null>(null);
+  const [extendingModalBooking, setExtendingModalBooking] = useState<Booking | null>(null);
   
   const [selectedFilterCategory, setSelectedFilterCategory] = useState<string>('All');
   const [waitlistModalConfig, setWaitlistModalConfig] = useState<{
@@ -214,10 +216,7 @@ const DashboardPage: React.FC = () => {
 
                 {(activeBooking.status === BookingStatus.CONFIRMED || activeBooking.status === BookingStatus.OCCUPIED || activeBooking.status === BookingStatus.PENDING_PAYMENT || activeBooking.status === BookingStatus.PENDING_VERIFICATION) && (
                   <button
-                    onClick={() => {
-                      const room = rooms.find(r => r.id === activeBooking.room_id);
-                      if (room) setPage('booking', room, activeBooking);
-                    }}
+                    onClick={() => setExtendingModalBooking(activeBooking)}
                     className="px-3.5 py-1.5 rounded-xl bg-indigo-600/80 hover:bg-indigo-600 text-white text-xs font-bold transition-all border border-indigo-400/40 shadow-sm"
                   >
                     Extend Stay
@@ -422,6 +421,13 @@ const DashboardPage: React.FC = () => {
         <PaymentProofModal 
           onUpload={handleUploadProof}
           onClose={() => setUploadingProofBooking(null)}
+        />
+      )}
+      {extendingModalBooking && (
+        <ExtendStayModal
+          isOpen={Boolean(extendingModalBooking)}
+          booking={extendingModalBooking}
+          onClose={() => setExtendingModalBooking(null)}
         />
       )}
     </div>

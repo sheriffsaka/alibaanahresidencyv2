@@ -75,11 +75,13 @@ export function getRoomPrice(
 ): number {
   const activeTiers = (Array.isArray(tiers) && tiers.length > 0) ? tiers : DEFAULT_ROOM_PRICING_TIERS;
   const isPrivate = normalizeRoomType(roomType) === 'Private';
-  // Minimum stay duration is 2 months across student and public interfaces
-  const months = Math.max(2, Math.round(Number(durationMonths) || 2));
+  const months = Math.max(1, Math.round(Number(durationMonths) || 1));
 
-  // Find tier where durationMonths is within range
-  const matchedTier = activeTiers.find(t => months >= t.durationMin && months <= t.durationMax);
+  // Find tier where durationMonths is within range (treating 1–2 months as tier_1_2)
+  const matchedTier = activeTiers.find(t => {
+    if (months <= t.durationMin && t.durationMin <= 2) return true;
+    return months >= t.durationMin && months <= t.durationMax;
+  });
 
   if (matchedTier) {
     return isPrivate ? matchedTier.privatePrice : matchedTier.sharedPrice;
@@ -99,14 +101,17 @@ export function getRoomPrice(
 
 /**
  * Calculate full booking pricing breakdown
+ * For new initial residency applications, minimum duration is 2 months.
+ * When allowSingleMonth is true (e.g. stay extension), 1-month duration is permitted.
  */
 export function calculateStayPricing(
   roomType: any,
   durationMonths: number | string,
-  tiers: RoomPricingTier[] = DEFAULT_ROOM_PRICING_TIERS
+  tiers: RoomPricingTier[] = DEFAULT_ROOM_PRICING_TIERS,
+  allowSingleMonth: boolean = false
 ) {
-  // Enforce minimum 2-months duration for pricing calculations
-  const months = Math.max(2, Math.round(Number(durationMonths) || 2));
+  const minDuration = allowSingleMonth ? 1 : 2;
+  const months = Math.max(minDuration, Math.round(Number(durationMonths) || minDuration));
   const isPrivate = normalizeRoomType(roomType) === 'Private';
   const monthlyRate = getRoomPrice(roomType, months, tiers);
   const totalPrice = monthlyRate * months;
@@ -118,6 +123,59 @@ export function calculateStayPricing(
     isPrivate,
     roomType: isPrivate ? ('Private' as const) : ('Shared' as const)
   };
+}
+
+/**
+ * Calculate pricing for stay extensions (allows 1, 2, 3, 6, 12 months)
+ * Always uses the centralized pricing system.
+ */
+export function calculateExtensionPricing(
+  roomType: any,
+  extensionMonths: number | string,
+  tiers: RoomPricingTier[] = DEFAULT_ROOM_PRICING_TIERS
+) {
+  return calculateStayPricing(roomType, extensionMonths, tiers, true);
+}
+
+/**
+ * Accurately calculate the new expiry date when extending a stay by a given number of months.
+ * Preserves day of month and handles differing month lengths and leap years via UTC calculations.
+ */
+export function calculateExtendedExpiryDate(
+  currentEndDateStr: string | undefined | null,
+  additionalMonths: number | string
+): string {
+  const months = Math.max(1, Math.round(Number(additionalMonths) || 1));
+  let cleanStr = currentEndDateStr ? currentEndDateStr.split('T')[0] : '';
+  
+  // If invalid or missing date, default to current UTC date
+  if (!cleanStr || !/^\d{4}-\d{2}-\d{2}$/.test(cleanStr)) {
+    const today = new Date();
+    cleanStr = today.toISOString().split('T')[0];
+  }
+
+  const parts = cleanStr.split('-');
+  let year = parseInt(parts[0], 10);
+  let month = parseInt(parts[1], 10) - 1; // 0-indexed in JS
+  let day = parseInt(parts[2], 10);
+
+  if (isNaN(year) || isNaN(month) || isNaN(day)) {
+    const d = new Date();
+    year = d.getUTCFullYear();
+    month = d.getUTCMonth();
+    day = d.getUTCDate();
+  }
+
+  const targetMonth = month + months;
+  const targetYear = year + Math.floor(targetMonth / 12);
+  const normalizedMonth = ((targetMonth % 12) + 12) % 12;
+
+  // Find max days in the target month (day 0 of next month in UTC)
+  const maxDaysInTargetMonth = new Date(Date.UTC(targetYear, normalizedMonth + 1, 0)).getUTCDate();
+  const finalDay = Math.min(day, maxDaysInTargetMonth);
+
+  const finalDate = new Date(Date.UTC(targetYear, normalizedMonth, finalDay));
+  return finalDate.toISOString().split('T')[0];
 }
 
 /**

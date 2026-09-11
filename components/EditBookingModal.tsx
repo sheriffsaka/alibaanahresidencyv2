@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Booking, BookingStatus, Room, AccommodationType } from '../types';
 import { useApp } from '../hooks/useApp';
-import { IconClose, IconCheckCircle, IconTrash, IconEdit, IconFile, IconBuilding, IconCheck } from './Icon';
+import { IconClose, IconCheckCircle, IconTrash, IconEdit, IconFile, IconBuilding, IconCheck, IconCalendar } from './Icon';
 import BookingStatusBadge from './BookingStatusBadge';
+import { ExtendStayModal } from './ExtendStayModal';
 import { 
   ALL_ROOM_SPACES, 
   BED_SPACE_TO_ID_MAP,
@@ -39,6 +40,7 @@ export const EditBookingModal: React.FC<EditBookingModalProps> = ({
   const [activeTab, setActiveTab] = useState<'overview' | 'edit' | 'documents'>('overview');
   const [isProcessing, setIsProcessing] = useState(false);
   const [viewingAgreement, setViewingAgreement] = useState(false);
+  const [isExtendStayOpen, setIsExtendStayOpen] = useState(false);
 
   // Form State for Manual Edit
   const [editFormData, setEditFormData] = useState({
@@ -410,6 +412,14 @@ export const EditBookingModal: React.FC<EditBookingModalProps> = ({
               }`}
             >
               <IconFile className="w-3.5 h-3.5" /> Contract & Proofs
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setIsExtendStayOpen(true)}
+              className="px-4 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap flex items-center gap-1.5 bg-indigo-600 hover:bg-indigo-700 text-white shadow-xs ml-auto"
+            >
+              <IconCalendar className="w-3.5 h-3.5" /> Extend Stay
             </button>
           </div>
 
@@ -832,6 +842,20 @@ export const EditBookingModal: React.FC<EditBookingModalProps> = ({
         <AgreementModal
           booking={booking}
           onClose={() => setViewingAgreement(false)}
+        />
+      )}
+
+      {/* Extend Stay Modal */}
+      {isExtendStayOpen && booking && (
+        <ExtendStayModal
+          isOpen={isExtendStayOpen}
+          booking={booking}
+          onClose={() => setIsExtendStayOpen(false)}
+          onSuccess={(updatedBooking) => {
+            if (onBookingUpdated) {
+              onBookingUpdated(updatedBooking);
+            }
+          }}
         />
       )}
     </>

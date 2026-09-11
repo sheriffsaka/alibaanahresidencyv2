@@ -18,7 +18,7 @@ import TenancyAgreementDocument from './TenancyAgreementDocument';
 import LanguageSwitcher from './LanguageSwitcher';
 import { sendEmail, getAgreementSignedTemplate } from '../lib/email';
 import { ALL_ROOM_SPACES, BED_SPACE_TO_ID_MAP, getUnifiedRoomName, getParsedRoomSpaces, getAccommodationAddress, findDatabaseRoomForSpace } from '../lib/roomNaming';
-import { calculateStayPricing, getRoomPrice, getLowestAvailableMonthlyPrice } from '../lib/pricing';
+import { calculateStayPricing, getRoomPrice, getLowestAvailableMonthlyPrice, calculateExtensionPricing, calculateExtendedExpiryDate } from '../lib/pricing';
 import JoinWaitlistModal from './JoinWaitlistModal';
 import { UniversalVideoPlayer } from './UniversalVideoPlayer';
 
@@ -71,7 +71,7 @@ export const CATEGORY_MEDIA: Record<string, {
 
 const MultiStepBookingForm: React.FC = () => {
   const t = useTranslation();
-  const { user, setPage, addBooking, addActivity, rooms, bedSpaces, bookings, effectiveOccupancyBookings, extendingBooking, landlordDetails, cmsContent, accommodationAddresses, language, contractTranslations, accommodationCategories, roomPricing } = useApp();
+  const { user, setPage, addBooking, updateBooking, extendBookingStay, addActivity, rooms, bedSpaces, bookings, effectiveOccupancyBookings, extendingBooking, landlordDetails, cmsContent, accommodationAddresses, language, contractTranslations, accommodationCategories, roomPricing } = useApp();
 
   const availableCategories = useMemo(() => {
     if (accommodationCategories && accommodationCategories.length > 0) {
@@ -202,6 +202,7 @@ const MultiStepBookingForm: React.FC = () => {
 
   // Sync Category change with preselecting room (pre-selecting first available)
   const handleCategoryChange = (cat: string) => {
+    if (isExtension) return; // Strictly keep same accommodation during stay extension (Requirement 2 & 10)
     const list = accommodationsSelection[cat];
     if (list && list.length > 0) {
       const availableItem = list.find(item => {
@@ -229,6 +230,7 @@ const MultiStepBookingForm: React.FC = () => {
   };
 
   const handleRoomSelect = (id: string) => {
+    if (isExtension) return; // Strictly keep same bed & room during stay extension (Requirement 2 & 10)
     const list = accommodationsSelection[formData.category];
     const item = list?.find(it => it.id === id);
     if (item) {
@@ -325,12 +327,12 @@ const MultiStepBookingForm: React.FC = () => {
     }
   }, [extendingBooking, parsedAvailabilityData, accommodationsSelection, availableCategories]);
 
-  // Guard duration to ensure it is always from 2-months selection and not 1-month
+  // Guard duration to ensure it is always from 2-months selection for fresh bookings
   useEffect(() => {
-    if (parseInt(formData.duration, 10) < 2) {
+    if (!isExtension && parseInt(formData.duration, 10) < 2) {
       setFormData(prev => ({ ...prev, duration: '2' }));
     }
-  }, [formData.duration]);
+  }, [formData.duration, isExtension]);
 
   // Navigation handlers: seamlessly skip Step 3 if extending existing lease
   const nextStep = () => {
@@ -376,15 +378,13 @@ const MultiStepBookingForm: React.FC = () => {
 
   // Centralized Pricing Engine using Supabase Single Source of Truth
   const pricing = useMemo(() => {
-    return calculateStayPricing(formData.roomType, formData.duration, roomPricing);
-  }, [formData.roomType, formData.duration, roomPricing]);
+    return calculateStayPricing(formData.roomType, formData.duration, roomPricing, isExtension);
+  }, [formData.roomType, formData.duration, roomPricing, isExtension]);
 
   // Dynamic start & calculated end date
   const startDate = formData.arrivalDate || todayStr;
   const endDate = useMemo(() => {
-    const d = new Date(startDate);
-    d.setMonth(d.getMonth() + parseInt(formData.duration, 10));
-    return d.toISOString().split('T')[0];
+    return calculateExtendedExpiryDate(startDate, parseInt(formData.duration, 10) || 1);
   }, [startDate, formData.duration]);
 
   // Submission handler
@@ -412,6 +412,26 @@ const MultiStepBookingForm: React.FC = () => {
 
     setIsSubmitting(true);
     setError(null);
+
+    // If extending an existing booking: update the existing booking in Supabase (Requirement 7 & 11)
+    if (isExtension && extendingBooking) {
+      try {
+        const extensionMonths = parseInt(formData.duration, 10) || 1;
+        const res = await extendBookingStay(extendingBooking.id, extensionMonths);
+        if (!res.success) {
+          throw new Error(res.error || 'Failed to extend booking stay.');
+        }
+
+        const updatedBooking = res.updatedBooking || extendingBooking;
+        setBookingResult(updatedBooking);
+        setStep(6);
+      } catch (err: any) {
+        setError(err.message || 'An error occurred while extending your stay.');
+      } finally {
+        setIsSubmitting(false);
+      }
+      return;
+    }
 
     try {
       const unifiedRoomName = getUnifiedRoomName(formData.category, formData.roomName, formData.bedSpaceName);
@@ -571,6 +591,19 @@ const MultiStepBookingForm: React.FC = () => {
               <h2 className="text-2xl font-black text-gray-900 dark:text-white uppercase tracking-tight">{t.step1_header || "Explore Our Accommodations"}</h2>
               <p className="text-gray-500 dark:text-gray-400 text-sm mt-1">{t.step1_sub || "Please explore categories and select your target room and bed space location below."}</p>
             </div>
+
+            {/* Locked Room & Bed Space Banner for Stay Extensions (Requirements 2 & 10) */}
+            {isExtension && (
+              <div className="p-4 rounded-2xl bg-amber-50 dark:bg-amber-950/30 border border-amber-300 dark:border-amber-800 text-start">
+                <div className="flex items-center gap-2 text-amber-900 dark:text-amber-200 font-bold text-sm">
+                  <IconInfo className="w-5 h-5 text-amber-600 dark:text-amber-400 shrink-0" />
+                  <span>Residency Stay Extension — Current Assignment Locked</span>
+                </div>
+                <p className="text-xs text-amber-800 dark:text-amber-300 mt-1 font-medium">
+                  You are extending your stay for <strong>{formData.category} — {formData.roomName} ({formData.bedSpaceName})</strong> ({formData.roomType} Room). Room transfers and bed changes are strictly not permitted during stay extensions.
+                </p>
+              </div>
+            )}
 
             {/* Category selection */}
             <div className={`grid grid-cols-1 md:grid-cols-${Math.min(availableCategories.length, 4)} gap-4`}>
@@ -834,13 +867,19 @@ const MultiStepBookingForm: React.FC = () => {
                     </div>
 
                     {/* Tiered Duration Quick Selectors */}
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
-                      {[
+                    <div className={`grid ${isExtension ? 'grid-cols-2 sm:grid-cols-5' : 'grid-cols-2 sm:grid-cols-4'} gap-2.5`}>
+                      {(isExtension ? [
+                        { months: '1', label: '+1 Month' },
+                        { months: '2', label: '+2 Months' },
+                        { months: '3', label: '+3 Months' },
+                        { months: '6', label: '+6 Months' },
+                        { months: '12', label: '+12 Months' }
+                      ] : [
                         { months: '2', label: '2 Months', tierLabel: '2 mos' },
                         { months: '4', label: '3–4 Months', tierLabel: '3–4 mos' },
                         { months: '6', label: '5–6 Months', tierLabel: '5–6 mos' },
                         { months: '12', label: '7+ Months', tierLabel: '7+ mos' }
-                      ].map(opt => {
+                      ]).map(opt => {
                         const optMonthly = getRoomPrice(formData.roomType, parseInt(opt.months, 10), roomPricing);
                         const isSelected = formData.duration === opt.months;
                         return (
@@ -863,13 +902,16 @@ const MultiStepBookingForm: React.FC = () => {
                       })}
                     </div>
 
-                    {/* Month selector 2 to 12 (Minimum 2-months stay) */}
+                    {/* Month selector 1/2 to 12 */}
                     <div className="pt-2">
                       <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-1.5">
-                        Specific Stay Months (2–12 Months):
+                        {isExtension ? 'Specific Stay Extension (1–12 Months):' : 'Specific Stay Months (2–12 Months):'}
                       </p>
-                      <div className="grid grid-cols-6 sm:grid-cols-11 gap-1">
-                        {['2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12'].map(m => (
+                      <div className={`grid ${isExtension ? 'grid-cols-6 sm:grid-cols-12' : 'grid-cols-6 sm:grid-cols-11'} gap-1`}>
+                        {(isExtension 
+                          ? ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12'] 
+                          : ['2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12']
+                        ).map(m => (
                           <button
                             key={m}
                             type="button"

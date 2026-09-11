@@ -10,6 +10,7 @@ import { supabase } from '../lib/supabaseClient';
 import AgreementModal from '../components/AgreementModal';
 import { sendEmail, getAgreementSignedTemplate, getPaymentProofUploadedAdminTemplate } from '../lib/email';
 import { formatStoredRoomString, getDisplayFromRoom } from '../lib/roomNaming';
+import { ExtendStayModal } from '../components/ExtendStayModal';
 
 const MyBookingsPage: React.FC = () => {
   const t = useTranslation();
@@ -19,6 +20,7 @@ const MyBookingsPage: React.FC = () => {
   const [viewingAgreement, setViewingAgreement] = useState<Booking | null>(null);
   const [signingBooking, setSigningBooking] = useState<Booking | null>(null);
   const [uploadingProofBooking, setUploadingProofBooking] = useState<Booking | null>(null);
+  const [extendingModalBooking, setExtendingModalBooking] = useState<Booking | null>(null);
   
   const userBookings = (bookings || []).filter(b => b.student_id === user?.id || (b.email && user?.email && b.email.toLowerCase().trim() === user.email.toLowerCase().trim()));
   const userActivities = (activities || []).filter(a => a.user_id === user?.id).slice(0, 8);
@@ -247,10 +249,7 @@ const MyBookingsPage: React.FC = () => {
                             {(booking.status === BookingStatus.CONFIRMED || booking.status === BookingStatus.OCCUPIED || booking.status === BookingStatus.PENDING_PAYMENT || booking.status === BookingStatus.PENDING_VERIFICATION) && (
                               <>
                                 <button 
-                                  onClick={() => {
-                                    const room = rooms.find(r => r.id === booking.room_id);
-                                    if (room) setPage('booking', room, booking);
-                                  }}
+                                  onClick={() => setExtendingModalBooking(booking)}
                                   className="text-indigo-600 hover:text-indigo-800 dark:text-indigo-400 font-bold underline decoration-dotted text-left rtl:text-right"
                                 >
                                   Extend Booking
@@ -350,6 +349,13 @@ const MyBookingsPage: React.FC = () => {
         <PaymentProofModal 
           onUpload={handleUploadProof}
           onClose={() => setUploadingProofBooking(null)}
+        />
+      )}
+      {extendingModalBooking && (
+        <ExtendStayModal
+          isOpen={Boolean(extendingModalBooking)}
+          booking={extendingModalBooking}
+          onClose={() => setExtendingModalBooking(null)}
         />
       )}
     </div>
