@@ -1150,7 +1150,23 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                 setBedSpaces(prev => prev && prev.length > 0 ? prev : DEFAULT_BED_SPACES);
             }
 
-            if (publicOccupancyRes && !publicOccupancyRes.error && publicOccupancyRes.data) {
+            // Fetch public occupancy from server API with date awareness (fallback to RPC)
+            let loadedPublicOcc: PublicOccupancy[] = [];
+            try {
+                const occApiRes = await fetch('/api/public-occupancy');
+                if (occApiRes.ok) {
+                    const occJson = await occApiRes.json();
+                    if (occJson.success && Array.isArray(occJson.occupancy)) {
+                        loadedPublicOcc = occJson.occupancy;
+                    }
+                }
+            } catch {
+                // Non-blocking fallback
+            }
+
+            if (loadedPublicOcc.length > 0) {
+                setPublicOccupancy(loadedPublicOcc);
+            } else if (publicOccupancyRes && !publicOccupancyRes.error && publicOccupancyRes.data) {
                 setPublicOccupancy(publicOccupancyRes.data);
             }
 
@@ -1371,15 +1387,21 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   // Helper to synchronize raw database room occupancy using strict whitelist ('Confirmed', 'Occupied')
   const syncRoomOccupancyToDb = async (roomIds: (number | undefined)[], currentBookings: Booking[]) => {
     const uniqueRoomIds = Array.from(new Set(roomIds.filter((id): id is number => typeof id === 'number' && id > 0)));
+    const todayStr = new Date().toISOString().split('T')[0];
+
     for (const rId of uniqueRoomIds) {
         const room = rooms.find(r => r.id === rId);
         if (!room) continue;
 
-        // Strict whitelist: ONLY 'Confirmed' and 'Occupied' statuses count as occupied
-        const activeCount = currentBookings.filter(b => 
-            b.room_id === rId && 
-            (b.status === BookingStatus.CONFIRMED || b.status === BookingStatus.OCCUPIED || (b.status as string) === 'Confirmed' || (b.status as string) === 'Occupied')
-        ).length;
+        // Current occupancy today: ONLY bookings active today count towards occupied_slots
+        const activeCount = currentBookings.filter(b => {
+            if (b.room_id !== rId) return false;
+            const isConfirmedOrOccupied = b.status === BookingStatus.CONFIRMED || b.status === BookingStatus.OCCUPIED || (b.status as string) === 'Confirmed' || (b.status as string) === 'Occupied';
+            if (!isConfirmedOrOccupied) return false;
+            const bStart = (b.start_date || b.expected_arrival_date || (b.booked_at ? b.booked_at.split('T')[0] : '2000-01-01')).split('T')[0];
+            const bEnd = (b.end_date || b.payment_expiry_date || '2099-12-31').split('T')[0];
+            return bStart <= todayStr && bEnd >= todayStr;
+        }).length;
         const isNowAvailable = activeCount < (room.capacity || 1);
 
         const { error: roomErr } = await supabase
@@ -1420,6 +1442,38 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                 console.warn(`[Safeguard Auto-Correction] Booking room_id (${targetRoomId}) did not match bed_space #${targetBedSpaceId} parent room_id (${bedSpace.room_id}). Auto-aligning room_id to ${bedSpace.room_id}.`);
             }
             targetRoomId = bedSpace.room_id;
+        }
+
+        // Validate date-range availability against existing non-cancelled reservations
+        const reqStartDate = (newBooking.start_date || (newBooking as any).expected_arrival_date || new Date().toISOString().split('T')[0]).split('T')[0];
+        const reqEndDate = (newBooking.end_date || (newBooking as any).payment_expiry_date || '').split('T')[0];
+
+        if (reqStartDate && reqEndDate) {
+            let conflictQuery = supabase
+                .from('bookings')
+                .select('id, room_id, bed_space_id, start_date, end_date, expected_arrival_date, payment_expiry_date, status, full_name')
+                .not('status', 'in', '("Cancelled","Completed","Rejected","Discontinued")');
+
+            if (targetBedSpaceId) {
+                conflictQuery = conflictQuery.eq('bed_space_id', targetBedSpaceId);
+            } else if (targetRoomId) {
+                conflictQuery = conflictQuery.eq('room_id', targetRoomId);
+            }
+
+            const { data: existingSpaceBookings } = await conflictQuery;
+            const conflict = (existingSpaceBookings || []).find(b => {
+                const bStart = (b.start_date || b.expected_arrival_date || '').split('T')[0];
+                const bEnd = (b.end_date || b.payment_expiry_date || '2099-12-31').split('T')[0];
+                if (!bStart || !bEnd) return false;
+                // Overlap condition: reqStartDate < bEnd AND reqEndDate > bStart
+                return (reqStartDate < bEnd) && (reqEndDate > bStart);
+            });
+
+            if (conflict) {
+                const conflictStart = conflict.start_date || conflict.expected_arrival_date;
+                const conflictEnd = conflict.end_date || conflict.payment_expiry_date;
+                throw new Error(`This space is already reserved for the selected stay dates (${conflictStart} to ${conflictEnd}). Please choose different dates or select another available room/bed.`);
+            }
         }
 
         // Resolve student_id: prioritize explicit student_id, fallback to user_id or active user session
@@ -4054,6 +4108,55 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     });
   }, [rooms, roomOccupancyMap]);
 
+  // Check room or bed space availability for specific date range (avoids double-booking)
+  const checkSpaceAvailability = async (
+    roomId: number,
+    bedSpaceId: number | undefined,
+    startDate: string,
+    endDate: string,
+    excludeBookingId?: number
+  ): Promise<{ available: boolean; conflict?: any; message?: string }> => {
+    try {
+      const res = await fetch('/api/check-booking-availability', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ roomId, bedSpaceId, startDate, endDate, excludeBookingId })
+      });
+      if (res.ok) {
+        const json = await res.json();
+        return json;
+      }
+    } catch {
+      // Non-blocking fallback to local checking
+    }
+
+    const normStart = String(startDate).split('T')[0];
+    const normEnd = String(endDate).split('T')[0];
+    const conflict = effectiveOccupancyBookings.find(b => {
+      if (excludeBookingId && b.id === excludeBookingId) return false;
+      const spaceMatch = bedSpaceId ? b.bed_space_id === bedSpaceId : b.room_id === roomId;
+      if (!spaceMatch) return false;
+      const bBooking = b as Partial<Booking>;
+      const bStart = (b.start_date || bBooking.expected_arrival_date || '').split('T')[0];
+      const bEnd = (b.end_date || bBooking.payment_expiry_date || '2099-12-31').split('T')[0];
+      if (!bStart || !bEnd) return false;
+      return (normStart < bEnd) && (normEnd > bStart);
+    });
+
+    if (conflict) {
+      const cBooking = conflict as Partial<Booking>;
+      const cStart = conflict.start_date || cBooking.expected_arrival_date;
+      const cEnd = conflict.end_date || cBooking.payment_expiry_date;
+      return {
+        available: false,
+        conflict,
+        message: `This space is already reserved from ${cStart} to ${cEnd}.`
+      };
+    }
+
+    return { available: true, message: 'The space is available for the requested stay dates.' };
+  };
+
   const value = {
     language,
     setLanguage,
@@ -4075,6 +4178,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     updateBooking,
     extendBookingStay,
     deleteBooking,
+    checkSpaceAvailability,
     cmsContent,
     updateCmsContent,
     rooms: effectiveRooms,

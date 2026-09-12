@@ -415,11 +415,33 @@ export const findDatabaseRoomForSpace = (
 
 export interface ParsedRoomSpace extends RoomSpaceConfig {
   isOccupied: boolean;
+  isOccupiedToday: boolean;
+  isReserved?: boolean;
+  hasFutureBooking?: boolean;
+  isUnavailableForDates?: boolean;
+  overlappingBooking?: any;
   booking?: any;
+  currentBooking?: any;
+  futureBookings?: any[];
+  allBookings?: any[];
   dbRoom?: any;
   supabaseRoom?: any;
   nextAvailableDate: string;
 }
+
+export const isDateRangeOverlapping = (
+  startA?: string | null,
+  endA?: string | null,
+  startB?: string | null,
+  endB?: string | null
+): boolean => {
+  if (!startA || !endA || !startB || !endB) return false;
+  const sA = String(startA).split('T')[0];
+  const eA = String(endA).split('T')[0];
+  const sB = String(startB).split('T')[0];
+  const eB = String(endB).split('T')[0];
+  return sA < eB && eA > sB;
+};
 
 export const getDynamicRoomSpaces = (
   rooms: any[] = [], 
@@ -536,11 +558,21 @@ export const getDynamicRoomSpaces = (
   return uniqueSpaces.length > 0 ? uniqueSpaces : ALL_ROOM_SPACES;
 };
 
+export interface RoomSpaceEvaluationOptions {
+  includeInactive?: boolean;
+  targetDate?: string;
+  targetStartDate?: string;
+  targetEndDate?: string;
+  startDate?: string;
+  endDate?: string;
+  extendingBookingId?: number;
+}
+
 export const getParsedRoomSpaces = (
   rooms: any[], 
   bookings: any[], 
   bedSpaces?: any[],
-  options?: { includeInactive?: boolean },
+  options?: RoomSpaceEvaluationOptions,
   knownCategories?: { id: string; name: string; code?: string }[] | string[]
 ): ParsedRoomSpace[] => {
   const isCancelledOrCompleted = (status?: string) => {
@@ -561,8 +593,14 @@ export const getParsedRoomSpaces = (
     return !isCancelledOrCompleted(b.status);
   });
 
-  // Map to hold space assignments: space.id -> booking
-  const spaceBookingMap = new Map<string, any>();
+  // Map to hold space assignments: space.id -> array of bookings for this space
+  const spaceBookingsMap = new Map<string, any[]>();
+  const addBookingToSpace = (spaceId: string, b: any) => {
+    const list = spaceBookingsMap.get(spaceId) || [];
+    list.push(b);
+    spaceBookingsMap.set(spaceId, list);
+  };
+
   const unassignedBookings: { booking: any; details: LiveRoomDetails }[] = [];
 
   // Pass 0: Direct bed_space_id matching if bed_space_id exists on booking / public occupancy
@@ -580,17 +618,17 @@ export const getParsedRoomSpaces = (
         return (space.bedSpaceId && space.bedSpaceId === b.bed_space_id) || BED_SPACE_TO_ID_MAP[space.id] === b.bed_space_id;
       });
 
-      if (matchedSpace && !spaceBookingMap.has(matchedSpace.id)) {
-        spaceBookingMap.set(matchedSpace.id, b);
+      if (matchedSpace) {
+        addBookingToSpace(matchedSpace.id, b);
         continue;
       }
     } else if (b.room_id != null) {
       // If only room_id is present and it is a Private room
       const privateRoomSpace = spacesList.find(space => {
-        return space.roomId === b.room_id && space.type === 'Private' && !spaceBookingMap.has(space.id);
+        return space.roomId === b.room_id && space.type === 'Private';
       });
       if (privateRoomSpace) {
-        spaceBookingMap.set(privateRoomSpace.id, b);
+        addBookingToSpace(privateRoomSpace.id, b);
         continue;
       }
     }
@@ -610,40 +648,98 @@ export const getParsedRoomSpaces = (
       return matchCat && matchRoom && matchBed;
     });
 
-    if (exactMatch && !spaceBookingMap.has(exactMatch.id)) {
-      spaceBookingMap.set(exactMatch.id, b);
+    if (exactMatch) {
+      addBookingToSpace(exactMatch.id, b);
     } else {
       unassignedBookings.push({ booking: b, details });
     }
   }
 
-  // Pass 2: If there are unassigned bookings (e.g. only category was specified), assign them to the first available space in that category
+  // Pass 2: If there are unassigned bookings (e.g. only category was specified), assign them to a space in that category
   for (const { booking, details } of unassignedBookings) {
+    const bStart = (booking.start_date || booking.expected_arrival_date || (booking.booked_at ? booking.booked_at.split('T')[0] : '2000-01-01')).split('T')[0];
+    const bEnd = (booking.end_date || booking.payment_expiry_date || '2099-12-31').split('T')[0];
+
+    // Find a space that has no overlapping bookings for this unassigned booking's dates
     const availableSpace = spacesList.find(space => {
-      if (spaceBookingMap.has(space.id)) return false;
       const matchCat = space.category.toLowerCase().replace(/\s+/g, "") === details.category.toLowerCase().replace(/\s+/g, "");
       const isPrivateBooking = String(details.fullDisplay || booking.preferred_accommodation || "").toLowerCase().includes("private");
       const matchType = (space.type === "Private") === isPrivateBooking;
-      return matchCat && matchType;
+      if (!matchCat || !matchType) return false;
+
+      const currentAssigned = spaceBookingsMap.get(space.id) || [];
+      const hasConflict = currentAssigned.some(existing => {
+        const eStart = (existing.start_date || existing.expected_arrival_date || (existing.booked_at ? existing.booked_at.split('T')[0] : '2000-01-01')).split('T')[0];
+        const eEnd = (existing.end_date || existing.payment_expiry_date || '2099-12-31').split('T')[0];
+        return isDateRangeOverlapping(bStart, bEnd, eStart, eEnd);
+      });
+      return !hasConflict;
     }) || spacesList.find(space => {
-      if (spaceBookingMap.has(space.id)) return false;
-      return space.category.toLowerCase().replace(/\s+/g, "") === details.category.toLowerCase().replace(/\s+/g, "");
+      const matchCat = space.category.toLowerCase().replace(/\s+/g, "") === details.category.toLowerCase().replace(/\s+/g, "");
+      return matchCat;
     });
 
     if (availableSpace) {
-      spaceBookingMap.set(availableSpace.id, booking);
+      addBookingToSpace(availableSpace.id, booking);
     }
   }
 
+  const todayStr = (options?.targetDate || new Date().toISOString().split('T')[0]).split('T')[0];
+  const reqStart = (options?.targetStartDate || options?.startDate) ? (options.targetStartDate || options.startDate)!.split('T')[0] : undefined;
+  const reqEnd = (options?.targetEndDate || options?.endDate) ? (options.targetEndDate || options.endDate)!.split('T')[0] : undefined;
+  const extendingId = options?.extendingBookingId;
+
   return spacesList.map(space => {
     const dbRoom = space.roomId ? (rooms || []).find(r => r.id === space.roomId) : findDatabaseRoomForSpace(rooms || [], space, knownCategories);
-    const assignedBooking = spaceBookingMap.get(space.id);
-    const isOccupied = !!assignedBooking;
+    const spaceBookings = spaceBookingsMap.get(space.id) || [];
+
+    // Find booking occupying space TODAY
+    const currentBooking = spaceBookings.find(b => {
+      const bStart = (b.start_date || b.expected_arrival_date || (b.booked_at ? b.booked_at.split('T')[0] : '2000-01-01')).split('T')[0];
+      const bEnd = (b.end_date || b.payment_expiry_date || '2099-12-31').split('T')[0];
+      return bStart <= todayStr && bEnd >= todayStr;
+    });
+    const isOccupiedToday = !!currentBooking;
+
+    // Find future bookings starting after today
+    const futureBookings = spaceBookings.filter(b => {
+      const bStart = (b.start_date || b.expected_arrival_date || (b.booked_at ? b.booked_at.split('T')[0] : '2000-01-01')).split('T')[0];
+      return bStart > todayStr;
+    }).sort((a, b) => {
+      const sA = (a.start_date || a.expected_arrival_date || '').split('T')[0];
+      const sB = (b.start_date || b.expected_arrival_date || '').split('T')[0];
+      return sA.localeCompare(sB);
+    });
+
+    const hasFutureBooking = futureBookings.length > 0;
+
+    // Evaluate date-range availability if requested
+    let isUnavailableForDates = false;
+    let overlappingBooking: any = null;
+
+    if (reqStart && reqEnd) {
+      overlappingBooking = spaceBookings.find(b => {
+        if (extendingId && b.id === extendingId) return false;
+        const bStart = (b.start_date || b.expected_arrival_date || (b.booked_at ? b.booked_at.split('T')[0] : '2000-01-01')).split('T')[0];
+        const bEnd = (b.end_date || b.payment_expiry_date || '2099-12-31').split('T')[0];
+        return isDateRangeOverlapping(reqStart, reqEnd, bStart, bEnd);
+      }) || null;
+
+      isUnavailableForDates = !!overlappingBooking;
+    }
+
+    // Determine isOccupied: if evaluating specific dates, use date unavailability; else use current occupancy today
+    const isOccupied = (reqStart && reqEnd) ? isUnavailableForDates : isOccupiedToday;
+
+    // Assigned booking representation for backwards compatibility
+    const assignedBooking = (reqStart && reqEnd && overlappingBooking)
+      ? overlappingBooking
+      : (currentBooking || (futureBookings.length > 0 ? futureBookings[0] : (spaceBookings[0] || null)));
 
     let nextAvailableDate = "Available Now";
 
-    if (isOccupied && assignedBooking) {
-      const rawDate = assignedBooking.end_date || assignedBooking.payment_expiry_date;
+    if (isOccupiedToday && currentBooking) {
+      const rawDate = currentBooking.end_date || currentBooking.payment_expiry_date;
       if (rawDate) {
         try {
           const d = new Date(rawDate);
@@ -658,12 +754,34 @@ export const getParsedRoomSpaces = (
       } else {
         nextAvailableDate = "Occupied";
       }
+    } else if (hasFutureBooking) {
+      const earliestFuture = futureBookings[0];
+      const rawDate = earliestFuture.start_date || earliestFuture.expected_arrival_date;
+      if (rawDate) {
+        try {
+          const d = new Date(rawDate);
+          const dateStr = !isNaN(d.getTime())
+            ? d.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })
+            : rawDate;
+          nextAvailableDate = `Available Now (Reserved from ${dateStr})`;
+        } catch (e) {
+          nextAvailableDate = `Available Now (Reserved from ${rawDate})`;
+        }
+      }
     }
 
     return {
       ...space,
       isOccupied,
+      isOccupiedToday,
+      isReserved: hasFutureBooking,
+      hasFutureBooking,
+      isUnavailableForDates,
+      overlappingBooking,
       booking: assignedBooking,
+      currentBooking,
+      futureBookings,
+      allBookings: spaceBookings,
       dbRoom,
       supabaseRoom: dbRoom,
       nextAvailableDate

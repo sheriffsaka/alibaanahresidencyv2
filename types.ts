@@ -43,10 +43,13 @@ export interface BedSpace {
 }
 
 export interface PublicOccupancy {
+  id?: number;
   room_id: number;
   bed_space_id: number | null;
   is_held: boolean;
+  start_date?: string | null;
   end_date: string | null;
+  status?: string | null;
   preferred_accommodation?: string | null;
 }
 
@@ -465,6 +468,7 @@ export interface AppContextType {
   updateBooking: (id: number, updates: Partial<Booking>) => Promise<{ success: boolean; error?: string }>;
   extendBookingStay: (bookingId: number, additionalMonths: number, options?: { customNotes?: string }) => Promise<{ success: boolean; error?: string; updatedBooking?: Booking }>;
   deleteBooking: (id: number) => Promise<{ success: boolean; error?: string }>;
+  checkSpaceAvailability?: (roomId: number, bedSpaceId: number | undefined, startDate: string, endDate: string, excludeBookingId?: number) => Promise<{ available: boolean; conflict?: any; message?: string }>;
   cmsContent: CmsContent;
   updateCmsContent: (content: Partial<CmsContent>) => Promise<{ success: boolean; error?: string }>;
   rooms: Room[];

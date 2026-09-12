@@ -575,6 +575,164 @@ async function startServer() {
     }
   });
 
+  // Server-side endpoint: Real-time public occupancy with start_date & end_date awareness
+  // Evaluates current occupancy (today) vs future reservations, and auto-activates bookings on start_date
+  app.get("/api/public-occupancy", async (req, res) => {
+    try {
+      const supabaseUrl = process.env.VITE_SUPABASE_URL;
+      const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_ANON_KEY;
+
+      if (!supabaseUrl || !serviceRoleKey) {
+        return res.status(500).json({ success: false, error: "Database configuration missing." });
+      }
+
+      const client = createClient(supabaseUrl, serviceRoleKey, {
+        auth: { persistSession: false, autoRefreshToken: false }
+      });
+
+      const todayStr = new Date().toISOString().split('T')[0];
+
+      // Fetch all active bookings
+      const { data: rawBookings, error: fetchErr } = await client
+        .from('bookings')
+        .select('id, room_id, bed_space_id, start_date, end_date, expected_arrival_date, payment_expiry_date, status, preferred_accommodation, booked_at')
+        .not('status', 'in', '("Cancelled","Completed","Rejected","Discontinued")');
+
+      if (fetchErr) {
+        console.error("[Public Occupancy API] Error fetching bookings:", fetchErr.message);
+        return res.status(500).json({ success: false, error: fetchErr.message });
+      }
+
+      const bookings = rawBookings || [];
+
+      // Auto-transition logic: On the arrival/start date, Confirmed bookings become Occupied
+      const toActivate: number[] = [];
+      for (const b of bookings) {
+        const bStart = (b.start_date || b.expected_arrival_date || (b.booked_at ? b.booked_at.split('T')[0] : '')).split('T')[0];
+        const bEnd = (b.end_date || b.payment_expiry_date || '2099-12-31').split('T')[0];
+        if (b.status === 'Confirmed' && bStart && bStart <= todayStr && bEnd >= todayStr) {
+          toActivate.push(b.id);
+          b.status = 'Occupied';
+        }
+      }
+
+      if (toActivate.length > 0) {
+        // Asynchronously update in DB
+        client
+          .from('bookings')
+          .update({ status: 'Occupied' })
+          .in('id', toActivate)
+          .then(({ error }) => {
+            if (error) console.warn("[Public Occupancy API] Notice on auto-activating bookings:", error.message);
+            else console.log(`[Public Occupancy API] Auto-activated ${toActivate.length} booking(s) to Occupied.`);
+          });
+      }
+
+      // Map to safe public occupancy records (no student PII)
+      const publicOccupancy = bookings.map(b => ({
+        id: b.id,
+        room_id: b.room_id,
+        bed_space_id: b.bed_space_id,
+        start_date: b.start_date || b.expected_arrival_date || null,
+        end_date: b.end_date || b.payment_expiry_date || null,
+        status: b.status,
+        preferred_accommodation: b.preferred_accommodation,
+        is_held: true
+      }));
+
+      return res.json({
+        success: true,
+        today: todayStr,
+        occupancy: publicOccupancy
+      });
+    } catch (err: any) {
+      console.error("[Public Occupancy API Exception]", err);
+      return res.status(500).json({ success: false, error: err.message });
+    }
+  });
+
+  // Server-side endpoint: Check bed/room availability for specific date range
+  app.post("/api/check-booking-availability", async (req, res) => {
+    try {
+      const { roomId, bedSpaceId, startDate, endDate, excludeBookingId } = req.body;
+
+      if (!startDate || !endDate) {
+        return res.status(400).json({ success: false, error: "startDate and endDate are required." });
+      }
+
+      const supabaseUrl = process.env.VITE_SUPABASE_URL;
+      const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_ANON_KEY;
+
+      if (!supabaseUrl || !serviceRoleKey) {
+        return res.status(500).json({ success: false, error: "Database configuration missing." });
+      }
+
+      const client = createClient(supabaseUrl, serviceRoleKey, {
+        auth: { persistSession: false, autoRefreshToken: false }
+      });
+
+      const normStart = String(startDate).split('T')[0];
+      const normEnd = String(endDate).split('T')[0];
+
+      if (normStart >= normEnd) {
+        return res.status(400).json({ success: false, error: "Start date must be before end date." });
+      }
+
+      let query = client
+        .from('bookings')
+        .select('id, room_id, bed_space_id, start_date, end_date, expected_arrival_date, payment_expiry_date, status, full_name')
+        .not('status', 'in', '("Cancelled","Completed","Rejected","Discontinued")');
+
+      if (bedSpaceId) {
+        query = query.eq('bed_space_id', Number(bedSpaceId));
+      } else if (roomId) {
+        query = query.eq('room_id', Number(roomId));
+      }
+
+      if (excludeBookingId) {
+        query = query.neq('id', Number(excludeBookingId));
+      }
+
+      const { data: existingBookings, error: fetchErr } = await query;
+
+      if (fetchErr) {
+        return res.status(500).json({ success: false, error: fetchErr.message });
+      }
+
+      const conflicts = (existingBookings || []).filter(b => {
+        const bStart = (b.start_date || b.expected_arrival_date || '').split('T')[0];
+        const bEnd = (b.end_date || b.payment_expiry_date || '2099-12-31').split('T')[0];
+        if (!bStart || !bEnd) return false;
+        // Overlap formula: (startA < endB) && (endA > startB)
+        return (normStart < bEnd) && (normEnd > bStart);
+      });
+
+      if (conflicts.length > 0) {
+        const firstConflict = conflicts[0];
+        const cStart = firstConflict.start_date || firstConflict.expected_arrival_date;
+        const cEnd = firstConflict.end_date || firstConflict.payment_expiry_date;
+        return res.json({
+          available: false,
+          conflict: {
+            id: firstConflict.id,
+            start_date: cStart,
+            end_date: cEnd,
+            status: firstConflict.status
+          },
+          message: `This space is already reserved from ${cStart} to ${cEnd}.`
+        });
+      }
+
+      return res.json({
+        available: true,
+        message: "The space is available for the requested stay dates."
+      });
+    } catch (err: any) {
+      console.error("[Check Availability API Exception]", err);
+      return res.status(500).json({ success: false, error: err.message });
+    }
+  });
+
   // Vite middleware in development; Static serving in production
   if (process.env.NODE_ENV !== "production") {
     const vite = await createViteServer({

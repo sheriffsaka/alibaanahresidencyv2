@@ -39,7 +39,8 @@ export const AdminCreateBookingModal: React.FC<AdminCreateBookingModalProps> = (
     sendStudentActivationEmail,
     parsedRoomSpaces,
     accommodationCategories,
-    roomPricing
+    roomPricing,
+    checkSpaceAvailability
   } = useApp();
 
   // Mode: 'existing' (search & select registered student) or 'new' (unregistered student)
@@ -373,17 +374,16 @@ export const AdminCreateBookingModal: React.FC<AdminCreateBookingModalProps> = (
     setIsSubmitting(true);
 
     try {
-      // Live validation: Double check bed space is not already booked in database
-      if (bedSpaceIdToAssign) {
-        const { data: conflictingBookings, error: conflictErr } = await supabase
-          .from('bookings')
-          .select('id, full_name, status, start_date, end_date')
-          .eq('bed_space_id', bedSpaceIdToAssign)
-          .in('status', ['Confirmed', 'Occupied']);
-
-        if (!conflictErr && conflictingBookings && conflictingBookings.length > 0) {
-          const conflicting = conflictingBookings[0];
-          setErrorMessage(`This bed space is currently occupied in the database by ${conflicting.full_name || 'another student'}. Please select an available bed space.`);
+      // Live validation: Check date-range availability to prevent overlapping reservations (Requirement 5)
+      if (checkSpaceAvailability && (bedSpaceIdToAssign || finalRoomId)) {
+        const availRes = await checkSpaceAvailability(
+          finalRoomId,
+          bedSpaceIdToAssign,
+          arrivalDate,
+          calculatedExpiryDate
+        );
+        if (!availRes.available) {
+          setErrorMessage(availRes.message || 'This bed space is already reserved for the selected date range.');
           setIsSubmitting(false);
           return;
         }

@@ -71,7 +71,7 @@ export const CATEGORY_MEDIA: Record<string, {
 
 const MultiStepBookingForm: React.FC = () => {
   const t = useTranslation();
-  const { user, setPage, addBooking, updateBooking, extendBookingStay, addActivity, rooms, bedSpaces, bookings, effectiveOccupancyBookings, extendingBooking, landlordDetails, cmsContent, accommodationAddresses, language, contractTranslations, accommodationCategories, roomPricing } = useApp();
+  const { user, setPage, addBooking, updateBooking, extendBookingStay, addActivity, rooms, bedSpaces, bookings, effectiveOccupancyBookings, extendingBooking, landlordDetails, cmsContent, accommodationAddresses, language, contractTranslations, accommodationCategories, roomPricing, checkSpaceAvailability } = useApp();
 
   const availableCategories = useMemo(() => {
     if (accommodationCategories && accommodationCategories.length > 0) {
@@ -81,10 +81,48 @@ const MultiStepBookingForm: React.FC = () => {
     return ['Premium 1', 'Premium 2', 'Premium 3'];
   }, [accommodationCategories]);
 
+  const [step, setStep] = useState(1);
+  const [formData, setFormData] = useState({
+    category: 'Premium 1' as string,
+    selectedRoomId: 'p1_r1_a', // default to first option
+    roomName: 'Room 1',
+    bedSpaceName: 'Bed A',
+    roomType: 'Shared' as 'Shared' | 'Private',
+    duration: '2', // default to 2 months
+    fullName: '',
+    nationality: '',
+    passportNumber: '',
+    homeAddress: '',
+    whatsappNumber: '',
+    email: '',
+    arrivalDate: '',
+  });
+
+  // Target stay range based on selected arrival date and duration
+  const targetStayRange = useMemo(() => {
+    if (!formData.arrivalDate) return undefined;
+    const months = parseInt(formData.duration || '2', 10) || 2;
+    const end = calculateExtendedExpiryDate(formData.arrivalDate, months);
+    return {
+      startDate: formData.arrivalDate,
+      endDate: end
+    };
+  }, [formData.arrivalDate, formData.duration]);
+
   const parsedAvailabilityData = useMemo(() => {
     // Exclude inactive rooms from student booking options
-    return getParsedRoomSpaces(rooms, effectiveOccupancyBookings, bedSpaces, { includeInactive: false }, accommodationCategories);
-  }, [effectiveOccupancyBookings, rooms, bedSpaces, accommodationCategories]);
+    return getParsedRoomSpaces(
+      rooms, 
+      effectiveOccupancyBookings, 
+      bedSpaces, 
+      { 
+        includeInactive: false,
+        startDate: targetStayRange?.startDate,
+        endDate: targetStayRange?.endDate
+      }, 
+      accommodationCategories
+    );
+  }, [effectiveOccupancyBookings, rooms, bedSpaces, accommodationCategories, targetStayRange]);
 
   const accommodationsSelection = useMemo(() => {
     const map: Record<string, Array<{ id: string; room: string; space: string; type: 'Shared' | 'Private'; label: string }>> = {};
@@ -120,23 +158,6 @@ const MultiStepBookingForm: React.FC = () => {
 
     return map;
   }, [parsedAvailabilityData, availableCategories]);
-  
-  const [step, setStep] = useState(1);
-  const [formData, setFormData] = useState({
-    category: 'Premium 1' as string,
-    selectedRoomId: 'p1_r1_a', // default to first option
-    roomName: 'Room 1',
-    bedSpaceName: 'Bed A',
-    roomType: 'Shared' as 'Shared' | 'Private',
-    duration: '2', // default to 2 months
-    fullName: '',
-    nationality: '',
-    passportNumber: '',
-    homeAddress: '',
-    whatsappNumber: '',
-    email: '',
-    arrivalDate: '',
-  });
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -269,6 +290,24 @@ const MultiStepBookingForm: React.FC = () => {
     const bookingForSpace = spaceConfig?.booking;
     return isOccupied && (!extendingBooking || bookingForSpace?.id !== extendingBooking.id);
   }, [parsedAvailabilityData, formData.selectedRoomId, extendingBooking]);
+
+  // Overlap conflict information for the selected space and date range
+  const selectedSpaceConflict = useMemo(() => {
+    if (!formData.arrivalDate) return null;
+    const currentSpace = parsedAvailabilityData.find(s => s.id === formData.selectedRoomId);
+    if (!currentSpace) return null;
+    if (currentSpace.isOccupied && (!extendingBooking || currentSpace.booking?.id !== extendingBooking.id)) {
+      const conflictBooking = currentSpace.overlappingBooking || currentSpace.booking;
+      const cStart = conflictBooking?.start_date || conflictBooking?.expected_arrival_date || 'N/A';
+      const cEnd = conflictBooking?.end_date || conflictBooking?.payment_expiry_date || 'N/A';
+      return {
+        start: cStart,
+        end: cEnd,
+        space: currentSpace.displayName
+      };
+    }
+    return null;
+  }, [formData.arrivalDate, formData.selectedRoomId, parsedAvailabilityData, extendingBooking]);
 
   // Pre-select first available room on load or update if current selected is occupied
   useEffect(() => {
@@ -449,6 +488,19 @@ const MultiStepBookingForm: React.FC = () => {
       const preferredAccommodation: AccommodationType = isPremium
         ? (isPrivate ? AccommodationType.PREMIUM_PRIVATE : AccommodationType.PREMIUM_SHARED)
         : (isPrivate ? AccommodationType.STANDARD_PRIVATE : AccommodationType.STANDARD_SHARED);
+
+      // Verify no date-range overlap before inserting (Requirement 5)
+      if (checkSpaceAvailability) {
+        const checkRes = await checkSpaceAvailability(
+          chosenRoomId,
+          chosenBedSpaceId,
+          startDate,
+          endDate
+        );
+        if (!checkRes.available) {
+          throw new Error(checkRes.message || 'The selected space is already reserved for your requested stay dates.');
+        }
+      }
 
       const newBookingPayload: Omit<Booking, 'id' | 'created_at'> = {
         student_id: user ? user.id : undefined,
@@ -641,6 +693,45 @@ const MultiStepBookingForm: React.FC = () => {
                 </span>
               </div>
 
+              {/* Optional Date-Range Filter / Move-in Preview */}
+              {!isExtension && (
+                <div className="p-3.5 bg-gray-50 dark:bg-gray-900/60 border border-gray-200 dark:border-gray-700 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-start">
+                  <div className="flex items-center gap-2">
+                    <span className="text-base">📅</span>
+                    <div>
+                      <p className="text-xs font-bold text-gray-900 dark:text-white">Check Availability for Expected Move-in</p>
+                      <p className="text-[11px] text-gray-500 dark:text-gray-400">
+                        {formData.arrivalDate 
+                          ? `Checking availability from ${formData.arrivalDate} for ${formData.duration} months (ends ${targetStayRange?.endDate || ''})`
+                          : 'Currently showing today’s occupancy. Pick your arrival date to preview future availability.'}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="date"
+                      min={todayStr}
+                      value={formData.arrivalDate}
+                      onChange={(e) => {
+                        setFormData(prev => ({ ...prev, arrivalDate: e.target.value }));
+                        setError(null);
+                      }}
+                      className="text-xs p-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white font-medium"
+                      placeholder="Arrival date"
+                    />
+                    {formData.arrivalDate && (
+                      <button
+                        type="button"
+                        onClick={() => setFormData(prev => ({ ...prev, arrivalDate: '' }))}
+                        className="text-[11px] text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 px-2.5 py-1.5 bg-gray-200 dark:bg-gray-700 rounded-lg font-bold"
+                      >
+                        Clear
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )}
+
               {areAllSpacesInSelectedCategoryOccupied && (
                 <div className="p-4 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800/60 rounded-xl text-amber-800 dark:text-amber-400 text-xs font-medium flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                   <div className="flex items-center gap-2.5 text-start">
@@ -689,17 +780,21 @@ const MultiStepBookingForm: React.FC = () => {
                         <div>
                           <span className="block font-bold text-sm text-gray-900 dark:text-white">{item.room}</span>
                           <span className="text-xs text-gray-400 block mt-0.5 font-medium">{item.type} room ({item.space})</span>
-                          <div className="mt-2 flex items-center gap-1.5">
+                          <div className="mt-2 flex flex-wrap items-center gap-1.5">
                             <span className="text-[9px] uppercase font-bold text-gray-400">{t.step1_available_prefix || "Available:"}</span>
                             <span className={`text-[9px] font-black uppercase px-1.5 py-0.5 rounded ${
                               isSpaceOccupied
                                 ? 'bg-red-50 text-red-700 dark:bg-red-950/20 dark:text-red-400'
+                                : spaceConfig?.hasFutureBooking && spaceConfig.futureBookings && spaceConfig.futureBookings.length > 0
+                                ? 'bg-blue-50 text-blue-700 dark:bg-blue-950/20 dark:text-blue-400'
                                 : finalAvailDate === 'Available Now'
                                 ? 'bg-green-50 text-green-700 dark:bg-green-950/20 dark:text-green-400'
                                 : 'bg-amber-50 text-amber-700 dark:bg-amber-950/20 dark:text-amber-400'
                             }`}>
                               {isSpaceOccupied
-                                ? (finalAvailDate === 'Available Now' ? (t.step1_status_fully_booked || 'Fully Booked') : ((t.step1_status_fully_booked_next || 'Fully Booked (Next: {date})').replace('{date}', finalAvailDate)))
+                                ? (formData.arrivalDate ? 'Booked for dates' : (finalAvailDate === 'Available Now' ? (t.step1_status_fully_booked || 'Fully Booked') : ((t.step1_status_fully_booked_next || 'Fully Booked (Next: {date})').replace('{date}', finalAvailDate))))
+                                : spaceConfig?.hasFutureBooking && spaceConfig.futureBookings && spaceConfig.futureBookings.length > 0
+                                ? `Available (Reserved from ${spaceConfig.futureBookings[0].start_date || spaceConfig.futureBookings[0].expected_arrival_date || 'Future'})`
                                 : (finalAvailDate === 'Available Now' ? (t.step1_status_available_now || 'Available Now') : finalAvailDate)
                               }
                             </span>
@@ -711,7 +806,9 @@ const MultiStepBookingForm: React.FC = () => {
                           </div>
                         )}
                         {isSpaceOccupied && (
-                          <span className="text-[10px] text-red-600 font-black uppercase tracking-wider">{t.step1_status_booked || "Booked"}</span>
+                          <span className="text-[10px] text-red-600 font-black uppercase tracking-wider">
+                            {formData.arrivalDate ? 'Reserved' : (t.step1_status_booked || "Booked")}
+                          </span>
                         )}
                       </div>
 
@@ -1030,6 +1127,18 @@ const MultiStepBookingForm: React.FC = () => {
               <div className="md:col-span-2">
                 <InputField label={t.step3_label_home_address || "Home Address (Original residency home address before Egypt)"} value={formData.homeAddress} onChange={(e: any) => setFormData({...formData, homeAddress: e.target.value})} placeholder={t.step3_placeholder_home_address || "e.g. 104 Baker Street, London, UK"} />
               </div>
+
+              {selectedSpaceConflict && (
+                <div className="md:col-span-2 p-4 bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800/60 rounded-xl text-red-700 dark:text-red-300 text-xs flex items-start gap-2.5 animate-shake">
+                  <IconAlertTriangle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
+                  <div>
+                    <p className="font-bold text-sm">Space Reservation Conflict</p>
+                    <p className="mt-1 leading-relaxed">
+                      <strong>{selectedSpaceConflict.space}</strong> is already reserved for stay dates overlapping your requested arrival ({selectedSpaceConflict.start} to {selectedSpaceConflict.end}). Please select an earlier move-in date or return to Step 1 to choose an available room/bed space.
+                    </p>
+                  </div>
+                </div>
+              )}
             </div>
 
             <div className="flex justify-between pt-6 border-t border-gray-100 dark:border-gray-800">
@@ -1037,7 +1146,7 @@ const MultiStepBookingForm: React.FC = () => {
                 <IconChevronLeft className="w-4 h-4 rtl:rotate-180" /> <span>{t.step3_btn_back || "Back to stay options"}</span>
               </button>
               <button
-                disabled={!formData.fullName || !formData.nationality || !formData.passportNumber || !formData.arrivalDate || !formData.email}
+                disabled={!formData.fullName || !formData.nationality || !formData.passportNumber || !formData.arrivalDate || !formData.email || !!selectedSpaceConflict}
                 onClick={nextStep}
                 className="flex items-center gap-2 bg-brand-600 disabled:opacity-50 hover:bg-brand-700 text-white px-8 py-3.5 rounded-xl font-bold transition-all shadow-md active:scale-95"
               >

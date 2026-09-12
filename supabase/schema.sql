@@ -405,10 +405,13 @@ CREATE POLICY "Staff and owners can view payment proof" ON storage.objects FOR S
 -- Create a secure, read-only public occupancy RPC function
 CREATE OR REPLACE FUNCTION public.get_public_occupancy()
 RETURNS TABLE (
+    id INT,
     room_id INT,
     bed_space_id INT,
     is_held BOOLEAN,
+    start_date DATE,
     end_date DATE,
+    status TEXT,
     preferred_accommodation accommodation_type
 ) 
 LANGUAGE sql 
@@ -416,6 +419,7 @@ SECURITY DEFINER
 SET search_path = public
 AS $$
     SELECT 
+        b.id,
         b.room_id,
         b.bed_space_id,
         (b.status IN (
@@ -426,10 +430,12 @@ AS $$
             'Confirmed',
             'Occupied'
         )) AS is_held,
+        b.start_date,
         b.end_date,
+        b.status::text,
         b.preferred_accommodation
     FROM bookings b
-    WHERE b.status NOT IN ('Cancelled', 'Completed', 'Maintenance');
+    WHERE b.status NOT IN ('Cancelled', 'Completed', 'Maintenance', 'Rejected', 'Discontinued');
 $$;
 
 -- Grant execution permissions to both anonymous visitors and authenticated students

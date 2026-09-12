@@ -2,7 +2,7 @@ import React, { useState, useMemo, ChangeEvent } from 'react';
 import { useTranslation } from '../hooks/useTranslation';
 import { useApp } from '../hooks/useApp';
 import { Booking, BookingStatus, Room, AccommodationType, User, Language, DEFAULT_CATEGORY_MEDIA, CategoryMediaItem, CategoryMediaConfig } from '../types';
-import { IconEdit, IconClose, IconBuilding, IconCheckCircle, IconPlus, IconTrash, IconUpload, IconFile } from '../components/Icon';
+import { IconEdit, IconClose, IconBuilding, IconCheckCircle, IconPlus, IconTrash, IconUpload, IconFile, IconCalendar } from '../components/Icon';
 import BookingStatusBadge from '../components/BookingStatusBadge';
 import RoomEditorModal from '../components/RoomEditorModal';
 import AdminCreateBookingModal from '../components/AdminCreateBookingModal';
@@ -12,6 +12,7 @@ import { sendEmail, getApprovalEmailTemplate } from '../lib/email';
 import AgreementModal from '../components/AgreementModal';
 import UserEditorModal from '../components/UserEditorModal';
 import EditBookingModal from '../components/EditBookingModal';
+import { ExtendStayModal } from '../components/ExtendStayModal';
 import { formatStoredRoomString, getDisplayFromRoom, getParsedRoomSpaces, getAccommodationAddress, getLiveStudentRoomDetails, normalizeCategory } from '../lib/roomNaming';
 
 // Restructured Admin Components
@@ -358,6 +359,7 @@ const AdminDashboardPage: React.FC = () => {
   const [togglingRoomId, setTogglingRoomId] = useState<number | null>(null);
 
   const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
+  const [selectedBookingForExtend, setSelectedBookingForExtend] = useState<Booking | null>(null);
   const [selectedProof, setSelectedProof] = useState<string | null>(null);
   const [roomFilter, setRoomFilter] = useState<'all' | 'occupied' | 'available'>('all');
   const [roomCategoryFilter, setRoomCategoryFilter] = useState<string>('all');
@@ -1397,9 +1399,17 @@ const AdminDashboardPage: React.FC = () => {
                                         </td>
                                         <td className="px-6 py-4">
                                            <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 text-xs rounded-full font-bold ${
-                                              space.isOccupied ? 'bg-amber-100 text-amber-800' : 'bg-emerald-100 text-emerald-800'
+                                              space.isOccupied 
+                                                ? 'bg-amber-100 text-amber-800' 
+                                                : space.hasFutureBooking
+                                                ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300'
+                                                : 'bg-emerald-100 text-emerald-800'
                                            }`}>
-                                              {space.isOccupied ? 'Occupied' : 'Vacant / Available'}
+                                              {space.isOccupied 
+                                                ? 'Occupied' 
+                                                : space.hasFutureBooking
+                                                ? `Reserved (${space.futureBookings[0]?.start_date || space.futureBookings[0]?.expected_arrival_date || 'Future'})`
+                                                : 'Vacant / Available'}
                                            </span>
                                         </td>
                                         <td className="px-6 py-4">
@@ -1408,6 +1418,15 @@ const AdminDashboardPage: React.FC = () => {
                                                  <p className="font-bold text-gray-900 dark:text-white">{space.booking.full_name}</p>
                                                  <p className="text-[10px] text-gray-500 font-mono">{space.booking.email}</p>
                                               </div>
+                                           ) : space.hasFutureBooking && space.futureBookings && space.futureBookings.length > 0 ? (
+                                              <div className="text-xs">
+                                                 <p className="font-semibold text-blue-700 dark:text-blue-400">
+                                                    Upcoming: {space.futureBookings[0].full_name || space.futureBookings[0].student_name}
+                                                 </p>
+                                                 <p className="text-[10px] text-gray-500">
+                                                    From {space.futureBookings[0].start_date || space.futureBookings[0].expected_arrival_date}
+                                                 </p>
+                                              </div>
                                            ) : (
                                               <span className="text-xs text-gray-400 italic">None</span>
                                            )}
@@ -1415,12 +1434,21 @@ const AdminDashboardPage: React.FC = () => {
                                         <td className="px-6 py-4">
                                            <div className="flex gap-2">
                                               {space.booking ? (
-                                                 <button 
-                                                    onClick={() => setSelectedBooking(space.booking)} 
-                                                    className="bg-brand-600 hover:bg-brand-700 text-white text-xs font-bold px-3 py-1.5 rounded-lg shadow-sm flex items-center gap-1.5"
-                                                 >
-                                                    <IconEdit className="w-3.5 h-3.5" /> Edit Booking
-                                                 </button>
+                                                 <>
+                                                    <button 
+                                                       onClick={() => setSelectedBooking(space.booking)} 
+                                                       className="bg-brand-600 hover:bg-brand-700 text-white text-xs font-bold px-3 py-1.5 rounded-lg shadow-sm flex items-center gap-1.5"
+                                                    >
+                                                       <IconEdit className="w-3.5 h-3.5" /> Edit Booking
+                                                    </button>
+                                                    <button 
+                                                       onClick={() => setSelectedBookingForExtend(space.booking)} 
+                                                       className="bg-indigo-50 hover:bg-indigo-100 text-indigo-700 dark:bg-indigo-950/40 dark:text-indigo-300 text-xs font-bold px-2.5 py-1.5 rounded-lg border border-indigo-200/50 flex items-center gap-1"
+                                                       title="Extend Stay for Current Room"
+                                                    >
+                                                       <IconCalendar className="w-3.5 h-3.5" /> Extend
+                                                    </button>
+                                                 </>
                                               ) : (
                                                  <button 
                                                     onClick={() => setIsAdminBookingModalOpen(true)} 
@@ -1539,6 +1567,16 @@ const AdminDashboardPage: React.FC = () => {
                                 >
                                   View / Edit
                                 </button>
+
+                                {activeBooking && (
+                                  <button 
+                                    onClick={() => setSelectedBookingForExtend(activeBooking)} 
+                                    className="bg-indigo-50 hover:bg-indigo-100 text-indigo-700 dark:bg-indigo-950/40 dark:text-indigo-300 text-xs font-bold px-2.5 py-1.5 rounded-lg border border-indigo-200/50 flex items-center gap-1"
+                                    title="Extend Stay for Current Room"
+                                  >
+                                    <IconCalendar className="w-3.5 h-3.5" /> Extend
+                                  </button>
+                                )}
 
                                 {activeBooking && (
                                   <button 
@@ -2120,6 +2158,15 @@ const AdminDashboardPage: React.FC = () => {
           booking={selectedBooking}
           isOpen={!!selectedBooking}
           onClose={() => setSelectedBooking(null)}
+        />
+      )}
+
+      {/* Direct Extend Stay Modal for Students & Rooms */}
+      {selectedBookingForExtend && (
+        <ExtendStayModal
+          booking={selectedBookingForExtend}
+          isOpen={!!selectedBookingForExtend}
+          onClose={() => setSelectedBookingForExtend(null)}
         />
       )}
 

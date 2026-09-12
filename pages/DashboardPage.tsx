@@ -331,9 +331,15 @@ const DashboardPage: React.FC = () => {
                 <span className={`px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider ${
                   space.isOccupied
                     ? 'bg-gray-200/70 dark:bg-gray-700 text-gray-500'
+                    : space.hasFutureBooking
+                    ? 'bg-blue-100 dark:bg-blue-900/50 text-blue-800 dark:text-blue-300 font-bold border border-blue-300/40'
                     : 'bg-emerald-100 dark:bg-emerald-900/50 text-emerald-800 dark:text-emerald-300 font-bold border border-emerald-300/40'
                 }`}>
-                  {space.isOccupied ? (t.dash_badge_occupied || 'Occupied') : (t.dash_badge_vacant || 'Vacant')}
+                  {space.isOccupied 
+                    ? (t.dash_badge_occupied || 'Occupied') 
+                    : space.hasFutureBooking 
+                    ? `Vacant (Reserved ${space.futureBookings[0]?.start_date || space.futureBookings[0]?.expected_arrival_date || 'Future'})`
+                    : (t.dash_badge_vacant || 'Vacant')}
                 </span>
               </div>
               
