@@ -12,7 +12,7 @@ import {
 import PaymentProofModal from '../components/PaymentProofModal';
 import { supabase } from '../lib/supabaseClient';
 import AgreementModal from '../components/AgreementModal';
-import { sendEmail, getAgreementSignedTemplate, getPaymentProofUploadedAdminTemplate } from '../lib/email';
+import { sendEmail, getAgreementSignedTemplate, getPaymentProofUploadedAdminTemplate, notifyAdminOfBookingEvent } from '../lib/email';
 import { formatStoredRoomString, getAccommodationAddress, getLiveStudentRoomDetails } from '../lib/roomNaming';
 import JoinWaitlistModal from '../components/JoinWaitlistModal';
 import { ExtendStayModal } from '../components/ExtendStayModal';
@@ -88,6 +88,7 @@ const DashboardPage: React.FC = () => {
         status: nextStatus
       });
 
+      // Keep existing student signed contract email
       const template = getAgreementSignedTemplate(user?.full_name || 'Student', signingBooking.id);
       sendEmail({
         to: user?.email || signingBooking.email || '',
@@ -100,6 +101,12 @@ const DashboardPage: React.FC = () => {
           console.warn("[Dashboard Email] Signed contract email notification:", res.error);
         }
       }).catch(err => console.error("Failed to send signed contract email:", err));
+
+      // Trigger server-side Admin email notification (verified & idempotent)
+      notifyAdminOfBookingEvent({
+        eventType: 'tenancy_agreement_signed',
+        bookingId: signingBooking.id
+      }).catch(err => console.warn("[Dashboard Email] Failed to notify admin of signed contract:", err));
 
       addActivity({
         user_id: user!.id,
@@ -136,18 +143,12 @@ const DashboardPage: React.FC = () => {
         status: BookingStatus.PENDING_PAYMENT
       });
 
-      const adminTpl = getPaymentProofUploadedAdminTemplate(user?.full_name || 'Student', uploadingProofBooking.id, url);
-      sendEmail({
-        to: landlordDetails?.adminEmail || 'sheriffdeenalade@gmail.com',
-        subject: adminTpl.subject,
-        body: adminTpl.body,
-        templateName: adminTpl.templateName,
-        metadata: { booking_id: uploadingProofBooking.id, proof_url: url }
-      }).then(res => {
-        if (!res.success) {
-          console.warn("[Dashboard Email] Payment proof admin alert delivery:", res.error);
-        }
-      }).catch(err => console.error("Failed to notify admin of payment proof:", err));
+      // Trigger server-side Admin email notification with uploaded proof link (verified & idempotent)
+      notifyAdminOfBookingEvent({
+        eventType: 'payment_submitted',
+        bookingId: uploadingProofBooking.id,
+        metadata: { proof_url: url }
+      }).catch(err => console.warn("[Dashboard Email] Failed to notify admin of payment proof:", err));
 
       addActivity({
         user_id: user!.id,

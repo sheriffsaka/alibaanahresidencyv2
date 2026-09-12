@@ -16,7 +16,7 @@ import SignaturePad from 'react-signature-canvas';
 import { useReactToPrint } from 'react-to-print';
 import TenancyAgreementDocument from './TenancyAgreementDocument';
 import LanguageSwitcher from './LanguageSwitcher';
-import { sendEmail, getAgreementSignedTemplate } from '../lib/email';
+import { sendEmail, getAgreementSignedTemplate, notifyAdminOfBookingEvent } from '../lib/email';
 import { ALL_ROOM_SPACES, BED_SPACE_TO_ID_MAP, getUnifiedRoomName, getParsedRoomSpaces, getAccommodationAddress, findDatabaseRoomForSpace } from '../lib/roomNaming';
 import { calculateStayPricing, getRoomPrice, getLowestAvailableMonthlyPrice, calculateExtensionPricing, calculateExtendedExpiryDate } from '../lib/pricing';
 import JoinWaitlistModal from './JoinWaitlistModal';
@@ -567,6 +567,12 @@ const MultiStepBookingForm: React.FC = () => {
       } catch (err) {
         console.error("Failed to send payment instructions email:", err);
       }
+
+      // 3. Notify Admin of signed tenancy agreement (in addition to new_booking triggered in addBooking)
+      notifyAdminOfBookingEvent({
+        eventType: 'tenancy_agreement_signed',
+        bookingId: createdBooking.id
+      }).catch(err => console.warn("[Booking Dispatch] Admin agreement notification notice:", err));
 
       addActivity({
         user_id: user ? user.id : 'guest',

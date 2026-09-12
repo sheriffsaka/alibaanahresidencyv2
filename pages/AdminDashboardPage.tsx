@@ -1,4 +1,4 @@
-import React, { useState, useMemo, ChangeEvent } from 'react';
+import React, { useState, useMemo, useEffect, ChangeEvent } from 'react';
 import { useTranslation } from '../hooks/useTranslation';
 import { useApp } from '../hooks/useApp';
 import { Booking, BookingStatus, Room, AccommodationType, User, Language, DEFAULT_CATEGORY_MEDIA, CategoryMediaItem, CategoryMediaConfig } from '../types';
@@ -413,6 +413,35 @@ const AdminDashboardPage: React.FC = () => {
   const waitingWaitlistCount = useMemo(() => {
     return (waitlist || []).filter(w => w.status === 'Waiting').length;
   }, [waitlist]);
+
+  // Support deep linking to section and booking from admin notification emails
+  useEffect(() => {
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const section = params.get('section') || params.get('tab');
+      if (section) {
+        const validSections: AdminNavSection[] = [
+          'dashboard', 'bookings', 'students', 'rooms_inventory', 'apartment_media',
+          'room_pricing', 'waitlist', 'email_logs', 'maintenance', 'transactions',
+          'payments_credits', 'messages', 'reviews', 'landing_branding', 'contracts',
+          'student_documents', 'faqs_announcements', 'admin_users', 'settings'
+        ];
+        if (validSections.includes(section as AdminNavSection)) {
+          setActiveSection(section as AdminNavSection);
+        }
+      }
+      const bookingIdParam = params.get('bookingId');
+      if (bookingIdParam && bookings && bookings.length > 0) {
+        const targetB = bookings.find(b => b.id === Number(bookingIdParam));
+        if (targetB) {
+          setSelectedBooking(targetB);
+        }
+      }
+    } catch (err) {
+      console.warn("Notice in admin deep link handling:", err);
+    }
+  }, [bookings]);
+
 
   const totalActiveWaitlist = useMemo(() => {
     return (waitlist || []).filter(w => w.status === 'Waiting' || w.status === 'Offered').length;

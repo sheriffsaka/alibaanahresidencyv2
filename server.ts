@@ -121,6 +121,465 @@ async function startServer() {
     }
   });
 
+  // =========================================================================
+  // Server-side Admin Email Notifications for Important Booking Activities
+  // =========================================================================
+  const inFlightAdminNotifications = new Set<string>();
+
+  async function sendAdminEmailNotification({
+    eventType,
+    bookingId,
+    eventKey,
+    metadata = {},
+    origin
+  }: {
+    eventType: 'new_booking' | 'payment_submitted' | 'payment_confirmed' | 'booking_cancelled' | 'tenancy_agreement_signed';
+    bookingId: number;
+    eventKey?: string;
+    metadata?: Record<string, any>;
+    origin?: string;
+  }) {
+    const supabaseUrl = process.env.VITE_SUPABASE_URL;
+    const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_ANON_KEY;
+    const resendApiKey = process.env.RESEND_API_KEY;
+    const defaultFromEmail = process.env.RESEND_FROM_EMAIL || "Al-Ibaanah Student Residency <noreply@sharedhousing.ibaanah.com>";
+
+    if (!supabaseUrl || !serviceRoleKey) {
+      throw new Error("Database configuration missing on server.");
+    }
+
+    const client = createClient(supabaseUrl, serviceRoleKey, {
+      auth: { persistSession: false, autoRefreshToken: false }
+    });
+
+    // 1. Fetch booking directly from Supabase (Source of Truth)
+    const { data: booking, error: bErr } = await client
+      .from("bookings")
+      .select("*, rooms(room_number, apartment_name, category, type), bed_spaces(id, label)")
+      .eq("id", bookingId)
+      .maybeSingle();
+
+    if (bErr || !booking) {
+      throw new Error(`Booking BK${bookingId} was not found in Supabase database. Notification aborted.`);
+    }
+
+    // 2. Validate event condition against database state (prevent sending if DB op failed)
+    if (eventType === 'payment_confirmed') {
+      if (booking.status !== 'Confirmed' && booking.status !== 'Occupied') {
+        throw new Error(`Database verification failed: Booking BK${bookingId} status is "${booking.status}", expected "Confirmed" or "Occupied". Notification aborted.`);
+      }
+    } else if (eventType === 'booking_cancelled') {
+      if (booking.status !== 'Cancelled') {
+        throw new Error(`Database verification failed: Booking BK${bookingId} status is "${booking.status}", expected "Cancelled". Notification aborted.`);
+      }
+    } else if (eventType === 'payment_submitted') {
+      if (!booking.payment_proof_url && booking.status !== 'Pending Verification' && !metadata.proof_url) {
+        throw new Error(`Database verification failed: Booking BK${bookingId} has no payment proof registered. Notification aborted.`);
+      }
+    } else if (eventType === 'tenancy_agreement_signed') {
+      if (!booking.contract_signed_at && !booking.signature_data) {
+        throw new Error(`Database verification failed: Booking BK${bookingId} has no contract signature registered. Notification aborted.`);
+      }
+    }
+
+    // 3. Formulate canonical idempotency key
+    let canonicalKey = eventKey;
+    if (!canonicalKey) {
+      if (eventType === 'new_booking') {
+        canonicalKey = `admin_evt_new_booking_${bookingId}`;
+      } else if (eventType === 'payment_submitted') {
+        const proofStr = String(booking.payment_proof_url || metadata.proof_url || '');
+        const proofHash = proofStr ? crypto.createHash('md5').update(proofStr).digest('hex').slice(0, 8) : 'default';
+        canonicalKey = `admin_evt_pay_sub_${bookingId}_${proofHash}`;
+      } else if (eventType === 'payment_confirmed') {
+        canonicalKey = `admin_evt_pay_conf_${bookingId}`;
+      } else if (eventType === 'booking_cancelled') {
+        canonicalKey = `admin_evt_cancelled_${bookingId}`;
+      } else if (eventType === 'tenancy_agreement_signed') {
+        canonicalKey = `admin_evt_agreement_${bookingId}`;
+      } else {
+        canonicalKey = `admin_evt_${eventType}_${bookingId}`;
+      }
+    }
+
+    // Check in-flight lock to avoid concurrent race conditions
+    if (inFlightAdminNotifications.has(canonicalKey)) {
+      return { success: true, duplicate: true, message: `Notification ${canonicalKey} is already in-flight.` };
+    }
+    inFlightAdminNotifications.add(canonicalKey);
+
+    try {
+      // 4. Check Supabase admin_audit_log for duplicate prevention
+      const { data: existingNotice } = await client
+        .from("admin_audit_log")
+        .select("id, target_id, details, created_at")
+        .eq("action", "admin_email_notification")
+        .eq("target_id", canonicalKey)
+        .limit(1);
+
+      if (existingNotice && existingNotice.length > 0) {
+        return {
+          success: true,
+          duplicate: true,
+          message: `Admin notification for ${eventType} on BK${bookingId} was already sent on ${existingNotice[0].created_at}.`
+        };
+      }
+
+      // 5. Determine admin recipient email
+      let adminEmail = process.env.ADMIN_EMAIL;
+      if (!adminEmail) {
+        try {
+          const { data: cmsRows } = await client.from("cms_content").select("how_to_videos").limit(1);
+          if (cmsRows && cmsRows[0]?.how_to_videos?.landlordDetails?.adminEmail) {
+            adminEmail = cmsRows[0].how_to_videos.landlordDetails.adminEmail;
+          }
+        } catch (cmsErr) {
+          console.warn("[Admin Notification] Notice fetching cms admin email:", cmsErr);
+        }
+      }
+      if (!adminEmail) {
+        adminEmail = "sheriffdeenalade@gmail.com";
+      }
+
+      // 6. Construct email details & link
+      const baseUrl = origin ? origin.replace(/\/$/, '') : 'http://localhost:3000';
+      let adminSection = 'bookings';
+      if (eventType === 'payment_submitted') adminSection = 'transactions';
+      else if (eventType === 'tenancy_agreement_signed') adminSection = 'contracts';
+      else if (eventType === 'payment_confirmed') adminSection = 'bookings';
+      else if (eventType === 'booking_cancelled') adminSection = 'bookings';
+
+      const adminLink = `${baseUrl}/?page=admin&section=${adminSection}&bookingId=${booking.id}`;
+
+      // Format Room / Bed Space info
+      const room = booking.rooms || {};
+      const bedSpace = booking.bed_spaces || {};
+      const roomDisplay = `${room.apartment_name || 'Residency'} ${room.room_number ? `Room ${room.room_number}` : ''}`.trim() || 'Assigned Room';
+      const accommodationType = room.type || booking.preferred_accommodation || 'Standard Shared';
+      const categoryName = room.category || 'Standard';
+      const bedLabel = bedSpace.label ? `Bed ${bedSpace.label}` : (booking.bed_space_id ? `Bed Space #${booking.bed_space_id}` : 'Unassigned');
+      const paymentProofUrl = booking.payment_proof_url || metadata.proof_url || '';
+      const formattedPrice = booking.total_price !== undefined && booking.total_price !== null ? `$${booking.total_price} USD` : 'N/A';
+      const stayDates = `${booking.start_date || booking.expected_arrival_date || 'N/A'} to ${booking.end_date || 'N/A'}`;
+      const duration = booking.duration_of_stay || 'Standard Term';
+
+      let subject = '';
+      let eventTitle = '';
+      let badgeBg = '#1b6441';
+      let summaryText = '';
+      let specificRows = '';
+      let plainSpecificRows = '';
+
+      if (eventType === 'new_booking') {
+        subject = `[Residency Admin] New Student Booking Received — BK${booking.id} (${booking.full_name})`;
+        eventTitle = 'NEW STUDENT BOOKING SUBMITTED';
+        badgeBg = '#1b6441';
+        summaryText = `A new accommodation reservation has been submitted by the student and successfully stored in Supabase.`;
+      } else if (eventType === 'payment_submitted') {
+        subject = `[Residency Admin] Payment Proof Submitted — BK${booking.id} (${booking.full_name})`;
+        eventTitle = 'PAYMENT PROOF SUBMITTED';
+        badgeBg = '#d97706';
+        summaryText = `The student has uploaded proof of payment / remittance. Please verify the receipt and confirm the transaction in the Admin Dashboard.`;
+        if (paymentProofUrl) {
+          specificRows += `
+            <tr>
+              <td style="padding: 10px 14px; font-weight: bold; color: #475569; width: 35%; border-bottom: 1px solid #f1f5f9;">Payment Receipt</td>
+              <td style="padding: 10px 14px; color: #0f172a; border-bottom: 1px solid #f1f5f9;">
+                <a href="${paymentProofUrl}" target="_blank" style="color: #1b6441; font-weight: bold; text-decoration: underline;">View Uploaded Receipt / Proof Document ↗</a>
+              </td>
+            </tr>
+          `;
+          plainSpecificRows += `Payment Receipt URL: ${paymentProofUrl}\n`;
+        }
+      } else if (eventType === 'payment_confirmed') {
+        subject = `[Residency Admin] Payment Confirmed & Booking Approved — BK${booking.id} (${booking.full_name})`;
+        eventTitle = 'PAYMENT CONFIRMED & APPROVED';
+        badgeBg = '#15803d';
+        summaryText = `Payment has been successfully verified and confirmed in the system. The booking status is now official (${booking.status}).`;
+      } else if (eventType === 'booking_cancelled') {
+        subject = `[Residency Admin] Booking Cancelled — BK${booking.id} (${booking.full_name})`;
+        eventTitle = 'BOOKING CANCELLED / DISCONTINUED';
+        badgeBg = '#dc2626';
+        summaryText = `Booking BK${booking.id} has been marked as Cancelled in Supabase. Associated bed spaces and rooms have been released back to vacant.`;
+        if (metadata.reason) {
+          specificRows += `
+            <tr>
+              <td style="padding: 10px 14px; font-weight: bold; color: #475569; width: 35%; border-bottom: 1px solid #f1f5f9;">Cancellation Reason</td>
+              <td style="padding: 10px 14px; color: #dc2626; font-weight: 600; border-bottom: 1px solid #f1f5f9;">${metadata.reason}</td>
+            </tr>
+          `;
+          plainSpecificRows += `Cancellation Reason: ${metadata.reason}\n`;
+        }
+      } else if (eventType === 'tenancy_agreement_signed') {
+        subject = `[Residency Admin] Tenancy Agreement Signed — BK${booking.id} (${booking.full_name})`;
+        eventTitle = 'DIGITAL TENANCY AGREEMENT SIGNED';
+        badgeBg = '#7c3aed';
+        summaryText = `The student has officially reviewed and digitally signed their residency tenancy agreement.`;
+        specificRows += `
+          <tr>
+            <td style="padding: 10px 14px; font-weight: bold; color: #475569; width: 35%; border-bottom: 1px solid #f1f5f9;">Signed Timestamp</td>
+            <td style="padding: 10px 14px; color: #0f172a; border-bottom: 1px solid #f1f5f9;">${booking.contract_signed_at || new Date().toISOString()}</td>
+          </tr>
+        `;
+        plainSpecificRows += `Signed Timestamp: ${booking.contract_signed_at || new Date().toISOString()}\n`;
+      }
+
+      const htmlContent = `
+<div style="font-family: Arial, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 620px; margin: 0 auto; padding: 24px; color: #1e293b; background-color: #f8fafc; border-radius: 12px; border: 1px solid #e2e8f0;">
+  <!-- Header -->
+  <div style="text-align: center; margin-bottom: 20px;">
+    <h1 style="color: #1b6441; font-size: 20px; font-weight: 800; margin: 0 0 4px 0; letter-spacing: -0.5px;">Al-Ibaanah Student Residency</h1>
+    <p style="color: #64748b; font-size: 13px; margin: 0;">Automated Administrative Notification System</p>
+  </div>
+
+  <!-- Event Badge -->
+  <div style="text-align: center; margin-bottom: 20px;">
+    <span style="display: inline-block; background-color: ${badgeBg}; color: #ffffff; padding: 6px 16px; border-radius: 20px; font-size: 12px; font-weight: 800; letter-spacing: 0.5px; text-transform: uppercase;">
+      ${eventTitle}
+    </span>
+  </div>
+
+  <!-- Main Card -->
+  <div style="background-color: #ffffff; padding: 24px; border-radius: 10px; border: 1px solid #cbd5e1; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
+    <p style="font-size: 14px; line-height: 1.6; color: #334155; margin-top: 0; margin-bottom: 18px;">
+      ${summaryText}
+    </p>
+
+    <!-- Details Table -->
+    <table style="width: 100%; border-collapse: collapse; font-size: 13px; margin-bottom: 24px; border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden;">
+      <tbody>
+        <tr style="background-color: #f8fafc;">
+          <td style="padding: 10px 14px; font-weight: bold; color: #475569; width: 35%; border-bottom: 1px solid #e2e8f0;">Booking Reference</td>
+          <td style="padding: 10px 14px; font-weight: 800; color: #1b6441; border-bottom: 1px solid #e2e8f0;">BK${booking.id}</td>
+        </tr>
+        <tr>
+          <td style="padding: 10px 14px; font-weight: bold; color: #475569; border-bottom: 1px solid #f1f5f9;">Student Name</td>
+          <td style="padding: 10px 14px; color: #0f172a; font-weight: 600; border-bottom: 1px solid #f1f5f9;">${booking.full_name}</td>
+        </tr>
+        <tr style="background-color: #f8fafc;">
+          <td style="padding: 10px 14px; font-weight: bold; color: #475569; border-bottom: 1px solid #e2e8f0;">Student Contact</td>
+          <td style="padding: 10px 14px; color: #0f172a; border-bottom: 1px solid #e2e8f0;">
+            <a href="mailto:${booking.email}" style="color: #1b6441; text-decoration: none;">${booking.email}</a>
+            ${booking.phone_number ? `<br/><span style="color: #64748b; font-size: 12px;">Tel: ${booking.phone_number}</span>` : ''}
+          </td>
+        </tr>
+        <tr>
+          <td style="padding: 10px 14px; font-weight: bold; color: #475569; border-bottom: 1px solid #f1f5f9;">Nationality & Passport</td>
+          <td style="padding: 10px 14px; color: #0f172a; border-bottom: 1px solid #f1f5f9;">
+            ${booking.nationality || 'N/A'} • Passport: ${booking.passport_number || 'N/A'}
+          </td>
+        </tr>
+        <tr style="background-color: #f8fafc;">
+          <td style="padding: 10px 14px; font-weight: bold; color: #475569; border-bottom: 1px solid #e2e8f0;">Room & Category</td>
+          <td style="padding: 10px 14px; color: #0f172a; border-bottom: 1px solid #e2e8f0;">
+            <strong>${roomDisplay}</strong> (${categoryName} - ${accommodationType})
+          </td>
+        </tr>
+        <tr>
+          <td style="padding: 10px 14px; font-weight: bold; color: #475569; border-bottom: 1px solid #f1f5f9;">Bed Space</td>
+          <td style="padding: 10px 14px; color: #0f172a; border-bottom: 1px solid #f1f5f9;">${bedLabel}</td>
+        </tr>
+        <tr style="background-color: #f8fafc;">
+          <td style="padding: 10px 14px; font-weight: bold; color: #475569; border-bottom: 1px solid #e2e8f0;">Stay Timeline</td>
+          <td style="padding: 10px 14px; color: #0f172a; border-bottom: 1px solid #e2e8f0;">
+            ${stayDates} (${duration})
+          </td>
+        </tr>
+        <tr>
+          <td style="padding: 10px 14px; font-weight: bold; color: #475569; border-bottom: 1px solid #f1f5f9;">Total Price / Amount</td>
+          <td style="padding: 10px 14px; font-weight: 800; color: #0f172a; border-bottom: 1px solid #f1f5f9;">${formattedPrice}</td>
+        </tr>
+        <tr style="background-color: #f8fafc;">
+          <td style="padding: 10px 14px; font-weight: bold; color: #475569; border-bottom: 1px solid #e2e8f0;">System Status</td>
+          <td style="padding: 10px 14px; color: #0f172a; font-weight: 700; border-bottom: 1px solid #e2e8f0;">${booking.status}</td>
+        </tr>
+        ${specificRows}
+      </tbody>
+    </table>
+
+    <!-- Admin Link Button -->
+    <div style="text-align: center; margin: 26px 0 16px 0;">
+      <a href="${adminLink}" target="_blank" style="background-color: #1b6441; color: #ffffff; padding: 12px 28px; text-decoration: none; font-weight: bold; border-radius: 8px; display: inline-block; font-size: 14px;">
+        Open in Admin Dashboard →
+      </a>
+    </div>
+
+    <p style="font-size: 12px; color: #64748b; text-align: center; margin: 0; line-height: 1.5;">
+      Direct link: <a href="${adminLink}" style="color: #1b6441; word-break: break-all;">${adminLink}</a>
+    </p>
+  </div>
+
+  <!-- Footer -->
+  <div style="text-align: center; margin-top: 20px; font-size: 11px; color: #94a3b8;">
+    <p style="margin: 0;">Al-Ibaanah Student Residency Automated Management • Nasr City, Cairo, Egypt</p>
+    <p style="margin: 4px 0 0 0;">This administrative alert was triggered automatically by a confirmed database update in Supabase.</p>
+  </div>
+</div>
+      `.trim();
+
+      const plainText = `
+AL-IBAANAH STUDENT RESIDENCY - ADMINISTRATIVE ALERT
+===================================================
+Event: ${eventTitle}
+
+${summaryText}
+
+BOOKING DETAILS:
+- Booking Reference: BK${booking.id}
+- Student Name: ${booking.full_name}
+- Student Email: ${booking.email}
+- Student Phone: ${booking.phone_number || 'N/A'}
+- Nationality: ${booking.nationality || 'N/A'}
+- Passport: ${booking.passport_number || 'N/A'}
+- Accommodation: ${roomDisplay} (${categoryName} - ${accommodationType})
+- Bed Space: ${bedLabel}
+- Stay Dates: ${stayDates} (${duration})
+- Total Price: ${formattedPrice}
+- Current Status: ${booking.status}
+${plainSpecificRows}
+ADMIN DASHBOARD ACTION LINK:
+${adminLink}
+
+Al-Ibaanah Student Residency • Cairo, Egypt
+Automated dispatch following database update.
+      `.trim();
+
+      // 7. Dispatch via Resend
+      if (!resendApiKey) {
+        console.warn("[Admin Notification] RESEND_API_KEY is not set. Simulating admin email dispatch.");
+        return {
+          success: true,
+          simulated: true,
+          eventType,
+          bookingId,
+          recipient: adminEmail
+        };
+      }
+
+      const payload = {
+        from: defaultFromEmail,
+        to: [adminEmail],
+        subject,
+        html: htmlContent,
+        text: plainText
+      };
+
+      let resendResponse = await fetch("https://api.resend.com/emails", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${resendApiKey}`
+        },
+        body: JSON.stringify(payload)
+      });
+
+      let resData: any = null;
+      try {
+        resData = await resendResponse.json();
+      } catch {
+        resData = null;
+      }
+
+      if (!resendResponse.ok && (
+        resendResponse.status === 403 ||
+        resendResponse.status === 400 ||
+        (resData && (resData.name === "restricted_domain" || resData.message?.toLowerCase().includes("onboarding@resend.dev") || resData.message?.toLowerCase().includes("domain")))
+      )) {
+        console.warn("[Admin Notification] Retrying with onboarding@resend.dev fallback...");
+        resendResponse = await fetch("https://api.resend.com/emails", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${resendApiKey}`
+          },
+          body: JSON.stringify({
+            ...payload,
+            from: "Al-Ibaanah Student Residency <onboarding@resend.dev>"
+          })
+        });
+        try {
+          resData = await resendResponse.json();
+        } catch {
+          resData = null;
+        }
+      }
+
+      if (!resendResponse.ok) {
+        const errMsg = resData?.message || resData?.error || `Resend HTTP ${resendResponse.status}`;
+        throw new Error(`Failed to send admin email via Resend: ${errMsg}`);
+      }
+
+      // 8. Record audit log in Supabase admin_audit_log for idempotency and audit tracking
+      try {
+        const auditUserId = booking.student_id || '88b70525-e64b-4ddb-8479-6361bab953af';
+        await client.from("admin_audit_log").insert({
+          user_id: auditUserId,
+          action: "admin_email_notification",
+          target_id: canonicalKey,
+          details: {
+            event_type: eventType,
+            booking_id: bookingId,
+            recipient: adminEmail,
+            student_name: booking.full_name,
+            student_email: booking.email,
+            room_display: roomDisplay,
+            amount: booking.total_price,
+            status: booking.status,
+            resend_id: resData?.id,
+            sent_at: new Date().toISOString()
+          }
+        });
+      } catch (auditErr) {
+        console.warn("[Admin Notification] Failed to write admin_audit_log entry in Supabase:", auditErr);
+      }
+
+      console.log(`[Admin Notification Success] Dispatched ${eventType} notification for BK${bookingId} to ${adminEmail}. Resend ID: ${resData?.id}`);
+
+      return {
+        success: true,
+        eventType,
+        bookingId,
+        recipient: adminEmail,
+        resendId: resData?.id
+      };
+    } finally {
+      inFlightAdminNotifications.delete(canonicalKey);
+    }
+  }
+
+  // API Route: Dispatch Admin Notification for Booking Activities
+  app.post(["/api/notify-admin", "/api/admin/notify-booking-event"], async (req, res) => {
+    try {
+      const { eventType, bookingId, eventKey, metadata, origin } = req.body;
+      if (!eventType || !bookingId) {
+        return res.status(400).json({ success: false, error: "eventType and bookingId are required." });
+      }
+
+      const validEvents = ['new_booking', 'payment_submitted', 'payment_confirmed', 'booking_cancelled', 'tenancy_agreement_signed'];
+      if (!validEvents.includes(eventType)) {
+        return res.status(400).json({ success: false, error: `Invalid eventType: ${eventType}. Expected one of ${validEvents.join(', ')}` });
+      }
+
+      const clientOrigin = origin || req.headers.origin || (req.headers.host ? `http://${req.headers.host}` : "http://localhost:3000");
+
+      const result = await sendAdminEmailNotification({
+        eventType,
+        bookingId: Number(bookingId),
+        eventKey,
+        metadata: metadata || {},
+        origin: clientOrigin
+      });
+
+      return res.json(result);
+    } catch (err: any) {
+      console.error(`[Admin Notification API Error] ${err.message}`);
+      return res.status(err.message?.includes('not found') ? 404 : 400).json({
+        success: false,
+        error: err.message
+      });
+    }
+  });
+
   // Server-side endpoint: Admin Create Student Profile
   app.post("/api/admin/create-student", async (req, res) => {
     try {
@@ -596,7 +1055,7 @@ async function startServer() {
       const { data: rawBookings, error: fetchErr } = await client
         .from('bookings')
         .select('id, room_id, bed_space_id, start_date, end_date, expected_arrival_date, payment_expiry_date, status, preferred_accommodation, booked_at')
-        .not('status', 'in', '("Cancelled","Completed","Rejected","Discontinued")');
+        .not('status', 'in', '("Cancelled","Completed","Maintenance")');
 
       if (fetchErr) {
         console.error("[Public Occupancy API] Error fetching bookings:", fetchErr.message);

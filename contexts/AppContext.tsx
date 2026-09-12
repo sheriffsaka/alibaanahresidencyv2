@@ -3,7 +3,7 @@ import React, { createContext, useState, ReactNode, useCallback, useEffect, useR
 import { AppContextType, Language, Page, User, Room, BedSpace, Booking, BookingStatus, CmsContent, Activity, AcademicTerm, BookingPackage, AccommodationType, DEFAULT_CATEGORY_MEDIA, CategoryMediaConfig, PublicOccupancy, AccommodationAddresses, DEFAULT_ACCOMMODATION_ADDRESSES, DEFAULT_SUPPORT_CONTENT, WaitlistEntry, WaitlistStatus, EmailLogEntry, AccommodationCategory, DEFAULT_ACCOMMODATION_CATEGORIES, ConversationItem, MessageItem, CreditRecord, CreditTransaction, StudentDocument } from '../types';
 import { supabase } from '../lib/supabaseClient';
 import { Session } from '@supabase/supabase-js';
-import { sendEmail, fetchRecentEmailLogs } from '../lib/email';
+import { sendEmail, fetchRecentEmailLogs, notifyAdminOfBookingEvent } from '../lib/email';
 import { fetchConversationsList, fetchMessages, postMessage, markConversationAsRead as markConvAsRead, getOrCreateStudentConversation } from '../lib/messaging';
 import { getParsedRoomSpaces, generateUnitCode } from '../lib/roomNaming';
 import { DEFAULT_CONTRACT_TRANSLATIONS, ContractTranslationsStore, LegalContractTranslation } from '../lib/contractTranslations';
@@ -1355,6 +1355,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       const hash = window.location.hash || '';
       if (urlParams.get('page') === 'activate' || urlParams.get('type') === 'recovery' || hash.includes('type=recovery') || hash.includes('access_token')) {
         setPageState('activate');
+      } else if (urlParams.get('page') === 'admin' || urlParams.get('page') === 'dashboard') {
+        setPageState('dashboard');
       }
     } catch {
       // Non-blocking URL check
@@ -1593,6 +1595,12 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         // Recalculate room occupancy slots and availability in Supabase (whitelist: Confirmed/Occupied)
         await syncRoomOccupancyToDb([data.room_id], updatedBookings);
 
+        // Notify Admin of new booking on backend (only after Supabase insert succeeded!)
+        notifyAdminOfBookingEvent({
+          eventType: 'new_booking',
+          bookingId: mappedBooking.id
+        }).catch(adminEvtErr => console.warn('[Admin Notification] New booking notification alert notice:', adminEvtErr));
+
         return { success: true, data: mappedBooking };
     } catch (err: any) {
         console.error("Error adding booking to Supabase:", err.message);
@@ -1617,6 +1625,19 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
         // Recalculate room occupancy slots and availability in Supabase (whitelist: Confirmed/Occupied)
         await syncRoomOccupancyToDb([booking.room_id], updatedBookings);
+
+        // Notify Admin on backend after status update succeeds in Supabase
+        if (status === BookingStatus.CONFIRMED) {
+          notifyAdminOfBookingEvent({
+            eventType: 'payment_confirmed',
+            bookingId: id
+          }).catch(adminEvtErr => console.warn('[Admin Notification] Payment confirmation alert notice:', adminEvtErr));
+        } else if (status === BookingStatus.CANCELLED) {
+          notifyAdminOfBookingEvent({
+            eventType: 'booking_cancelled',
+            bookingId: id
+          }).catch(adminEvtErr => console.warn('[Admin Notification] Booking cancellation alert notice:', adminEvtErr));
+        }
 
         return { success: true };
     } catch (err: any) {
@@ -1708,6 +1729,31 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         // Recalculate room occupancy slots and availability in Supabase (whitelist: Confirmed/Occupied)
         const affectedRoomIds = [existingBooking?.room_id, targetRoomId].filter((x): x is number => typeof x === 'number');
         await syncRoomOccupancyToDb(affectedRoomIds, updatedBookings);
+
+        // Notify Admin on backend after database updates succeed
+        if (updates.status === BookingStatus.CONFIRMED) {
+          notifyAdminOfBookingEvent({
+            eventType: 'payment_confirmed',
+            bookingId: id
+          }).catch(adminEvtErr => console.warn('[Admin Notification] Payment confirmation alert notice:', adminEvtErr));
+        } else if (updates.status === BookingStatus.CANCELLED) {
+          notifyAdminOfBookingEvent({
+            eventType: 'booking_cancelled',
+            bookingId: id,
+            metadata: { reason: (updates as any).cancellation_reason || (updates as any).notes }
+          }).catch(adminEvtErr => console.warn('[Admin Notification] Booking cancellation alert notice:', adminEvtErr));
+        } else if (updates.payment_proof_url) {
+          notifyAdminOfBookingEvent({
+            eventType: 'payment_submitted',
+            bookingId: id,
+            metadata: { proof_url: updates.payment_proof_url }
+          }).catch(adminEvtErr => console.warn('[Admin Notification] Payment submission alert notice:', adminEvtErr));
+        } else if (updates.signature_data || updates.contract_signed_at) {
+          notifyAdminOfBookingEvent({
+            eventType: 'tenancy_agreement_signed',
+            bookingId: id
+          }).catch(adminEvtErr => console.warn('[Admin Notification] Tenancy agreement alert notice:', adminEvtErr));
+        }
 
         return { success: true };
     } catch (err: any) {

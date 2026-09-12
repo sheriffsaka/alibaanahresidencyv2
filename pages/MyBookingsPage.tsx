@@ -8,7 +8,7 @@ import { IconBuilding, IconCalendar, IconFile, IconCheckCircle } from '../compon
 import PaymentProofModal from '../components/PaymentProofModal';
 import { supabase } from '../lib/supabaseClient';
 import AgreementModal from '../components/AgreementModal';
-import { sendEmail, getAgreementSignedTemplate, getPaymentProofUploadedAdminTemplate } from '../lib/email';
+import { sendEmail, getAgreementSignedTemplate, getPaymentProofUploadedAdminTemplate, notifyAdminOfBookingEvent } from '../lib/email';
 import { formatStoredRoomString, getDisplayFromRoom } from '../lib/roomNaming';
 import { ExtendStayModal } from '../components/ExtendStayModal';
 
@@ -58,6 +58,7 @@ const MyBookingsPage: React.FC = () => {
         timestamp: signedAt
       });
 
+      // Keep existing student confirmation email
       const emailTemplate = getAgreementSignedTemplate(signingBooking.full_name, signingBooking.id);
       sendEmail({
         to: signingBooking.email,
@@ -71,17 +72,11 @@ const MyBookingsPage: React.FC = () => {
         }
       }).catch(err => console.error("Failed to send signature email:", err));
 
-      sendEmail({
-        to: landlordDetails?.adminEmail || 'sheriffdeenalade@gmail.com',
-        subject: `Tenancy Agreement Signed - (BK${signingBooking.id})`,
-        body: `A tenancy agreement has been signed by ${signingBooking.full_name} for BK${signingBooking.id}.\n\nPlease review it in the admin dashboard.`,
-        templateName: 'admin_agreement_alert',
-        metadata: { booking_id: signingBooking.id, type: 'admin_agreement_alert' }
-      }).then(res => {
-        if (!res.success) {
-          console.warn("[MyBookings Email] Admin notification delivery issue:", res.error);
-        }
-      }).catch(err => console.error("Failed to send admin email:", err));
+      // Trigger server-side Admin email notification (verified & idempotent)
+      notifyAdminOfBookingEvent({
+        eventType: 'tenancy_agreement_signed',
+        bookingId: signingBooking.id
+      }).catch(err => console.warn("[MyBookings Email] Admin agreement notification delivery issue:", err));
 
       alert("Tenancy agreement signed successfully!");
       setSigningBooking(null);
@@ -109,18 +104,12 @@ const MyBookingsPage: React.FC = () => {
         status: BookingStatus.PENDING_VERIFICATION
       });
 
-      const adminAlertTpl = getPaymentProofUploadedAdminTemplate(user?.full_name || 'Student', uploadingProofBooking.id, url);
-      sendEmail({
-        to: landlordDetails?.adminEmail || 'sheriffdeenalade@gmail.com',
-        subject: adminAlertTpl.subject,
-        body: adminAlertTpl.body,
-        templateName: adminAlertTpl.templateName,
-        metadata: { booking_id: uploadingProofBooking.id, proof_url: url }
-      }).then(res => {
-        if (!res.success) {
-          console.warn("[MyBookings Email] Payment proof admin alert delivery issue:", res.error);
-        }
-      }).catch(err => console.error("Failed to notify admin of payment proof:", err));
+      // Trigger server-side Admin email notification with proof link (verified & idempotent)
+      notifyAdminOfBookingEvent({
+        eventType: 'payment_submitted',
+        bookingId: uploadingProofBooking.id,
+        metadata: { proof_url: url }
+      }).catch(err => console.warn("[MyBookings Email] Payment proof admin alert delivery issue:", err));
 
       addActivity({
         user_id: user!.id,

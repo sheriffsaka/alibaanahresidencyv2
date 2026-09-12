@@ -474,3 +474,186 @@ Al-Ibaanah Student Residency Management Team
     `.trim()
   };
 };
+
+// ==========================================
+// Admin Email Notifications & Templates
+// ==========================================
+
+export type AdminBookingEventType =
+  | 'new_booking'
+  | 'payment_submitted'
+  | 'payment_confirmed'
+  | 'booking_cancelled'
+  | 'tenancy_agreement_signed';
+
+export interface AdminBookingNotificationParams {
+  eventType: AdminBookingEventType;
+  bookingId: number;
+  eventKey?: string;
+  metadata?: Record<string, any>;
+}
+
+/**
+ * Trigger an admin notification from the backend after a database operation succeeds.
+ * Validates with Supabase, prevents duplicates via audit logs, and sends via Resend.
+ */
+export const notifyAdminOfBookingEvent = async (
+  params: AdminBookingNotificationParams
+): Promise<{
+  success: boolean;
+  duplicate?: boolean;
+  error?: string;
+  resendId?: string;
+}> => {
+  try {
+    const origin = typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000';
+    const response = await fetch('/api/notify-admin', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        ...params,
+        origin
+      })
+    });
+
+    const data = await response.json();
+    if (!response.ok) {
+      throw new Error(data.error || `Server responded with ${response.status}`);
+    }
+
+    if (data.success && !data.duplicate) {
+      recordEmailLog({
+        recipient: data.recipient || 'sheriffdeenalade@gmail.com',
+        subject: `[Residency Admin] Booking Alert: ${params.eventType} (BK${params.bookingId})`,
+        template_name: `admin_${params.eventType}`,
+        status: data.simulated ? 'simulated' : 'sent',
+        delivery_attempts: 1,
+        metadata: {
+          booking_id: params.bookingId,
+          event_type: params.eventType,
+          resend_id: data.resendId,
+          ...params.metadata
+        }
+      }).catch(() => {});
+    }
+
+    return data;
+  } catch (err: any) {
+    console.error(`[Admin Notification Error] Failed to notify admin of ${params.eventType}:`, err);
+    return {
+      success: false,
+      error: err.message
+    };
+  }
+};
+
+export const getNewBookingAdminTemplate = (booking: any, adminLink: string) => {
+  return {
+    templateName: 'admin_new_booking',
+    subject: `[Residency Admin] New Student Booking Received — BK${booking.id} (${booking.full_name})`,
+    body: `
+Dear Administrator,
+
+A new accommodation booking has been registered:
+- Booking Reference: BK${booking.id}
+- Student Name: ${booking.full_name}
+- Email: ${booking.email}
+- Phone: ${booking.phone_number || 'N/A'}
+- Nationality: ${booking.nationality || 'N/A'}
+- Accommodation: ${booking.preferred_accommodation || 'Standard'}
+- Dates: ${booking.start_date || booking.expected_arrival_date || 'N/A'} to ${booking.end_date || 'N/A'} (${booking.duration_of_stay || 'N/A'})
+- Total Price: $${booking.total_price || 0} USD
+- Status: ${booking.status}
+
+Admin Dashboard Link:
+${adminLink}
+
+Al-Ibaanah Student Residency Automated Management
+    `.trim()
+  };
+};
+
+export const getPaymentSubmittedAdminTemplate = (booking: any, proofUrl: string, adminLink: string) => {
+  return {
+    templateName: 'admin_payment_submitted',
+    subject: `[Residency Admin] Payment Proof Submitted — BK${booking.id} (${booking.full_name})`,
+    body: `
+Dear Administrator,
+
+Student ${booking.full_name} has submitted proof of payment for Booking BK${booking.id}.
+- Booking Reference: BK${booking.id}
+- Student: ${booking.full_name} (${booking.email})
+- Amount: $${booking.total_price || 0} USD
+- Receipt Document: ${proofUrl}
+- Status: Pending Verification
+
+Please review and confirm this transaction in the Admin Dashboard:
+${adminLink}
+
+Al-Ibaanah Student Residency Automated Management
+    `.trim()
+  };
+};
+
+export const getPaymentConfirmedAdminTemplate = (booking: any, adminLink: string) => {
+  return {
+    templateName: 'admin_payment_confirmed',
+    subject: `[Residency Admin] Payment Confirmed & Booking Approved — BK${booking.id} (${booking.full_name})`,
+    body: `
+Dear Administrator,
+
+Payment has been officially confirmed and booking approved for Booking BK${booking.id}:
+- Booking Reference: BK${booking.id}
+- Student: ${booking.full_name} (${booking.email})
+- Amount: $${booking.total_price || 0} USD
+- Status: ${booking.status}
+
+Admin Dashboard Link:
+${adminLink}
+
+Al-Ibaanah Student Residency Automated Management
+    `.trim()
+  };
+};
+
+export const getBookingCancelledAdminTemplate = (booking: any, reason: string | undefined, adminLink: string) => {
+  return {
+    templateName: 'admin_booking_cancelled',
+    subject: `[Residency Admin] Booking Cancelled — BK${booking.id} (${booking.full_name})`,
+    body: `
+Dear Administrator,
+
+Booking BK${booking.id} for student ${booking.full_name} has been cancelled in the system.
+- Booking Reference: BK${booking.id}
+- Student: ${booking.full_name} (${booking.email})
+- Reason: ${reason || 'Residency discontinued or application rejected'}
+- Room & bed spaces have been released back to vacant.
+
+Admin Dashboard Link:
+${adminLink}
+
+Al-Ibaanah Student Residency Automated Management
+    `.trim()
+  };
+};
+
+export const getAgreementSignedAdminTemplate = (booking: any, adminLink: string) => {
+  return {
+    templateName: 'admin_agreement_signed',
+    subject: `[Residency Admin] Tenancy Agreement Signed — BK${booking.id} (${booking.full_name})`,
+    body: `
+Dear Administrator,
+
+Student ${booking.full_name} has signed their residency tenancy agreement for Booking BK${booking.id}.
+- Booking Reference: BK${booking.id}
+- Student: ${booking.full_name} (${booking.email})
+- Signed At: ${booking.contract_signed_at || new Date().toISOString()}
+
+Admin Dashboard Link:
+${adminLink}
+
+Al-Ibaanah Student Residency Automated Management
+    `.trim()
+  };
+};
+
