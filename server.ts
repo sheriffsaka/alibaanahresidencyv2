@@ -1096,7 +1096,7 @@ Automated dispatch following database update.
         end_date: b.end_date || b.payment_expiry_date || null,
         status: b.status,
         preferred_accommodation: b.preferred_accommodation,
-        is_held: true
+        is_held: b.status !== 'Pending Payment' && b.status !== 'Pending Verification'
       }));
 
       return res.json({

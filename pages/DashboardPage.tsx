@@ -7,7 +7,8 @@ import InvoiceView from '../components/InvoiceView';
 import { 
   IconBuilding, 
   IconCheck, 
-  IconChevronRight 
+  IconChevronRight,
+  IconSearch
 } from '../components/Icon';
 import PaymentProofModal from '../components/PaymentProofModal';
 import { supabase } from '../lib/supabaseClient';
@@ -28,6 +29,10 @@ const DashboardPage: React.FC = () => {
   const [extendingModalBooking, setExtendingModalBooking] = useState<Booking | null>(null);
   
   const [selectedFilterCategory, setSelectedFilterCategory] = useState<string>('All');
+  const [showAvailableOnly, setShowAvailableOnly] = useState<boolean>(false);
+  const [searchQuery, setSearchQuery] = useState<string>('');
+  const [typeFilter, setTypeFilter] = useState<'All' | 'Shared' | 'Private'>('All');
+
   const [waitlistModalConfig, setWaitlistModalConfig] = useState<{
     isOpen: boolean;
     category: string;
@@ -57,10 +62,30 @@ const DashboardPage: React.FC = () => {
   // Determine which rooms/beds are currently occupied based on effective occupancy data
   const parsedAvailabilityData = parsedRoomSpaces || [];
 
+  const availableSpacesCount = useMemo(() => {
+    return parsedAvailabilityData.filter(s => !s.isOccupied).length;
+  }, [parsedAvailabilityData]);
+
   const filteredAvailabilityData = useMemo(() => {
-    if (selectedFilterCategory === 'All') return parsedAvailabilityData;
-    return parsedAvailabilityData.filter(item => item.category === selectedFilterCategory);
-  }, [parsedAvailabilityData, selectedFilterCategory]);
+    return parsedAvailabilityData.filter(item => {
+      // Category filter
+      if (selectedFilterCategory !== 'All' && item.category !== selectedFilterCategory) return false;
+      // Availability filter
+      if (showAvailableOnly && item.isOccupied) return false;
+      // Format / Room type filter
+      if (typeFilter !== 'All' && item.type !== typeFilter) return false;
+      // Search query (search room name, bed space name, category)
+      if (searchQuery.trim()) {
+        const q = searchQuery.toLowerCase().trim();
+        const match = item.roomName.toLowerCase().includes(q) ||
+                      item.bedSpaceName.toLowerCase().includes(q) ||
+                      item.category.toLowerCase().includes(q) ||
+                      item.type.toLowerCase().includes(q);
+        if (!match) return false;
+      }
+      return true;
+    });
+  }, [parsedAvailabilityData, selectedFilterCategory, showAvailableOnly, typeFilter, searchQuery]);
 
   const handleSignContract = async (signatureData: string) => {
     if (!signingBooking) return;
@@ -275,124 +300,249 @@ const DashboardPage: React.FC = () => {
 
       {/* 3. Live Residency Space Overview & Occupancy Metrics */}
       <section className="bg-white dark:bg-gray-800 p-6 sm:p-8 rounded-3xl border border-gray-100 dark:border-gray-700 shadow-sm space-y-6 text-start">
-        <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4 border-b border-gray-100 dark:border-gray-700 pb-4">
-          <div>
-            <h2 className="text-lg font-black text-gray-950 dark:text-white uppercase tracking-tight flex items-center gap-2">
-              <span>🏨</span> {t.dash_live_spaces_title || "Live Residency Space Overview"}
-            </h2>
-            <p className="text-xs text-gray-500 mt-0.5">{t.dash_live_spaces_sub || "Real-time vacancy metrics across all residency apartments."}</p>
+        {/* Available Rooms Quick Announcement Banner */}
+        {availableSpacesCount > 0 ? (
+          <div className="bg-gradient-to-r from-emerald-500/10 via-emerald-500/5 to-transparent border border-emerald-500/20 rounded-2xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <span className="flex h-10 w-10 rounded-xl bg-emerald-100 dark:bg-emerald-900/50 text-emerald-600 dark:text-emerald-400 items-center justify-center text-xl font-bold flex-shrink-0">
+                ✨
+              </span>
+              <div>
+                <h4 className="text-sm font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                  <span>{availableSpacesCount} {availableSpacesCount === 1 ? 'Space' : 'Spaces'} Available to Book</span>
+                  <span className="inline-block w-2 h-2 rounded-full bg-emerald-500 animate-ping" />
+                </h4>
+                <p className="text-xs text-gray-500 dark:text-gray-400">
+                  Vacant rooms ready for immediate reservation. Select any available space below to book instantly.
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 w-full sm:w-auto">
+              <button
+                onClick={() => {
+                  setShowAvailableOnly(true);
+                  setSelectedFilterCategory('All');
+                }}
+                className={`w-full sm:w-auto px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 shadow-sm ${
+                  showAvailableOnly 
+                    ? 'bg-emerald-700 text-white' 
+                    : 'bg-emerald-600 hover:bg-emerald-700 text-white'
+                }`}
+              >
+                <span>{showAvailableOnly ? 'Viewing Available Only' : 'Show Available Only'}</span>
+                <IconChevronRight className="w-3.5 h-3.5" />
+              </button>
+            </div>
           </div>
-          
-          {/* Tabs filter */}
-          <div className="flex flex-wrap gap-1.5">
-            {dynamicCategoryTabs.map(cat => {
-              const getFilterLabel = (category: string) => {
-                if (category === 'All') return t.dash_filter_all || 'All';
-                if (category === 'Premium 1') return t.dash_filter_premium1 || 'Premium 1';
-                if (category === 'Premium 2') return t.dash_filter_premium2 || 'Premium 2';
-                if (category === 'Standard') return t.dash_filter_standard || 'Standard';
-                return category;
-              };
+        ) : null}
 
-              return (
+        <div className="flex flex-col gap-4 border-b border-gray-100 dark:border-gray-700 pb-4">
+          <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4">
+            <div>
+              <h2 className="text-lg font-black text-gray-950 dark:text-white uppercase tracking-tight flex items-center gap-2">
+                <span>🏨</span> {t.dash_live_spaces_title || "Live Residency Space Overview"}
+              </h2>
+              <p className="text-xs text-gray-500 mt-0.5">{t.dash_live_spaces_sub || "Real-time vacancy metrics across all residency apartments."}</p>
+            </div>
+            
+            {/* Category tabs */}
+            <div className="flex flex-wrap gap-1.5">
+              {dynamicCategoryTabs.map(cat => {
+                const getFilterLabel = (category: string) => {
+                  if (category === 'All') return t.dash_filter_all || 'All';
+                  if (category === 'Premium 1') return t.dash_filter_premium1 || 'Premium 1';
+                  if (category === 'Premium 2') return t.dash_filter_premium2 || 'Premium 2';
+                  if (category === 'Standard') return t.dash_filter_standard || 'Standard';
+                  return category;
+                };
+
+                return (
+                  <button
+                    key={cat}
+                    onClick={() => setSelectedFilterCategory(cat)}
+                    className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all ${
+                      selectedFilterCategory === cat
+                        ? 'bg-brand-600 text-white shadow-sm'
+                        : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
+                    }`}
+                  >
+                    {getFilterLabel(cat)}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Secondary Filter & Search Controls */}
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 pt-2">
+            <div className="flex flex-wrap items-center gap-2">
+              {/* Available Only Toggle */}
+              <button
+                onClick={() => setShowAvailableOnly(prev => !prev)}
+                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 border ${
+                  showAvailableOnly
+                    ? 'bg-emerald-600 text-white border-emerald-600 shadow-sm'
+                    : 'bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-300 border-emerald-200/80 dark:border-emerald-800/60 hover:bg-emerald-100 dark:hover:bg-emerald-900/40'
+                }`}
+              >
+                <span className={`w-2 h-2 rounded-full ${showAvailableOnly ? 'bg-white' : 'bg-emerald-500'}`} />
+                <span>Available To Book ({availableSpacesCount})</span>
+              </button>
+
+              {/* Format Filter */}
+              <div className="inline-flex rounded-xl bg-gray-100 dark:bg-gray-700/80 p-0.5 border border-gray-200/50 dark:border-gray-600/50">
+                {(['All', 'Shared', 'Private'] as const).map(fmt => (
+                  <button
+                    key={fmt}
+                    onClick={() => setTypeFilter(fmt)}
+                    className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all ${
+                      typeFilter === fmt
+                        ? 'bg-white dark:bg-gray-800 text-gray-900 dark:text-white shadow-xs'
+                        : 'text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
+                    }`}
+                  >
+                    {fmt}
+                  </button>
+                ))}
+              </div>
+
+              {(showAvailableOnly || typeFilter !== 'All' || searchQuery) && (
                 <button
-                  key={cat}
-                  onClick={() => setSelectedFilterCategory(cat)}
-                  className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all ${
-                    selectedFilterCategory === cat
-                      ? 'bg-brand-600 text-white shadow-sm'
-                      : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
-                  }`}
+                  onClick={() => {
+                    setShowAvailableOnly(false);
+                    setTypeFilter('All');
+                    setSearchQuery('');
+                  }}
+                  className="text-xs text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 underline ml-1"
                 >
-                  {getFilterLabel(cat)}
+                  Clear filters
                 </button>
-              );
-            })}
+              )}
+            </div>
+
+            {/* Search Input */}
+            <div className="relative min-w-[200px] sm:w-64">
+              <IconSearch className="w-3.5 h-3.5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={e => setSearchQuery(e.target.value)}
+                placeholder="Search rooms (e.g. Room 1, Bed A)..."
+                className="w-full pl-8 pr-3 py-1.5 text-xs rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50/70 dark:bg-gray-900/50 text-gray-900 dark:text-white placeholder:text-gray-400 focus:outline-none focus:ring-1 focus:ring-brand-500"
+              />
+            </div>
           </div>
         </div>
 
         {/* Space list grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3.5">
-          {filteredAvailabilityData.map(space => (
-            <div
-              key={space.id}
-              className={`p-4 rounded-2xl border text-xs leading-relaxed transition-all ${
-                space.isOccupied
-                  ? 'bg-gray-50/70 dark:bg-gray-900/40 border-gray-200/70 dark:border-gray-700 text-gray-500'
-                  : 'bg-emerald-50/30 dark:bg-emerald-950/20 border-emerald-200/70 dark:border-emerald-800 text-emerald-900 dark:text-emerald-300'
-              }`}
+        {filteredAvailabilityData.length === 0 ? (
+          <div className="p-8 text-center rounded-2xl border border-dashed border-gray-200 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-900/50 space-y-2">
+            <p className="text-sm font-bold text-gray-700 dark:text-gray-300">No rooms match your filter criteria</p>
+            <p className="text-xs text-gray-400">Try clearing the search or switching filters to see more rooms.</p>
+            <button
+              onClick={() => {
+                setSelectedFilterCategory('All');
+                setShowAvailableOnly(false);
+                setTypeFilter('All');
+                setSearchQuery('');
+              }}
+              className="mt-2 px-3 py-1.5 text-xs font-bold text-brand-600 dark:text-brand-400 bg-brand-50 dark:bg-brand-950/30 rounded-lg hover:underline"
             >
-              <div className="flex justify-between items-start mb-2">
-                <div>
-                  <span className="font-black text-[10px] tracking-wider uppercase text-gray-400 dark:text-gray-500 block">{space.category}</span>
-                  <strong className={`text-sm ${space.isOccupied ? 'text-gray-800 dark:text-gray-200' : 'text-emerald-950 dark:text-emerald-100 font-black'}`}>
-                    {space.roomName}
-                  </strong>
-                </div>
-                <span className={`px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider ${
+              Reset all filters
+            </button>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3.5">
+            {filteredAvailabilityData.map(space => (
+              <div
+                key={space.id}
+                className={`p-4 rounded-2xl border text-xs leading-relaxed transition-all flex flex-col justify-between ${
                   space.isOccupied
-                    ? 'bg-gray-200/70 dark:bg-gray-700 text-gray-500'
-                    : space.hasFutureBooking
-                    ? 'bg-blue-100 dark:bg-blue-900/50 text-blue-800 dark:text-blue-300 font-bold border border-blue-300/40'
-                    : 'bg-emerald-100 dark:bg-emerald-900/50 text-emerald-800 dark:text-emerald-300 font-bold border border-emerald-300/40'
-                }`}>
-                  {space.isOccupied 
-                    ? (t.dash_badge_occupied || 'Occupied') 
-                    : space.hasFutureBooking 
-                    ? `Vacant (Reserved ${space.futureBookings[0]?.start_date || space.futureBookings[0]?.expected_arrival_date || 'Future'})`
-                    : (t.dash_badge_vacant || 'Vacant')}
-                </span>
-              </div>
-              
-              <div className="space-y-1 text-[11px] text-gray-500 dark:text-gray-400">
-                <p><span className="font-semibold text-gray-700 dark:text-gray-300">{t.dash_card_bed_space || "Bed Space:"}</span> {space.bedSpaceName}</p>
-                <p><span className="font-semibold text-gray-700 dark:text-gray-300">{t.dash_card_format || "Format:"}</span> {(t.dash_card_room_type || "{type} Room").replace('{type}', space.type)}</p>
-                <p className="text-[10px] text-gray-400 truncate" title={getAccommodationAddress(space.category, accommodationAddresses)}>
-                  <span className="font-semibold text-gray-500">{t.dash_card_address || "Address:"}</span> {getAccommodationAddress(space.category, accommodationAddresses)}
-                </p>
-                {space.isOccupied ? (
-                  <div className="pt-2 border-t border-gray-200/50 dark:border-gray-700/60 space-y-2">
-                    <div className="space-y-0.5">
-                      {space.booking?.end_date && (
-                        <p className="text-red-600 dark:text-red-400 font-bold">
-                          <span>{t.dash_card_lease_expiry || "Lease Expiry:"}</span> {space.nextAvailableDate}
-                        </p>
-                      )}
-                      <p className="text-brand-600 dark:text-brand-400 font-bold">
-                        <span>{t.dash_card_next_available || "Next Available:"}</span> {space.nextAvailableDate}
-                      </p>
+                    ? 'bg-gray-50/70 dark:bg-gray-900/40 border-gray-200/70 dark:border-gray-700 text-gray-500'
+                    : 'bg-emerald-50/30 dark:bg-emerald-950/20 border-emerald-200/70 dark:border-emerald-800 text-emerald-900 dark:text-emerald-300 ring-1 ring-emerald-500/10'
+                }`}
+              >
+                <div>
+                  <div className="flex justify-between items-start mb-2">
+                    <div>
+                      <span className="font-black text-[10px] tracking-wider uppercase text-gray-400 dark:text-gray-500 block">{space.category}</span>
+                      <strong className={`text-sm ${space.isOccupied ? 'text-gray-800 dark:text-gray-200' : 'text-emerald-950 dark:text-emerald-100 font-black'}`}>
+                        {space.roomName}
+                      </strong>
                     </div>
-                    <button
-                      onClick={() => {
-                        setWaitlistModalConfig({
-                          isOpen: true,
-                          category: space.category as any,
-                          type: space.type,
-                          spaceLabel: `${space.category} - ${space.roomName} (${space.bedSpaceName})`
-                        });
-                      }}
-                      className="w-full py-1.5 px-2.5 rounded-xl bg-amber-50 hover:bg-amber-100 dark:bg-amber-950/40 dark:hover:bg-amber-900/40 text-amber-700 dark:text-amber-400 font-bold text-[11px] transition-all flex items-center justify-center gap-1 border border-amber-200/60 dark:border-amber-800/40"
-                    >
-                      <span>⏳ {(t as any).dash_btn_join_waitlist || "Join Waitlist"}</span>
-                    </button>
+                    <span className={`px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider ${
+                      space.isOccupied
+                        ? 'bg-gray-200/70 dark:bg-gray-700 text-gray-500'
+                        : space.hasFutureBooking && space.futureBookings[0]?.status !== 'Pending Payment'
+                        ? 'bg-blue-100 dark:bg-blue-900/50 text-blue-800 dark:text-blue-300 font-bold border border-blue-300/40'
+                        : 'bg-emerald-100 dark:bg-emerald-900/50 text-emerald-800 dark:text-emerald-300 font-bold border border-emerald-300/40'
+                    }`}>
+                      {space.isOccupied 
+                        ? (t.dash_badge_occupied || 'Occupied') 
+                        : space.hasFutureBooking && space.futureBookings[0]?.status !== 'Pending Payment'
+                        ? `Vacant (Reserved ${space.futureBookings[0]?.start_date || space.futureBookings[0]?.expected_arrival_date || 'Future'})`
+                        : (t.dash_badge_vacant || 'Vacant / Available Now')}
+                    </span>
                   </div>
-                ) : (
-                  <div className="pt-2 border-t border-emerald-100 dark:border-emerald-900/60 space-y-2">
-                    <p className="text-emerald-600 dark:text-emerald-400 font-bold flex items-center gap-1">
-                      <IconCheck className="w-3.5 h-3.5" /> {t.dash_card_available_now || "Available Now"}
+                  
+                  <div className="space-y-1 text-[11px] text-gray-500 dark:text-gray-400">
+                    <p><span className="font-semibold text-gray-700 dark:text-gray-300">{t.dash_card_bed_space || "Bed Space:"}</span> {space.bedSpaceName}</p>
+                    <p><span className="font-semibold text-gray-700 dark:text-gray-300">{t.dash_card_format || "Format:"}</span> {(t.dash_card_room_type || "{type} Room").replace('{type}', space.type)}</p>
+                    <p className="text-[10px] text-gray-400 truncate" title={getAccommodationAddress(space.category, accommodationAddresses)}>
+                      <span className="font-semibold text-gray-500">{t.dash_card_address || "Address:"}</span> {getAccommodationAddress(space.category, accommodationAddresses)}
                     </p>
-                    <button
-                      onClick={() => setPage('booking')}
-                      className="w-full py-1.5 px-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[11px] transition-all flex items-center justify-center gap-1 shadow-sm"
-                    >
-                      <span>{(t as any).dash_btn_book_space || "Book Bed Space"}</span>
-                    </button>
                   </div>
-                )}
+                </div>
+
+                <div className="mt-3">
+                  {space.isOccupied ? (
+                    <div className="pt-2 border-t border-gray-200/50 dark:border-gray-700/60 space-y-2">
+                      <div className="space-y-0.5">
+                        {space.booking?.end_date && (
+                          <p className="text-red-600 dark:text-red-400 font-bold">
+                            <span>{t.dash_card_lease_expiry || "Lease Expiry:"}</span> {space.nextAvailableDate}
+                          </p>
+                        )}
+                        <p className="text-brand-600 dark:text-brand-400 font-bold">
+                          <span>{t.dash_card_next_available || "Next Available:"}</span> {space.nextAvailableDate}
+                        </p>
+                      </div>
+                      <button
+                        onClick={() => {
+                          setWaitlistModalConfig({
+                            isOpen: true,
+                            category: space.category as any,
+                            type: space.type,
+                            spaceLabel: `${space.category} - ${space.roomName} (${space.bedSpaceName})`
+                          });
+                        }}
+                        className="w-full py-1.5 px-2.5 rounded-xl bg-amber-50 hover:bg-amber-100 dark:bg-amber-950/40 dark:hover:bg-amber-900/40 text-amber-700 dark:text-amber-400 font-bold text-[11px] transition-all flex items-center justify-center gap-1 border border-amber-200/60 dark:border-amber-800/40"
+                      >
+                        <span>⏳ {(t as any).dash_btn_join_waitlist || "Join Waitlist"}</span>
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="pt-2 border-t border-emerald-100 dark:border-emerald-900/60 space-y-2">
+                      <p className="text-emerald-600 dark:text-emerald-400 font-bold flex items-center gap-1">
+                        <IconCheck className="w-3.5 h-3.5" /> {t.dash_card_available_now || "Available Now"}
+                      </p>
+                      <button
+                        onClick={() => {
+                          const dbRoom = space.roomId ? rooms.find(r => r.id === space.roomId) : undefined;
+                          setPage('booking', dbRoom);
+                        }}
+                        className="w-full py-2 px-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[11px] transition-all flex items-center justify-center gap-1.5 shadow-sm hover:shadow"
+                      >
+                        <IconCheck className="w-3.5 h-3.5" />
+                        <span>{(t as any).dash_btn_book_space || "Book Bed Space"}</span>
+                      </button>
+                    </div>
+                  )}
+                </div>
               </div>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        )}
       </section>
 
       {/* Modals */}

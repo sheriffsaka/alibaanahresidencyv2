@@ -1456,6 +1456,15 @@ const AdminDashboardPage: React.FC = () => {
                                                     From {space.futureBookings[0].start_date || space.futureBookings[0].expected_arrival_date}
                                                  </p>
                                               </div>
+                                           ) : space.futureBookings && space.futureBookings.length > 0 ? (
+                                              <div className="text-xs">
+                                                 <p className="font-semibold text-amber-600 dark:text-amber-400">
+                                                    Pending Payment: {space.futureBookings[0].full_name || space.futureBookings[0].student_name}
+                                                 </p>
+                                                 <p className="text-[10px] text-gray-500">
+                                                    Arrival: {space.futureBookings[0].start_date || space.futureBookings[0].expected_arrival_date}
+                                                 </p>
+                                              </div>
                                            ) : (
                                               <span className="text-xs text-gray-400 italic">None</span>
                                            )}

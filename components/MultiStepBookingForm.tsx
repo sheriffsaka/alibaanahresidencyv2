@@ -71,7 +71,7 @@ export const CATEGORY_MEDIA: Record<string, {
 
 const MultiStepBookingForm: React.FC = () => {
   const t = useTranslation();
-  const { user, setPage, addBooking, updateBooking, extendBookingStay, addActivity, rooms, bedSpaces, bookings, effectiveOccupancyBookings, extendingBooking, landlordDetails, cmsContent, accommodationAddresses, language, contractTranslations, accommodationCategories, roomPricing, checkSpaceAvailability } = useApp();
+  const { user, setPage, addBooking, updateBooking, extendBookingStay, addActivity, rooms, bedSpaces, bookings, effectiveOccupancyBookings, extendingBooking, landlordDetails, cmsContent, accommodationAddresses, language, contractTranslations, accommodationCategories, roomPricing, checkSpaceAvailability, selectedRoom } = useApp();
 
   const availableCategories = useMemo(() => {
     if (accommodationCategories && accommodationCategories.length > 0) {
@@ -309,6 +309,27 @@ const MultiStepBookingForm: React.FC = () => {
     return null;
   }, [formData.arrivalDate, formData.selectedRoomId, parsedAvailabilityData, extendingBooking]);
 
+  // Pre-select space matching selectedRoom if navigated from Dashboard
+  useEffect(() => {
+    if (selectedRoom && parsedAvailabilityData.length > 0 && !extendingBooking) {
+      const match = parsedAvailabilityData.find(s => {
+        if (s.roomId && s.roomId === selectedRoom.id) return !s.isOccupied;
+        return s.category.toLowerCase() === (selectedRoom.category || '').toLowerCase() && !s.isOccupied;
+      }) || parsedAvailabilityData.find(s => s.roomId === selectedRoom.id);
+
+      if (match) {
+        setFormData(prev => ({
+          ...prev,
+          category: match.category,
+          selectedRoomId: match.id,
+          roomName: match.roomName,
+          bedSpaceName: match.bedSpaceName,
+          roomType: match.type,
+        }));
+      }
+    }
+  }, [selectedRoom, parsedAvailabilityData, extendingBooking]);
+
   // Pre-select first available room on load or update if current selected is occupied
   useEffect(() => {
     if (parsedAvailabilityData.length > 0) {
@@ -317,15 +338,39 @@ const MultiStepBookingForm: React.FC = () => {
       
       if (isSelectedOccupied) {
         const list = accommodationsSelection[formData.category];
-        const firstAvailable = list?.find(item => {
+        let firstAvailable = list?.find(item => {
           const spaceConfig = parsedAvailabilityData.find(s => s.id === item.id);
           const isOccupied = spaceConfig?.isOccupied;
           const bookingForSpace = spaceConfig?.booking;
           const isSpaceOccupied = isOccupied && (!extendingBooking || bookingForSpace?.id !== extendingBooking.id);
           return !isSpaceOccupied;
         });
-        
-        if (firstAvailable) {
+
+        // If current category has no available space, find in other available categories
+        if (!firstAvailable) {
+          for (const cat of availableCategories) {
+            const catList = accommodationsSelection[cat];
+            const found = catList?.find(item => {
+              const spaceConfig = parsedAvailabilityData.find(s => s.id === item.id);
+              const isOccupied = spaceConfig?.isOccupied;
+              const bookingForSpace = spaceConfig?.booking;
+              const isSpaceOccupied = isOccupied && (!extendingBooking || bookingForSpace?.id !== extendingBooking.id);
+              return !isSpaceOccupied;
+            });
+            if (found) {
+              firstAvailable = found;
+              setFormData(prev => ({
+                ...prev,
+                category: cat,
+                selectedRoomId: found.id,
+                roomName: found.room,
+                bedSpaceName: found.space,
+                roomType: found.type,
+              }));
+              break;
+            }
+          }
+        } else {
           setFormData(prev => ({
             ...prev,
             selectedRoomId: firstAvailable.id,
@@ -336,7 +381,7 @@ const MultiStepBookingForm: React.FC = () => {
         }
       }
     }
-  }, [parsedAvailabilityData, accommodationsSelection, extendingBooking, formData.category, formData.selectedRoomId]);
+  }, [parsedAvailabilityData, accommodationsSelection, extendingBooking, formData.category, formData.selectedRoomId, availableCategories]);
 
   // Automatically pre-select existing bed space on extension flow
   useEffect(() => {
@@ -799,7 +844,7 @@ const MultiStepBookingForm: React.FC = () => {
                             }`}>
                               {isSpaceOccupied
                                 ? (formData.arrivalDate ? 'Booked for dates' : (finalAvailDate === 'Available Now' ? (t.step1_status_fully_booked || 'Fully Booked') : ((t.step1_status_fully_booked_next || 'Fully Booked (Next: {date})').replace('{date}', finalAvailDate))))
-                                : spaceConfig?.hasFutureBooking && spaceConfig.futureBookings && spaceConfig.futureBookings.length > 0
+                                : spaceConfig?.hasFutureBooking && spaceConfig.futureBookings && spaceConfig.futureBookings.length > 0 && spaceConfig.futureBookings[0]?.status !== 'Pending Payment'
                                 ? `Available (Reserved from ${spaceConfig.futureBookings[0].start_date || spaceConfig.futureBookings[0].expected_arrival_date || 'Future'})`
                                 : (finalAvailDate === 'Available Now' ? (t.step1_status_available_now || 'Available Now') : finalAvailDate)
                               }

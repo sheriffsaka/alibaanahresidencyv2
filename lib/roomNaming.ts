@@ -435,9 +435,13 @@ export const getBookingStartDate = (b: any): string => {
   if (date) {
     return date.split('T')[0];
   }
+  // Pending Payment / Pending Verification bookings never have an assumed past start date
+  if (b.status === 'Pending Payment' || b.status === 'Pending Verification') {
+    return '';
+  }
   // If no explicit start date is recorded, but the booking is an active occupancy (has an end_date, is_held, or active status),
   // it is an ongoing active tenancy that started in the past (e.g. from get_public_occupancy RPC or legacy bookings).
-  if (b.end_date || b.payment_expiry_date || b.is_held || b.status === 'Occupied' || b.status === 'Confirmed') {
+  if (b.status === 'Occupied' || b.status === 'Confirmed' || (b.is_held && b.status !== 'Pending Payment' && b.status !== 'Pending Verification')) {
     return '2000-01-01';
   }
   return '';
@@ -712,14 +716,19 @@ export const getParsedRoomSpaces = (
     const dbRoom = space.roomId ? (rooms || []).find(r => r.id === space.roomId) : findDatabaseRoomForSpace(rooms || [], space, knownCategories);
     const spaceBookings = spaceBookingsMap.get(space.id) || [];
 
+    // If the database room record explicitly has occupied_slots === 0, no space in this room can be occupied today!
+    const roomHasZeroOccupancy = dbRoom && (dbRoom.occupied_slots || 0) === 0;
+
     // Find booking occupying space TODAY: actual start date must be <= today, and end date >= today
     const currentBooking = spaceBookings.find(b => {
+      // Pending Payment or Pending Verification bookings NEVER occupy a space today
+      if (b.status === 'Pending Payment' || b.status === 'Pending Verification') return false;
       const bStart = getBookingStartDate(b);
       const bEnd = getBookingEndDate(b) || '2099-12-31';
       if (!bStart) return false;
       return bStart <= todayStr && bEnd >= todayStr;
     });
-    const isOccupiedToday = !!currentBooking;
+    const isOccupiedToday = roomHasZeroOccupancy ? false : !!currentBooking;
 
     // Find future bookings starting strictly after today
     const futureBookings = spaceBookings.filter(b => {
@@ -740,6 +749,8 @@ export const getParsedRoomSpaces = (
     if (reqStart && reqEnd) {
       overlappingBooking = spaceBookings.find(b => {
         if (extendingId && b.id === extendingId) return false;
+        // Pending Payment or Pending Verification bookings do NOT block new bookings
+        if (b.status === 'Pending Payment' || b.status === 'Pending Verification') return false;
         const bStart = getBookingStartDate(b);
         const bEnd = getBookingEndDate(b) || '2099-12-31';
         if (!bStart) return false;
@@ -759,6 +770,9 @@ export const getParsedRoomSpaces = (
 
     let nextAvailableDate = "Available Now";
 
+    const confirmedFutureBookings = futureBookings.filter(b => b.status !== 'Pending Payment' && b.status !== 'Pending Verification');
+    const hasConfirmedFutureBooking = confirmedFutureBookings.length > 0;
+
     if (isOccupiedToday && currentBooking) {
       const rawDate = currentBooking.end_date || currentBooking.payment_expiry_date;
       if (rawDate) {
@@ -775,8 +789,8 @@ export const getParsedRoomSpaces = (
       } else {
         nextAvailableDate = "Occupied";
       }
-    } else if (hasFutureBooking) {
-      const earliestFuture = futureBookings[0];
+    } else if (hasConfirmedFutureBooking) {
+      const earliestFuture = confirmedFutureBookings[0];
       const rawDate = earliestFuture.start_date || earliestFuture.expected_arrival_date;
       if (rawDate) {
         try {
@@ -795,13 +809,14 @@ export const getParsedRoomSpaces = (
       ...space,
       isOccupied,
       isOccupiedToday,
-      isReserved: hasFutureBooking,
-      hasFutureBooking,
+      isReserved: hasConfirmedFutureBooking,
+      hasFutureBooking: hasConfirmedFutureBooking,
       isUnavailableForDates,
       overlappingBooking,
       booking: assignedBooking,
       currentBooking,
       futureBookings,
+      confirmedFutureBookings,
       allBookings: spaceBookings,
       dbRoom,
       supabaseRoom: dbRoom,

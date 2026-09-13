@@ -559,7 +559,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
   const refreshPublicOccupancy = useCallback(async () => {
     try {
-      const occApiRes = await fetch('/api/public-occupancy');
+      const occApiRes = await fetch('/api/public-occupancy', { cache: 'no-cache' });
       if (occApiRes.ok) {
         const occJson = await occApiRes.json();
         if (occJson.success && Array.isArray(occJson.occupancy)) {
@@ -574,16 +574,20 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     try {
       const { data, error } = await supabase.rpc('get_public_occupancy');
       if (!error && Array.isArray(data)) {
-        const normalized = data.map((item: any) => ({
-          ...item,
-          start_date: item.start_date || (item.end_date ? '2000-01-01' : null)
-        }));
+        const normalized = data.map((item: any) => {
+          const dbRoom = rooms.find(r => r.id === item.room_id);
+          const isRoomEmptyToday = dbRoom && (dbRoom.occupied_slots || 0) === 0;
+          return {
+            ...item,
+            start_date: item.start_date || (isRoomEmptyToday ? (item.expected_arrival_date || null) : (item.end_date ? '2000-01-01' : null))
+          };
+        });
         setPublicOccupancy(normalized);
       }
     } catch (err) {
       console.error('[refreshPublicOccupancy] Fallback RPC error:', err);
     }
-  }, []);
+  }, [rooms]);
 
   const fetchConversationMessages = useCallback(async (conversationId: string, channel?: string): Promise<MessageItem[]> => {
     return await fetchMessages(conversationId, channel);
@@ -1204,10 +1208,15 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             }
 
             if (publicOccupancyRes && !publicOccupancyRes.error && publicOccupancyRes.data) {
-                const normalizedOccupancy: PublicOccupancy[] = (publicOccupancyRes.data as any[]).map(item => ({
-                    ...item,
-                    start_date: item.start_date || (item.end_date ? '2000-01-01' : null)
-                }));
+                const currentDbRooms = (roomsRes?.data && roomsRes.data.length > 0) ? roomsRes.data : DEFAULT_ROOMS;
+                const normalizedOccupancy: PublicOccupancy[] = (publicOccupancyRes.data as any[]).map(item => {
+                    const dbRoom = currentDbRooms.find((r: any) => r.id === item.room_id);
+                    const isRoomEmptyToday = dbRoom && (dbRoom.occupied_slots || 0) === 0;
+                    return {
+                        ...item,
+                        start_date: item.start_date || (isRoomEmptyToday ? (item.expected_arrival_date || null) : (item.end_date ? '2000-01-01' : null))
+                    };
+                });
                 setPublicOccupancy(normalizedOccupancy);
             }
 
