@@ -1140,7 +1140,7 @@ Automated dispatch following database update.
       let query = client
         .from('bookings')
         .select('id, room_id, bed_space_id, start_date, end_date, expected_arrival_date, payment_expiry_date, status, full_name')
-        .not('status', 'in', '("Cancelled","Completed","Rejected","Discontinued")');
+        .not('status', 'in', '("Cancelled","Completed","Maintenance")');
 
       if (bedSpaceId) {
         query = query.eq('bed_space_id', Number(bedSpaceId));

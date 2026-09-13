@@ -1454,7 +1454,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             let conflictQuery = supabase
                 .from('bookings')
                 .select('id, room_id, bed_space_id, start_date, end_date, expected_arrival_date, payment_expiry_date, status, full_name')
-                .not('status', 'in', '("Cancelled","Completed","Rejected","Discontinued")');
+                .not('status', 'in', '("Cancelled","Completed","Maintenance")');
 
             if (targetBedSpaceId) {
                 conflictQuery = conflictQuery.eq('bed_space_id', targetBedSpaceId);
