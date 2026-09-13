@@ -431,7 +431,16 @@ export interface ParsedRoomSpace extends RoomSpaceConfig {
 
 export const getBookingStartDate = (b: any): string => {
   if (!b) return '';
-  return (b.start_date || b.expected_arrival_date || (b.booked_at ? b.booked_at.split('T')[0] : '')).split('T')[0];
+  const date = b.start_date || b.expected_arrival_date || (b.booked_at ? b.booked_at.split('T')[0] : '');
+  if (date) {
+    return date.split('T')[0];
+  }
+  // If no explicit start date is recorded, but the booking is an active occupancy (has an end_date, is_held, or active status),
+  // it is an ongoing active tenancy that started in the past (e.g. from get_public_occupancy RPC or legacy bookings).
+  if (b.end_date || b.payment_expiry_date || b.is_held || b.status === 'Occupied' || b.status === 'Confirmed') {
+    return '2000-01-01';
+  }
+  return '';
 };
 
 export const getBookingEndDate = (b: any): string => {
@@ -715,7 +724,7 @@ export const getParsedRoomSpaces = (
     // Find future bookings starting strictly after today
     const futureBookings = spaceBookings.filter(b => {
       const bStart = getBookingStartDate(b);
-      return Boolean(bStart && bStart > todayStr);
+      return Boolean(bStart && bStart > todayStr && bStart !== '2000-01-01');
     }).sort((a, b) => {
       const sA = getBookingStartDate(a);
       const sB = getBookingStartDate(b);

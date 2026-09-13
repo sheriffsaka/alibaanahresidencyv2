@@ -5,7 +5,7 @@ import { supabase } from '../lib/supabaseClient';
 import { Session } from '@supabase/supabase-js';
 import { sendEmail, fetchRecentEmailLogs, notifyAdminOfBookingEvent } from '../lib/email';
 import { fetchConversationsList, fetchMessages, postMessage, markConversationAsRead as markConvAsRead, getOrCreateStudentConversation } from '../lib/messaging';
-import { getParsedRoomSpaces, generateUnitCode } from '../lib/roomNaming';
+import { getParsedRoomSpaces, generateUnitCode, getBookingStartDate, getBookingEndDate } from '../lib/roomNaming';
 import { DEFAULT_CONTRACT_TRANSLATIONS, ContractTranslationsStore, LegalContractTranslation } from '../lib/contractTranslations';
 import { OFFICIAL_STUDENT_HANDBOOK_DOCUMENT } from '../lib/studentHandbookData';
 import { RoomPricingTier, DEFAULT_ROOM_PRICING_TIERS, formatTierLabel, calculateExtensionPricing, calculateExtendedExpiryDate, normalizeRoomType } from '../lib/pricing';
@@ -564,10 +564,24 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         const occJson = await occApiRes.json();
         if (occJson.success && Array.isArray(occJson.occupancy)) {
           setPublicOccupancy(occJson.occupancy);
+          return;
         }
       }
     } catch (err) {
-      console.warn('[refreshPublicOccupancy] Error refreshing public occupancy:', err);
+      console.warn('[refreshPublicOccupancy] Error refreshing public occupancy via API, trying RPC:', err);
+    }
+
+    try {
+      const { data, error } = await supabase.rpc('get_public_occupancy');
+      if (!error && Array.isArray(data)) {
+        const normalized = data.map((item: any) => ({
+          ...item,
+          start_date: item.start_date || (item.end_date ? '2000-01-01' : null)
+        }));
+        setPublicOccupancy(normalized);
+      }
+    } catch (err) {
+      console.error('[refreshPublicOccupancy] Fallback RPC error:', err);
     }
   }, []);
 
@@ -1190,7 +1204,11 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             }
 
             if (publicOccupancyRes && !publicOccupancyRes.error && publicOccupancyRes.data) {
-                setPublicOccupancy(publicOccupancyRes.data);
+                const normalizedOccupancy: PublicOccupancy[] = (publicOccupancyRes.data as any[]).map(item => ({
+                    ...item,
+                    start_date: item.start_date || (item.end_date ? '2000-01-01' : null)
+                }));
+                setPublicOccupancy(normalizedOccupancy);
             }
 
             if (bookingsRes && !bookingsRes.error && bookingsRes.data && bookingsRes.data.length > 0) {
@@ -1423,8 +1441,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             if (b.room_id !== rId) return false;
             const isConfirmedOrOccupied = b.status === BookingStatus.CONFIRMED || b.status === BookingStatus.OCCUPIED || (b.status as string) === 'Confirmed' || (b.status as string) === 'Occupied';
             if (!isConfirmedOrOccupied) return false;
-            const bStart = (b.start_date || b.expected_arrival_date || (b.booked_at ? b.booked_at.split('T')[0] : '')).split('T')[0];
-            const bEnd = (b.end_date || b.payment_expiry_date || '2099-12-31').split('T')[0];
+            const bStart = getBookingStartDate(b);
+            const bEnd = getBookingEndDate(b) || '2099-12-31';
             if (!bStart) return false;
             return bStart <= todayStr && bEnd >= todayStr;
         }).length;
