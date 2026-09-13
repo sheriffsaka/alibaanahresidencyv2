@@ -557,6 +557,20 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     }
   }, [user]);
 
+  const refreshPublicOccupancy = useCallback(async () => {
+    try {
+      const occApiRes = await fetch('/api/public-occupancy');
+      if (occApiRes.ok) {
+        const occJson = await occApiRes.json();
+        if (occJson.success && Array.isArray(occJson.occupancy)) {
+          setPublicOccupancy(occJson.occupancy);
+        }
+      }
+    } catch (err) {
+      console.warn('[refreshPublicOccupancy] Error refreshing public occupancy:', err);
+    }
+  }, []);
+
   const fetchConversationMessages = useCallback(async (conversationId: string, channel?: string): Promise<MessageItem[]> => {
     return await fetchMessages(conversationId, channel);
   }, []);
@@ -811,6 +825,16 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             } else if (payload.eventType === 'DELETE') {
                 setBookings(prev => prev.filter(b => b.id !== payload.old.id));
             }
+
+            // Keep public occupancy in sync in real time
+            fetch('/api/public-occupancy')
+                .then(r => r.json())
+                .then(j => {
+                    if (j.success && Array.isArray(j.occupancy)) {
+                        setPublicOccupancy(j.occupancy);
+                    }
+                })
+                .catch(() => {});
         })
         .subscribe();
 
@@ -1067,6 +1091,21 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const fetchPublicData = useCallback(async () => {
         try {
             console.log("Fetching public data...");
+            const fetchPublicOccupancyData = async (): Promise<{ data: PublicOccupancy[] | null; error: any }> => {
+                try {
+                    const occApiRes = await fetch('/api/public-occupancy');
+                    if (occApiRes.ok) {
+                        const occJson = await occApiRes.json();
+                        if (occJson.success && Array.isArray(occJson.occupancy)) {
+                            return { data: occJson.occupancy as PublicOccupancy[], error: null };
+                        }
+                    }
+                } catch (err) {
+                    console.warn("[fetchPublicData] Notice fetching /api/public-occupancy, falling back to RPC:", err);
+                }
+                return safeFetch(supabase.rpc('get_public_occupancy'));
+            };
+
             const [roomsRes, bedSpacesRes, bookingsRes, termsRes, packagesRes, cmsRes, activitiesRes, publicOccupancyRes, waitlistRes, categoriesRes, contractTranslationsRes, roomPricingRes] = await Promise.all([
                 safeFetch(supabase.from('rooms').select('*')),
                 safeFetch(supabase.from('bed_spaces').select('*').order('id', { ascending: true })),
@@ -1075,7 +1114,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                 safeFetch(supabase.from('booking_packages').select('*').eq('is_active', true)),
                 safeFetch(supabase.from('cms_content').select('*').limit(1).maybeSingle()),
                 safeFetch(supabase.from('admin_audit_log').select('*').order('created_at', { ascending: false }).limit(20)),
-                safeFetch(supabase.rpc('get_public_occupancy')),
+                fetchPublicOccupancyData(),
                 safeFetch(supabase.from('waitlist').select('*, profiles:student_id(full_name, phone_number, nationality)').order('created_at', { ascending: false })),
                 safeFetch(supabase.from('accommodation_categories').select('*').order('display_order', { ascending: true })),
                 safeFetch(supabase.from('contract_translations').select('*')),
@@ -1150,23 +1189,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
                 setBedSpaces(prev => prev && prev.length > 0 ? prev : DEFAULT_BED_SPACES);
             }
 
-            // Fetch public occupancy from server API with date awareness (fallback to RPC)
-            let loadedPublicOcc: PublicOccupancy[] = [];
-            try {
-                const occApiRes = await fetch('/api/public-occupancy');
-                if (occApiRes.ok) {
-                    const occJson = await occApiRes.json();
-                    if (occJson.success && Array.isArray(occJson.occupancy)) {
-                        loadedPublicOcc = occJson.occupancy;
-                    }
-                }
-            } catch {
-                // Non-blocking fallback
-            }
-
-            if (loadedPublicOcc.length > 0) {
-                setPublicOccupancy(loadedPublicOcc);
-            } else if (publicOccupancyRes && !publicOccupancyRes.error && publicOccupancyRes.data) {
+            if (publicOccupancyRes && !publicOccupancyRes.error && publicOccupancyRes.data) {
                 setPublicOccupancy(publicOccupancyRes.data);
             }
 
@@ -1400,8 +1423,9 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             if (b.room_id !== rId) return false;
             const isConfirmedOrOccupied = b.status === BookingStatus.CONFIRMED || b.status === BookingStatus.OCCUPIED || (b.status as string) === 'Confirmed' || (b.status as string) === 'Occupied';
             if (!isConfirmedOrOccupied) return false;
-            const bStart = (b.start_date || b.expected_arrival_date || (b.booked_at ? b.booked_at.split('T')[0] : '2000-01-01')).split('T')[0];
+            const bStart = (b.start_date || b.expected_arrival_date || (b.booked_at ? b.booked_at.split('T')[0] : '')).split('T')[0];
             const bEnd = (b.end_date || b.payment_expiry_date || '2099-12-31').split('T')[0];
+            if (!bStart) return false;
             return bStart <= todayStr && bEnd >= todayStr;
         }).length;
         const isNowAvailable = activeCount < (room.capacity || 1);
@@ -1594,6 +1618,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
         // Recalculate room occupancy slots and availability in Supabase (whitelist: Confirmed/Occupied)
         await syncRoomOccupancyToDb([data.room_id], updatedBookings);
+        refreshPublicOccupancy();
 
         // Notify Admin of new booking on backend (only after Supabase insert succeeded!)
         notifyAdminOfBookingEvent({
@@ -1625,6 +1650,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
         // Recalculate room occupancy slots and availability in Supabase (whitelist: Confirmed/Occupied)
         await syncRoomOccupancyToDb([booking.room_id], updatedBookings);
+        refreshPublicOccupancy();
 
         // Notify Admin on backend after status update succeeds in Supabase
         if (status === BookingStatus.CONFIRMED) {
@@ -1729,6 +1755,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         // Recalculate room occupancy slots and availability in Supabase (whitelist: Confirmed/Occupied)
         const affectedRoomIds = [existingBooking?.room_id, targetRoomId].filter((x): x is number => typeof x === 'number');
         await syncRoomOccupancyToDb(affectedRoomIds, updatedBookings);
+        refreshPublicOccupancy();
 
         // Notify Admin on backend after database updates succeed
         if (updates.status === BookingStatus.CONFIRMED) {
@@ -1937,6 +1964,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
         // 4. Update the room/bed occupancy slots and is_available status dynamically (whitelist: Confirmed/Occupied)
         await syncRoomOccupancyToDb([booking.room_id], remainingBookings);
+        refreshPublicOccupancy();
 
         // 5. Clean up student profile if they have no other bookings
         const studentBookings = remainingBookings.filter(b => b.student_id === booking.student_id);
@@ -4250,6 +4278,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     updateWaitlistStatus,
     updateWaitlistEntry,
     refreshWaitlist,
+    refreshPublicOccupancy,
     emailLogs,
     refreshEmailLogs,
     retryEmailLog,

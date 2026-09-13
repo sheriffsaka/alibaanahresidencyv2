@@ -528,6 +528,7 @@ export interface AppContextType {
   updateWaitlistStatus: (id: number, status: WaitlistStatus) => Promise<{ success: boolean; error?: string }>;
   updateWaitlistEntry: (id: number, updates: Partial<WaitlistEntry>) => Promise<{ success: boolean; error?: string }>;
   refreshWaitlist: () => Promise<void>;
+  refreshPublicOccupancy: () => Promise<void>;
   emailLogs: EmailLogEntry[];
   refreshEmailLogs: () => Promise<void>;
   retryEmailLog: (logId: number) => Promise<{ success: boolean; error?: string }>;

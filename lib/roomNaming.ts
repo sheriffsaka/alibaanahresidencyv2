@@ -429,6 +429,16 @@ export interface ParsedRoomSpace extends RoomSpaceConfig {
   nextAvailableDate: string;
 }
 
+export const getBookingStartDate = (b: any): string => {
+  if (!b) return '';
+  return (b.start_date || b.expected_arrival_date || (b.booked_at ? b.booked_at.split('T')[0] : '')).split('T')[0];
+};
+
+export const getBookingEndDate = (b: any): string => {
+  if (!b) return '';
+  return (b.end_date || b.payment_expiry_date || '').split('T')[0];
+};
+
 export const isDateRangeOverlapping = (
   startA?: string | null,
   endA?: string | null,
@@ -657,8 +667,8 @@ export const getParsedRoomSpaces = (
 
   // Pass 2: If there are unassigned bookings (e.g. only category was specified), assign them to a space in that category
   for (const { booking, details } of unassignedBookings) {
-    const bStart = (booking.start_date || booking.expected_arrival_date || (booking.booked_at ? booking.booked_at.split('T')[0] : '2000-01-01')).split('T')[0];
-    const bEnd = (booking.end_date || booking.payment_expiry_date || '2099-12-31').split('T')[0];
+    const bStart = getBookingStartDate(booking);
+    const bEnd = getBookingEndDate(booking) || '2099-12-31';
 
     // Find a space that has no overlapping bookings for this unassigned booking's dates
     const availableSpace = spacesList.find(space => {
@@ -669,8 +679,8 @@ export const getParsedRoomSpaces = (
 
       const currentAssigned = spaceBookingsMap.get(space.id) || [];
       const hasConflict = currentAssigned.some(existing => {
-        const eStart = (existing.start_date || existing.expected_arrival_date || (existing.booked_at ? existing.booked_at.split('T')[0] : '2000-01-01')).split('T')[0];
-        const eEnd = (existing.end_date || existing.payment_expiry_date || '2099-12-31').split('T')[0];
+        const eStart = getBookingStartDate(existing);
+        const eEnd = getBookingEndDate(existing) || '2099-12-31';
         return isDateRangeOverlapping(bStart, bEnd, eStart, eEnd);
       });
       return !hasConflict;
@@ -693,21 +703,22 @@ export const getParsedRoomSpaces = (
     const dbRoom = space.roomId ? (rooms || []).find(r => r.id === space.roomId) : findDatabaseRoomForSpace(rooms || [], space, knownCategories);
     const spaceBookings = spaceBookingsMap.get(space.id) || [];
 
-    // Find booking occupying space TODAY
+    // Find booking occupying space TODAY: actual start date must be <= today, and end date >= today
     const currentBooking = spaceBookings.find(b => {
-      const bStart = (b.start_date || b.expected_arrival_date || (b.booked_at ? b.booked_at.split('T')[0] : '2000-01-01')).split('T')[0];
-      const bEnd = (b.end_date || b.payment_expiry_date || '2099-12-31').split('T')[0];
+      const bStart = getBookingStartDate(b);
+      const bEnd = getBookingEndDate(b) || '2099-12-31';
+      if (!bStart) return false;
       return bStart <= todayStr && bEnd >= todayStr;
     });
     const isOccupiedToday = !!currentBooking;
 
-    // Find future bookings starting after today
+    // Find future bookings starting strictly after today
     const futureBookings = spaceBookings.filter(b => {
-      const bStart = (b.start_date || b.expected_arrival_date || (b.booked_at ? b.booked_at.split('T')[0] : '2000-01-01')).split('T')[0];
-      return bStart > todayStr;
+      const bStart = getBookingStartDate(b);
+      return Boolean(bStart && bStart > todayStr);
     }).sort((a, b) => {
-      const sA = (a.start_date || a.expected_arrival_date || '').split('T')[0];
-      const sB = (b.start_date || b.expected_arrival_date || '').split('T')[0];
+      const sA = getBookingStartDate(a);
+      const sB = getBookingStartDate(b);
       return sA.localeCompare(sB);
     });
 
@@ -720,8 +731,9 @@ export const getParsedRoomSpaces = (
     if (reqStart && reqEnd) {
       overlappingBooking = spaceBookings.find(b => {
         if (extendingId && b.id === extendingId) return false;
-        const bStart = (b.start_date || b.expected_arrival_date || (b.booked_at ? b.booked_at.split('T')[0] : '2000-01-01')).split('T')[0];
-        const bEnd = (b.end_date || b.payment_expiry_date || '2099-12-31').split('T')[0];
+        const bStart = getBookingStartDate(b);
+        const bEnd = getBookingEndDate(b) || '2099-12-31';
+        if (!bStart) return false;
         return isDateRangeOverlapping(reqStart, reqEnd, bStart, bEnd);
       }) || null;
 
