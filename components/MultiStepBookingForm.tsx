@@ -312,10 +312,12 @@ const MultiStepBookingForm: React.FC = () => {
   // Pre-select space matching selectedRoom if navigated from Dashboard
   useEffect(() => {
     if (selectedRoom && parsedAvailabilityData.length > 0 && !extendingBooking) {
-      const match = parsedAvailabilityData.find(s => {
-        if (s.roomId && s.roomId === selectedRoom.id) return !s.isOccupied;
-        return s.category.toLowerCase() === (selectedRoom.category || '').toLowerCase() && !s.isOccupied;
-      }) || parsedAvailabilityData.find(s => s.roomId === selectedRoom.id);
+      const targetId = (selectedRoom as any).targetSpaceId;
+      const match = (targetId ? parsedAvailabilityData.find(s => s.id === targetId) : null)
+        || parsedAvailabilityData.find(s => {
+          if (s.roomId && s.roomId === selectedRoom.id) return !s.isOccupied;
+          return s.category.toLowerCase() === (selectedRoom.category || '').toLowerCase() && !s.isOccupied;
+        }) || parsedAvailabilityData.find(s => s.roomId === selectedRoom.id);
 
       if (match) {
         setFormData(prev => ({

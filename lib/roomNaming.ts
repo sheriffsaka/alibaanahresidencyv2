@@ -431,17 +431,20 @@ export interface ParsedRoomSpace extends RoomSpaceConfig {
 
 export const getBookingStartDate = (b: any): string => {
   if (!b) return '';
+  const s = String(b.status || '').toLowerCase().trim();
+  const isPending = s.includes('pending');
+
   const date = b.start_date || b.expected_arrival_date || (b.booked_at ? b.booked_at.split('T')[0] : '');
   if (date) {
     return date.split('T')[0];
   }
   // Pending Payment / Pending Verification bookings never have an assumed past start date
-  if (b.status === 'Pending Payment' || b.status === 'Pending Verification') {
+  if (isPending) {
     return '';
   }
   // If no explicit start date is recorded, but the booking is an active occupancy (has an end_date, is_held, or active status),
   // it is an ongoing active tenancy that started in the past (e.g. from get_public_occupancy RPC or legacy bookings).
-  if (b.status === 'Occupied' || b.status === 'Confirmed' || (b.is_held && b.status !== 'Pending Payment' && b.status !== 'Pending Verification')) {
+  if (s === 'occupied' || s === 'confirmed' || (b.is_held === true && !b.status)) {
     return '2000-01-01';
   }
   return '';
@@ -607,11 +610,11 @@ export const getParsedRoomSpaces = (
   const spacesList = getDynamicRoomSpaces(rooms, bedSpaces, options, knownCategories);
 
   // Active bookings include:
-  // 1) PublicOccupancy items where is_held is true
+  // 1) PublicOccupancy items where is_held is true (or not explicitly false)
   // 2) Full booking records where status is active (not Cancelled/Completed)
   const activeBookings = (bookings || []).filter(b => {
-    if ("is_held" in b) {
-      return b.is_held === true;
+    if ("is_held" in b && b.is_held !== undefined) {
+      if (b.is_held === false) return false;
     }
     return !isCancelledOrCompleted(b.status);
   });

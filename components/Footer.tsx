@@ -12,7 +12,7 @@ const Footer: React.FC = () => {
         <div className="flex flex-col items-center justify-center space-y-4">
           <img src={cmsContent.logoUrl} alt={t.brand} className="h-12 object-contain" />
           <div className="flex justify-center items-center space-x-4 text-sm text-gray-500 dark:text-gray-400">
-            <p>&copy; {new Date().getFullYear()} {t.brand}. All rights reserved.</p>
+            <p>&copy; {new Date().getFullYear()} {t.brand}. {t.allRightsReserved || 'All rights reserved.'}</p>
             <span className="text-gray-300 dark:text-gray-600">|</span>
             <button onClick={() => setPage('support')} className="hover:text-brand-600 dark:hover:text-brand-400 font-medium">
                 {t.support}

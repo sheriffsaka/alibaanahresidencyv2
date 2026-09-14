@@ -132,7 +132,7 @@ const Header: React.FC = () => {
                     }`}
                   >
                     <IconCalendar className="w-3.5 h-3.5" />
-                    My Bookings
+                    {t.my_bookings || 'My Bookings'}
                   </button>
 
                   <button 
@@ -144,7 +144,7 @@ const Header: React.FC = () => {
                     }`}
                   >
                     <IconFile className="w-3.5 h-3.5" />
-                    Documents
+                    {t.documents || 'Documents'}
                   </button>
 
                   <button 
@@ -156,7 +156,7 @@ const Header: React.FC = () => {
                     }`}
                   >
                     <IconMessage className="w-3.5 h-3.5" />
-                    <span>Messages</span>
+                    <span>{t.messages || 'Messages'}</span>
                     {unreadMessagesCount > 0 && (
                       <span className="min-w-[17px] h-[17px] px-1 bg-brand-600 text-white text-[9px] font-black rounded-full flex items-center justify-center shadow-xs animate-pulse">
                         {unreadMessagesCount > 9 ? '9+' : unreadMessagesCount}
@@ -172,7 +172,7 @@ const Header: React.FC = () => {
                         ? 'text-brand-600 bg-brand-50 dark:bg-brand-900/40' 
                         : 'text-gray-500 hover:text-brand-600 hover:bg-gray-50 dark:hover:bg-gray-700/50'
                     }`}
-                    title="Notifications"
+                    title={t.notifications || 'Notifications'}
                   >
                     <IconBell className="w-5 h-5" />
                     {pendingActionsCount > 0 && (
@@ -188,7 +188,7 @@ const Header: React.FC = () => {
                   onClick={() => navigate('dashboard')} 
                   className="px-3.5 py-2 rounded-lg text-xs font-black text-brand-600 bg-brand-50 dark:bg-brand-900/40"
                 >
-                  Admin Control Panel
+                  {t.admin_panel || 'Admin Control Panel'}
                 </button>
               )}
             </nav>
@@ -212,7 +212,7 @@ const Header: React.FC = () => {
                   </div>
                   <div className="hidden lg:flex flex-col text-left rtl:text-right">
                     <span className="text-xs font-bold text-gray-800 dark:text-gray-200 leading-tight truncate max-w-[110px]">
-                      {user.full_name?.split(' ')[0] || 'Account'}
+                      {user.full_name?.split(' ')[0] || (t.account || 'Account')}
                     </span>
                     <span className="text-[10px] text-gray-400 capitalize">{user.role || 'Student'}</span>
                   </div>
@@ -227,7 +227,7 @@ const Header: React.FC = () => {
                       <p className="text-xs font-black text-gray-900 dark:text-white truncate">{user.full_name || 'Al-Ibaanah Student'}</p>
                       <p className="text-[11px] text-gray-500 truncate mt-0.5">{user.email}</p>
                       <span className="inline-block mt-1.5 px-2 py-0.5 text-[9px] font-black uppercase tracking-wider rounded-full bg-brand-50 dark:bg-brand-900/40 text-brand-600 dark:text-brand-400 border border-brand-200/50">
-                        {user.role === 'staff' || user.role === 'proprietor' ? 'Admin Staff' : 'Residency Student'}
+                        {user.role === 'staff' || user.role === 'proprietor' ? (t.role_admin || 'Admin Staff') : (t.role_student || 'Residency Student')}
                       </span>
                     </div>
 
@@ -240,7 +240,7 @@ const Header: React.FC = () => {
                             className="w-full flex items-center gap-2.5 px-4 py-2.5 text-xs text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors text-left rtl:text-right"
                           >
                             <IconUser className="w-4 h-4 text-brand-500" />
-                            <span className="font-semibold">My Profile</span>
+                            <span className="font-semibold">{t.my_profile || 'My Profile'}</span>
                           </button>
 
                           <button
@@ -248,7 +248,7 @@ const Header: React.FC = () => {
                             className="w-full flex items-center gap-2.5 px-4 py-2.5 text-xs text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors text-left rtl:text-right"
                           >
                             <IconCreditCard className="w-4 h-4 text-emerald-500" />
-                            <span className="font-semibold">Payment & Billing</span>
+                            <span className="font-semibold">{t.payment_and_billing || 'Payment & Billing'}</span>
                           </button>
                         </>
                       )}
@@ -324,10 +324,10 @@ const Header: React.FC = () => {
                 <button onClick={() => navigate('dashboard')} className="block w-full text-left px-3 py-2 rounded-lg text-sm font-bold text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700">{t.dashboard}</button>
                 {isStudent && (
                   <>
-                    <button onClick={() => navigate('my-bookings')} className="block w-full text-left px-3 py-2 rounded-lg text-sm font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700">My Bookings</button>
-                    <button onClick={() => navigate('documents')} className="block w-full text-left px-3 py-2 rounded-lg text-sm font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700">Documents</button>
+                    <button onClick={() => navigate('my-bookings')} className="block w-full text-left px-3 py-2 rounded-lg text-sm font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700">{t.my_bookings || 'My Bookings'}</button>
+                    <button onClick={() => navigate('documents')} className="block w-full text-left px-3 py-2 rounded-lg text-sm font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700">{t.documents || 'Documents'}</button>
                     <button onClick={() => navigate('messages')} className="flex items-center justify-between w-full px-3 py-2 rounded-lg text-sm font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700">
-                      <span>Messages</span>
+                      <span>{t.messages || 'Messages'}</span>
                       {unreadMessagesCount > 0 && (
                         <span className="px-2 py-0.5 text-xs font-bold bg-brand-600 text-white rounded-full">
                           {unreadMessagesCount}
@@ -335,15 +335,15 @@ const Header: React.FC = () => {
                       )}
                     </button>
                     <button onClick={() => navigate('notifications')} className="flex items-center justify-between w-full px-3 py-2 rounded-lg text-sm font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700">
-                      <span>Notifications</span>
+                      <span>{t.notifications || 'Notifications'}</span>
                       {pendingActionsCount > 0 && (
                         <span className="px-2 py-0.5 text-xs font-bold bg-red-500 text-white rounded-full">
                           {pendingActionsCount}
                         </span>
                       )}
                     </button>
-                    <button onClick={() => navigate('profile')} className="block w-full text-left px-3 py-2 rounded-lg text-sm font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700">My Profile</button>
-                    <button onClick={() => navigate('billing')} className="block w-full text-left px-3 py-2 rounded-lg text-sm font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700">Payment & Billing</button>
+                    <button onClick={() => navigate('profile')} className="block w-full text-left px-3 py-2 rounded-lg text-sm font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700">{t.my_profile || 'My Profile'}</button>
+                    <button onClick={() => navigate('billing')} className="block w-full text-left px-3 py-2 rounded-lg text-sm font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700">{t.payment_and_billing || 'Payment & Billing'}</button>
                   </>
                 )}
                 <button onClick={() => navigate('support')} className="block w-full text-left px-3 py-2 rounded-lg text-sm font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700">{t.support}</button>

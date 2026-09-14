@@ -27,7 +27,7 @@ const RoomGallery: React.FC<RoomGalleryProps> = ({ rooms }) => {
     if (galleryRooms.length === 0) {
         return (
             <div className="max-w-7xl mx-auto text-center py-12 bg-gray-50 dark:bg-gray-800/50 rounded-2xl border-2 border-dashed border-gray-200 dark:border-gray-700">
-                <p className="text-gray-500 dark:text-gray-400">No rooms available to display in the gallery.</p>
+                <p className="text-gray-500 dark:text-gray-400">{t.no_rooms_available || 'No rooms available to display in the gallery.'}</p>
             </div>
         );
     }
@@ -36,10 +36,10 @@ const RoomGallery: React.FC<RoomGalleryProps> = ({ rooms }) => {
         <div className="max-w-7xl mx-auto">
             <div className="text-center mb-12">
                 <h2 className="text-3xl font-bold tracking-tight text-gray-900 dark:text-white sm:text-4xl">
-                    {t.galleryTitle}
+                    {t.gallery_title || t.galleryTitle || 'Room Gallery'}
                 </h2>
                 <p className="mt-4 text-lg text-gray-600 dark:text-gray-300">
-                    {t.gallerySubtitle}
+                    {t.gallery_subtitle || t.gallerySubtitle || 'Take a tour through our thoughtfully designed student living spaces.'}
                 </p>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-10 max-w-6xl mx-auto">
@@ -54,7 +54,7 @@ const RoomGallery: React.FC<RoomGalleryProps> = ({ rooms }) => {
                             <div className="transform-gpu text-white transition-all duration-500 group-hover:translate-y-0 translate-y-4">
                                 <p className="text-3xl font-bold tracking-tight">{room.type}</p>
                                 <p className="text-lg font-medium text-brand-300 mt-2">
-                                    {t.pricePerMonth.replace('{price}', getRoomPrice(room, 2, roomPricing).toString())}
+                                    {t.pricePerMonth ? t.pricePerMonth.replace('{price}', getRoomPrice(room, 2, roomPricing).toString()) : `$${getRoomPrice(room, 2, roomPricing)} / month`}
                                 </p>
                             </div>
                         </div>

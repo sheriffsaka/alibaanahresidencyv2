@@ -56,16 +56,16 @@ const HomePage: React.FC = () => {
         </div>
         <div className="relative w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-24 sm:py-32 lg:py-40 text-center">
           <h1 className="text-3xl font-black tracking-tight text-white sm:text-5xl lg:text-6xl uppercase">
-            {currentHero.title}
+            {(language !== 'en' && t.heroTitle) ? t.heroTitle : (currentHero.title || t.heroTitle)}
           </h1>
           <p className="mt-6 max-w-2xl mx-auto text-sm sm:text-base leading-relaxed text-gray-200">
-            {currentHero.subtitle}
+            {(language !== 'en' && t.heroSubtitle) ? t.heroSubtitle : (currentHero.subtitle || t.heroSubtitle)}
           </p>
           
           {/* Distance Enrolment Advantage Highlight */}
           <div className="mt-8 bg-brand-600/90 backdrop-blur-sm border border-brand-400/30 p-4 rounded-xl max-w-xl mx-auto shadow-lg">
             <p className="text-white font-bold text-sm">
-              ✨ Distance Enrolment Advantage: Secure your residency and activate your enrolment eligibility instantly!
+              ✨ {t.distance_enrolment_banner || 'Distance Enrolment Advantage: Secure your residency and activate your enrolment eligibility instantly!'}
             </p>
           </div>
 
@@ -74,7 +74,7 @@ const HomePage: React.FC = () => {
               onClick={() => setPage('booking')}
               className="w-full sm:w-auto rounded-xl bg-brand-600 px-8 py-3.5 text-sm font-bold text-white shadow-xl hover:bg-brand-505 transition-all hover:scale-105 active:scale-95"
             >
-              Book Your Room
+              {t.heroCTA || t.book_room || t.book_now || 'Book Your Room'}
             </button>
           </div>
         </div>
@@ -87,19 +87,19 @@ const HomePage: React.FC = () => {
           <div className="grid grid-cols-2 md:grid-cols-4 gap-6 text-center">
             <div>
               <p className="text-3xl font-black text-brand-600">4.9/5</p>
-              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mt-1">Cleanliness Rating</p>
+              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mt-1">{t.metric_cleanliness || 'Cleanliness Rating'}</p>
             </div>
             <div>
               <p className="text-3xl font-black text-brand-600">5.0/5</p>
-              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mt-1">Safety Rating</p>
+              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mt-1">{t.metric_safety || 'Safety Rating'}</p>
             </div>
             <div>
               <p className="text-3xl font-black text-brand-600">5 mins</p>
-              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mt-1">From Centre</p>
+              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mt-1">{t.metric_distance || 'From Centre'}</p>
             </div>
             <div>
               <p className="text-3xl font-black text-brand-600">100%</p>
-              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mt-1">Enrolment Success</p>
+              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mt-1">{t.metric_enrolment || 'Enrolment Success'}</p>
             </div>
           </div>
         </section>
@@ -112,20 +112,26 @@ const HomePage: React.FC = () => {
         {/* Why Choose Us Features Section */}
         <section className="space-y-12">
           <div className="text-center">
-              <h2 className="text-2xl font-black uppercase tracking-tight text-gray-900 dark:text-white sm:text-3xl">Why Students Choose Al-Ibaanah</h2>
+              <h2 className="text-2xl font-black uppercase tracking-tight text-gray-900 dark:text-white sm:text-3xl">
+                {t.whyChooseUsTitle || t.why_choose_us_title || 'Why Choose Our Residency?'}
+              </h2>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8 text-center">
-              {currentFeatures.map((feat, idx) => (
-                <div key={feat.id} className="flex flex-col items-center p-4 bg-white dark:bg-gray-800 rounded-xl border border-gray-50 dark:border-gray-750 shadow-sm">
-                    <div className="flex items-center justify-center h-14 w-14 rounded-full bg-brand-50 dark:bg-brand-900 text-brand-600 dark:text-brand-300 mb-4">
-                        {idx === 0 && <IconMapPin className="h-6 w-6" />}
-                        {idx === 1 && <IconSofa className="h-6 w-6" />}
-                        {idx === 2 && <IconShieldCheck className="h-6 w-6" />}
-                    </div>
-                    <h3 className="text-base font-bold text-gray-900 dark:text-white">{feat.title}</h3>
-                    <p className="mt-2 text-xs text-gray-500 dark:text-gray-400 leading-relaxed">{feat.desc}</p>
-                </div>
-              ))}
+              {currentFeatures.map((feat, idx) => {
+                const featTitle = (t as any)[`feature${idx + 1}Title`] || (t as any)[`feature${feat.id}Title`] || feat.title;
+                const featDesc = (t as any)[`feature${idx + 1}Desc`] || (t as any)[`feature${feat.id}Desc`] || feat.desc;
+                return (
+                  <div key={feat.id} className="flex flex-col items-center p-4 bg-white dark:bg-gray-800 rounded-xl border border-gray-50 dark:border-gray-750 shadow-sm">
+                      <div className="flex items-center justify-center h-14 w-14 rounded-full bg-brand-50 dark:bg-brand-900 text-brand-600 dark:text-brand-300 mb-4">
+                          {idx === 0 && <IconMapPin className="h-6 w-6" />}
+                          {idx === 1 && <IconSofa className="h-6 w-6" />}
+                          {idx === 2 && <IconShieldCheck className="h-6 w-6" />}
+                      </div>
+                      <h3 className="text-base font-bold text-gray-900 dark:text-white">{featTitle}</h3>
+                      <p className="mt-2 text-xs text-gray-500 dark:text-gray-400 leading-relaxed">{featDesc}</p>
+                  </div>
+                );
+              })}
           </div>
         </section>
 

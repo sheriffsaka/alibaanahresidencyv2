@@ -250,6 +250,18 @@ const DashboardPage: React.FC = () => {
                 )}
 
                 <button
+                  onClick={() => {
+                    const el = document.getElementById('live-residency-spaces');
+                    el?.scrollIntoView({ behavior: 'smooth' });
+                    setShowAvailableOnly(true);
+                  }}
+                  className="px-3.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-black shadow-md transition-all flex items-center gap-1.5"
+                >
+                  <span className="w-2 h-2 rounded-full bg-white animate-pulse" />
+                  <span>{(t as any).dash_btn_browse_rooms || "Browse Vacancies"} ({availableSpacesCount})</span>
+                </button>
+
+                <button
                   onClick={() => setPage('my-bookings')}
                   className="px-3.5 py-1.5 rounded-xl bg-brand-600 hover:bg-brand-500 text-white text-xs font-black shadow-md transition-all flex items-center gap-1"
                 >
@@ -266,6 +278,17 @@ const DashboardPage: React.FC = () => {
               >
                 <IconBuilding className="w-4 h-4" />
                 <span>{t.dash_btn_book_now || "Book Your Room Now"}</span>
+              </button>
+              <button
+                onClick={() => {
+                  const el = document.getElementById('live-residency-spaces');
+                  el?.scrollIntoView({ behavior: 'smooth' });
+                  setShowAvailableOnly(true);
+                }}
+                className="px-5 py-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-black shadow-xl hover:scale-105 active:scale-95 transition-all flex items-center gap-2"
+              >
+                <span className="w-2 h-2 rounded-full bg-white animate-pulse" />
+                <span>{(t as any).dash_btn_browse_rooms || "Browse Available Rooms"} ({availableSpacesCount} {(t as any).dash_badge_vacant || 'Vacant'})</span>
               </button>
               <div className="text-xs text-gray-300 bg-white/10 px-4 py-2.5 rounded-xl border border-white/10">
                 ✨ {t.dash_distance_enrolment_badge || "Distance Enrolment: Secure residency to verify course enrolment instantly."}
@@ -529,7 +552,7 @@ const DashboardPage: React.FC = () => {
                       <button
                         onClick={() => {
                           const dbRoom = space.roomId ? rooms.find(r => r.id === space.roomId) : undefined;
-                          setPage('booking', dbRoom);
+                          setPage('booking', { ...(dbRoom || {}), targetSpaceId: space.id, category: space.category } as any);
                         }}
                         className="w-full py-2 px-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[11px] transition-all flex items-center justify-center gap-1.5 shadow-sm hover:shadow"
                       >

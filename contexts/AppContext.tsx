@@ -262,7 +262,11 @@ export const INITIAL_CMS: CmsContent = {
   categoryMedia: DEFAULT_CATEGORY_MEDIA,
   hero: {
     en: { title: 'Your Home for Knowledge and Comfort', subtitle: 'Secure, comfortable, and studious living, just moments away from the Al-Ibaanah Arabic Center.' },
-    ar: { title: 'بيتك للمعرفة والراحة', subtitle: 'سكن آمن، مريح، ومناسب للدراسة، على بعد لحظات من مركز الإبانة للغة العربية.' }
+    ar: { title: 'بيتك للمعرفة والراحة', subtitle: 'سكن آمن، مريح، ومناسب للدراسة، على بعد لحظات من مركز الإبانة للغة العربية.' },
+    fr: { title: 'Votre foyer pour le savoir et le confort', subtitle: 'Un cadre de vie sécurisé, confortable et propice aux études, à deux pas du centre d’arabe Al-Ibaanah.' },
+    ru: { title: 'Ваш дом для знаний и комфорта', subtitle: 'Безопасное, комфортное проживание для успешной учебы в нескольких шагах от арабского центра Аль-Ибана.' },
+    uz: { title: 'Ilm va qulaylik maskaningiz', subtitle: "Al-Ibaanah arab tili markazidan bir necha daqiqalik masofada xavfsiz, qulay va o'qish uchun mos yashash joyi." },
+    zh: { title: '您的求知与舒适之家', subtitle: '安全、舒适、适宜学习的居住环境，距Al-Ibaanah阿拉伯语中心仅数步之遥。' }
   },
   heroImageUrl: 'https://res.cloudinary.com/di7okmjsx/image/upload/v1779441267/ibaanah_vean0s.jpg',
   features: {
@@ -275,16 +279,64 @@ export const INITIAL_CMS: CmsContent = {
       { id: 1, title: 'موقع متميز', desc: 'يقع على بعد دقائق من المركز، مما يجعل وصولك إلى الفصول الدراسية سريعًا وسهلاً.' },
       { id: 2, title: 'مفروشة بالكامل', desc: 'غرفنا مجهزة بجميع الأساسيات لإقامة مريحة ومنتجة.' },
       { id: 3, title: 'آمن ومضمون', desc: 'أمن على مدار 24 ساعة وبيئة داعمة، حتى تتمكن من التركيز على دراستك براحة بال.' }
+    ],
+    fr: [
+      { id: 1, title: 'Emplacement idéal', desc: 'Situé à quelques minutes du campus, facilitant vos trajets quotidiens vers vos cours.' },
+      { id: 2, title: 'Entièrement meublé', desc: 'Nos chambres sont équipées de tout le nécessaire pour un séjour confortable et productif.' },
+      { id: 3, title: 'Sûr et sécurisé', desc: 'Sécurité 24h/24 et environnement bienveillant pour étudier l\'esprit tranquille.' }
+    ],
+    ru: [
+      { id: 1, title: 'Отличное расположение', desc: 'В нескольких минутах от центра, что делает путь на занятия быстрым и легким.' },
+      { id: 2, title: 'Полностью меблировано', desc: 'Комнаты оборудованы всем необходимым для комфортного и продуктивного проживания.' },
+      { id: 3, title: 'Надежно и безопасно', desc: 'Круглосуточная охрана и дружелюбная атмосфера для спокойной и сосредоточенной учебы.' }
+    ],
+    uz: [
+      { id: 1, title: 'Qulay joylashuv', desc: 'Markazdan bir necha daqiqa uzoqlikda joylashgan, bu darslarga borishni tez va oson qiladi.' },
+      { id: 2, title: 'To\'liq jihozlangan', desc: 'Xonalarimiz qulay va samarali istiqomat qilish uchun barcha zarur jihozlar bilan ta\'minlangan.' },
+      { id: 3, title: 'Xavfsiz va ishonchli', desc: '24/7 xavfsizlik va qo\'llab-quvvatlovchi muhit, darslaringizga xotirjam e\'tibor qaratishingiz mumkin.' }
+    ],
+    zh: [
+      { id: 1, title: '优越的地理位置', desc: '距离校区仅几分钟路程，让您的通勤更加快捷轻松。' },
+      { id: 2, title: '配套齐全', desc: '我们的房间配备了舒适高效住宿所需的所有基本设施。' },
+      { id: 3, title: '安全可靠', desc: '24小时安保和互助环境，让您安心专注学业。' }
     ]
   },
   faqs: {
     en: [
       { id: 1, q: 'What booking packages are available?', a: 'We offer flexible booking packages for 3, 6 and 12 months.' },
-      { id: 2, q: 'Are the rooms furnished?', a: 'Yes, all our rooms are fully furnished.' }
+      { id: 2, q: 'Are the rooms furnished?', a: 'Yes, all our rooms are fully furnished.' },
+      { id: 3, q: 'What amenities are included?', a: 'All residents have access to high-speed Wi-Fi, air conditioning, automatic washing machines, and regular cleaning.' },
+      { id: 4, q: 'How do I make a payment?', a: 'We accept secure bank transfers and international remittance via Remitly.' }
     ],
     ar: [
       { id: 1, q: 'ما هي باقات الحجز المتاحة؟', a: 'نحن نقدم باقات حجز مرنة لمدة 3، 6، و 12 شهرًا.' },
-      { id: 2, q: 'هل الغرف مفروشة؟', a: 'نعم، جميع غرفنا مفروشة بالكامل.' }
+      { id: 2, q: 'هل الغرف مفروشة؟', a: 'نعم، جميع غرفنا مفروشة بالكامل.' },
+      { id: 3, q: 'ما هي المرافق المشمولة؟', a: 'يتمتع جميع المقيمين بإمكانية الوصول إلى شبكة Wi-Fi عالية السرعة ومكيفات الهواء وغسالات الملابس والتنظيف الدوري.' },
+      { id: 4, q: 'كيف أقوم بالدفع؟', a: 'نقبل التحويلات المصرفية الآمنة والتحويلات الدولية عبر Remitly.' }
+    ],
+    fr: [
+      { id: 1, q: 'Quels sont les forfaits de réservation disponibles ?', a: 'Nous proposons des forfaits flexibles de 3, 6 et 12 mois adaptés aux sessions d\'études du centre Al-Ibaanah.' },
+      { id: 2, q: 'Les chambres sont-elles meublées ?', a: 'Oui, toutes nos chambres sont entièrement meublées avec lit, bureau, chaise, armoire et climatisation.' },
+      { id: 3, q: 'Quels équipements sont inclus ?', a: 'Tous les résidents bénéficient du Wi-Fi haut débit, de la climatisation, de machines à laver et d\'un ménage régulier.' },
+      { id: 4, q: 'Comment effectuer le paiement ?', a: 'Nous acceptons les virements bancaires sécurisés et les transferts internationaux via Remitly.' }
+    ],
+    ru: [
+      { id: 1, q: 'Какие пакеты бронирования доступны?', a: 'Мы предлагаем гибкие пакеты бронирования на 3, 6 и 12 месяцев, согласованные с учебными семестрами.' },
+      { id: 2, q: 'Меблированы ли комнаты?', a: 'Да, все наши комнаты полностью меблированы: кровать, стол, стул, шкаф и кондиционер.' },
+      { id: 3, q: 'Какие удобства включены?', a: 'Всем жильцам предоставляется высокоскоростной Wi-Fi, кондиционеры, стиральные машины и регулярная уборка.' },
+      { id: 4, q: 'Как произвести оплату?', a: 'Мы принимаем безопасные банковские переводы и международные переводы через Remitly.' }
+    ],
+    uz: [
+      { id: 1, q: 'Qanday bron paketlari mavjud?', a: 'Biz 3, 6 va 12 oylik moslashuvchan bron paketlarini taklif etamiz.' },
+      { id: 2, q: 'Xonalar jihozlanganmi?', a: 'Ha, barcha xonalarimiz to\'liq jihozlangan: karavot, yozuv stoli, stul, shkaf va konditsioner.' },
+      { id: 3, q: 'Qanday qulayliklar mavjud?', a: 'Barcha talabalar yuqori tezlikdagi Wi-Fi, konditsioner, kir yuvish mashinalari va muntazam tozalashdan foydalanishlari mumkin.' },
+      { id: 4, q: 'To\'lovni qanday amalga oshiraman?', a: 'Biz xavfsiz bank o\'tkazmalari va Remitly orqali xalqaro pul o\'tkazmalarini qabul qilamiz.' }
+    ],
+    zh: [
+      { id: 1, q: '有哪些预订套餐？', a: '我们提供3个月、6个月和12个月的灵活预订套餐，与Al-Ibaanah中心的学期相契合。' },
+      { id: 2, q: '房间有家具吗？', a: '是的，我们所有的房间都配备了床、书桌、椅子、衣柜和空调等齐全家具。' },
+      { id: 3, q: '包含哪些便利设施？', a: '所有住客均可使用高速无线网络、空调、全自动洗衣机以及定期保洁服务。' },
+      { id: 4, q: '我该如何付款？', a: '我们接受安全的银行转账以及通过Remitly进行的国际汇款。' }
     ]
   },
   contractTemplates: {
@@ -304,6 +356,18 @@ export const INITIAL_CMS: CmsContent = {
     ],
     ar: [
       { id: 1, title: 'مرحباً بكم في الإبانة', content: 'نحن سعداء بوجودكم هنا. يرجى إكمال التسجيل والدفع لتأمين غرفتك.', date: new Date().toISOString() }
+    ],
+    fr: [
+      { id: 1, title: 'Bienvenue à Al-Ibaanah', content: 'Nous sommes ravis de vous accueillir. Veuillez compléter votre inscription et paiement pour réserver votre chambre.', date: new Date().toISOString() }
+    ],
+    ru: [
+      { id: 1, title: 'Добро пожаловать в Аль-Ибана', content: 'Мы рады приветствовать вас. Пожалуйста, завершите регистрацию и оплату для бронирования комнаты.', date: new Date().toISOString() }
+    ],
+    uz: [
+      { id: 1, title: 'Al-Ibaanaga xush kelibsiz', content: 'Sizni kutib olishdan mamnunmiz. Xonangizni band qilish uchun ro\'yxatdan o\'tish va to\'lovni yakunlang.', date: new Date().toISOString() }
+    ],
+    zh: [
+      { id: 1, title: '欢迎来到Al-Ibaanah', content: '我们很高兴您的到来。请完成注册和付款以锁定您的房间。', date: new Date().toISOString() }
     ]
   },
   accommodationAddresses: DEFAULT_ACCOMMODATION_ADDRESSES,
@@ -490,7 +554,36 @@ const MOCK_ACTIVITIES: Activity[] = [
 
 export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const hasData = (obj: any) => obj && typeof obj === 'object' && Object.keys(obj).length > 0;
-  const [language, setLanguage] = useState<Language>('en');
+  const getInitialLanguage = (): Language => {
+    try {
+      const saved = localStorage.getItem('al_ibaanah_language') || localStorage.getItem('al_ibaanah_lang');
+      if (saved && ['en', 'ar', 'ru', 'fr', 'uz', 'zh'].includes(saved)) {
+        return saved as Language;
+      }
+    } catch (e) {
+      // ignore
+    }
+    return 'en';
+  };
+
+  const [language, setLanguageState] = useState<Language>(getInitialLanguage);
+
+  const setLanguage = (newLang: Language) => {
+    setLanguageState(newLang);
+    try {
+      localStorage.setItem('al_ibaanah_language', newLang);
+      localStorage.setItem('al_ibaanah_lang', newLang);
+    } catch (e) {
+      // ignore
+    }
+    document.documentElement.lang = newLang;
+    document.documentElement.dir = newLang === 'ar' ? 'rtl' : 'ltr';
+  };
+
+  useEffect(() => {
+    document.documentElement.lang = language;
+    document.documentElement.dir = language === 'ar' ? 'rtl' : 'ltr';
+  }, [language]);
   const [page, setPageState] = useState<Page>('home');
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
@@ -1257,7 +1350,13 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
               const normalizeCmsData = (data: any, fallback: any) => {
                 if (!hasData(data)) return fallback;
                 if (Array.isArray(data)) return { ...fallback, en: data };
-                return { ...fallback, ...data };
+                const res: any = { ...fallback };
+                for (const lang of ['en', 'ar', 'ru', 'fr', 'uz', 'zh']) {
+                  if (data[lang] && Array.isArray(data[lang]) && data[lang].length > 0) {
+                    res[lang] = data[lang];
+                  }
+                }
+                return res;
               };
 
               const cmsCategories = (dbCms.how_to_videos || dbCms.howToVideos)?.accommodationCategories || dbCms.accommodation_categories || dbCms.accommodationCategories;
