@@ -32,7 +32,7 @@ import { RoomPricingView } from '../components/admin/RoomPricingView';
 import { RoomMediaModal } from '../components/admin/RoomMediaModal';
 import { ApartmentMediaManager } from '../components/admin/ApartmentMediaManager';
 import { getRoomPrice } from '../lib/pricing';
-import { Layers, Video, Image as ImageIconLucide } from 'lucide-react';
+import { Layers, Video, Image as ImageIconLucide, LayoutGrid, List } from 'lucide-react';
 
 // A responsive, accessible SVG Bar Chart component for occupancy metrics
 const OccupancyChart = ({ data }: { data: { name: string; value: number }[] }) => {
@@ -365,6 +365,7 @@ const AdminDashboardPage: React.FC = () => {
   const [roomCategoryFilter, setRoomCategoryFilter] = useState<string>('all');
   const [roomSearchQuery, setRoomSearchQuery] = useState('');
   const [inventoryCategoryFilter, setInventoryCategoryFilter] = useState<string>('all');
+  const [inventoryViewMode, setInventoryViewMode] = useState<'grid' | 'table'>('grid');
   
   const [studentSort, setStudentSort] = useState<{ field: keyof Booking; direction: 'asc' | 'desc' }>({ field: 'full_name', direction: 'asc' });
   const [selectedBookingIds, setSelectedBookingIds] = useState<number[]>([]);
@@ -1703,44 +1704,73 @@ const AdminDashboardPage: React.FC = () => {
                 </div>
               </div>
 
-              {/* Category Filter Tabs */}
-              <div className="flex flex-wrap items-center gap-2">
-                <button
-                  onClick={() => setInventoryCategoryFilter('all')}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
-                    inventoryCategoryFilter === 'all'
-                      ? 'bg-brand-600 text-white shadow-sm'
-                      : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
-                  }`}
-                >
-                  All Categories ({sortedInventoryRooms.length})
-                </button>
-                {(accommodationCategories || []).map(cat => {
-                  const count = sortedInventoryRooms.filter(r => {
-                    const roomCat = normalizeCategory(r.apartment_name, r.category, r.room_number, accommodationCategories);
-                    return roomCat.toLowerCase() === cat.name.toLowerCase();
-                  }).length;
-                  return (
-                    <button
-                      key={cat.id}
-                      onClick={() => setInventoryCategoryFilter(cat.name)}
-                      className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
-                        inventoryCategoryFilter === cat.name
-                          ? 'bg-brand-600 text-white shadow-sm'
-                          : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
-                      }`}
-                    >
-                      <span>{cat.name}</span>
-                      <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${
-                        inventoryCategoryFilter === cat.name
-                          ? 'bg-white/25 text-white'
-                          : 'bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-300'
-                      }`}>
-                        {count}
-                      </span>
-                    </button>
-                  );
-                })}
+              {/* Category Filter Tabs & View Mode Switcher */}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div className="flex flex-wrap items-center gap-2">
+                  <button
+                    onClick={() => setInventoryCategoryFilter('all')}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
+                      inventoryCategoryFilter === 'all'
+                        ? 'bg-brand-600 text-white shadow-sm'
+                        : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
+                    }`}
+                  >
+                    All Categories ({sortedInventoryRooms.length})
+                  </button>
+                  {(accommodationCategories || []).map(cat => {
+                    const count = sortedInventoryRooms.filter(r => {
+                      const roomCat = normalizeCategory(r.apartment_name, r.category, r.room_number, accommodationCategories);
+                      return roomCat.toLowerCase() === cat.name.toLowerCase();
+                    }).length;
+                    return (
+                      <button
+                        key={cat.id}
+                        onClick={() => setInventoryCategoryFilter(cat.name)}
+                        className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
+                          inventoryCategoryFilter === cat.name
+                            ? 'bg-brand-600 text-white shadow-sm'
+                            : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
+                        }`}
+                      >
+                        <span>{cat.name}</span>
+                        <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${
+                          inventoryCategoryFilter === cat.name
+                            ? 'bg-white/25 text-white'
+                            : 'bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-300'
+                        }`}>
+                          {count}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+
+                <div className="flex items-center gap-1 bg-gray-100 dark:bg-gray-750 p-1 rounded-xl self-start sm:self-auto shrink-0 border border-gray-200 dark:border-gray-700">
+                  <button
+                    onClick={() => setInventoryViewMode('grid')}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${
+                      inventoryViewMode === 'grid'
+                        ? 'bg-white dark:bg-gray-850 text-gray-900 dark:text-white shadow-xs'
+                        : 'text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white'
+                    }`}
+                    title="Card Grid View"
+                  >
+                    <LayoutGrid className="w-3.5 h-3.5" />
+                    <span>Cards</span>
+                  </button>
+                  <button
+                    onClick={() => setInventoryViewMode('table')}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${
+                      inventoryViewMode === 'table'
+                        ? 'bg-white dark:bg-gray-850 text-gray-900 dark:text-white shadow-xs'
+                        : 'text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white'
+                    }`}
+                    title="Table View"
+                  >
+                    <List className="w-3.5 h-3.5" />
+                    <span>Table</span>
+                  </button>
+                </div>
               </div>
 
               {filteredInventoryRooms.length === 0 ? (
@@ -1753,7 +1783,7 @@ const AdminDashboardPage: React.FC = () => {
                     View all categories
                   </button>
                 </div>
-              ) : (
+              ) : inventoryViewMode === 'grid' ? (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                   {filteredInventoryRooms.map(room => {
                     const roomBeds = (bedSpaces || []).filter(b => b.room_id === room.id);
@@ -1774,12 +1804,19 @@ const AdminDashboardPage: React.FC = () => {
                         })
                       : ((room.occupied_slots || 0) < (room.capacity || 1));
 
+                    const roomCategoryWaiting = (waitlist || []).filter(w => 
+                      w.status === 'Waiting' && 
+                      (w.category?.toLowerCase() === canonicalCat.toLowerCase() || 
+                       (w.category && normalizeCategory(w.category, undefined, undefined, accommodationCategories).toLowerCase() === canonicalCat.toLowerCase()) ||
+                       (w.room_id && w.room_id === room.id))
+                    ).length;
+
                     return (
                       <div 
                         key={room.id} 
                         className={`border rounded-2xl p-5 space-y-4 transition-all flex flex-col justify-between ${
                           isRoomActive
-                            ? 'bg-white dark:bg-gray-850 border-gray-200 dark:border-gray-700 hover:border-brand-500 shadow-sm'
+                            ? 'bg-white dark:bg-gray-850 border-gray-200 dark:border-gray-750 hover:border-brand-500 shadow-sm'
                             : 'bg-gray-50/80 dark:bg-gray-900/50 border-dashed border-gray-300 dark:border-gray-700 opacity-90'
                         }`}
                       >
@@ -1808,34 +1845,45 @@ const AdminDashboardPage: React.FC = () => {
                             </span>
                           </div>
 
-                          {/* Media Preview & Quick Link */}
-                          <div className="flex items-center gap-3 p-2 bg-gray-50 dark:bg-gray-800/60 rounded-xl border border-gray-200 dark:border-gray-700/60">
-                            {room.image_urls && room.image_urls.length > 0 ? (
-                              <div className="relative w-14 h-11 rounded-lg overflow-hidden shrink-0 border border-gray-200 dark:border-gray-700 bg-gray-200">
-                                <img src={room.image_urls[0]} alt={room.room_number} className="w-full h-full object-cover" />
+                          {/* Media Preview & Direct Action */}
+                          <div className="flex items-center justify-between gap-2.5 p-2.5 bg-purple-50/50 dark:bg-purple-950/20 rounded-xl border border-purple-100 dark:border-purple-900/40">
+                            <div 
+                              onClick={() => handleOpenRoomMediaModal(room)}
+                              className="flex items-center gap-2.5 min-w-0 cursor-pointer group"
+                            >
+                              {room.image_urls && room.image_urls.length > 0 ? (
+                                <div className="relative w-12 h-10 rounded-lg overflow-hidden shrink-0 border border-gray-200 dark:border-gray-700 bg-gray-200 shadow-2xs group-hover:opacity-90">
+                                  <img src={room.image_urls[0]} alt={room.room_number} className="w-full h-full object-cover" />
+                                </div>
+                              ) : (
+                                <div className="w-12 h-10 rounded-lg bg-white dark:bg-gray-800 flex items-center justify-center text-purple-400 shrink-0 border border-dashed border-purple-200 dark:border-purple-800 group-hover:border-purple-400">
+                                  <ImageIconLucide className="w-4 h-4 text-purple-400" />
+                                </div>
+                              )}
+                              <div className="text-[11px] leading-tight min-w-0">
+                                <div className="font-bold text-gray-800 dark:text-gray-200 flex items-center gap-1.5 truncate">
+                                  <span>{room.image_urls?.length || 0} Photos</span>
+                                  {room.video_urls && room.video_urls.length > 0 && (
+                                    <span className="text-[9px] bg-purple-200/80 text-purple-800 dark:bg-purple-900/80 dark:text-purple-300 px-1.5 py-0.2 rounded-full font-black flex items-center gap-0.5">
+                                      <Video className="w-2.5 h-2.5" /> Video Tour
+                                    </span>
+                                  )}
+                                </div>
+                                <p className="text-[10px] text-gray-500 dark:text-gray-400 mt-0.5 truncate group-hover:text-purple-600 dark:group-hover:text-purple-300">
+                                  {room.video_urls && room.video_urls.length > 0 ? 'Virtual tour attached' : 'No video tour yet'}
+                                </p>
                               </div>
-                            ) : (
-                              <div className="w-14 h-11 rounded-lg bg-gray-100 dark:bg-gray-800 flex items-center justify-center text-gray-400 shrink-0 border border-dashed border-gray-300 dark:border-gray-700">
-                                <ImageIconLucide className="w-4 h-4 text-gray-400" />
-                              </div>
-                            )}
-                            <div className="text-[11px] leading-tight flex-1">
-                              <div className="font-bold text-gray-700 dark:text-gray-300 flex items-center gap-1.5">
-                                <span>{room.image_urls?.length || 0} Photos</span>
-                                {room.video_urls && room.video_urls.length > 0 && (
-                                  <span className="text-[9px] bg-purple-100 text-purple-700 dark:bg-purple-950/40 dark:text-purple-300 px-1.5 py-0.2 rounded-full font-black flex items-center gap-0.5">
-                                    <Video className="w-2.5 h-2.5" /> Video Tour
-                                  </span>
-                                )}
-                              </div>
-                              <button
-                                type="button"
-                                onClick={() => handleOpenRoomMediaModal(room)}
-                                className="text-[11px] font-bold text-brand-600 hover:text-brand-700 dark:text-brand-400 hover:underline mt-0.5 inline-flex items-center gap-1"
-                              >
-                                Edit Photos & Tour →
-                              </button>
                             </div>
+
+                            <button
+                              type="button"
+                              onClick={() => handleOpenRoomMediaModal(room)}
+                              className="shrink-0 px-2.5 py-1.5 rounded-lg bg-purple-600 hover:bg-purple-700 text-white text-xs font-bold flex items-center gap-1.5 transition-all shadow-2xs hover:shadow-xs active:scale-95"
+                              title="Manage room photos and virtual tour video"
+                            >
+                              <Video className="w-3.5 h-3.5" />
+                              <span>Media</span>
+                            </button>
                           </div>
 
                           {!isRoomActive && (
@@ -1872,79 +1920,186 @@ const AdminDashboardPage: React.FC = () => {
                           </div>
                         </div>
 
-                        <div className="pt-3 border-t dark:border-gray-700 flex flex-wrap items-center justify-between gap-2">
-                          {(() => {
-                            const roomCategoryWaiting = (waitlist || []).filter(w => 
-                              w.status === 'Waiting' && 
-                              (w.category?.toLowerCase() === canonicalCat.toLowerCase() || 
-                               (w.category && normalizeCategory(w.category, undefined, undefined, accommodationCategories).toLowerCase() === canonicalCat.toLowerCase()) ||
-                               (w.room_id && w.room_id === room.id))
-                            ).length;
+                        {/* Card Bottom: Two dedicated, uncluttered rows */}
+                        <div className="pt-3 border-t dark:border-gray-700 space-y-2.5">
+                          {/* Row 1: Waitlist on left, Activate/Deactivate Toggle on right */}
+                          <div className="flex items-center justify-between text-xs">
+                            <button
+                              onClick={() => {
+                                setWaitlistCategoryFilter(canonicalCat);
+                                setActiveSection('waitlist');
+                              }}
+                              className="text-amber-700 dark:text-amber-300 hover:text-amber-800 dark:hover:text-amber-200 text-xs font-bold hover:underline flex items-center gap-1.5"
+                              title={`View waitlist for ${canonicalCat}`}
+                            >
+                              <span>⏳</span> Waitlist
+                              {roomCategoryWaiting > 0 ? (
+                                <span className="px-1.5 py-0.5 rounded-full text-[10px] bg-amber-500 text-white font-black">
+                                  {roomCategoryWaiting}
+                                </span>
+                              ) : (
+                                <span className="text-gray-400 font-normal text-[11px]">(0)</span>
+                              )}
+                            </button>
 
-                            return (
-                              <button
-                                onClick={() => {
-                                  setWaitlistCategoryFilter(canonicalCat);
-                                  setActiveSection('waitlist');
-                                }}
-                                className="text-amber-700 dark:text-amber-300 hover:text-amber-800 dark:hover:text-amber-200 text-xs font-bold hover:underline flex items-center gap-1.5"
-                                title={`View waitlist for ${canonicalCat}`}
-                              >
-                                <span>⏳</span> Waitlist
-                                {roomCategoryWaiting > 0 && (
-                                  <span className="px-1.5 py-0.5 rounded-full text-[10px] bg-amber-500 text-white font-black">
-                                    {roomCategoryWaiting}
-                                  </span>
-                                )}
-                              </button>
-                            );
-                          })()}
+                            <button
+                              onClick={() => handleToggleRoomStatus(room.id, isRoomActive ? 'Inactive' : 'Active')}
+                              disabled={togglingRoomId === room.id}
+                              className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-colors flex items-center gap-1.5 ${
+                                isRoomActive
+                                  ? 'bg-amber-50 text-amber-700 hover:bg-amber-100 dark:bg-amber-950/40 dark:text-amber-300 border border-amber-200 dark:border-amber-800'
+                                  : 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100 dark:bg-emerald-950/40 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800'
+                              }`}
+                              title={isRoomActive ? "Deactivate room to hide it from student listings and booking" : "Activate room to make it bookable for students"}
+                            >
+                              {togglingRoomId === room.id ? (
+                                <span className="animate-spin text-xs">⌛</span>
+                              ) : isRoomActive ? (
+                                <>
+                                  <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
+                                  <span>Deactivate</span>
+                                </>
+                              ) : (
+                                <>
+                                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                                  <span>Activate</span>
+                                </>
+                              )}
+                            </button>
+                          </div>
 
-                        <div className="flex items-center gap-2">
-                          <button
-                            onClick={() => handleToggleRoomStatus(room.id, isRoomActive ? 'Inactive' : 'Active')}
-                            disabled={togglingRoomId === room.id}
-                            className={`px-2.5 py-1.5 rounded-lg text-xs font-bold transition-colors flex items-center gap-1 ${
-                              isRoomActive
-                                ? 'bg-amber-50 text-amber-700 hover:bg-amber-100 dark:bg-amber-950/40 dark:text-amber-300 border border-amber-200 dark:border-amber-800'
-                                : 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100 dark:bg-emerald-950/40 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800'
-                            }`}
-                            title={isRoomActive ? "Deactivate room to hide it from student listings and booking" : "Activate room to make it bookable for students"}
-                          >
-                            {togglingRoomId === room.id ? (
-                              <span className="animate-spin text-xs">⌛</span>
-                            ) : isRoomActive ? (
-                              <span>⏸️ Deactivate</span>
-                            ) : (
-                              <span>▶️ Activate</span>
-                            )}
-                          </button>
-                          <button
-                            onClick={() => handleOpenRoomMediaModal(room)}
-                            className="bg-purple-50 text-purple-700 hover:bg-purple-100 dark:bg-purple-950/40 dark:text-purple-300 px-2.5 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1 border border-purple-200 dark:border-purple-800"
-                            title="Manage room photos and virtual tour video"
-                          >
-                            <Video className="w-3.5 h-3.5" /> Media
-                          </button>
-                          <button
-                            onClick={() => handleOpenRoomModal(room)}
-                            className="bg-brand-50 text-brand-600 hover:bg-brand-100 dark:bg-brand-950/40 dark:text-brand-300 px-2.5 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1"
-                          >
-                            <IconEdit className="w-3.5 h-3.5" /> Edit
-                          </button>
-                          <button
-                            onClick={() => handleDeleteRoom(room.id, room.room_number)}
-                            className="bg-red-50 text-red-600 hover:bg-red-100 dark:bg-red-950/40 dark:text-red-300 px-2.5 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1"
-                          >
-                            <IconTrash className="w-3.5 h-3.5" /> Delete
-                          </button>
+                          {/* Row 2: High-Visibility Action Buttons: Edit and Delete */}
+                          <div className="grid grid-cols-2 gap-2">
+                            <button
+                              onClick={() => handleOpenRoomModal(room)}
+                              className="w-full bg-brand-50 hover:bg-brand-100 text-brand-700 dark:bg-brand-950/50 dark:hover:bg-brand-900/50 dark:text-brand-300 border border-brand-200 dark:border-brand-800 py-2 px-3 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-colors shadow-2xs"
+                            >
+                              <IconEdit className="w-3.5 h-3.5" />
+                              <span>Edit Room</span>
+                            </button>
+
+                            <button
+                              onClick={() => handleDeleteRoom(room.id, room.room_number)}
+                              className="w-full bg-red-50 hover:bg-red-100 text-red-600 hover:text-red-700 dark:bg-red-950/50 dark:hover:bg-red-900/50 dark:text-red-300 border border-red-200 dark:border-red-800 py-2 px-3 rounded-xl text-xs font-extrabold flex items-center justify-center gap-1.5 transition-colors shadow-2xs"
+                              title={`Delete Room ${room.room_number}`}
+                            >
+                              <IconTrash className="w-3.5 h-3.5 text-red-600 dark:text-red-400" />
+                              <span>Delete Room</span>
+                            </button>
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
+                    );
+                  })}
+                </div>
+              ) : (
+                /* Structured Table View */
+                <div className="overflow-x-auto border border-gray-200 dark:border-gray-700 rounded-2xl bg-white dark:bg-gray-850 shadow-xs">
+                  <table className="w-full text-left text-xs">
+                    <thead className="bg-gray-50 dark:bg-gray-800/80 text-gray-500 dark:text-gray-400 border-b border-gray-200 dark:border-gray-700 font-bold uppercase tracking-wider text-[11px]">
+                      <tr>
+                        <th className="py-3 px-4">Unit & Title</th>
+                        <th className="py-3 px-4">Category</th>
+                        <th className="py-3 px-4">Type & Capacity</th>
+                        <th className="py-3 px-4">Price / Mo</th>
+                        <th className="py-3 px-4">Status & Vacancy</th>
+                        <th className="py-3 px-4">Media</th>
+                        <th className="py-3 px-4 text-right">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-100 dark:divide-gray-750">
+                      {filteredInventoryRooms.map(room => {
+                        const roomBeds = (bedSpaces || []).filter(b => b.room_id === room.id);
+                        const canonicalCat = normalizeCategory(
+                          room.apartment_name, 
+                          room.category, 
+                          room.room_number, 
+                          accommodationCategories
+                        );
+                        const formattedRoomTitle = getDisplayFromRoom(room, undefined, accommodationCategories);
+                        const isRoomActive = room.status !== 'Inactive';
+                        const isRoomAvailable = roomBeds.length > 0
+                          ? roomBeds.some(b => {
+                              const space = parsedRoomSpaces.find(s => s.bedSpaceId === b.id);
+                              return space ? !space.isOccupied : true;
+                            })
+                          : ((room.occupied_slots || 0) < (room.capacity || 1));
+
+                        return (
+                          <tr key={room.id} className="hover:bg-gray-50/60 dark:hover:bg-gray-800/40 transition-colors">
+                            <td className="py-3.5 px-4 font-medium">
+                              <div className="font-bold text-gray-900 dark:text-white text-sm">{formattedRoomTitle}</div>
+                              <div className="text-[11px] font-mono text-gray-400">Unit: {room.room_number}</div>
+                            </td>
+                            <td className="py-3.5 px-4">
+                              <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded bg-brand-100 text-brand-700 dark:bg-brand-950/40 dark:text-brand-300">
+                                {canonicalCat}
+                              </span>
+                            </td>
+                            <td className="py-3.5 px-4">
+                              <div className="text-gray-900 dark:text-white font-semibold">{room.type}</div>
+                              <div className="text-[11px] text-gray-500">Cap: {room.capacity} beds • {room.gender_restriction}</div>
+                            </td>
+                            <td className="py-3.5 px-4">
+                              <span className="font-bold text-gray-900 dark:text-white">${getRoomPrice(room, 2, roomPricing)}</span>
+                            </td>
+                            <td className="py-3.5 px-4">
+                              <div className="flex items-center gap-2">
+                                <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${isRoomAvailable ? 'bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-950/30 dark:text-emerald-300 dark:border-emerald-800' : 'bg-red-50 text-red-700 border border-red-200 dark:bg-red-950/30 dark:text-red-300 dark:border-red-800'}`}>
+                                  {isRoomAvailable ? 'Available' : 'Booked'}
+                                </span>
+                                <button
+                                  onClick={() => handleToggleRoomStatus(room.id, isRoomActive ? 'Inactive' : 'Active')}
+                                  disabled={togglingRoomId === room.id}
+                                  className={`text-[10px] font-bold px-2 py-0.5 rounded border transition-colors ${
+                                    isRoomActive
+                                      ? 'bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-800'
+                                      : 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800'
+                                  }`}
+                                  title={isRoomActive ? "Deactivate room" : "Activate room"}
+                                >
+                                  {isRoomActive ? 'Active' : 'Inactive'}
+                                </button>
+                              </div>
+                            </td>
+                            <td className="py-3.5 px-4">
+                              <button
+                                onClick={() => handleOpenRoomMediaModal(room)}
+                                className="bg-purple-50 hover:bg-purple-100 text-purple-700 dark:bg-purple-950/50 dark:text-purple-300 border border-purple-200 dark:border-purple-800 px-2.5 py-1.5 rounded-lg text-xs font-bold inline-flex items-center gap-1.5 transition-colors"
+                                title="Manage photos and virtual tour"
+                              >
+                                <Video className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400" />
+                                <span>{room.image_urls?.length || 0} Photos</span>
+                                {room.video_urls && room.video_urls.length > 0 && <span className="text-[10px]">📹</span>}
+                              </button>
+                            </td>
+                            <td className="py-3.5 px-4 text-right">
+                              <div className="inline-flex items-center gap-2 justify-end">
+                                <button
+                                  onClick={() => handleOpenRoomModal(room)}
+                                  className="py-1.5 px-2.5 rounded-lg bg-brand-50 hover:bg-brand-100 text-brand-700 dark:bg-brand-950/40 dark:text-brand-300 border border-brand-200 dark:border-brand-800 text-xs font-bold inline-flex items-center gap-1 transition-colors"
+                                  title="Edit Room Details"
+                                >
+                                  <IconEdit className="w-3.5 h-3.5" />
+                                  <span>Edit</span>
+                                </button>
+                                <button
+                                  onClick={() => handleDeleteRoom(room.id, room.room_number)}
+                                  className="py-1.5 px-2.5 rounded-lg bg-red-50 hover:bg-red-100 text-red-600 dark:bg-red-950/40 dark:text-red-300 border border-red-200 dark:border-red-800 text-xs font-extrabold inline-flex items-center gap-1 transition-colors"
+                                  title={`Delete Room ${room.room_number}`}
+                                >
+                                  <IconTrash className="w-3.5 h-3.5" />
+                                  <span>Delete</span>
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
           </div>
         )}
 
