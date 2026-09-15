@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Room, WaitlistEntry, WaitlistStatus } from '../../types';
 import { useApp } from '../../hooks/useApp';
 import { sendEmail } from '../../lib/email';
-import { IconCheckCircle, IconClose, IconInfo } from '../Icon';
+import { IconCheckCircle, IconClose, IconInfo, IconCalendar } from '../Icon';
 
 interface WaitlistViewProps {
   rooms?: Room[];
@@ -62,6 +62,7 @@ export const WaitlistView: React.FC<WaitlistViewProps> = ({
     category: 'Premium 1' as string,
     accommodation_type: 'Private' as 'Shared' | 'Private',
     duration_months: 6,
+    preferred_arrival_date: '',
     notes: ''
   });
 
@@ -161,6 +162,7 @@ export const WaitlistView: React.FC<WaitlistViewProps> = ({
       category: newEntry.category,
       accommodation_type: newEntry.accommodation_type,
       duration_months: newEntry.duration_months,
+      preferred_arrival_date: newEntry.preferred_arrival_date || null,
       notes: newEntry.notes.trim() || null,
       status: 'Waiting',
     });
@@ -174,6 +176,7 @@ export const WaitlistView: React.FC<WaitlistViewProps> = ({
         category: 'Premium 1',
         accommodation_type: 'Private',
         duration_months: 6,
+        preferred_arrival_date: '',
         notes: ''
       });
     } else {
@@ -186,8 +189,11 @@ export const WaitlistView: React.FC<WaitlistViewProps> = ({
     setNotifyingEntry(item);
     setEmailSentSuccess(false);
     setEmailSubject(`Accommodation Vacancy Update: ${item.category} (${item.accommodation_type})`);
+    const arrivalText = item.preferred_arrival_date 
+      ? ` aligned with your expected arrival date of ${item.preferred_arrival_date}`
+      : '';
     setEmailBody(
-      `Dear ${info.name},\n\nWe are pleased to inform you that a residency bed space matching your waitlist preference (${item.category} - ${item.accommodation_type}) is now becoming available for your requested stay duration (${item.duration_months || 6} months).\n\nPlease reply directly to this notification or contact our administration office within 48 hours to confirm your placement and finalize your booking agreement.\n\nBest regards,\nAl-Ibaanah Student Residency Management`
+      `Dear ${info.name},\n\nWe are pleased to inform you that a residency bed space matching your waitlist preference (${item.category} - ${item.accommodation_type}) is now becoming available for your requested stay duration (${item.duration_months || 6} months)${arrivalText}.\n\nPlease reply directly to this notification or contact our administration office within 48 hours to confirm your placement and finalize your booking agreement.\n\nBest regards,\nAl-Ibaanah Student Residency Management`
     );
   };
 
@@ -378,6 +384,7 @@ export const WaitlistView: React.FC<WaitlistViewProps> = ({
                   <th className="px-6 py-3.5 text-left text-xs font-bold text-gray-500 uppercase">Student</th>
                   <th className="px-6 py-3.5 text-left text-xs font-bold text-gray-500 uppercase">Contact</th>
                   <th className="px-6 py-3.5 text-left text-xs font-bold text-gray-500 uppercase">Requested Space</th>
+                  <th className="px-6 py-3.5 text-left text-xs font-bold text-gray-500 uppercase">Expected Arrival</th>
                   <th className="px-6 py-3.5 text-left text-xs font-bold text-gray-500 uppercase">Stay Duration</th>
                   <th className="px-6 py-3.5 text-left text-xs font-bold text-gray-500 uppercase">Status</th>
                   <th className="px-6 py-3.5 text-left text-xs font-bold text-gray-500 uppercase">Actions</th>
@@ -410,6 +417,22 @@ export const WaitlistView: React.FC<WaitlistViewProps> = ({
                           {item.category} ({item.accommodation_type})
                         </span>
                         {item.notes && <p className="text-[10px] text-gray-400 mt-0.5 italic max-w-xs">{item.notes}</p>}
+                      </td>
+                      <td className="px-6 py-4 text-xs font-medium text-gray-700 dark:text-gray-300">
+                        {item.preferred_arrival_date ? (
+                          <div className="flex items-center gap-1.5">
+                            <IconCalendar className="w-3.5 h-3.5 text-brand-600 dark:text-brand-400 shrink-0" />
+                            <span className="font-semibold text-gray-900 dark:text-white">
+                              {new Date(item.preferred_arrival_date).toLocaleDateString(undefined, {
+                                year: 'numeric',
+                                month: 'short',
+                                day: 'numeric'
+                              })}
+                            </span>
+                          </div>
+                        ) : (
+                          <span className="text-gray-400 dark:text-gray-500 italic text-[11px]">Flexible / Unspecified</span>
+                        )}
                       </td>
                       <td className="px-6 py-4 text-xs font-medium text-gray-700 dark:text-gray-300">
                         <p className="font-bold">{item.duration_months ? `${item.duration_months} Months stay` : 'Standard stay'}</p>
@@ -555,17 +578,32 @@ export const WaitlistView: React.FC<WaitlistViewProps> = ({
                 </div>
               </div>
 
-              <div>
-                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Stay Duration</label>
-                <select
-                  value={newEntry.duration_months}
-                  onChange={(e) => setNewEntry(prev => ({ ...prev, duration_months: Number(e.target.value) }))}
-                  className="w-full text-xs p-2.5 border rounded-xl dark:bg-gray-700 dark:border-gray-600 text-gray-900 dark:text-white"
-                >
-                  <option value={3}>3 Months</option>
-                  <option value={6}>6 Months</option>
-                  <option value={12}>12 Months</option>
-                </select>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Expected Arrival</label>
+                  <input
+                    type="date"
+                    value={newEntry.preferred_arrival_date}
+                    onChange={(e) => setNewEntry(prev => ({ ...prev, preferred_arrival_date: e.target.value }))}
+                    className="w-full text-xs p-2.5 border rounded-xl dark:bg-gray-700 dark:border-gray-600 text-gray-900 dark:text-white"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Stay Duration</label>
+                  <select
+                    value={newEntry.duration_months}
+                    onChange={(e) => setNewEntry(prev => ({ ...prev, duration_months: Number(e.target.value) }))}
+                    className="w-full text-xs p-2.5 border rounded-xl dark:bg-gray-700 dark:border-gray-600 text-gray-900 dark:text-white"
+                  >
+                    <option value={2}>2 Months (Minimum Stay)</option>
+                    <option value={3}>3 Months</option>
+                    <option value={4}>4 Months</option>
+                    <option value={5}>5 Months</option>
+                    <option value={6}>6 Months</option>
+                    <option value={9}>9 Months</option>
+                    <option value={12}>12 Months</option>
+                  </select>
+                </div>
               </div>
 
               <div>

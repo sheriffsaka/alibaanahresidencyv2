@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useApp } from '../hooks/useApp';
 import { useTranslation } from '../hooks/useTranslation';
-import { IconClose, IconCheckCircle } from './Icon';
+import { IconClose, IconCheckCircle, IconCalendar } from './Icon';
 import { WaitlistEntry } from '../types';
 
 interface JoinWaitlistModalProps {
@@ -37,6 +37,7 @@ export const JoinWaitlistModal: React.FC<JoinWaitlistModalProps> = ({
   const [category, setCategory] = useState<string>(initialCategory);
   const [accommodationType, setAccommodationType] = useState<'Shared' | 'Private'>(initialType);
   const [durationMonths, setDurationMonths] = useState<number>(6);
+  const [preferredArrivalDate, setPreferredArrivalDate] = useState<string>('');
   const [fullName, setFullName] = useState<string>('');
   const [email, setEmail] = useState<string>('');
   const [phoneNumber, setPhoneNumber] = useState<string>('');
@@ -49,6 +50,7 @@ export const JoinWaitlistModal: React.FC<JoinWaitlistModalProps> = ({
     if (isOpen) {
       setCategory(initialCategory);
       setAccommodationType(initialType);
+      setPreferredArrivalDate('');
       setIsSuccess(false);
       setErrorMsg(null);
       if (user) {
@@ -78,6 +80,11 @@ export const JoinWaitlistModal: React.FC<JoinWaitlistModalProps> = ({
       }
     }
 
+    if (durationMonths < 2) {
+      setErrorMsg('Duration of stay must be at least 2 months.');
+      return;
+    }
+
     setIsSubmitting(true);
     try {
       const studentName = user?.full_name || fullName.trim();
@@ -94,6 +101,7 @@ export const JoinWaitlistModal: React.FC<JoinWaitlistModalProps> = ({
         room_id: initialRoomId || null,
         bed_space_id: initialBedSpaceId || null,
         duration_months: durationMonths,
+        preferred_arrival_date: preferredArrivalDate || null,
         notes: notes.trim() || null,
       };
 
@@ -195,20 +203,46 @@ export const JoinWaitlistModal: React.FC<JoinWaitlistModalProps> = ({
                 </div>
               </div>
 
-              {/* Stay Duration */}
-              <div>
-                <label className="block text-xs font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wider mb-1.5">
-                  Duration of Stay
-                </label>
-                <select
-                  value={durationMonths}
-                  onChange={(e) => setDurationMonths(Number(e.target.value))}
-                  className="w-full px-3 py-2.5 text-sm font-semibold border rounded-xl bg-gray-50 dark:bg-gray-700 dark:border-gray-600 text-gray-900 dark:text-white focus:ring-2 focus:ring-brand-500"
-                >
-                  <option value={3}>3 Months</option>
-                  <option value={6}>6 Months</option>
-                  <option value={12}>12 Months (Full Academic Year)</option>
-                </select>
+              {/* Expected Arrival Date & Stay Duration */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wider mb-1.5 flex items-center gap-1.5">
+                    <IconCalendar className="w-3.5 h-3.5 text-brand-600 dark:text-brand-400" />
+                    Expected Arrival Date
+                  </label>
+                  <input
+                    type="date"
+                    min={new Date().toISOString().split('T')[0]}
+                    value={preferredArrivalDate}
+                    onChange={(e) => setPreferredArrivalDate(e.target.value)}
+                    className="w-full px-3 py-2.5 text-sm font-medium border rounded-xl bg-gray-50 dark:bg-gray-700 dark:border-gray-600 text-gray-900 dark:text-white focus:ring-2 focus:ring-brand-500"
+                  />
+                  <p className="text-[11px] text-gray-400 dark:text-gray-400 mt-1">
+                    When you intend to move in
+                  </p>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wider mb-1.5">
+                    Duration of Stay
+                  </label>
+                  <select
+                    value={durationMonths}
+                    onChange={(e) => setDurationMonths(Number(e.target.value))}
+                    className="w-full px-3 py-2.5 text-sm font-semibold border rounded-xl bg-gray-50 dark:bg-gray-700 dark:border-gray-600 text-gray-900 dark:text-white focus:ring-2 focus:ring-brand-500"
+                  >
+                    <option value={2}>2 Months (Minimum Stay)</option>
+                    <option value={3}>3 Months</option>
+                    <option value={4}>4 Months</option>
+                    <option value={5}>5 Months</option>
+                    <option value={6}>6 Months (Semester / Half Year)</option>
+                    <option value={9}>9 Months (Academic Term)</option>
+                    <option value={12}>12 Months (Full Academic Year)</option>
+                  </select>
+                  <p className="text-[11px] text-gray-400 dark:text-gray-400 mt-1">
+                    Minimum residency commitment: 2 months
+                  </p>
+                </div>
               </div>
 
               {/* Student Contact Information */}

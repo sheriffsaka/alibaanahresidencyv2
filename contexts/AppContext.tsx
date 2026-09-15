@@ -3380,6 +3380,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         room_id: entry.room_id || null,
         bed_space_id: entry.bed_space_id || null,
         duration_months: entry.duration_months || 6,
+        preferred_arrival_date: entry.preferred_arrival_date || null,
         status: entry.status || 'Waiting',
         notes: entry.notes || null,
       };
@@ -3442,6 +3443,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         room_id: newEntryPayload.room_id,
         bed_space_id: newEntryPayload.bed_space_id,
         duration_months: newEntryPayload.duration_months,
+        preferred_arrival_date: newEntryPayload.preferred_arrival_date,
         status: newEntryPayload.status,
         notes: newEntryPayload.notes,
         created_at: new Date().toISOString(),
