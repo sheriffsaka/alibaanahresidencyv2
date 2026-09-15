@@ -150,6 +150,7 @@ export interface WaitlistEntry {
   room_id?: number | null;
   bed_space_id?: number | null;
   duration_months?: number | null;
+  preferred_arrival_date?: string | null;
   status: WaitlistStatus;
   notes?: string | null;
   created_at: string;
