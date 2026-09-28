@@ -1069,7 +1069,7 @@ Automated dispatch following database update.
       for (const b of bookings) {
         const bStart = (b.start_date || b.expected_arrival_date || (b.booked_at ? b.booked_at.split('T')[0] : '')).split('T')[0];
         const bEnd = (b.end_date || b.payment_expiry_date || '2099-12-31').split('T')[0];
-        if (b.status === 'Confirmed' && bStart && bStart <= todayStr && bEnd >= todayStr) {
+        if ((b.status === 'Confirmed' || b.status === 'Reserved') && bStart && bStart <= todayStr && bEnd >= todayStr) {
           toActivate.push(b.id);
           b.status = 'Occupied';
         }

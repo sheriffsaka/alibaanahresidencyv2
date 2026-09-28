@@ -14,6 +14,7 @@ import UserEditorModal from '../components/UserEditorModal';
 import EditBookingModal from '../components/EditBookingModal';
 import { ExtendStayModal } from '../components/ExtendStayModal';
 import { formatStoredRoomString, getDisplayFromRoom, getParsedRoomSpaces, getAccommodationAddress, getLiveStudentRoomDetails, normalizeCategory } from '../lib/roomNaming';
+import { isBookingActiveOnDate, isBookingUpcomingReservation, getEffectiveBookingStatus } from '../lib/temporalBooking';
 
 // Restructured Admin Components
 import AdminSidebar, { AdminNavSection } from '../components/admin/AdminSidebar';
@@ -616,11 +617,13 @@ const AdminDashboardPage: React.FC = () => {
 
   const analytics = useMemo(() => {
     const safeBookings = bookings || [];
+    const todayStr = new Date().toISOString().split('T')[0];
     
-    // Confirmed / Occupied bookings for official Occupancy stats
-    const confirmedOrOccupiedBookings = safeBookings.filter(
-      b => b.status === BookingStatus.CONFIRMED || b.status === BookingStatus.OCCUPIED
-    );
+    // Confirmed / Occupied bookings for official Occupancy stats (strictly active today)
+    const confirmedOrOccupiedBookings = safeBookings.filter(b => isBookingActiveOnDate(b, todayStr));
+
+    // Upcoming future reservations (do NOT count as current occupancy)
+    const upcomingReservations = safeBookings.filter(b => isBookingUpcomingReservation(b, todayStr));
 
     // Active bookings (including holds) for pipeline capacity
     const activePipelineBookings = safeBookings.filter(
@@ -635,17 +638,17 @@ const AdminDashboardPage: React.FC = () => {
         ? rooms.reduce((sum, r) => sum + (Number(r.capacity) || 1), 0)
         : dynamicSpaces.length || 15;
     
-    // Occupancy metrics source strictly from Confirmed/Occupied bookings
+    // Occupancy metrics source strictly from bookings active TODAY (future reservations do not count)
     const confirmedCount = confirmedOrOccupiedBookings.length;
     const occupancyRate = totalCapacity > 0 ? Math.round((confirmedCount / totalCapacity) * 100) : 0;
     
     // Available bed spaces accounting for active holds
     const availableBedSpaces = Math.max(0, totalCapacity - activePipelineBookings.length);
 
-    // Revenue calculation logic: Confirmed + Occupied + Completed, plus Cancelled only where checked_out_at is set
+    // Revenue calculation logic: Confirmed + Occupied + Reserved + Completed, plus Cancelled only where checked_out_at is set
     const totalRevenue = safeBookings
       .filter(b => {
-        if (b.status === BookingStatus.CONFIRMED || b.status === BookingStatus.OCCUPIED || b.status === BookingStatus.COMPLETED) {
+        if (b.status === BookingStatus.CONFIRMED || b.status === BookingStatus.OCCUPIED || b.status === BookingStatus.RESERVED || b.status === BookingStatus.COMPLETED) {
           return true;
         }
         if (b.status === BookingStatus.CANCELLED && (b as any).checked_out_at) {
@@ -659,6 +662,7 @@ const AdminDashboardPage: React.FC = () => {
       pendingVerifications: safeBookings.filter(b => b.status === BookingStatus.PENDING_VERIFICATION),
       pendingPayments: safeBookings.filter(b => b.status === BookingStatus.PENDING_PAYMENT),
       pendingContracts: safeBookings.filter(b => b.status === BookingStatus.PENDING_CONTRACT),
+      upcomingReservations,
       occupancyByType: Object.values(AccommodationType).map(type => {
         const typeBookings = confirmedOrOccupiedBookings.filter(b => {
           const roomObj = (rooms || []).find(r => r.id === b.room_id);
@@ -675,14 +679,14 @@ const AdminDashboardPage: React.FC = () => {
       totalRooms: totalCapacity,
       availableRooms: availableBedSpaces
     };
-  }, [bookings, rooms, bedSpaces]);
+  }, [bookings, rooms, bedSpaces, contextParsedRoomSpaces]);
 
   const filteredTransactions = useMemo(() => {
     return bookings.filter(b => {
       // Status filter
       if (trxStatusFilter === 'pending_verification' && b.status !== BookingStatus.PENDING_VERIFICATION) return false;
       if (trxStatusFilter === 'pending_payment' && b.status !== BookingStatus.PENDING_PAYMENT) return false;
-      if (trxStatusFilter === 'confirmed' && b.status !== BookingStatus.CONFIRMED && b.status !== BookingStatus.OCCUPIED) return false;
+      if (trxStatusFilter === 'confirmed' && b.status !== BookingStatus.CONFIRMED && b.status !== BookingStatus.OCCUPIED && b.status !== BookingStatus.RESERVED) return false;
       if (trxStatusFilter === 'cancelled' && b.status !== BookingStatus.CANCELLED) return false;
 
       // Search query
@@ -728,7 +732,11 @@ const AdminDashboardPage: React.FC = () => {
 
   const handleApprove = async (id: number) => {
     const booking = bookings.find(b => b.id === id);
-    const result = await updateBookingStatus(id, BookingStatus.CONFIRMED);
+    const todayStr = new Date().toISOString().split('T')[0];
+    const bStart = booking ? (booking.start_date || (booking as any).expected_arrival_date || '').split('T')[0] : '';
+    // Future approved bookings must display and persist as Reserved; current/past as Confirmed
+    const targetStatus = (bStart && bStart > todayStr) ? BookingStatus.RESERVED : BookingStatus.CONFIRMED;
+    const result = await updateBookingStatus(id, targetStatus);
     if (result.success) {
         addActivity({ user_id: user?.id || 'admin', type: 'payment', description: `Staff verified payment for BK${id}`, timestamp: new Date().toISOString() });
         
@@ -1261,7 +1269,7 @@ const AdminDashboardPage: React.FC = () => {
                                 ${trx.total_price || 0}
                               </td>
                               <td className="px-6 py-4">
-                                <BookingStatusBadge status={trx.status} />
+                                <BookingStatusBadge status={trx.status} startDate={trx.start_date || trx.expected_arrival_date} endDate={trx.end_date || trx.payment_expiry_date} />
                               </td>
                               <td className="px-6 py-4 text-xs text-gray-500">
                                 {new Date(trx.booked_at).toLocaleDateString()}
@@ -1273,10 +1281,14 @@ const AdminDashboardPage: React.FC = () => {
                               </td>
                               <td className="px-6 py-4">
                                 <div className="flex items-center gap-2">
-                                  {trx.status === BookingStatus.CONFIRMED || trx.status === BookingStatus.OCCUPIED ? (
+                                  {trx.status === BookingStatus.CONFIRMED || trx.status === BookingStatus.OCCUPIED || trx.status === BookingStatus.RESERVED ? (
                                     <>
-                                      <span className="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-bold bg-green-50 text-green-700 dark:bg-green-900/30 dark:text-green-300 border border-green-200 dark:border-green-800">
-                                        ✓ Approved
+                                      <span className={`inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-bold ${
+                                        getEffectiveBookingStatus(trx.status, trx.start_date || trx.expected_arrival_date, trx.end_date) === BookingStatus.RESERVED
+                                          ? 'bg-indigo-50 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800'
+                                          : 'bg-green-50 text-green-700 dark:bg-green-900/30 dark:text-green-300 border border-green-200 dark:border-green-800'
+                                      }`}>
+                                        ✓ Approved {getEffectiveBookingStatus(trx.status, trx.start_date || trx.expected_arrival_date, trx.end_date) === BookingStatus.RESERVED ? '(Reserved)' : ''}
                                       </span>
                                       <button
                                         onClick={() => handleReject(trx.id)}
@@ -1428,25 +1440,58 @@ const AdminDashboardPage: React.FC = () => {
                                            </span>
                                         </td>
                                         <td className="px-6 py-4">
-                                           <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 text-xs rounded-full font-bold ${
-                                              space.isOccupied 
-                                                ? 'bg-amber-100 text-amber-800' 
-                                                : space.hasFutureBooking
-                                                ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300'
-                                                : 'bg-emerald-100 text-emerald-800'
-                                           }`}>
-                                              {space.isOccupied 
-                                                ? 'Occupied' 
-                                                : space.hasFutureBooking
-                                                ? `Reserved (${space.futureBookings[0]?.start_date || space.futureBookings[0]?.expected_arrival_date || 'Future'})`
-                                                : 'Vacant / Available'}
-                                           </span>
+                                           {space.isOccupied && space.futureBookings && space.futureBookings.length > 0 ? (
+                                             <div className="flex flex-col gap-1 items-start">
+                                               <span className="inline-flex items-center gap-1 px-2.5 py-0.5 text-xs rounded-full font-bold bg-amber-100 text-amber-800 border border-amber-200">
+                                                 <span className="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
+                                                 Occupied
+                                               </span>
+                                               <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[10px] rounded-full font-bold bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300 border border-blue-200">
+                                                 <span className="w-1.5 h-1.5 rounded-full bg-blue-500"></span>
+                                                 Reserved ({space.futureBookings[0]?.start_date || space.futureBookings[0]?.expected_arrival_date || "Future"})
+                                               </span>
+                                             </div>
+                                           ) : (
+                                             <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 text-xs rounded-full font-bold ${
+                                                space.isOccupied 
+                                                  ? "bg-amber-100 text-amber-800" 
+                                                  : space.hasFutureBooking
+                                                  ? "bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300"
+                                                  : "bg-emerald-100 text-emerald-800"
+                                             }`}>
+                                                {space.isOccupied 
+                                                  ? "Occupied" 
+                                                  : space.hasFutureBooking
+                                                  ? `Reserved (${space.futureBookings[0]?.start_date || space.futureBookings[0]?.expected_arrival_date || "Future"})`
+                                                  : "Vacant / Available"}
+                                             </span>
+                                           )}
                                         </td>
                                         <td className="px-6 py-4">
-                                           {space.isOccupied && space.booking ? (
+                                           {space.isOccupied && space.booking && space.futureBookings && space.futureBookings.length > 0 ? (
+                                             <div className="space-y-1.5 text-xs min-w-[200px]">
+                                               <div className="p-2 rounded-lg bg-amber-50/90 dark:bg-amber-950/40 border border-amber-200/80 dark:border-amber-800/60 shadow-2xs">
+                                                 <div className="flex items-center justify-between text-[10px] font-bold text-amber-800 dark:text-amber-300 uppercase mb-0.5">
+                                                   <span>Current Occupant</span>
+                                                   <span className="font-normal lowercase text-gray-500">until {space.booking.end_date}</span>
+                                                 </div>
+                                                 <p className="font-bold text-gray-900 dark:text-white truncate">{space.booking.full_name}</p>
+                                                 <p className="text-[10px] text-gray-500 font-mono truncate">{space.booking.email}</p>
+                                               </div>
+                                               <div className="p-2 rounded-lg bg-blue-50/90 dark:bg-blue-950/40 border border-blue-200/80 dark:border-blue-800/60 shadow-2xs">
+                                                 <div className="flex items-center justify-between text-[10px] font-bold text-blue-800 dark:text-blue-300 uppercase mb-0.5">
+                                                   <span>Upcoming Reservation</span>
+                                                   <span className="font-normal text-blue-600 dark:text-blue-300 font-mono text-[9px]">{space.futureBookings[0].start_date} → {space.futureBookings[0].end_date}</span>
+                                                 </div>
+                                                 <p className="font-bold text-gray-900 dark:text-white truncate">{space.futureBookings[0].full_name || space.futureBookings[0].student_name}</p>
+                                                 <p className="text-[10px] text-gray-500 font-mono truncate">{space.futureBookings[0].email}</p>
+                                               </div>
+                                             </div>
+                                           ) : space.isOccupied && space.booking ? (
                                               <div className="text-xs">
                                                  <p className="font-bold text-gray-900 dark:text-white">{space.booking.full_name}</p>
                                                  <p className="text-[10px] text-gray-500 font-mono">{space.booking.email}</p>
+                                                 <p className="text-[10px] text-amber-700 dark:text-amber-400 font-medium">Until {space.booking.end_date}</p>
                                               </div>
                                            ) : space.hasFutureBooking && space.futureBookings && space.futureBookings.length > 0 ? (
                                               <div className="text-xs">
@@ -1472,8 +1517,34 @@ const AdminDashboardPage: React.FC = () => {
                                         </td>
                                         <td className="px-6 py-4">
                                            <div className="flex gap-2">
-                                              {space.booking ? (
-                                                 <>
+                                              {space.booking && space.futureBookings && space.futureBookings.length > 0 ? (
+                                                 <div className="flex flex-col gap-1.5">
+                                                    <div className="flex items-center gap-1.5">
+                                                       <button 
+                                                          onClick={() => setSelectedBooking(space.booking)} 
+                                                          className="bg-brand-600 hover:bg-brand-700 text-white text-[11px] font-bold px-2.5 py-1 rounded-md shadow-2xs flex items-center gap-1"
+                                                          title="Edit Current Occupant"
+                                                       >
+                                                          <IconEdit className="w-3 h-3" /> Edit Occupant
+                                                       </button>
+                                                       <button 
+                                                          onClick={() => setSelectedBookingForExtend(space.booking)} 
+                                                          className="bg-indigo-50 hover:bg-indigo-100 text-indigo-700 dark:bg-indigo-950/40 dark:text-indigo-300 text-[10px] font-bold px-2 py-0.5 rounded-md border border-indigo-200/50 flex items-center gap-0.5"
+                                                          title="Extend Stay for Current Room"
+                                                       >
+                                                          <IconCalendar className="w-3 h-3" /> Extend
+                                                       </button>
+                                                    </div>
+                                                    <button 
+                                                       onClick={() => setSelectedBooking(space.futureBookings[0])} 
+                                                       className="bg-blue-600 hover:bg-blue-700 text-white text-[11px] font-bold px-2.5 py-1 rounded-md shadow-2xs flex items-center gap-1 w-fit"
+                                                       title="Edit Upcoming Reservation"
+                                                    >
+                                                       <IconEdit className="w-3 h-3" /> Edit Reservation
+                                                    </button>
+                                                 </div>
+                                              ) : space.booking ? (
+                                                 <div className="flex gap-2">
                                                     <button 
                                                        onClick={() => setSelectedBooking(space.booking)} 
                                                        className="bg-brand-600 hover:bg-brand-700 text-white text-xs font-bold px-3 py-1.5 rounded-lg shadow-sm flex items-center gap-1.5"
@@ -1487,7 +1558,7 @@ const AdminDashboardPage: React.FC = () => {
                                                     >
                                                        <IconCalendar className="w-3.5 h-3.5" /> Extend
                                                     </button>
-                                                 </>
+                                                 </div>
                                               ) : (
                                                  <button 
                                                     onClick={() => setIsAdminBookingModalOpen(true)} 
@@ -1496,7 +1567,6 @@ const AdminDashboardPage: React.FC = () => {
                                                     Book Space
                                                  </button>
                                               )}
-
                                            </div>
                                         </td>
                                      </tr>

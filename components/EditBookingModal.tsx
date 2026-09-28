@@ -153,8 +153,11 @@ export const EditBookingModal: React.FC<EditBookingModalProps> = ({
     
     setIsProcessing(true);
     try {
+      const todayStr = new Date().toISOString().split('T')[0];
+      const bStart = (booking.start_date || (booking as any).expected_arrival_date || '').split('T')[0];
+      const targetStatus = (bStart && bStart > todayStr) ? BookingStatus.RESERVED : BookingStatus.CONFIRMED;
       const updatePayload: Partial<Booking> = {
-        status: BookingStatus.CONFIRMED,
+        status: targetStatus,
         bed_space_id: targetBedSpaceId,
         room_id: targetRoomId
       };
@@ -620,6 +623,7 @@ export const EditBookingModal: React.FC<EditBookingModalProps> = ({
                       <option value={BookingStatus.PENDING_VERIFICATION}>Pending Verification</option>
                       <option value={BookingStatus.PENDING_PAYMENT}>Pending Payment</option>
                       <option value={BookingStatus.PENDING_CONTRACT}>Pending Contract</option>
+                      <option value={BookingStatus.RESERVED}>Reserved</option>
                       <option value={BookingStatus.CONFIRMED}>Confirmed</option>
                       <option value={BookingStatus.OCCUPIED}>Occupied</option>
                       <option value={BookingStatus.COMPLETED}>Completed</option>

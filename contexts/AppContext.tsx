@@ -1314,12 +1314,38 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             }
 
             if (bookingsRes && !bookingsRes.error && bookingsRes.data && bookingsRes.data.length > 0) {
-                const mappedBookings = bookingsRes.data.map((b: any) => ({
-                    ...b,
-                    preferred_accommodation: normalizeAccommodationType(b.preferred_accommodation || b.rooms?.type),
-                    student_name: b.profiles?.full_name,
-                }));
+                const todayStr = new Date().toISOString().split('T')[0];
+                const toActivateInDb: number[] = [];
+                const mappedBookings = bookingsRes.data.map((b: any) => {
+                    const bStart = (b.start_date || b.expected_arrival_date || '').split('T')[0];
+                    const bEnd = (b.end_date || b.payment_expiry_date || '2099-12-31').split('T')[0];
+                    let currentStatus = b.status;
+                    
+                    // On the reservation arrival date, it should become Active/Occupied automatically
+                    if ((currentStatus === 'Confirmed' || currentStatus === 'Reserved' || currentStatus === BookingStatus.CONFIRMED || currentStatus === BookingStatus.RESERVED) && bStart && bStart <= todayStr && bEnd >= todayStr) {
+                        currentStatus = BookingStatus.OCCUPIED;
+                        toActivateInDb.push(b.id);
+                    }
+
+                    return {
+                        ...b,
+                        status: currentStatus,
+                        preferred_accommodation: normalizeAccommodationType(b.preferred_accommodation || b.rooms?.type),
+                        student_name: b.profiles?.full_name,
+                    };
+                });
                 setBookings(mappedBookings);
+
+                if (toActivateInDb.length > 0) {
+                    supabase
+                        .from('bookings')
+                        .update({ status: 'Occupied' })
+                        .in('id', toActivateInDb)
+                        .then(({ error }: any) => {
+                            if (error) console.warn('[Auto-Activation] Notice updating bookings to Occupied:', error.message);
+                            else console.log(`[Auto-Activation] Successfully auto-activated ${toActivateInDb.length} booking(s) to Occupied.`);
+                        });
+                }
             }
             
             if (termsRes && !termsRes.error && termsRes.data && termsRes.data.length > 0) {
@@ -1547,7 +1573,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         // Current occupancy today: ONLY bookings active today count towards occupied_slots
         const activeCount = currentBookings.filter(b => {
             if (b.room_id !== rId) return false;
-            const isConfirmedOrOccupied = b.status === BookingStatus.CONFIRMED || b.status === BookingStatus.OCCUPIED || (b.status as string) === 'Confirmed' || (b.status as string) === 'Occupied';
+            const isConfirmedOrOccupied = b.status === BookingStatus.CONFIRMED || b.status === BookingStatus.OCCUPIED || b.status === BookingStatus.RESERVED || (b.status as string) === 'Confirmed' || (b.status as string) === 'Occupied' || (b.status as string) === 'Reserved';
             if (!isConfirmedOrOccupied) return false;
             const bStart = getBookingStartDate(b);
             const bEnd = getBookingEndDate(b) || '2099-12-31';
@@ -1779,7 +1805,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         refreshPublicOccupancy();
 
         // Notify Admin on backend after status update succeeds in Supabase
-        if (status === BookingStatus.CONFIRMED) {
+        if (status === BookingStatus.CONFIRMED || status === BookingStatus.RESERVED) {
           notifyAdminOfBookingEvent({
             eventType: 'payment_confirmed',
             bookingId: id

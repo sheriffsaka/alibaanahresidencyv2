@@ -719,22 +719,21 @@ export const getParsedRoomSpaces = (
     const dbRoom = space.roomId ? (rooms || []).find(r => r.id === space.roomId) : findDatabaseRoomForSpace(rooms || [], space, knownCategories);
     const spaceBookings = spaceBookingsMap.get(space.id) || [];
 
-    // If the database room record explicitly has occupied_slots === 0, no space in this room can be occupied today!
-    const roomHasZeroOccupancy = dbRoom && (dbRoom.occupied_slots || 0) === 0;
-
     // Find booking occupying space TODAY: actual start date must be <= today, and end date >= today
     const currentBooking = spaceBookings.find(b => {
       // Pending Payment or Pending Verification bookings NEVER occupy a space today
-      if (b.status === 'Pending Payment' || b.status === 'Pending Verification') return false;
+      if (b.status === 'Pending Payment' || b.status === 'Pending Verification' || b.status === 'Cancelled' || b.status === 'Completed' || b.status === 'Maintenance') return false;
       const bStart = getBookingStartDate(b);
       const bEnd = getBookingEndDate(b) || '2099-12-31';
       if (!bStart) return false;
       return bStart <= todayStr && bEnd >= todayStr;
     });
-    const isOccupiedToday = roomHasZeroOccupancy ? false : !!currentBooking;
+    // Live Supabase booking is the source of truth for whether space is occupied today
+    const isOccupiedToday = !!currentBooking;
 
     // Find future bookings starting strictly after today
     const futureBookings = spaceBookings.filter(b => {
+      if (b.status === 'Cancelled' || b.status === 'Completed' || b.status === 'Maintenance') return false;
       const bStart = getBookingStartDate(b);
       return Boolean(bStart && bStart > todayStr && bStart !== '2000-01-01');
     }).sort((a, b) => {
@@ -745,15 +744,15 @@ export const getParsedRoomSpaces = (
 
     const hasFutureBooking = futureBookings.length > 0;
 
-    // Evaluate date-range availability if requested
+    // Evaluate date-range availability if requested (Student availability uses start/end dates)
     let isUnavailableForDates = false;
     let overlappingBooking: any = null;
 
     if (reqStart && reqEnd) {
       overlappingBooking = spaceBookings.find(b => {
         if (extendingId && b.id === extendingId) return false;
-        // Pending Payment or Pending Verification bookings do NOT block new bookings
-        if (b.status === 'Pending Payment' || b.status === 'Pending Verification') return false;
+        // Exclude cancelled, completed, and maintenance statuses
+        if (b.status === 'Cancelled' || b.status === 'Completed' || b.status === 'Maintenance') return false;
         const bStart = getBookingStartDate(b);
         const bEnd = getBookingEndDate(b) || '2099-12-31';
         if (!bStart) return false;
@@ -778,19 +777,33 @@ export const getParsedRoomSpaces = (
 
     if (isOccupiedToday && currentBooking) {
       const rawDate = currentBooking.end_date || currentBooking.payment_expiry_date;
+      let occupantEnd = rawDate;
       if (rawDate) {
         try {
           const d = new Date(rawDate);
           if (!isNaN(d.getTime())) {
-            nextAvailableDate = d.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
-          } else {
-            nextAvailableDate = rawDate;
+            occupantEnd = d.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
           }
         } catch (e) {
-          nextAvailableDate = rawDate;
+          occupantEnd = rawDate;
         }
+      }
+
+      if (hasConfirmedFutureBooking) {
+        const nextRes = confirmedFutureBookings[0];
+        const nextStartRaw = nextRes.start_date || nextRes.expected_arrival_date;
+        let nextStartStr = nextStartRaw;
+        if (nextStartRaw) {
+          try {
+            const d = new Date(nextStartRaw);
+            if (!isNaN(d.getTime())) {
+              nextStartStr = d.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
+            }
+          } catch (e) {}
+        }
+        nextAvailableDate = `${occupantEnd} (Reserved from ${nextStartStr})`;
       } else {
-        nextAvailableDate = "Occupied";
+        nextAvailableDate = occupantEnd || "Occupied";
       }
     } else if (hasConfirmedFutureBooking) {
       const earliestFuture = confirmedFutureBookings[0];
