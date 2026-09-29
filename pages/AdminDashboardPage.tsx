@@ -34,6 +34,7 @@ import { RoomMediaModal } from '../components/admin/RoomMediaModal';
 import { ApartmentMediaManager } from '../components/admin/ApartmentMediaManager';
 import { getRoomPrice } from '../lib/pricing';
 import { Layers, Video, Image as ImageIconLucide, LayoutGrid, List } from 'lucide-react';
+import { isSectionAllowed, resolveSafeSection, getAllowedAdminSections } from '../lib/adminPermissions';
 
 // A responsive, accessible SVG Bar Chart component for occupancy metrics
 const OccupancyChart = ({ data }: { data: { name: string; value: number }[] }) => {
@@ -353,7 +354,27 @@ const SummaryCard: React.FC<SummaryCardProps> = ({ label, value, icon, trend, co
 const AdminDashboardPage: React.FC = () => {
   const t = useTranslation();
   const { user, bookings, updateBookingStatus, deleteBooking, cmsContent, updateCmsContent, rooms, bedSpaces, addRoom, updateRoom, toggleRoomStatus, deleteRoom, activities, addActivity, language, setPage, users, addUser, updateUser, deleteUser, students, waitlist, refreshWaitlist, accommodationCategories, accommodationAddresses, unreadMessagesCount, parsedRoomSpaces: contextParsedRoomSpaces, roomPricing } = useApp();
-  const [activeSection, setActiveSection] = useState<AdminNavSection>('dashboard');
+  const [activeSection, setActiveSection] = useState<AdminNavSection>(() => {
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const sec = (params.get('section') || params.get('tab')) as AdminNavSection | null;
+      return resolveSafeSection(user, sec);
+    } catch {
+      return resolveSafeSection(user, 'dashboard');
+    }
+  });
+
+  const handleSelectSection = (sec: AdminNavSection) => {
+    const safeSec = resolveSafeSection(user, sec);
+    setActiveSection(safeSec);
+    try {
+      const url = new URL(window.location.href);
+      url.searchParams.set('section', safeSec);
+      window.history.replaceState({}, '', url.toString());
+    } catch (e) {
+      console.warn("Notice in handleSelectSection:", e);
+    }
+  };
   const [isActivityDrawerOpen, setIsActivityDrawerOpen] = useState(false);
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
   const [cmsSubTab, setCmsSubTab] = useState<'rooms' | 'branding' | 'media' | 'contracts' | 'faqs'>('rooms');
@@ -417,20 +438,28 @@ const AdminDashboardPage: React.FC = () => {
     return (waitlist || []).filter(w => w.status === 'Waiting').length;
   }, [waitlist]);
 
-  // Support deep linking to section and booking from admin notification emails
+  // Support deep linking to section and booking from admin notification emails with permission check
   useEffect(() => {
     try {
       const params = new URLSearchParams(window.location.search);
-      const section = params.get('section') || params.get('tab');
-      if (section) {
-        const validSections: AdminNavSection[] = [
-          'dashboard', 'bookings', 'students', 'rooms_inventory', 'apartment_media',
-          'room_pricing', 'waitlist', 'email_logs', 'maintenance', 'transactions',
-          'payments_credits', 'messages', 'reviews', 'landing_branding', 'contracts',
-          'student_documents', 'faqs_announcements', 'admin_users', 'settings'
-        ];
-        if (validSections.includes(section as AdminNavSection)) {
-          setActiveSection(section as AdminNavSection);
+      const sectionParam = params.get('section') || params.get('tab');
+      if (sectionParam) {
+        const safeSec = resolveSafeSection(user, sectionParam);
+        if (safeSec !== sectionParam) {
+          // If staff entered an unauthorized section in the URL, redirect URL to permitted section
+          const url = new URL(window.location.href);
+          url.searchParams.set('section', safeSec);
+          window.history.replaceState({}, '', url.toString());
+        }
+        setActiveSection(safeSec);
+      } else {
+        // If no section query param was supplied, verify that current activeSection is permitted
+        if (!isSectionAllowed(user, activeSection)) {
+          const safeSec = resolveSafeSection(user, activeSection);
+          setActiveSection(safeSec);
+          const url = new URL(window.location.href);
+          url.searchParams.set('section', safeSec);
+          window.history.replaceState({}, '', url.toString());
         }
       }
       const bookingIdParam = params.get('bookingId');
@@ -443,7 +472,7 @@ const AdminDashboardPage: React.FC = () => {
     } catch (err) {
       console.warn("Notice in admin deep link handling:", err);
     }
-  }, [bookings]);
+  }, [user, bookings]);
 
 
   const totalActiveWaitlist = useMemo(() => {
@@ -1027,11 +1056,19 @@ const AdminDashboardPage: React.FC = () => {
   };
 
   const handleOpenUserModal = (userData: User | null) => {
+    if (user?.role !== 'proprietor') {
+      alert("Unauthorized: Only proprietors can manage admin users and role permissions.");
+      return;
+    }
     setSelectedUserForEdit(userData);
     setIsUserModalOpen(true);
   };
 
   const handleSaveUser = async (userData: Partial<User>) => {
+    if (user?.role !== 'proprietor') {
+      alert("Unauthorized: Only proprietors can manage admin users and role permissions.");
+      return;
+    }
     let result;
     if (userData.id) {
         result = await updateUser(userData.id, userData);
@@ -1053,6 +1090,10 @@ const AdminDashboardPage: React.FC = () => {
   };
 
   const handleDeleteUser = async (id: string) => {
+    if (user?.role !== 'proprietor') {
+      alert("Unauthorized: Only proprietors can delete admin users.");
+      return;
+    }
     if (id === user?.id) {
         alert("You cannot delete your own account.");
         return;
@@ -1187,7 +1228,8 @@ const AdminDashboardPage: React.FC = () => {
       {/* Grouped Admin Navigation Sidebar */}
       <AdminSidebar
         currentSection={activeSection}
-        onSelectSection={(sec) => setActiveSection(sec)}
+        onSelectSection={(sec) => handleSelectSection(sec)}
+        user={user}
         pendingVerificationsCount={analytics.pendingVerifications.length}
         totalStudentsCount={uniqueStudentRecords.length}
         pendingWaitlistCount={waitingWaitlistCount}
@@ -1213,7 +1255,7 @@ const AdminDashboardPage: React.FC = () => {
                 {activeSection.replace(/_/g, ' ')}
               </h1>
               <p className="text-[11px] text-gray-400 font-medium hidden sm:block">
-                Al-Ibaanah Student Residency • {user?.full_name || 'Administrator'} ({user?.role || 'Staff'})
+                Al-Ibaanah Student Residency • {user?.full_name || 'Administrator'} ({user?.role === 'proprietor' ? 'Main Admin' : 'Limited Admin'})
               </p>
             </div>
           </div>
@@ -1251,7 +1293,7 @@ const AdminDashboardPage: React.FC = () => {
               </div>
               <div className="text-left hidden sm:block">
                 <p className="text-xs font-bold text-gray-900 dark:text-white leading-tight">{user?.full_name || 'Admin'}</p>
-                <p className="text-[10px] text-gray-400 font-mono capitalize">{user?.role || 'Staff'}</p>
+                <p className="text-[10px] text-gray-400 font-mono capitalize">{user?.role === 'proprietor' ? 'Proprietor (Main Admin)' : 'Staff (Limited Admin)'}</p>
               </div>
             </div>
           </div>
@@ -1259,83 +1301,254 @@ const AdminDashboardPage: React.FC = () => {
 
         {/* Dynamic Section Content */}
         <main className="flex-1 p-6 lg:p-8 max-w-7xl w-full mx-auto space-y-8">
-          {/* 1. OVERVIEW: Dashboard Analytics */}
-          {activeSection === 'dashboard' && (
+          {!isSectionAllowed(user, activeSection) ? (
+            <div className="bg-white dark:bg-gray-800 rounded-2xl p-8 border border-gray-100 dark:border-gray-700 shadow-md text-center max-w-md mx-auto my-12 animate-fade-in">
+              <span className="text-4xl mb-3 block">🔒</span>
+              <h3 className="text-lg font-bold text-gray-900 dark:text-white">Section Access Restricted</h3>
+              <p className="text-xs text-gray-500 mt-2">
+                Your staff administrative account does not have permission to access this section.
+              </p>
+              <button
+                onClick={() => handleSelectSection(resolveSafeSection(user, null))}
+                className="mt-5 px-4 py-2 bg-brand-600 text-white rounded-xl text-xs font-bold hover:bg-brand-700 transition-colors shadow-sm"
+              >
+                Go to Authorized Section →
+              </button>
+            </div>
+          ) : (
             <>
-              {/* Active Waitlist Priority Attention Banner */}
-              {waitingWaitlistCount > 0 && (
-                <div className="bg-gradient-to-r from-amber-500/10 via-amber-500/5 to-transparent border border-amber-300 dark:border-amber-700/60 rounded-2xl p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-sm animate-fade-in">
-                  <div className="flex items-center gap-3.5">
-                    <div className="w-11 h-11 rounded-xl bg-amber-500 text-white flex items-center justify-center text-xl shrink-0 shadow-sm">
-                      ⏳
-                    </div>
+              {/* 1. OVERVIEW: Dashboard Analytics */}
+              {activeSection === 'dashboard' && (
+                user?.role === 'staff' ? (
+                  // Limited Admin Dashboard View: Operational Summaries (NO Revenue, NO Occupancy Rate, NO financial/occupancy chart)
+                  <div className="space-y-8 animate-fade-in">
+                    {/* Active Waitlist Priority Attention Banner (if permitted) */}
+                    {waitingWaitlistCount > 0 && isSectionAllowed(user, 'waitlist') && (
+                      <div className="bg-gradient-to-r from-amber-500/10 via-amber-500/5 to-transparent border border-amber-300 dark:border-amber-700/60 rounded-2xl p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-sm animate-fade-in">
+                        <div className="flex items-center gap-3.5">
+                          <div className="w-11 h-11 rounded-xl bg-amber-500 text-white flex items-center justify-center text-xl shrink-0 shadow-sm">
+                            ⏳
+                          </div>
+                          <div>
+                            <h4 className="text-sm font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                              {waitingWaitlistCount} Student Applicant{waitingWaitlistCount === 1 ? '' : 's'} Waiting in Waitlist Queue
+                              <span className="px-2 py-0.5 rounded-full text-[10px] font-black uppercase bg-amber-500 text-white animate-pulse">
+                                Pending Placement
+                              </span>
+                            </h4>
+                            <p className="text-xs text-gray-600 dark:text-gray-300 mt-0.5">
+                              Students have joined the residency waitlist for currently unavailable room spaces and are awaiting accommodation offers.
+                            </p>
+                          </div>
+                        </div>
+                        <button
+                          onClick={() => handleSelectSection('waitlist')}
+                          className="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs rounded-xl shadow-sm transition-all whitespace-nowrap self-start sm:self-center"
+                        >
+                          View & Attend to Waitlist →
+                        </button>
+                      </div>
+                    )}
+
+                    {/* Operational Summaries Section */}
                     <div>
-                      <h4 className="text-sm font-bold text-gray-900 dark:text-white flex items-center gap-2">
-                        {waitingWaitlistCount} Student Applicant{waitingWaitlistCount === 1 ? '' : 's'} Waiting in Waitlist Queue
-                        <span className="px-2 py-0.5 rounded-full text-[10px] font-black uppercase bg-amber-500 text-white animate-pulse">
-                          Pending Placement
+                      <div className="flex items-center justify-between mb-4">
+                        <div>
+                          <h3 className="text-base font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                            <span>📋</span> {t.admin_operational_summary || 'Operational Summaries'}
+                          </h3>
+                          <p className="text-xs text-gray-500">Live student residency metrics and operational queue status</p>
+                        </div>
+                        <span className="text-[11px] font-bold px-2.5 py-1 rounded-lg bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800">
+                          Staff Operational View
                         </span>
-                      </h4>
-                      <p className="text-xs text-gray-600 dark:text-gray-300 mt-0.5">
-                        Students have joined the residency waitlist for currently unavailable room spaces and are awaiting accommodation offers.
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+                        <SummaryCard 
+                          label={t.admin_active_residents || "Active Residents"} 
+                          value={currentOccupants.length} 
+                          icon="🏠" 
+                          trend="Current stay"
+                          colorClass="bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600"
+                          onClick={isSectionAllowed(user, 'bookings') ? () => handleSelectSection('bookings') : undefined}
+                          actionLabel={isSectionAllowed(user, 'bookings') ? "View occupants" : undefined}
+                        />
+                        <SummaryCard 
+                          label={t.admin_upcoming_reservations_metric || "Upcoming Reservations"} 
+                          value={upcomingReservations.length} 
+                          icon="📅" 
+                          trend="Future arrivals"
+                          colorClass="bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600"
+                          onClick={isSectionAllowed(user, 'bookings') ? () => handleSelectSection('bookings') : undefined}
+                          actionLabel={isSectionAllowed(user, 'bookings') ? "View reservations" : undefined}
+                        />
+                        <SummaryCard 
+                          label={t.admin_registered_students || "Registered Students"} 
+                          value={uniqueStudentRecords.length} 
+                          icon="🎓" 
+                          trend="Student accounts"
+                          colorClass="bg-blue-100 dark:bg-blue-900/30 text-blue-600"
+                          onClick={isSectionAllowed(user, 'students') ? () => handleSelectSection('students') : undefined}
+                          actionLabel={isSectionAllowed(user, 'students') ? "Manage students" : undefined}
+                        />
+                        <SummaryCard 
+                          label={t.admin_pending_transactions || "Pending Transactions"} 
+                          value={analytics.pendingVerifications.length} 
+                          icon="💳" 
+                          colorClass="bg-amber-100 dark:bg-amber-900/30 text-amber-600"
+                          onClick={isSectionAllowed(user, 'transactions') ? () => handleSelectSection('transactions') : undefined}
+                          actionLabel={analytics.pendingVerifications.length > 0 && isSectionAllowed(user, 'transactions') ? "Review transactions" : undefined}
+                        />
+                        <SummaryCard 
+                          label={t.admin_unread_messages || "Unread Messages"} 
+                          value={unreadMessagesCount} 
+                          icon="💬" 
+                          colorClass="bg-rose-100 dark:bg-rose-900/30 text-rose-600"
+                          onClick={isSectionAllowed(user, 'messages') ? () => handleSelectSection('messages') : undefined}
+                          actionLabel={unreadMessagesCount > 0 && isSectionAllowed(user, 'messages') ? "Open inbox" : undefined}
+                        />
+                      </div>
+                    </div>
+
+                    {/* Operational Quick Actions (NO Financial / Occupancy charts) */}
+                    <div className="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700">
+                      <h3 className="text-base font-bold text-gray-900 dark:text-white mb-1 flex items-center gap-2">
+                        <span>⚡</span> Operational Quick Actions
+                      </h3>
+                      <p className="text-xs text-gray-500 mb-4">
+                        Quick shortcuts to your authorized operational management workflows
                       </p>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
+                        {isSectionAllowed(user, 'bookings') && (
+                          <button
+                            onClick={() => handleSelectSection('bookings')}
+                            className="p-4 rounded-xl border border-gray-100 dark:border-gray-700 hover:border-brand-300 dark:hover:border-brand-600 bg-gray-50/50 dark:bg-gray-750 transition-all text-left flex items-start gap-3 group"
+                          >
+                            <span className="text-2xl p-2 rounded-lg bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600">🛏️</span>
+                            <div>
+                              <h4 className="text-xs font-bold text-gray-900 dark:text-white group-hover:text-brand-600">Bookings</h4>
+                              <p className="text-[11px] text-gray-500 mt-0.5">{currentOccupants.length} Occupants, {upcomingReservations.length} Reserved</p>
+                            </div>
+                          </button>
+                        )}
+                        {isSectionAllowed(user, 'students') && (
+                          <button
+                            onClick={() => handleSelectSection('students')}
+                            className="p-4 rounded-xl border border-gray-100 dark:border-gray-700 hover:border-brand-300 dark:hover:border-brand-600 bg-gray-50/50 dark:bg-gray-750 transition-all text-left flex items-start gap-3 group"
+                          >
+                            <span className="text-2xl p-2 rounded-lg bg-blue-100 dark:bg-blue-900/30 text-blue-600">🎓</span>
+                            <div>
+                              <h4 className="text-xs font-bold text-gray-900 dark:text-white group-hover:text-brand-600">Students</h4>
+                              <p className="text-[11px] text-gray-500 mt-0.5">{uniqueStudentRecords.length} Registered Accounts</p>
+                            </div>
+                          </button>
+                        )}
+                        {isSectionAllowed(user, 'transactions') && (
+                          <button
+                            onClick={() => handleSelectSection('transactions')}
+                            className="p-4 rounded-xl border border-gray-100 dark:border-gray-700 hover:border-brand-300 dark:hover:border-brand-600 bg-gray-50/50 dark:bg-gray-750 transition-all text-left flex items-start gap-3 group"
+                          >
+                            <span className="text-2xl p-2 rounded-lg bg-amber-100 dark:bg-amber-900/30 text-amber-600">💳</span>
+                            <div>
+                              <h4 className="text-xs font-bold text-gray-900 dark:text-white group-hover:text-brand-600">Transactions</h4>
+                              <p className="text-[11px] text-gray-500 mt-0.5">{analytics.pendingVerifications.length} Awaiting Verification</p>
+                            </div>
+                          </button>
+                        )}
+                        {isSectionAllowed(user, 'messages') && (
+                          <button
+                            onClick={() => handleSelectSection('messages')}
+                            className="p-4 rounded-xl border border-gray-100 dark:border-gray-700 hover:border-brand-300 dark:hover:border-brand-600 bg-gray-50/50 dark:bg-gray-750 transition-all text-left flex items-start gap-3 group"
+                          >
+                            <span className="text-2xl p-2 rounded-lg bg-rose-100 dark:bg-rose-900/30 text-rose-600">💬</span>
+                            <div>
+                              <h4 className="text-xs font-bold text-gray-900 dark:text-white group-hover:text-brand-600">Messages</h4>
+                              <p className="text-[11px] text-gray-500 mt-0.5">{unreadMessagesCount} Unread Communications</p>
+                            </div>
+                          </button>
+                        )}
+                      </div>
                     </div>
                   </div>
-                  <button
-                    onClick={() => setActiveSection('waitlist')}
-                    className="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs rounded-xl shadow-sm transition-all whitespace-nowrap self-start sm:self-center"
-                  >
-                    View & Attend to Waitlist →
-                  </button>
-                </div>
+                ) : (
+                  // Main Admin (Proprietor) Overview
+                  <>
+                    {/* Active Waitlist Priority Attention Banner */}
+                    {waitingWaitlistCount > 0 && (
+                      <div className="bg-gradient-to-r from-amber-500/10 via-amber-500/5 to-transparent border border-amber-300 dark:border-amber-700/60 rounded-2xl p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-sm animate-fade-in">
+                        <div className="flex items-center gap-3.5">
+                          <div className="w-11 h-11 rounded-xl bg-amber-500 text-white flex items-center justify-center text-xl shrink-0 shadow-sm">
+                            ⏳
+                          </div>
+                          <div>
+                            <h4 className="text-sm font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                              {waitingWaitlistCount} Student Applicant{waitingWaitlistCount === 1 ? '' : 's'} Waiting in Waitlist Queue
+                              <span className="px-2 py-0.5 rounded-full text-[10px] font-black uppercase bg-amber-500 text-white animate-pulse">
+                                Pending Placement
+                              </span>
+                            </h4>
+                            <p className="text-xs text-gray-600 dark:text-gray-300 mt-0.5">
+                              Students have joined the residency waitlist for currently unavailable room spaces and are awaiting accommodation offers.
+                            </p>
+                          </div>
+                        </div>
+                        <button
+                          onClick={() => handleSelectSection('waitlist')}
+                          className="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs rounded-xl shadow-sm transition-all whitespace-nowrap self-start sm:self-center"
+                        >
+                          View & Attend to Waitlist →
+                        </button>
+                      </div>
+                    )}
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+                        <SummaryCard 
+                          label="Total Revenue" 
+                          value={`$${analytics.totalRevenue.toLocaleString()}`} 
+                          icon="💰" 
+                          trend="12% vs last month"
+                          colorClass="bg-green-100 dark:bg-green-900/30 text-green-600"
+                        />
+                        <SummaryCard 
+                          label="Occupancy Rate" 
+                          value={`${analytics.occupancyRate}%`} 
+                          icon="🏠" 
+                          trend="3% growth"
+                          colorClass="bg-brand-100 dark:bg-brand-900/30 text-brand-600"
+                        />
+                        <SummaryCard 
+                          label="Total Bed Spaces" 
+                          value={analytics.totalRooms} 
+                          icon="🚪" 
+                          colorClass="bg-purple-100 dark:bg-purple-900/30 text-purple-600"
+                        />
+                        <SummaryCard 
+                          label="Pending Verif." 
+                          value={analytics.pendingVerifications.length} 
+                          icon="📋" 
+                          colorClass="bg-accent-100 dark:bg-accent-900/30 text-accent-600"
+                          onClick={() => handleSelectSection('transactions')}
+                          actionLabel={analytics.pendingVerifications.length > 0 ? "Review transactions" : undefined}
+                        />
+                        <SummaryCard 
+                          label="Waitlist Queue" 
+                          value={waitingWaitlistCount} 
+                          icon="⏳" 
+                          colorClass="bg-amber-100 dark:bg-amber-900/30 text-amber-600"
+                          onClick={() => handleSelectSection('waitlist')}
+                          actionLabel={waitingWaitlistCount > 0 ? "Attend to queue" : "View waitlist"}
+                        />
+                    </div>
+
+                    {/* Occupancy Chart */}
+                    <div className="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700">
+                      <h3 className="text-lg font-bold mb-4">Occupancy by Category</h3>
+                      <OccupancyChart data={analytics.occupancyByType} />
+                    </div>
+                  </>
+                )
               )}
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
-                  <SummaryCard 
-                    label="Total Revenue" 
-                    value={`$${analytics.totalRevenue.toLocaleString()}`} 
-                    icon="💰" 
-                    trend="12% vs last month"
-                    colorClass="bg-green-100 dark:bg-green-900/30 text-green-600"
-                  />
-                  <SummaryCard 
-                    label="Occupancy Rate" 
-                    value={`${analytics.occupancyRate}%`} 
-                    icon="🏠" 
-                    trend="3% growth"
-                    colorClass="bg-brand-100 dark:bg-brand-900/30 text-brand-600"
-                  />
-                  <SummaryCard 
-                    label="Total Bed Spaces" 
-                    value={analytics.totalRooms} 
-                    icon="🚪" 
-                    colorClass="bg-purple-100 dark:bg-purple-900/30 text-purple-600"
-                  />
-                  <SummaryCard 
-                    label="Pending Verif." 
-                    value={analytics.pendingVerifications.length} 
-                    icon="📋" 
-                    colorClass="bg-accent-100 dark:bg-accent-900/30 text-accent-600"
-                    onClick={() => setActiveSection('transactions')}
-                    actionLabel={analytics.pendingVerifications.length > 0 ? "Review transactions" : undefined}
-                  />
-                  <SummaryCard 
-                    label="Waitlist Queue" 
-                    value={waitingWaitlistCount} 
-                    icon="⏳" 
-                    colorClass="bg-amber-100 dark:bg-amber-900/30 text-amber-600"
-                    onClick={() => setActiveSection('waitlist')}
-                    actionLabel={waitingWaitlistCount > 0 ? "Attend to queue" : "View waitlist"}
-                  />
-              </div>
-
-              {/* Occupancy Chart */}
-              <div className="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700">
-                <h3 className="text-lg font-bold mb-4">Occupancy by Category</h3>
-                <OccupancyChart data={analytics.occupancyByType} />
-              </div>
-            </>
-          )}
 
           {/* 2. TRANSACTIONS TAB */}
           {activeSection === 'transactions' && (
@@ -2397,7 +2610,7 @@ const AdminDashboardPage: React.FC = () => {
                 </div>
                 <div className="flex items-center gap-2.5">
                   <button
-                    onClick={() => setActiveSection('apartment_media')}
+                    onClick={() => handleSelectSection('apartment_media')}
                     className="bg-purple-50 hover:bg-purple-100 text-purple-700 dark:bg-purple-950/40 dark:text-purple-300 border border-purple-200 dark:border-purple-800 px-4 py-2.5 rounded-xl text-xs font-bold flex items-center gap-2 transition-all shadow-xs"
                     title="Manage apartment videos, photo galleries, and included perks"
                   >
@@ -2635,7 +2848,7 @@ const AdminDashboardPage: React.FC = () => {
                             <button
                               onClick={() => {
                                 setWaitlistCategoryFilter(canonicalCat);
-                                setActiveSection('waitlist');
+                                handleSelectSection('waitlist');
                               }}
                               className="text-amber-700 dark:text-amber-300 hover:text-amber-800 dark:hover:text-amber-200 text-xs font-bold hover:underline flex items-center gap-1.5"
                               title={`View waitlist for ${canonicalCat}`}
@@ -2930,11 +3143,26 @@ const AdminDashboardPage: React.FC = () => {
 
           {/* 14. ADMIN USERS TAB */}
           {activeSection === 'admin_users' && (
-             <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg overflow-hidden border border-gray-100 dark:border-gray-700">
+            user?.role !== 'proprietor' ? (
+              <div className="bg-white dark:bg-gray-800 rounded-2xl p-8 border border-gray-100 dark:border-gray-700 shadow-md text-center max-w-lg mx-auto my-12 animate-fade-in">
+                <span className="text-4xl mb-3 block">🔒</span>
+                <h3 className="text-lg font-bold text-gray-900 dark:text-white">Admin Users Access Restricted</h3>
+                <p className="text-xs text-gray-500 mt-2">
+                  Administrative user accounts and permission role assignments can only be managed by system Proprietors.
+                </p>
+                <button
+                  onClick={() => handleSelectSection(resolveSafeSection(user, null))}
+                  className="mt-4 px-4 py-2 bg-brand-600 text-white rounded-xl text-xs font-bold hover:bg-brand-700 transition-colors shadow-sm"
+                >
+                  Return to Permitted Section →
+                </button>
+              </div>
+            ) : (
+              <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg overflow-hidden border border-gray-100 dark:border-gray-700">
                 <div className="px-6 py-5 border-b dark:border-gray-700 flex justify-between items-center">
                   <div>
                     <h2 className="text-xl font-bold text-gray-900 dark:text-white">Admin Users Management</h2>
-                    <p className="text-xs text-gray-500 mt-0.5">Manage administrative accounts, staff members, and proprietors</p>
+                    <p className="text-xs text-gray-500 mt-0.5">Manage administrative accounts, staff members, and configure section-level permissions</p>
                   </div>
                   <button 
                     onClick={() => handleOpenUserModal(null)}
@@ -2949,7 +3177,7 @@ const AdminDashboardPage: React.FC = () => {
                             <tr>
                                 <th className="px-6 py-3.5 text-left text-xs font-bold text-gray-500 uppercase">Name</th>
                                 <th className="px-6 py-3.5 text-left text-xs font-bold text-gray-500 uppercase">Email</th>
-                                <th className="px-6 py-3.5 text-left text-xs font-bold text-gray-500 uppercase">Role</th>
+                                <th className="px-6 py-3.5 text-left text-xs font-bold text-gray-500 uppercase">Role & Access Scope</th>
                                 <th className="px-6 py-3.5 text-left text-xs font-bold text-gray-500 uppercase">Gender Scope</th>
                                 <th className="px-6 py-3.5 text-left text-xs font-bold text-gray-500 uppercase">Actions</th>
                             </tr>
@@ -2965,8 +3193,15 @@ const AdminDashboardPage: React.FC = () => {
                                     </td>
                                     <td className="px-6 py-4">
                                         <span className={`px-2.5 py-1 rounded-md text-[10px] font-black uppercase ${u.role === 'proprietor' ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'}`}>
-                                            {u.role}
+                                            {u.role === 'proprietor' ? 'Proprietor (Full Access)' : 'Staff (Limited Admin)'}
                                         </span>
+                                        {u.role === 'staff' && (
+                                          <div className="mt-1 text-[11px] text-gray-500 font-medium">
+                                            {Array.isArray(u.allowed_sections) && u.allowed_sections.length > 0 
+                                              ? `${u.allowed_sections.length} sections allowed: ${u.allowed_sections.slice(0, 3).join(', ')}${u.allowed_sections.length > 3 ? '...' : ''}`
+                                              : 'Default: Bookings, Students, Transactions, Messages'}
+                                          </div>
+                                        )}
                                     </td>
                                     <td className="px-6 py-4 text-xs font-medium text-gray-700 dark:text-gray-300">{u.gender || 'Any'}</td>
                                     <td className="px-6 py-4">
@@ -2975,12 +3210,13 @@ const AdminDashboardPage: React.FC = () => {
                                               onClick={() => handleOpenUserModal(u)}
                                               className="text-brand-600 hover:text-brand-700 text-xs font-bold underline"
                                             >
-                                                Edit
+                                                Edit Permissions
                                             </button>
                                             {u.id !== user?.id && (
                                               <button 
                                                 onClick={() => handleDeleteUser(u.id)}
                                                 className="text-red-500 hover:text-red-700"
+                                                title="Delete user"
                                               >
                                                   <IconTrash className="w-4 h-4" />
                                               </button>
@@ -2992,12 +3228,15 @@ const AdminDashboardPage: React.FC = () => {
                         </tbody>
                     </table>
                 </div>
-             </div>
+              </div>
+            )
           )}
 
           {/* 15. RESIDENCY & SYSTEM SETTINGS VIEW */}
           {activeSection === 'settings' && (
             <AdminSettingsView />
+          )}
+            </>
           )}
         </main>
       </div>
@@ -3009,7 +3248,7 @@ const AdminDashboardPage: React.FC = () => {
         activities={activities || []}
         bookings={bookings || []}
         waitlist={waitlist || []}
-        onNavigateSection={(section) => setActiveSection(section)}
+        onNavigateSection={(section) => handleSelectSection(section)}
       />
 
       {/* MODALS */}

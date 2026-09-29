@@ -431,5 +431,14 @@ export const en = {
   admin_action_cancel_reservation: 'Cancel Reservation',
   admin_action_extend_stay: 'Extend Stay',
   admin_action_approve: 'Approve',
-  admin_action_reject: 'Reject'
+  admin_action_reject: 'Reject',
+  admin_operational_summary: 'Operational Summary',
+  admin_active_residents: 'Active Residents',
+  admin_upcoming_reservations_metric: 'Upcoming Reservations',
+  admin_registered_students: 'Registered Students',
+  admin_pending_transactions: 'Pending Transactions',
+  admin_unread_messages: 'Unread Messages',
+  admin_permitted_sections: 'Permitted Admin Sections',
+  admin_section_access_help: 'Select which dashboard sections this staff member is authorized to access.',
+  admin_proprietor_only_users: 'Admin Users Management is restricted exclusively to Proprietors.'
 };

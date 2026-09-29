@@ -813,6 +813,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         phone_number: activeProfile.phone_number,
         passport_number: activeProfile.passport_number,
         nationality: activeProfile.nationality,
+        allowed_sections: activeProfile.allowed_sections || undefined,
         is_pending_activation: session.user.user_metadata?.is_pending_activation ?? activeProfile.is_pending_activation,
         activated_at: session.user.user_metadata?.activated_at ?? activeProfile.activated_at
       };
@@ -890,7 +891,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             email: p.email || '',
             full_name: p.full_name,
             role: p.role,
-            gender: p.gender
+            gender: p.gender,
+            allowed_sections: p.allowed_sections
           })));
         }
 
@@ -2924,29 +2926,47 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       if (!authData.user) throw new Error("Failed to create auth user.");
 
       // 2. Update the profile with the correct role (trigger defaults to student)
-      const { data: profileData, error: profileError } = await supabase
+      const profileUpdates: Record<string, any> = {
+        full_name: userData.full_name,
+        role: userData.role,
+        gender: userData.gender
+      };
+      if (userData.role === 'staff' && userData.allowed_sections) {
+        profileUpdates.allowed_sections = userData.allowed_sections;
+      }
+
+      let { data: profileData, error: profileError } = await supabase
         .from('profiles')
-        .update({
-          full_name: userData.full_name,
-          role: userData.role,
-          gender: userData.gender
-        })
+        .update(profileUpdates)
         .eq('id', authData.user.id)
         .select()
         .single();
 
-      if (profileError) {
-          // If update fails, maybe the profile wasn't created yet by the trigger
-          // We can try to insert it or just wait
-          console.warn("Profile update failed, maybe trigger hasn't finished:", profileError.message);
+      if (profileError && profileError.message && profileError.message.includes('allowed_sections')) {
+        console.warn("Column allowed_sections not yet present in remote DB, saving without it:", profileError.message);
+        const { allowed_sections: _, ...fallbackUpdates } = profileUpdates;
+        const fallbackRes = await supabase
+          .from('profiles')
+          .update(fallbackUpdates)
+          .eq('id', authData.user.id)
+          .select()
+          .single();
+        profileData = fallbackRes.data;
+        profileError = fallbackRes.error;
       }
 
-      const newUser = {
+      if (profileError) {
+          // If update fails, maybe the profile wasn't created yet by the trigger
+          console.warn("Profile update notice:", profileError.message);
+      }
+
+      const newUser: User = {
           id: authData.user.id,
           email: userData.email,
           full_name: userData.full_name || '',
           role: userData.role || 'staff',
-          gender: userData.gender
+          gender: userData.gender,
+          allowed_sections: userData.allowed_sections
       };
 
       setUsers(prev => [...prev, newUser]);
@@ -2971,13 +2991,24 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       if (updates.phone_number !== undefined) profileUpdates.phone_number = updates.phone_number;
       if (updates.passport_number !== undefined) profileUpdates.passport_number = updates.passport_number;
       if (updates.nationality !== undefined) profileUpdates.nationality = updates.nationality;
+      if (updates.allowed_sections !== undefined) profileUpdates.allowed_sections = updates.allowed_sections;
 
-      const { error } = await supabase
+      let { error } = await supabase
         .from('profiles')
         .update(profileUpdates)
         .eq('id', id);
 
-      if (error) throw error;
+      if (error && error.message && error.message.includes('allowed_sections')) {
+        console.warn("Column allowed_sections not yet present in remote DB, saving without it:", error.message);
+        const { allowed_sections: _, ...fallbackUpdates } = profileUpdates;
+        const fallbackRes = await supabase
+          .from('profiles')
+          .update(fallbackUpdates)
+          .eq('id', id);
+        if (fallbackRes.error) throw fallbackRes.error;
+      } else if (error) {
+        throw error;
+      }
 
       setUsers(prev => prev.map(u => u.id === id ? { ...u, ...updates } : u));
       if (user && user.id === id) {

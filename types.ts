@@ -182,6 +182,7 @@ export interface User {
   phone_number?: string;
   nationality?: string;
   passport_number?: string;
+  allowed_sections?: string[];
   created_at?: string;
   is_pending_activation?: boolean;
   activated_at?: string;

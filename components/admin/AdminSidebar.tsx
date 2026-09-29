@@ -1,5 +1,7 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { useTranslation } from '../../hooks/useTranslation';
+import { User } from '../../types';
+import { getAllowedAdminSections } from '../../lib/adminPermissions';
 
 export type AdminNavSection =
   | 'dashboard'
@@ -25,6 +27,7 @@ export type AdminNavSection =
 interface AdminSidebarProps {
   currentSection: AdminNavSection;
   onSelectSection: (section: AdminNavSection) => void;
+  user?: User | null;
   pendingVerificationsCount?: number;
   totalStudentsCount?: number;
   pendingWaitlistCount?: number;
@@ -47,6 +50,7 @@ interface NavGroup {
 export const AdminSidebar: React.FC<AdminSidebarProps> = ({
   currentSection,
   onSelectSection,
+  user,
   pendingVerificationsCount = 0,
   totalStudentsCount = 0,
   pendingWaitlistCount = 0,
@@ -55,6 +59,8 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
   onCloseMobile
 }) => {
   const t = useTranslation();
+
+  const allowedSections = useMemo(() => getAllowedAdminSections(user), [user]);
 
   const navGroups: NavGroup[] = [
     {
@@ -131,6 +137,16 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
     }
   ];
 
+  // Filter groups and items strictly according to user's permissions
+  const visibleNavGroups = useMemo(() => {
+    return navGroups
+      .map((group) => ({
+        ...group,
+        items: group.items.filter((item) => allowedSections.includes(item.id))
+      }))
+      .filter((group) => group.items.length > 0);
+  }, [navGroups, allowedSections]);
+
   const handleItemClick = (id: AdminNavSection) => {
     onSelectSection(id);
     if (onCloseMobile) {
@@ -184,7 +200,7 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
 
         {/* Navigation List */}
         <div className="flex-1 overflow-y-auto px-4 py-5 space-y-6 scrollbar-thin">
-          {navGroups.map((group) => (
+          {visibleNavGroups.map((group) => (
             <div key={group.label} className="space-y-1">
               <h4 className="px-3 text-[10px] font-black uppercase tracking-widest text-gray-400 dark:text-gray-500 mb-2">
                 {group.label}

@@ -431,5 +431,14 @@ export const ar = {
   admin_action_cancel_reservation: 'إلغاء الحجز',
   admin_action_extend_stay: 'تمديد الإقامة',
   admin_action_approve: 'موافقة',
-  admin_action_reject: 'رفض'
+  admin_action_reject: 'رفض',
+  admin_operational_summary: 'الملخص التشغيلي',
+  admin_active_residents: 'المقيمون الفعليون',
+  admin_upcoming_reservations_metric: 'الحجوزات القادمة',
+  admin_registered_students: 'الطلاب المسجلون',
+  admin_pending_transactions: 'المعاملات المعلقة',
+  admin_unread_messages: 'الرسائل غير المقروءة',
+  admin_permitted_sections: 'أقسام الإدارة المسموح بها',
+  admin_section_access_help: 'حدد الأقسام التي يحق لهذا الموظف الوصول إليها في لوحة التحكم.',
+  admin_proprietor_only_users: 'إدارة مسؤولي النظام مقتصرة حصرياً على المالك.'
 };
