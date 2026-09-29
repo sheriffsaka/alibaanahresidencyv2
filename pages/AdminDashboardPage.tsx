@@ -2,7 +2,7 @@ import React, { useState, useMemo, useEffect, ChangeEvent } from 'react';
 import { useTranslation } from '../hooks/useTranslation';
 import { useApp } from '../hooks/useApp';
 import { Booking, BookingStatus, Room, AccommodationType, User, Language, DEFAULT_CATEGORY_MEDIA, CategoryMediaItem, CategoryMediaConfig } from '../types';
-import { IconEdit, IconClose, IconBuilding, IconCheckCircle, IconPlus, IconTrash, IconUpload, IconFile, IconCalendar } from '../components/Icon';
+import { IconEdit, IconClose, IconBuilding, IconCheckCircle, IconPlus, IconTrash, IconUpload, IconFile, IconCalendar, IconEye } from '../components/Icon';
 import BookingStatusBadge from '../components/BookingStatusBadge';
 import RoomEditorModal from '../components/RoomEditorModal';
 import AdminCreateBookingModal from '../components/AdminCreateBookingModal';
@@ -14,7 +14,7 @@ import UserEditorModal from '../components/UserEditorModal';
 import EditBookingModal from '../components/EditBookingModal';
 import { ExtendStayModal } from '../components/ExtendStayModal';
 import { formatStoredRoomString, getDisplayFromRoom, getParsedRoomSpaces, getAccommodationAddress, getLiveStudentRoomDetails, normalizeCategory } from '../lib/roomNaming';
-import { isBookingActiveOnDate, isBookingUpcomingReservation, getEffectiveBookingStatus } from '../lib/temporalBooking';
+import { isBookingActiveOnDate, isBookingUpcomingReservation, getEffectiveBookingStatus, formatBookingDuration, getBookingPaymentStatus } from '../lib/temporalBooking';
 
 // Restructured Admin Components
 import AdminSidebar, { AdminNavSection } from '../components/admin/AdminSidebar';
@@ -362,7 +362,8 @@ const AdminDashboardPage: React.FC = () => {
   const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
   const [selectedBookingForExtend, setSelectedBookingForExtend] = useState<Booking | null>(null);
   const [selectedProof, setSelectedProof] = useState<string | null>(null);
-  const [roomFilter, setRoomFilter] = useState<'all' | 'occupied' | 'available'>('all');
+  const [roomFilter, setRoomFilter] = useState<'all' | 'occupied' | 'reserved' | 'available'>('all');
+  const [bookingSubView, setBookingSubView] = useState<'all' | 'occupants' | 'reservations' | 'pending'>('all');
   const [roomCategoryFilter, setRoomCategoryFilter] = useState<string>('all');
   const [roomSearchQuery, setRoomSearchQuery] = useState('');
   const [inventoryCategoryFilter, setInventoryCategoryFilter] = useState<string>('all');
@@ -713,32 +714,170 @@ const AdminDashboardPage: React.FC = () => {
       if (roomFilter === 'occupied' && !space.isOccupied) {
         return false;
       }
-      if (roomFilter === 'available' && space.isOccupied) {
+      if (roomFilter === 'reserved' && !space.hasFutureBooking && !space.isReserved) {
+        return false;
+      }
+      if (roomFilter === 'available' && (space.isOccupied || space.hasFutureBooking)) {
         return false;
       }
       if (roomSearchQuery.trim()) {
-        const q = roomSearchQuery.toLowerCase();
+        const q = roomSearchQuery.toLowerCase().trim();
         const matchCat = space.category.toLowerCase().includes(q);
         const matchRoom = space.roomName.toLowerCase().includes(q);
         const matchBed = space.bedSpaceName.toLowerCase().includes(q);
         const matchType = space.type.toLowerCase().includes(q);
         const matchStudent = (space.booking?.full_name || space.booking?.student_name || space.booking?.profiles?.full_name || '').toLowerCase().includes(q);
+        const matchFutureStudent = (space.futureBookings || []).some((fb: any) =>
+          (fb.full_name || fb.student_name || fb.email || '').toLowerCase().includes(q)
+        );
         const matchDisplay = space.displayName.toLowerCase().includes(q);
-        return matchCat || matchRoom || matchBed || matchType || matchStudent || matchDisplay;
+        return matchCat || matchRoom || matchBed || matchType || matchStudent || matchFutureStudent || matchDisplay;
       }
       return true;
     });
   }, [parsedRoomSpaces, roomCategoryFilter, roomFilter, roomSearchQuery]);
 
+  // 1. Current Occupants List (strictly active physical occupancy today)
+  const currentOccupants = useMemo(() => {
+    const todayStr = new Date().toISOString().split('T')[0];
+    return (bookings || [])
+      .filter(b => {
+        const isApproved =
+          b.status === BookingStatus.CONFIRMED ||
+          b.status === BookingStatus.OCCUPIED ||
+          b.status === BookingStatus.RESERVED ||
+          (b.status as string) === 'Confirmed' ||
+          (b.status as string) === 'Occupied' ||
+          (b.status as string) === 'Reserved';
+        if (!isApproved) return false;
+
+        const s = (b.start_date || b.expected_arrival_date || '').split('T')[0];
+        const e = (b.end_date || b.payment_expiry_date || '2099-12-31').split('T')[0];
+        if (!s) return false;
+        return s <= todayStr && e >= todayStr;
+      })
+      .sort((a, b) => {
+        const eA = (a.end_date || a.payment_expiry_date || '').split('T')[0];
+        const eB = (b.end_date || b.payment_expiry_date || '').split('T')[0];
+        return eA.localeCompare(eB);
+      });
+  }, [bookings]);
+
+  // 2. Upcoming Reservations List (approved future stays strictly after today)
+  const upcomingReservations = useMemo(() => {
+    const todayStr = new Date().toISOString().split('T')[0];
+    return (bookings || [])
+      .filter(b => {
+        const isApproved =
+          b.status === BookingStatus.CONFIRMED ||
+          b.status === BookingStatus.OCCUPIED ||
+          b.status === BookingStatus.RESERVED ||
+          (b.status as string) === 'Confirmed' ||
+          (b.status as string) === 'Occupied' ||
+          (b.status as string) === 'Reserved';
+        if (!isApproved) return false;
+
+        const s = (b.start_date || b.expected_arrival_date || '').split('T')[0];
+        return Boolean(s && s > todayStr);
+      })
+      .sort((a, b) => {
+        const sA = (a.start_date || a.expected_arrival_date || '').split('T')[0];
+        const sB = (b.start_date || b.expected_arrival_date || '').split('T')[0];
+        return sA.localeCompare(sB);
+      });
+  }, [bookings]);
+
+  // 3. Pending Bookings List (awaiting staff approval or payment verification)
+  const pendingBookings = useMemo(() => {
+    return (bookings || [])
+      .filter(b => {
+        return (
+          b.status === BookingStatus.PENDING_VERIFICATION ||
+          b.status === BookingStatus.PENDING_PAYMENT ||
+          b.status === BookingStatus.PENDING_CONTRACT ||
+          (b.status as string) === 'Pending Verification' ||
+          (b.status as string) === 'Pending Payment' ||
+          (b.status as string) === 'Pending Contract'
+        );
+      })
+      .sort((a, b) => new Date(b.booked_at).getTime() - new Date(a.booked_at).getTime());
+  }, [bookings]);
+
+  const filteredOccupants = useMemo(() => {
+    return currentOccupants.filter(b => {
+      const liveDetails = getLiveStudentRoomDetails(b, rooms, accommodationAddresses, accommodationCategories, bedSpaces);
+      if (roomCategoryFilter !== 'all' && liveDetails.category !== roomCategoryFilter) {
+        return false;
+      }
+      if (roomSearchQuery.trim()) {
+        const q = roomSearchQuery.toLowerCase().trim();
+        const matchName = (b.full_name || '').toLowerCase().includes(q);
+        const matchEmail = (b.email || '').toLowerCase().includes(q);
+        const matchPhone = (b.phone_number || '').toLowerCase().includes(q);
+        const matchNationality = (b.nationality || '').toLowerCase().includes(q);
+        const matchRoom = liveDetails.roomName.toLowerCase().includes(q);
+        const matchBed = liveDetails.bedSpaceName.toLowerCase().includes(q);
+        const matchCat = liveDetails.category.toLowerCase().includes(q);
+        const matchId = `bk${b.id}`.includes(q);
+        return matchName || matchEmail || matchPhone || matchNationality || matchRoom || matchBed || matchCat || matchId;
+      }
+      return true;
+    });
+  }, [currentOccupants, roomCategoryFilter, roomSearchQuery, rooms, accommodationAddresses, accommodationCategories, bedSpaces]);
+
+  const filteredUpcomingReservations = useMemo(() => {
+    return upcomingReservations.filter(b => {
+      const liveDetails = getLiveStudentRoomDetails(b, rooms, accommodationAddresses, accommodationCategories, bedSpaces);
+      if (roomCategoryFilter !== 'all' && liveDetails.category !== roomCategoryFilter) {
+        return false;
+      }
+      if (roomSearchQuery.trim()) {
+        const q = roomSearchQuery.toLowerCase().trim();
+        const matchName = (b.full_name || '').toLowerCase().includes(q);
+        const matchEmail = (b.email || '').toLowerCase().includes(q);
+        const matchPhone = (b.phone_number || '').toLowerCase().includes(q);
+        const matchNationality = (b.nationality || '').toLowerCase().includes(q);
+        const matchRoom = liveDetails.roomName.toLowerCase().includes(q);
+        const matchBed = liveDetails.bedSpaceName.toLowerCase().includes(q);
+        const matchCat = liveDetails.category.toLowerCase().includes(q);
+        const matchId = `bk${b.id}`.includes(q);
+        return matchName || matchEmail || matchPhone || matchNationality || matchRoom || matchBed || matchCat || matchId;
+      }
+      return true;
+    });
+  }, [upcomingReservations, roomCategoryFilter, roomSearchQuery, rooms, accommodationAddresses, accommodationCategories, bedSpaces]);
+
+  const filteredPendingBookings = useMemo(() => {
+    return pendingBookings.filter(b => {
+      const liveDetails = getLiveStudentRoomDetails(b, rooms, accommodationAddresses, accommodationCategories, bedSpaces);
+      if (roomCategoryFilter !== 'all' && liveDetails.category !== roomCategoryFilter) {
+        return false;
+      }
+      if (roomSearchQuery.trim()) {
+        const q = roomSearchQuery.toLowerCase().trim();
+        const matchName = (b.full_name || '').toLowerCase().includes(q);
+        const matchEmail = (b.email || '').toLowerCase().includes(q);
+        const matchPhone = (b.phone_number || '').toLowerCase().includes(q);
+        const matchNationality = (b.nationality || '').toLowerCase().includes(q);
+        const matchRoom = liveDetails.roomName.toLowerCase().includes(q);
+        const matchBed = liveDetails.bedSpaceName.toLowerCase().includes(q);
+        const matchCat = liveDetails.category.toLowerCase().includes(q);
+        const matchId = `bk${b.id}`.includes(q);
+        return matchName || matchEmail || matchPhone || matchNationality || matchRoom || matchBed || matchCat || matchId;
+      }
+      return true;
+    });
+  }, [pendingBookings, roomCategoryFilter, roomSearchQuery, rooms, accommodationAddresses, accommodationCategories, bedSpaces]);
+
   const handleApprove = async (id: number) => {
     const booking = bookings.find(b => b.id === id);
     const todayStr = new Date().toISOString().split('T')[0];
     const bStart = booking ? (booking.start_date || (booking as any).expected_arrival_date || '').split('T')[0] : '';
-    // Future approved bookings must display and persist as Reserved; current/past as Confirmed
-    const targetStatus = (bStart && bStart > todayStr) ? BookingStatus.RESERVED : BookingStatus.CONFIRMED;
+    // Future approved bookings must display and persist as Reserved; current/past as Occupied
+    const targetStatus = (bStart && bStart > todayStr) ? BookingStatus.RESERVED : BookingStatus.OCCUPIED;
     const result = await updateBookingStatus(id, targetStatus);
     if (result.success) {
-        addActivity({ user_id: user?.id || 'admin', type: 'payment', description: `Staff verified payment for BK${id}`, timestamp: new Date().toISOString() });
+        addActivity({ user_id: user?.id || 'admin', type: 'payment', description: `Staff verified payment for BK${id} (Status: ${targetStatus})`, timestamp: new Date().toISOString() });
         
         let emailSuccess = false;
         let emailErrorMessage = '';
@@ -763,10 +902,11 @@ const AdminDashboardPage: React.FC = () => {
             }
         }
 
+        const statusLabel = targetStatus === BookingStatus.RESERVED ? 'Reserved (Upcoming Stay)' : 'Occupied (Active Resident)';
         if (emailSuccess) {
-            alert(`Booking BK${id} approved successfully! Confirmation email delivered to student.`);
+            alert(`Booking BK${id} approved successfully as ${statusLabel}! Confirmation email delivered to student.`);
         } else {
-            alert(`Booking BK${id} approved in database, but notification email could not be delivered: ${emailErrorMessage}.\n\nPlease check Email Delivery Logs.`);
+            alert(`Booking BK${id} approved as ${statusLabel} in database, but notification email could not be delivered: ${emailErrorMessage}.\n\nPlease check Email Delivery Logs.`);
         }
     } else {
         alert(`Failed to approve booking: ${result.error}`);
@@ -792,6 +932,24 @@ const AdminDashboardPage: React.FC = () => {
       alert(`Transaction BK${id} has been rejected and marked as Cancelled. Bed space has been released.`);
     } else {
       alert(`Failed to reject transaction: ${result.error}`);
+    }
+  };
+
+  const handleCancelReservation = async (id: number) => {
+    const booking = bookings.find(b => b.id === id);
+    if (!confirm(`Are you sure you want to cancel future reservation BK${id} for ${booking?.full_name || 'this student'}? This will release the bed reservation.`)) return;
+
+    const result = await updateBookingStatus(id, BookingStatus.CANCELLED);
+    if (result.success) {
+      addActivity({
+        user_id: user?.id || 'admin',
+        type: 'system',
+        description: `Staff cancelled future reservation BK${id}${booking ? ` for ${booking.full_name}` : ''}. Bed space released to vacant.`,
+        timestamp: new Date().toISOString()
+      });
+      alert(`Reservation BK${id} has been successfully cancelled and the bed reservation has been released.`);
+    } else {
+      alert(`Failed to cancel reservation: ${result.error}`);
     }
   };
 
@@ -1351,29 +1509,125 @@ const AdminDashboardPage: React.FC = () => {
           {/* 3. BOOKINGS TAB */}
           {activeSection === 'bookings' && (
              <div className="space-y-6">
+                {/* Header Card */}
                 <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-6 border border-gray-100 dark:border-gray-700 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                   <div>
                     <h2 className="text-xl font-bold text-gray-900 dark:text-white">Bookings & Residency Management</h2>
-                    <p className="text-xs text-gray-500 mt-0.5">Manage existing student residency bookings or create admin-initiated bookings</p>
+                    <p className="text-xs text-gray-500 mt-0.5">Manage current student occupants, upcoming reservations, and verify pending booking applications.</p>
                   </div>
                   <button
                     onClick={() => setIsAdminBookingModalOpen(true)}
-                    className="bg-brand-600 hover:bg-brand-700 text-white px-5 py-2.5 rounded-xl text-xs font-bold flex items-center gap-2 shadow-md transition-all"
+                    className="bg-brand-600 hover:bg-brand-700 text-white px-5 py-2.5 rounded-xl text-xs font-bold flex items-center gap-2 shadow-md transition-all shrink-0"
                   >
                     <IconPlus className="w-4 h-4" /> Book Room for Student
                   </button>
                 </div>
 
-                {/* Main Bookings Table Card */}
+                {/* Sub-Navigation Tabs */}
+                <div className="flex flex-wrap items-center gap-2 border-b border-gray-200 dark:border-gray-700 pb-3">
+                  <button
+                    onClick={() => setBookingSubView('all')}
+                    className={`px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 transition-all ${
+                      bookingSubView === 'all'
+                        ? 'bg-brand-600 text-white shadow-sm'
+                        : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 border border-gray-200 dark:border-gray-700'
+                    }`}
+                  >
+                    <span>🛏️ {t.admin_bookings_all_spaces || 'All Bed Spaces & Residencies'}</span>
+                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-black ${
+                      bookingSubView === 'all' ? 'bg-white/20 text-white' : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300'
+                    }`}>
+                      {parsedRoomSpaces.length}
+                    </span>
+                  </button>
+
+                  <button
+                    onClick={() => setBookingSubView('occupants')}
+                    className={`px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 transition-all ${
+                      bookingSubView === 'occupants'
+                        ? 'bg-amber-600 text-white shadow-sm'
+                        : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 border border-gray-200 dark:border-gray-700'
+                    }`}
+                  >
+                    <span>👤 {t.admin_bookings_current_occupants || 'Current Occupants'}</span>
+                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-black ${
+                      bookingSubView === 'occupants' ? 'bg-white/20 text-white' : 'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300'
+                    }`}>
+                      {currentOccupants.length}
+                    </span>
+                  </button>
+
+                  <button
+                    onClick={() => setBookingSubView('reservations')}
+                    className={`px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 transition-all ${
+                      bookingSubView === 'reservations'
+                        ? 'bg-blue-600 text-white shadow-sm'
+                        : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 border border-gray-200 dark:border-gray-700'
+                    }`}
+                  >
+                    <span>📅 {t.admin_bookings_upcoming_reservations || 'Upcoming Reservations'}</span>
+                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-black ${
+                      bookingSubView === 'reservations' ? 'bg-white/20 text-white' : 'bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300'
+                    }`}>
+                      {upcomingReservations.length}
+                    </span>
+                  </button>
+
+                  <button
+                    onClick={() => setBookingSubView('pending')}
+                    className={`px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 transition-all ${
+                      bookingSubView === 'pending'
+                        ? 'bg-purple-600 text-white shadow-sm'
+                        : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 border border-gray-200 dark:border-gray-700'
+                    }`}
+                  >
+                    <span>⏳ {t.admin_bookings_pending_review || 'Pending Bookings'}</span>
+                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-black ${
+                      bookingSubView === 'pending'
+                        ? 'bg-white/20 text-white'
+                        : pendingBookings.length > 0
+                        ? 'bg-purple-100 text-purple-800 dark:bg-purple-900/40 dark:text-purple-300 animate-pulse'
+                        : 'bg-gray-100 dark:bg-gray-700 text-gray-500'
+                    }`}>
+                      {pendingBookings.length}
+                    </span>
+                  </button>
+                </div>
+
+                {/* Metrics Summary Strip */}
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                  <div className="bg-white dark:bg-gray-800 p-4 rounded-xl border border-gray-100 dark:border-gray-700 shadow-2xs">
+                    <p className="text-[11px] font-bold text-gray-500 uppercase">Total Bed Spaces</p>
+                    <p className="text-xl font-black text-gray-900 dark:text-white mt-1">{parsedRoomSpaces.length}</p>
+                    <p className="text-[10px] text-gray-400 mt-0.5">Physical bed capacity</p>
+                  </div>
+                  <div className="bg-white dark:bg-gray-800 p-4 rounded-xl border border-amber-100 dark:border-amber-900/40 shadow-2xs">
+                    <p className="text-[11px] font-bold text-amber-700 dark:text-amber-400 uppercase">Current Occupants</p>
+                    <p className="text-xl font-black text-amber-700 dark:text-amber-400 mt-1">{currentOccupants.length}</p>
+                    <p className="text-[10px] text-gray-400 mt-0.5">Active residency today</p>
+                  </div>
+                  <div className="bg-white dark:bg-gray-800 p-4 rounded-xl border border-blue-100 dark:border-blue-900/40 shadow-2xs">
+                    <p className="text-[11px] font-bold text-blue-700 dark:text-blue-400 uppercase">Upcoming Reservations</p>
+                    <p className="text-xl font-black text-blue-700 dark:text-blue-400 mt-1">{upcomingReservations.length}</p>
+                    <p className="text-[10px] text-gray-400 mt-0.5">Reserved future stays</p>
+                  </div>
+                  <div className="bg-white dark:bg-gray-800 p-4 rounded-xl border border-purple-100 dark:border-purple-900/40 shadow-2xs">
+                    <p className="text-[11px] font-bold text-purple-700 dark:text-purple-400 uppercase">Pending Review</p>
+                    <p className="text-xl font-black text-purple-700 dark:text-purple-400 mt-1">{pendingBookings.length}</p>
+                    <p className="text-[10px] text-gray-400 mt-0.5">Awaiting verification</p>
+                  </div>
+                </div>
+
+                {/* Filter and Search Bar */}
                 <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg overflow-hidden border border-gray-100 dark:border-gray-700">
-                   <div className="p-6 border-b dark:border-gray-700 flex flex-col md:flex-row md:items-center justify-between gap-4">
-                      <div className="flex flex-wrap items-center gap-3">
+                   <div className="p-4 sm:p-5 border-b dark:border-gray-700 flex flex-col md:flex-row md:items-center justify-between gap-3">
+                      <div className="flex flex-wrap items-center gap-3 flex-1">
                          <input 
                             type="text"
-                            placeholder="Search room, bed, student..."
+                            placeholder="Search room, bed, student name, email, BK ref..."
                             value={roomSearchQuery}
                             onChange={(e) => setRoomSearchQuery(e.target.value)}
-                            className="px-3 py-2 text-xs border rounded-xl dark:bg-gray-700 dark:border-gray-600 dark:text-white focus:ring-1 focus:ring-brand-500"
+                            className="px-3.5 py-2 text-xs border rounded-xl dark:bg-gray-700 dark:border-gray-600 dark:text-white focus:ring-1 focus:ring-brand-500 w-full sm:w-72"
                          />
 
                          <select
@@ -1387,201 +1641,585 @@ const AdminDashboardPage: React.FC = () => {
                             ))}
                          </select>
 
-                         <div className="flex bg-gray-100 dark:bg-gray-700 rounded-xl p-1">
-                            {(['all', 'available', 'occupied'] as const).map(f => (
-                               <button 
-                                  key={f} 
-                                  onClick={() => setRoomFilter(f)} 
-                                  className={`px-3 py-1 text-xs font-bold rounded-lg capitalize transition-all ${
-                                     roomFilter === f 
-                                        ? 'bg-white dark:bg-gray-600 text-brand-600 shadow-sm' 
-                                        : 'text-gray-500 dark:text-gray-400'
-                                  }`}
-                               >
-                                  {f}
-                               </button>
-                            ))}
-                         </div>
+                         {bookingSubView === 'all' && (
+                           <div className="flex bg-gray-100 dark:bg-gray-700 rounded-xl p-1">
+                              {(['all', 'occupied', 'reserved', 'available'] as const).map(f => (
+                                 <button 
+                                    key={f} 
+                                    onClick={() => setRoomFilter(f)} 
+                                    className={`px-3 py-1 text-xs font-bold rounded-lg capitalize transition-all ${
+                                       roomFilter === f 
+                                          ? 'bg-white dark:bg-gray-600 text-brand-600 shadow-sm' 
+                                          : 'text-gray-500 dark:text-gray-400'
+                                    }`}
+                                 >
+                                    {f === 'available' ? 'Vacant' : f}
+                                 </button>
+                              ))}
+                           </div>
+                         )}
+                      </div>
+
+                      <div className="text-xs text-gray-500 dark:text-gray-400 font-medium">
+                        Showing {
+                          bookingSubView === 'all' ? filteredRoomSpaces.length :
+                          bookingSubView === 'occupants' ? filteredOccupants.length :
+                          bookingSubView === 'reservations' ? filteredUpcomingReservations.length :
+                          filteredPendingBookings.length
+                        } record(s)
                       </div>
                    </div>
 
-                   <div className="overflow-x-auto">
-                      <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-                         <thead className="bg-gray-50 dark:bg-gray-900">
-                            <tr>
-                               <th className="px-6 py-3.5 text-left text-xs font-bold text-gray-500 uppercase">Accommodation</th>
-                               <th className="px-6 py-3.5 text-left text-xs font-bold text-gray-500 uppercase">Room Number</th>
-                               <th className="px-6 py-3.5 text-left text-xs font-bold text-gray-500 uppercase">Bed Space</th>
-                               <th className="px-6 py-3.5 text-left text-xs font-bold text-gray-500 uppercase">Room Type</th>
-                               <th className="px-6 py-3.5 text-left text-xs font-bold text-gray-500 uppercase">Bed Status</th>
-                               <th className="px-6 py-3.5 text-left text-xs font-bold text-gray-500 uppercase">Current Student</th>
-                               <th className="px-6 py-3.5 text-left text-xs font-bold text-gray-500 uppercase">Actions</th>
-                            </tr>
-                         </thead>
-                         <tbody className="divide-y divide-gray-100 dark:divide-gray-700 bg-white dark:bg-gray-800">
-                            {filteredRoomSpaces.length > 0 ? (
-                               filteredRoomSpaces.map(space => {
-                                  return (
-                                     <tr key={space.id} className="hover:bg-gray-50/70 dark:hover:bg-gray-750 transition-colors">
-                                        <td className="px-6 py-4">
-                                           <span className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-black uppercase bg-brand-50 text-brand-700 dark:bg-brand-900/30 dark:text-brand-300">
-                                              {space.category}
-                                           </span>
-                                        </td>
-                                        <td className="px-6 py-4 font-bold text-sm text-gray-900 dark:text-white">
-                                           {space.roomName}
-                                        </td>
-                                        <td className="px-6 py-4 font-bold text-xs text-gray-800 dark:text-gray-200">
-                                           {space.bedSpaceName}
-                                        </td>
-                                        <td className="px-6 py-4">
-                                           <span className="text-xs font-bold px-2.5 py-1 rounded-md bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300">
-                                              {space.type}
-                                           </span>
-                                        </td>
-                                        <td className="px-6 py-4">
-                                           {space.isOccupied && space.futureBookings && space.futureBookings.length > 0 ? (
-                                             <div className="flex flex-col gap-1 items-start">
-                                               <span className="inline-flex items-center gap-1 px-2.5 py-0.5 text-xs rounded-full font-bold bg-amber-100 text-amber-800 border border-amber-200">
+                   {/* SUB-VIEW 1: ALL BED SPACES & RESIDENCIES MATRIX */}
+                   {bookingSubView === 'all' && (
+                     <div className="overflow-x-auto">
+                        <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                           <thead className="bg-gray-50 dark:bg-gray-900">
+                              <tr>
+                                 <th className="px-6 py-3.5 text-left text-xs font-bold text-gray-500 uppercase">Accommodation</th>
+                                 <th className="px-6 py-3.5 text-left text-xs font-bold text-gray-500 uppercase">Room & Bed</th>
+                                 <th className="px-6 py-3.5 text-left text-xs font-bold text-gray-500 uppercase">Room Type</th>
+                                 <th className="px-6 py-3.5 text-left text-xs font-bold text-gray-500 uppercase">Bed Status</th>
+                                 <th className="px-6 py-3.5 text-left text-xs font-bold text-gray-500 uppercase">Current & Upcoming Residency</th>
+                                 <th className="px-6 py-3.5 text-left text-xs font-bold text-gray-500 uppercase">Actions</th>
+                              </tr>
+                           </thead>
+                           <tbody className="divide-y divide-gray-100 dark:divide-gray-700 bg-white dark:bg-gray-800">
+                              {filteredRoomSpaces.length > 0 ? (
+                                 filteredRoomSpaces.map(space => {
+                                    const hasBoth = space.isOccupied && space.booking && space.futureBookings && space.futureBookings.length > 0;
+                                    const futureBooking = space.futureBookings && space.futureBookings.length > 0 ? space.futureBookings[0] : null;
+
+                                    return (
+                                       <tr key={space.id} className="hover:bg-gray-50/70 dark:hover:bg-gray-750 transition-colors">
+                                          <td className="px-6 py-4 align-top">
+                                             <span className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-black uppercase bg-brand-50 text-brand-700 dark:bg-brand-900/30 dark:text-brand-300">
+                                                {space.category}
+                                             </span>
+                                          </td>
+                                          <td className="px-6 py-4 align-top">
+                                             <div className="font-bold text-sm text-gray-900 dark:text-white">
+                                                {space.roomName}
+                                             </div>
+                                             <div className="font-bold text-xs text-gray-600 dark:text-gray-300 mt-0.5">
+                                                {space.bedSpaceName}
+                                             </div>
+                                          </td>
+                                          <td className="px-6 py-4 align-top">
+                                             <span className="text-xs font-bold px-2.5 py-1 rounded-md bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300">
+                                                {space.type}
+                                             </span>
+                                          </td>
+                                          <td className="px-6 py-4 align-top">
+                                             {hasBoth ? (
+                                               <div className="flex flex-col gap-1.5 items-start">
+                                                 <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 text-xs rounded-full font-bold bg-amber-100 text-amber-800 border border-amber-200 shadow-2xs">
+                                                   <span className="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
+                                                   Occupied
+                                                 </span>
+                                                 <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 text-[11px] rounded-full font-bold bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300 border border-blue-200 shadow-2xs">
+                                                   <span className="w-1.5 h-1.5 rounded-full bg-blue-500"></span>
+                                                   Reserved (from {futureBooking?.start_date || futureBooking?.expected_arrival_date || "Future"})
+                                                 </span>
+                                               </div>
+                                             ) : space.isOccupied ? (
+                                               <span className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs rounded-full font-bold bg-amber-100 text-amber-800 border border-amber-200">
                                                  <span className="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
                                                  Occupied
                                                </span>
-                                               <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[10px] rounded-full font-bold bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300 border border-blue-200">
+                                             ) : space.hasFutureBooking && futureBooking ? (
+                                               <span className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs rounded-full font-bold bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300 border border-blue-200">
                                                  <span className="w-1.5 h-1.5 rounded-full bg-blue-500"></span>
-                                                 Reserved ({space.futureBookings[0]?.start_date || space.futureBookings[0]?.expected_arrival_date || "Future"})
+                                                 Reserved (from {futureBooking.start_date || futureBooking.expected_arrival_date || "Future"})
                                                </span>
+                                             ) : (
+                                               <span className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs rounded-full font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">
+                                                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                                                 Vacant / Available
+                                               </span>
+                                             )}
+                                          </td>
+                                          <td className="px-6 py-4 align-top">
+                                             {hasBoth && futureBooking ? (
+                                               /* Bed 4 Dual Occupant & Upcoming Reservation Presentation */
+                                               <div className="space-y-2 min-w-[280px]">
+                                                 {/* 1. Current Occupant Card */}
+                                                 <div className="p-2.5 rounded-xl bg-amber-50/90 dark:bg-amber-950/40 border border-amber-200/90 dark:border-amber-800/60 shadow-2xs">
+                                                   <div className="flex items-center justify-between text-[10px] font-black text-amber-800 dark:text-amber-300 uppercase mb-1">
+                                                     <span className="flex items-center gap-1">
+                                                       <span className="w-1.5 h-1.5 rounded-full bg-amber-600"></span>
+                                                       Current Occupant (Occupied)
+                                                     </span>
+                                                     <span className="font-mono lowercase text-gray-500">BK{space.booking.id}</span>
+                                                   </div>
+                                                   <p className="font-bold text-sm text-gray-900 dark:text-white">{space.booking.full_name}</p>
+                                                   <div className="text-[11px] text-gray-600 dark:text-gray-300 flex flex-wrap gap-x-2 mt-0.5 font-mono">
+                                                     <span>{space.booking.email}</span>
+                                                     {space.booking.phone_number && <span>• {space.booking.phone_number}</span>}
+                                                   </div>
+                                                   <div className="mt-1 text-[11px] text-amber-800 dark:text-amber-300 font-semibold flex items-center gap-1">
+                                                     <span>Stay: {space.booking.start_date} → {space.booking.end_date}</span>
+                                                     <span className="text-[10px] text-gray-500">({formatBookingDuration(space.booking)})</span>
+                                                   </div>
+                                                 </div>
+
+                                                 {/* 2. Upcoming Reservation Card */}
+                                                 <div className="p-2.5 rounded-xl bg-blue-50/90 dark:bg-blue-950/40 border border-blue-200/90 dark:border-blue-800/60 shadow-2xs">
+                                                   <div className="flex items-center justify-between text-[10px] font-black text-blue-800 dark:text-blue-300 uppercase mb-1">
+                                                     <span className="flex items-center gap-1">
+                                                       <span className="w-1.5 h-1.5 rounded-full bg-blue-600"></span>
+                                                       Upcoming Reservation (Reserved)
+                                                     </span>
+                                                     <span className="font-mono lowercase text-gray-500">BK{futureBooking.id}</span>
+                                                   </div>
+                                                   <p className="font-bold text-sm text-gray-900 dark:text-white">{futureBooking.full_name || futureBooking.student_name}</p>
+                                                   <div className="text-[11px] text-gray-600 dark:text-gray-300 flex flex-wrap gap-x-2 mt-0.5 font-mono">
+                                                     <span>{futureBooking.email}</span>
+                                                     {futureBooking.phone_number && <span>• {futureBooking.phone_number}</span>}
+                                                   </div>
+                                                   <div className="mt-1 text-[11px] text-blue-800 dark:text-blue-300 font-semibold flex items-center justify-between">
+                                                     <span>Arrival: {futureBooking.start_date || futureBooking.expected_arrival_date} → Expiry: {futureBooking.end_date || futureBooking.payment_expiry_date}</span>
+                                                     <span className="text-[10px] bg-blue-100 dark:bg-blue-900/60 text-blue-800 dark:text-blue-200 px-1.5 py-0.5 rounded font-mono font-bold">
+                                                       {formatBookingDuration(futureBooking)}
+                                                     </span>
+                                                   </div>
+                                                   <div className="mt-1 text-[10px] text-emerald-700 dark:text-emerald-400 font-bold flex items-center gap-1">
+                                                     <span>Payment: {getBookingPaymentStatus(futureBooking).label}</span>
+                                                     {futureBooking.total_price && <span>(${futureBooking.total_price})</span>}
+                                                   </div>
+                                                 </div>
+                                               </div>
+                                             ) : space.isOccupied && space.booking ? (
+                                                <div className="p-2.5 rounded-xl bg-amber-50/70 dark:bg-amber-950/30 border border-amber-200/60 text-xs min-w-[240px]">
+                                                   <div className="flex items-center justify-between text-[10px] font-black text-amber-800 dark:text-amber-300 uppercase mb-0.5">
+                                                     <span>Current Occupant</span>
+                                                     <span className="font-mono text-gray-500">BK{space.booking.id}</span>
+                                                   </div>
+                                                   <p className="font-bold text-gray-900 dark:text-white text-sm">{space.booking.full_name}</p>
+                                                   <p className="text-[11px] text-gray-500 font-mono">{space.booking.email}</p>
+                                                   <p className="text-[11px] text-amber-800 dark:text-amber-300 font-semibold mt-1">
+                                                     Arrival: {space.booking.start_date} → Expiry: {space.booking.end_date}
+                                                   </p>
+                                                </div>
+                                             ) : space.hasFutureBooking && futureBooking ? (
+                                                <div className="p-2.5 rounded-xl bg-blue-50/70 dark:bg-blue-950/30 border border-blue-200/60 text-xs min-w-[240px]">
+                                                   <div className="flex items-center justify-between text-[10px] font-black text-blue-800 dark:text-blue-300 uppercase mb-0.5">
+                                                     <span>Upcoming Reservation (Reserved)</span>
+                                                     <span className="font-mono text-gray-500">BK{futureBooking.id}</span>
+                                                   </div>
+                                                   <p className="font-bold text-gray-900 dark:text-white text-sm">{futureBooking.full_name || futureBooking.student_name}</p>
+                                                   <p className="text-[11px] text-gray-500 font-mono">{futureBooking.email}</p>
+                                                   <p className="text-[11px] text-blue-800 dark:text-blue-300 font-semibold mt-1">
+                                                     Arrival: {futureBooking.start_date || futureBooking.expected_arrival_date} → Expiry: {futureBooking.end_date}
+                                                   </p>
+                                                   <p className="text-[10px] text-emerald-700 dark:text-emerald-400 font-bold mt-0.5">
+                                                     Duration: {formatBookingDuration(futureBooking)} • {getBookingPaymentStatus(futureBooking).label}
+                                                   </p>
+                                                </div>
+                                             ) : (
+                                                <div className="text-xs text-gray-400 italic py-2">
+                                                   Vacant & ready for residency
+                                                </div>
+                                             )}
+                                          </td>
+                                          <td className="px-6 py-4 align-top">
+                                             <div className="flex flex-col gap-2">
+                                                {hasBoth && futureBooking ? (
+                                                   <div className="space-y-2">
+                                                      {/* Actions for Current Occupant */}
+                                                      <div className="flex items-center gap-1.5">
+                                                         <button 
+                                                            onClick={() => setSelectedBooking(space.booking)} 
+                                                            className="bg-amber-600 hover:bg-amber-700 text-white text-[11px] font-bold px-2.5 py-1.5 rounded-lg shadow-2xs flex items-center gap-1"
+                                                            title="Edit Current Occupant Details"
+                                                         >
+                                                            <IconEdit className="w-3 h-3" /> Edit Occupant
+                                                         </button>
+                                                         <button 
+                                                            onClick={() => setSelectedBookingForExtend(space.booking)} 
+                                                            className="bg-amber-100 hover:bg-amber-200 text-amber-800 dark:bg-amber-900/50 dark:text-amber-300 text-[11px] font-bold px-2.5 py-1.5 rounded-lg border border-amber-300/50 flex items-center gap-1"
+                                                            title="Extend Stay for Current Occupant"
+                                                         >
+                                                            <IconCalendar className="w-3 h-3" /> Extend
+                                                         </button>
+                                                      </div>
+
+                                                      {/* Actions for Upcoming Reservation */}
+                                                      <div className="flex items-center gap-1.5 pt-1 border-t border-gray-100 dark:border-gray-700">
+                                                         <button 
+                                                            onClick={() => setSelectedBooking(futureBooking)} 
+                                                            className="bg-blue-600 hover:bg-blue-700 text-white text-[11px] font-bold px-2.5 py-1.5 rounded-lg shadow-2xs flex items-center gap-1"
+                                                            title="Edit Upcoming Reservation Details"
+                                                         >
+                                                            <IconEdit className="w-3 h-3" /> Edit Reservation
+                                                         </button>
+                                                         <button 
+                                                            onClick={() => handleCancelReservation(futureBooking.id)} 
+                                                            className="bg-red-50 hover:bg-red-100 text-red-600 dark:bg-red-900/40 dark:text-red-300 text-[11px] font-bold px-2.5 py-1.5 rounded-lg border border-red-200 dark:border-red-800 flex items-center gap-1"
+                                                            title="Cancel Future Reservation (Releases Bed Reservation)"
+                                                         >
+                                                            <IconClose className="w-3 h-3" /> Cancel
+                                                         </button>
+                                                      </div>
+                                                   </div>
+                                                ) : space.isOccupied && space.booking ? (
+                                                   <div className="flex flex-wrap items-center gap-1.5">
+                                                      <button 
+                                                         onClick={() => setSelectedBooking(space.booking)} 
+                                                         className="bg-brand-600 hover:bg-brand-700 text-white text-xs font-bold px-3 py-1.5 rounded-lg shadow-sm flex items-center gap-1.5"
+                                                      >
+                                                         <IconEdit className="w-3.5 h-3.5" /> Edit Booking
+                                                      </button>
+                                                      <button 
+                                                         onClick={() => setSelectedBookingForExtend(space.booking)} 
+                                                         className="bg-indigo-50 hover:bg-indigo-100 text-indigo-700 dark:bg-indigo-950/40 dark:text-indigo-300 text-xs font-bold px-2.5 py-1.5 rounded-lg border border-indigo-200/50 flex items-center gap-1"
+                                                         title="Extend Stay for Current Room"
+                                                      >
+                                                         <IconCalendar className="w-3.5 h-3.5" /> Extend
+                                                      </button>
+                                                   </div>
+                                                ) : space.hasFutureBooking && futureBooking ? (
+                                                   <div className="flex flex-wrap items-center gap-1.5">
+                                                      <button 
+                                                         onClick={() => setSelectedBooking(futureBooking)} 
+                                                         className="bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold px-3 py-1.5 rounded-lg shadow-sm flex items-center gap-1.5"
+                                                      >
+                                                         <IconEdit className="w-3.5 h-3.5" /> Edit Reservation
+                                                      </button>
+                                                      <button 
+                                                         onClick={() => handleCancelReservation(futureBooking.id)} 
+                                                         className="bg-red-50 hover:bg-red-100 text-red-600 dark:bg-red-900/40 dark:text-red-300 text-xs font-bold px-2.5 py-1.5 rounded-lg border border-red-200 dark:border-red-800 flex items-center gap-1"
+                                                         title="Cancel Future Reservation"
+                                                      >
+                                                         <IconClose className="w-3.5 h-3.5" /> Cancel
+                                                      </button>
+                                                   </div>
+                                                ) : (
+                                                   <button 
+                                                      onClick={() => setIsAdminBookingModalOpen(true)} 
+                                                      className="bg-brand-50 hover:bg-brand-100 text-brand-700 dark:bg-brand-950/40 dark:text-brand-300 text-xs font-bold px-3 py-1.5 rounded-lg border border-brand-200/50 flex items-center gap-1.5 w-fit"
+                                                   >
+                                                      <IconPlus className="w-3.5 h-3.5" /> Book Space
+                                                   </button>
+                                                )}
                                              </div>
-                                           ) : (
-                                             <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 text-xs rounded-full font-bold ${
-                                                space.isOccupied 
-                                                  ? "bg-amber-100 text-amber-800" 
-                                                  : space.hasFutureBooking
-                                                  ? "bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300"
-                                                  : "bg-emerald-100 text-emerald-800"
-                                             }`}>
-                                                {space.isOccupied 
-                                                  ? "Occupied" 
-                                                  : space.hasFutureBooking
-                                                  ? `Reserved (${space.futureBookings[0]?.start_date || space.futureBookings[0]?.expected_arrival_date || "Future"})`
-                                                  : "Vacant / Available"}
+                                          </td>
+                                       </tr>
+                                    );
+                                 })
+                              ) : (
+                                 <tr>
+                                    <td colSpan={6} className="px-6 py-12 text-center text-gray-500 text-sm">
+                                       No rooms match selected filters.
+                                    </td>
+                                 </tr>
+                              )}
+                           </tbody>
+                        </table>
+                     </div>
+                   )}
+
+                   {/* SUB-VIEW 2: DEDICATED CURRENT OCCUPANTS TAB (Requirement 1) */}
+                   {bookingSubView === 'occupants' && (
+                     <div className="overflow-x-auto">
+                        <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                           <thead className="bg-gray-50 dark:bg-gray-900">
+                              <tr>
+                                 <th className="px-6 py-3.5 text-left text-xs font-bold text-gray-500 uppercase">Student Details</th>
+                                 <th className="px-6 py-3.5 text-left text-xs font-bold text-gray-500 uppercase">Accommodation</th>
+                                 <th className="px-6 py-3.5 text-left text-xs font-bold text-gray-500 uppercase">Room & Bed</th>
+                                 <th className="px-6 py-3.5 text-left text-xs font-bold text-gray-500 uppercase">{t.admin_arrival_date || 'Arrival Date'}</th>
+                                 <th className="px-6 py-3.5 text-left text-xs font-bold text-gray-500 uppercase">{t.admin_expiry_date || 'Expiry Date'}</th>
+                                 <th className="px-6 py-3.5 text-left text-xs font-bold text-gray-500 uppercase">Status</th>
+                                 <th className="px-6 py-3.5 text-left text-xs font-bold text-gray-500 uppercase">Actions</th>
+                              </tr>
+                           </thead>
+                           <tbody className="divide-y divide-gray-100 dark:divide-gray-700 bg-white dark:bg-gray-800">
+                              {filteredOccupants.length > 0 ? (
+                                 filteredOccupants.map(b => {
+                                    const liveDetails = getLiveStudentRoomDetails(b, rooms, accommodationAddresses, accommodationCategories, bedSpaces);
+                                    return (
+                                       <tr key={b.id} className="hover:bg-gray-50/70 dark:hover:bg-gray-750 transition-colors">
+                                          <td className="px-6 py-4">
+                                             <div className="font-bold text-sm text-gray-900 dark:text-white">{b.full_name}</div>
+                                             <div className="text-[11px] text-gray-500 font-mono">{b.email}</div>
+                                             <div className="text-[10px] text-gray-400 mt-0.5 flex items-center gap-2">
+                                               {b.phone_number && <span>📞 {b.phone_number}</span>}
+                                               {b.nationality && <span>🌍 {b.nationality}</span>}
+                                               <span className="font-mono font-bold text-brand-600">BK{b.id}</span>
+                                             </div>
+                                          </td>
+                                          <td className="px-6 py-4">
+                                             <span className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-black uppercase bg-brand-50 text-brand-700 dark:bg-brand-900/30 dark:text-brand-300">
+                                                {liveDetails.category}
                                              </span>
-                                           )}
-                                        </td>
-                                        <td className="px-6 py-4">
-                                           {space.isOccupied && space.booking && space.futureBookings && space.futureBookings.length > 0 ? (
-                                             <div className="space-y-1.5 text-xs min-w-[200px]">
-                                               <div className="p-2 rounded-lg bg-amber-50/90 dark:bg-amber-950/40 border border-amber-200/80 dark:border-amber-800/60 shadow-2xs">
-                                                 <div className="flex items-center justify-between text-[10px] font-bold text-amber-800 dark:text-amber-300 uppercase mb-0.5">
-                                                   <span>Current Occupant</span>
-                                                   <span className="font-normal lowercase text-gray-500">until {space.booking.end_date}</span>
-                                                 </div>
-                                                 <p className="font-bold text-gray-900 dark:text-white truncate">{space.booking.full_name}</p>
-                                                 <p className="text-[10px] text-gray-500 font-mono truncate">{space.booking.email}</p>
-                                               </div>
-                                               <div className="p-2 rounded-lg bg-blue-50/90 dark:bg-blue-950/40 border border-blue-200/80 dark:border-blue-800/60 shadow-2xs">
-                                                 <div className="flex items-center justify-between text-[10px] font-bold text-blue-800 dark:text-blue-300 uppercase mb-0.5">
-                                                   <span>Upcoming Reservation</span>
-                                                   <span className="font-normal text-blue-600 dark:text-blue-300 font-mono text-[9px]">{space.futureBookings[0].start_date} → {space.futureBookings[0].end_date}</span>
-                                                 </div>
-                                                 <p className="font-bold text-gray-900 dark:text-white truncate">{space.futureBookings[0].full_name || space.futureBookings[0].student_name}</p>
-                                                 <p className="text-[10px] text-gray-500 font-mono truncate">{space.futureBookings[0].email}</p>
-                                               </div>
+                                          </td>
+                                          <td className="px-6 py-4">
+                                             <div className="font-bold text-xs text-gray-900 dark:text-white">{liveDetails.roomName}</div>
+                                             <div className="text-[11px] text-gray-500">{liveDetails.bedSpaceName}</div>
+                                          </td>
+                                          <td className="px-6 py-4 font-mono text-xs font-bold text-gray-800 dark:text-gray-200">
+                                             {b.start_date || b.expected_arrival_date || 'N/A'}
+                                          </td>
+                                          <td className="px-6 py-4 font-mono text-xs font-bold text-amber-700 dark:text-amber-400">
+                                             {b.end_date || b.payment_expiry_date || 'N/A'}
+                                          </td>
+                                          <td className="px-6 py-4">
+                                             <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-amber-100 text-amber-800 border border-amber-200 shadow-2xs">
+                                                <span className="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
+                                                {t.admin_status_occupied || 'Occupied'}
+                                             </span>
+                                          </td>
+                                          <td className="px-6 py-4">
+                                             <div className="flex items-center gap-2">
+                                                <button
+                                                   onClick={() => setSelectedBooking(b)}
+                                                   className="bg-brand-600 hover:bg-brand-700 text-white text-xs font-bold px-3 py-1.5 rounded-lg shadow-sm flex items-center gap-1"
+                                                   title="View & Edit Booking Details"
+                                                >
+                                                   <IconEdit className="w-3 h-3" /> {t.admin_action_edit_booking || 'Edit Booking'}
+                                                </button>
+                                                <button
+                                                   onClick={() => setSelectedBookingForExtend(b)}
+                                                   className="bg-indigo-50 hover:bg-indigo-100 text-indigo-700 dark:bg-indigo-950/40 dark:text-indigo-300 text-xs font-bold px-2.5 py-1.5 rounded-lg border border-indigo-200/50 flex items-center gap-1"
+                                                   title="Extend Stay"
+                                                >
+                                                   <IconCalendar className="w-3 h-3" /> {t.admin_action_extend_stay || 'Extend'}
+                                                </button>
                                              </div>
-                                           ) : space.isOccupied && space.booking ? (
-                                              <div className="text-xs">
-                                                 <p className="font-bold text-gray-900 dark:text-white">{space.booking.full_name}</p>
-                                                 <p className="text-[10px] text-gray-500 font-mono">{space.booking.email}</p>
-                                                 <p className="text-[10px] text-amber-700 dark:text-amber-400 font-medium">Until {space.booking.end_date}</p>
-                                              </div>
-                                           ) : space.hasFutureBooking && space.futureBookings && space.futureBookings.length > 0 ? (
-                                              <div className="text-xs">
-                                                 <p className="font-semibold text-blue-700 dark:text-blue-400">
-                                                    Upcoming: {space.futureBookings[0].full_name || space.futureBookings[0].student_name}
-                                                 </p>
-                                                 <p className="text-[10px] text-gray-500">
-                                                    From {space.futureBookings[0].start_date || space.futureBookings[0].expected_arrival_date}
-                                                 </p>
-                                              </div>
-                                           ) : space.futureBookings && space.futureBookings.length > 0 ? (
-                                              <div className="text-xs">
-                                                 <p className="font-semibold text-amber-600 dark:text-amber-400">
-                                                    Pending Payment: {space.futureBookings[0].full_name || space.futureBookings[0].student_name}
-                                                 </p>
-                                                 <p className="text-[10px] text-gray-500">
-                                                    Arrival: {space.futureBookings[0].start_date || space.futureBookings[0].expected_arrival_date}
-                                                 </p>
-                                              </div>
-                                           ) : (
-                                              <span className="text-xs text-gray-400 italic">None</span>
-                                           )}
-                                        </td>
-                                        <td className="px-6 py-4">
-                                           <div className="flex gap-2">
-                                              {space.booking && space.futureBookings && space.futureBookings.length > 0 ? (
-                                                 <div className="flex flex-col gap-1.5">
-                                                    <div className="flex items-center gap-1.5">
-                                                       <button 
-                                                          onClick={() => setSelectedBooking(space.booking)} 
-                                                          className="bg-brand-600 hover:bg-brand-700 text-white text-[11px] font-bold px-2.5 py-1 rounded-md shadow-2xs flex items-center gap-1"
-                                                          title="Edit Current Occupant"
-                                                       >
-                                                          <IconEdit className="w-3 h-3" /> Edit Occupant
-                                                       </button>
-                                                       <button 
-                                                          onClick={() => setSelectedBookingForExtend(space.booking)} 
-                                                          className="bg-indigo-50 hover:bg-indigo-100 text-indigo-700 dark:bg-indigo-950/40 dark:text-indigo-300 text-[10px] font-bold px-2 py-0.5 rounded-md border border-indigo-200/50 flex items-center gap-0.5"
-                                                          title="Extend Stay for Current Room"
-                                                       >
-                                                          <IconCalendar className="w-3 h-3" /> Extend
-                                                       </button>
-                                                    </div>
-                                                    <button 
-                                                       onClick={() => setSelectedBooking(space.futureBookings[0])} 
-                                                       className="bg-blue-600 hover:bg-blue-700 text-white text-[11px] font-bold px-2.5 py-1 rounded-md shadow-2xs flex items-center gap-1 w-fit"
-                                                       title="Edit Upcoming Reservation"
-                                                    >
-                                                       <IconEdit className="w-3 h-3" /> Edit Reservation
-                                                    </button>
-                                                 </div>
-                                              ) : space.booking ? (
-                                                 <div className="flex gap-2">
-                                                    <button 
-                                                       onClick={() => setSelectedBooking(space.booking)} 
-                                                       className="bg-brand-600 hover:bg-brand-700 text-white text-xs font-bold px-3 py-1.5 rounded-lg shadow-sm flex items-center gap-1.5"
-                                                    >
-                                                       <IconEdit className="w-3.5 h-3.5" /> Edit Booking
-                                                    </button>
-                                                    <button 
-                                                       onClick={() => setSelectedBookingForExtend(space.booking)} 
-                                                       className="bg-indigo-50 hover:bg-indigo-100 text-indigo-700 dark:bg-indigo-950/40 dark:text-indigo-300 text-xs font-bold px-2.5 py-1.5 rounded-lg border border-indigo-200/50 flex items-center gap-1"
-                                                       title="Extend Stay for Current Room"
-                                                    >
-                                                       <IconCalendar className="w-3.5 h-3.5" /> Extend
-                                                    </button>
-                                                 </div>
-                                              ) : (
-                                                 <button 
-                                                    onClick={() => setIsAdminBookingModalOpen(true)} 
-                                                    className="bg-brand-50 hover:bg-brand-100 text-brand-700 dark:bg-brand-950/40 dark:text-brand-300 text-xs font-bold px-3 py-1.5 rounded-lg border border-brand-200/50"
-                                                 >
-                                                    Book Space
-                                                 </button>
-                                              )}
-                                           </div>
-                                        </td>
-                                     </tr>
-                                  );
-                               })
-                            ) : (
-                               <tr>
-                                  <td colSpan={7} className="px-6 py-12 text-center text-gray-500 text-sm">
-                                     No rooms match selected filters.
-                                  </td>
-                               </tr>
-                            )}
-                         </tbody>
-                      </table>
-                   </div>
+                                          </td>
+                                       </tr>
+                                    );
+                                 })
+                              ) : (
+                                 <tr>
+                                    <td colSpan={7} className="px-6 py-12 text-center text-gray-500 text-sm">
+                                       No currently occupied residencies found matching filters.
+                                    </td>
+                                 </tr>
+                              )}
+                           </tbody>
+                        </table>
+                     </div>
+                   )}
+
+                   {/* SUB-VIEW 3: DEDICATED UPCOMING RESERVATIONS TAB (Requirement 2) */}
+                   {bookingSubView === 'reservations' && (
+                     <div className="overflow-x-auto">
+                        <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                           <thead className="bg-gray-50 dark:bg-gray-900">
+                              <tr>
+                                 <th className="px-6 py-3.5 text-left text-xs font-bold text-gray-500 uppercase">Student Details</th>
+                                 <th className="px-6 py-3.5 text-left text-xs font-bold text-gray-500 uppercase">Accommodation</th>
+                                 <th className="px-6 py-3.5 text-left text-xs font-bold text-gray-500 uppercase">Room & Bed</th>
+                                 <th className="px-6 py-3.5 text-left text-xs font-bold text-gray-500 uppercase">{t.admin_arrival_date || 'Arrival Date'}</th>
+                                 <th className="px-6 py-3.5 text-left text-xs font-bold text-gray-500 uppercase">{t.admin_expected_expiry || 'Expected Expiry'}</th>
+                                 <th className="px-6 py-3.5 text-left text-xs font-bold text-gray-500 uppercase">{t.admin_duration || 'Duration'}</th>
+                                 <th className="px-6 py-3.5 text-left text-xs font-bold text-gray-500 uppercase">{t.admin_payment_status || 'Payment Status'}</th>
+                                 <th className="px-6 py-3.5 text-left text-xs font-bold text-gray-500 uppercase">Status</th>
+                                 <th className="px-6 py-3.5 text-left text-xs font-bold text-gray-500 uppercase">Actions</th>
+                              </tr>
+                           </thead>
+                           <tbody className="divide-y divide-gray-100 dark:divide-gray-700 bg-white dark:bg-gray-800">
+                              {filteredUpcomingReservations.length > 0 ? (
+                                 filteredUpcomingReservations.map(b => {
+                                    const liveDetails = getLiveStudentRoomDetails(b, rooms, accommodationAddresses, accommodationCategories, bedSpaces);
+                                    const paymentInfo = getBookingPaymentStatus(b);
+                                    return (
+                                       <tr key={b.id} className="hover:bg-gray-50/70 dark:hover:bg-gray-750 transition-colors">
+                                          <td className="px-6 py-4">
+                                             <div className="font-bold text-sm text-gray-900 dark:text-white">{b.full_name}</div>
+                                             <div className="text-[11px] text-gray-500 font-mono">{b.email}</div>
+                                             <div className="text-[10px] text-gray-400 mt-0.5 flex items-center gap-2">
+                                               {b.phone_number && <span>📞 {b.phone_number}</span>}
+                                               {b.nationality && <span>🌍 {b.nationality}</span>}
+                                               <span className="font-mono font-bold text-blue-600">BK{b.id}</span>
+                                             </div>
+                                          </td>
+                                          <td className="px-6 py-4">
+                                             <span className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-black uppercase bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300">
+                                                {liveDetails.category}
+                                             </span>
+                                          </td>
+                                          <td className="px-6 py-4">
+                                             <div className="font-bold text-xs text-gray-900 dark:text-white">{liveDetails.roomName}</div>
+                                             <div className="text-[11px] text-gray-500">{liveDetails.bedSpaceName}</div>
+                                          </td>
+                                          <td className="px-6 py-4 font-mono text-xs font-bold text-blue-800 dark:text-blue-300">
+                                             {b.start_date || b.expected_arrival_date || 'N/A'}
+                                          </td>
+                                          <td className="px-6 py-4 font-mono text-xs text-gray-600 dark:text-gray-300">
+                                             {b.end_date || b.payment_expiry_date || 'N/A'}
+                                          </td>
+                                          <td className="px-6 py-4 text-xs font-bold text-gray-700 dark:text-gray-300">
+                                             {formatBookingDuration(b)}
+                                          </td>
+                                          <td className="px-6 py-4">
+                                             <div className="flex items-center gap-1.5">
+                                                <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold ${
+                                                  paymentInfo.isPaid
+                                                    ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300 border border-emerald-200'
+                                                    : 'bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300 border border-amber-200'
+                                                }`}>
+                                                  {paymentInfo.isPaid ? '✓' : '•'} {paymentInfo.label}
+                                                </span>
+                                                {b.total_price && (
+                                                  <span className="font-mono text-xs font-bold text-gray-700 dark:text-gray-300">
+                                                    ${b.total_price}
+                                                  </span>
+                                                )}
+                                             </div>
+                                          </td>
+                                          <td className="px-6 py-4">
+                                             <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-blue-100 text-blue-800 dark:bg-blue-900/50 dark:text-blue-300 border border-blue-200 shadow-2xs">
+                                                <span className="w-1.5 h-1.5 rounded-full bg-blue-500"></span>
+                                                {t.admin_status_reserved || 'Reserved'}
+                                             </span>
+                                          </td>
+                                          <td className="px-6 py-4">
+                                             <div className="flex items-center gap-2">
+                                                <button
+                                                   onClick={() => setSelectedBooking(b)}
+                                                   className="bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold px-3 py-1.5 rounded-lg shadow-sm flex items-center gap-1"
+                                                   title="View & Edit Upcoming Reservation"
+                                                >
+                                                   <IconEdit className="w-3 h-3" /> {t.admin_action_edit_reservation || 'Edit'}
+                                                </button>
+                                                <button
+                                                   onClick={() => handleCancelReservation(b.id)}
+                                                   className="bg-red-50 hover:bg-red-100 text-red-600 dark:bg-red-900/40 dark:text-red-300 text-xs font-bold px-2.5 py-1.5 rounded-lg border border-red-200 dark:border-red-800 flex items-center gap-1"
+                                                   title="Cancel Future Reservation (Releases Bed Space)"
+                                                >
+                                                   <IconClose className="w-3 h-3" /> {t.admin_action_cancel_reservation || 'Cancel'}
+                                                </button>
+                                             </div>
+                                          </td>
+                                       </tr>
+                                    );
+                                 })
+                              ) : (
+                                 <tr>
+                                    <td colSpan={9} className="px-6 py-12 text-center text-gray-500 text-sm">
+                                       No upcoming future reservations found matching filters.
+                                    </td>
+                                 </tr>
+                              )}
+                           </tbody>
+                        </table>
+                     </div>
+                   )}
+
+                   {/* SUB-VIEW 4: DEDICATED PENDING BOOKINGS TAB (Requirement 3) */}
+                   {bookingSubView === 'pending' && (
+                     <div className="overflow-x-auto">
+                        <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                           <thead className="bg-gray-50 dark:bg-gray-900">
+                              <tr>
+                                 <th className="px-6 py-3.5 text-left text-xs font-bold text-gray-500 uppercase">Booking Ref</th>
+                                 <th className="px-6 py-3.5 text-left text-xs font-bold text-gray-500 uppercase">Student Details</th>
+                                 <th className="px-6 py-3.5 text-left text-xs font-bold text-gray-500 uppercase">Accommodation Requested</th>
+                                 <th className="px-6 py-3.5 text-left text-xs font-bold text-gray-500 uppercase">Arrival & Stay</th>
+                                 <th className="px-6 py-3.5 text-left text-xs font-bold text-gray-500 uppercase">Amount & Proof</th>
+                                 <th className="px-6 py-3.5 text-left text-xs font-bold text-gray-500 uppercase">Current Status</th>
+                                 <th className="px-6 py-3.5 text-left text-xs font-bold text-gray-500 uppercase">Review & Actions</th>
+                              </tr>
+                           </thead>
+                           <tbody className="divide-y divide-gray-100 dark:divide-gray-700 bg-white dark:bg-gray-800">
+                              {filteredPendingBookings.length > 0 ? (
+                                 filteredPendingBookings.map(b => {
+                                    const liveDetails = getLiveStudentRoomDetails(b, rooms, accommodationAddresses, accommodationCategories, bedSpaces);
+                                    const bStart = (b.start_date || b.expected_arrival_date || '').split('T')[0];
+                                    const todayStr = new Date().toISOString().split('T')[0];
+                                    const willBeReserved = Boolean(bStart && bStart > todayStr);
+
+                                    return (
+                                       <tr key={b.id} className="hover:bg-gray-50/70 dark:hover:bg-gray-750 transition-colors">
+                                          <td className="px-6 py-4 font-mono font-bold text-xs text-purple-700 dark:text-purple-400">
+                                             BK{b.id}
+                                          </td>
+                                          <td className="px-6 py-4">
+                                             <div className="font-bold text-sm text-gray-900 dark:text-white">{b.full_name}</div>
+                                             <div className="text-[11px] text-gray-500 font-mono">{b.email}</div>
+                                             <div className="text-[10px] text-gray-400 mt-0.5">
+                                               {b.phone_number && <span>📞 {b.phone_number}</span>}
+                                               {b.nationality && <span> • 🌍 {b.nationality}</span>}
+                                             </div>
+                                          </td>
+                                          <td className="px-6 py-4">
+                                             <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-bold bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200">
+                                                {liveDetails.category} - {liveDetails.roomName}
+                                             </span>
+                                             {liveDetails.bedSpaceName && (
+                                               <div className="text-[10px] text-gray-500 mt-0.5 font-medium">{liveDetails.bedSpaceName}</div>
+                                             )}
+                                          </td>
+                                          <td className="px-6 py-4">
+                                             <div className="text-xs font-mono font-bold text-gray-900 dark:text-white">
+                                               {bStart || 'Pending Arrival'}
+                                             </div>
+                                             <div className="text-[10px] text-gray-500 mt-0.5">
+                                               {formatBookingDuration(b)}
+                                             </div>
+                                          </td>
+                                          <td className="px-6 py-4">
+                                             <div className="font-black text-xs text-gray-900 dark:text-white">
+                                               ${b.total_price || 0}
+                                             </div>
+                                             {b.payment_proof_url ? (
+                                               <a
+                                                 href={b.payment_proof_url}
+                                                 target="_blank"
+                                                 rel="noreferrer"
+                                                 className="inline-flex items-center gap-1 text-[10px] font-bold text-brand-600 hover:text-brand-700 mt-0.5 underline"
+                                               >
+                                                 <IconEye className="w-3 h-3" /> View Receipt
+                                               </a>
+                                             ) : (
+                                               <span className="text-[10px] text-gray-400 italic">No proof uploaded</span>
+                                             )}
+                                          </td>
+                                          <td className="px-6 py-4">
+                                             <BookingStatusBadge status={b.status} startDate={b.start_date || b.expected_arrival_date} endDate={b.end_date || b.payment_expiry_date} />
+                                          </td>
+                                          <td className="px-6 py-4">
+                                             <div className="flex items-center gap-2">
+                                                <button
+                                                   onClick={() => handleApprove(b.id)}
+                                                   className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold px-3 py-1.5 rounded-lg shadow-xs transition-colors flex items-center gap-1"
+                                                   title={willBeReserved ? "Approve as Reserved (Future Arrival)" : "Approve as Occupied (Current Arrival)"}
+                                                >
+                                                   ✓ {t.admin_action_approve || 'Approve'} {willBeReserved ? '(Reserved)' : '(Occupied)'}
+                                                </button>
+                                                <button
+                                                   onClick={() => handleReject(b.id)}
+                                                   className="bg-red-600 hover:bg-red-700 text-white text-xs font-bold px-3 py-1.5 rounded-lg shadow-xs transition-colors flex items-center gap-1"
+                                                   title="Reject Booking"
+                                                >
+                                                   ✕ {t.admin_action_reject || 'Reject'}
+                                                </button>
+                                                <button
+                                                   onClick={() => setSelectedBooking(b)}
+                                                   className="p-1.5 text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700"
+                                                   title="View Full Booking Details"
+                                                >
+                                                   <IconEye className="w-4 h-4" />
+                                                </button>
+                                             </div>
+                                          </td>
+                                       </tr>
+                                    );
+                                 })
+                              ) : (
+                                 <tr>
+                                    <td colSpan={7} className="px-6 py-12 text-center text-gray-500 text-sm">
+                                       No pending bookings awaiting verification. All reservations are up to date!
+                                    </td>
+                                 </tr>
+                              )}
+                           </tbody>
+                        </table>
+                     </div>
+                   )}
                 </div>
              </div>
           )}

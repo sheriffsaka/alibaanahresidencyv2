@@ -1220,7 +1220,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             const [roomsRes, bedSpacesRes, bookingsRes, termsRes, packagesRes, cmsRes, activitiesRes, publicOccupancyRes, waitlistRes, categoriesRes, contractTranslationsRes, roomPricingRes] = await Promise.all([
                 safeFetch(supabase.from('rooms').select('*')),
                 safeFetch(supabase.from('bed_spaces').select('*').order('id', { ascending: true })),
-                safeFetch(supabase.from('bookings').select('*, rooms(room_number, type, apartment_name, category), profiles:student_id(full_name)').order('booked_at', { ascending: false })),
+                safeFetch(supabase.from('bookings').select('*, rooms(room_number, type, apartment_name, category), bed_spaces(id, label), profiles:student_id(full_name)').order('booked_at', { ascending: false })),
                 safeFetch(supabase.from('academic_terms').select('*').eq('is_active', true)),
                 safeFetch(supabase.from('booking_packages').select('*').eq('is_active', true)),
                 safeFetch(supabase.from('cms_content').select('*').limit(1).maybeSingle()),

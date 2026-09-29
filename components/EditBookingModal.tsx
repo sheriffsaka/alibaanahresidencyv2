@@ -155,7 +155,7 @@ export const EditBookingModal: React.FC<EditBookingModalProps> = ({
     try {
       const todayStr = new Date().toISOString().split('T')[0];
       const bStart = (booking.start_date || (booking as any).expected_arrival_date || '').split('T')[0];
-      const targetStatus = (bStart && bStart > todayStr) ? BookingStatus.RESERVED : BookingStatus.CONFIRMED;
+      const targetStatus = (bStart && bStart > todayStr) ? BookingStatus.RESERVED : BookingStatus.OCCUPIED;
       const updatePayload: Partial<Booking> = {
         status: targetStatus,
         bed_space_id: targetBedSpaceId,
