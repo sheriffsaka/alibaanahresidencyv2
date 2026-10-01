@@ -1064,10 +1064,10 @@ const AdminDashboardPage: React.FC = () => {
     setIsUserModalOpen(true);
   };
 
-  const handleSaveUser = async (userData: Partial<User>) => {
+  const handleSaveUser = async (userData: Partial<User> & { password?: string; allowed_sections?: string[] }) => {
     if (user?.role !== 'proprietor') {
       alert("Unauthorized: Only proprietors can manage admin users and role permissions.");
-      return;
+      return { success: false, error: "Unauthorized: Only proprietors can manage admin users." };
     }
     let result;
     if (userData.id) {
@@ -1084,9 +1084,10 @@ const AdminDashboardPage: React.FC = () => {
 
     if (result?.success) {
         setIsUserModalOpen(false);
-    } else {
+    } else if (!result?.isStudent) {
         alert(`Failed to save user: ${result?.error || 'Unknown error'}`);
     }
+    return result;
   };
 
   const handleDeleteUser = async (id: string) => {

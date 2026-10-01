@@ -483,7 +483,10 @@ export interface AppContextType {
   addActivity: (activity: Omit<Activity, 'id'>) => void;
   students: User[];
   users: User[];
-  addUser: (userData: Partial<User>) => Promise<{ success: boolean; error?: string }>;
+  addUser: (userData: Partial<User> & { password?: string }) => Promise<{ success: boolean; error?: string; isStudent?: boolean; student?: any; user?: User }>;
+  convertStudentToAdmin?: (studentId: string, allowedSections?: string[]) => Promise<{ success: boolean; error?: string; user?: User }>;
+  checkAdminEmail?: (email: string) => Promise<{ exists: boolean; type?: 'student' | 'admin'; role?: string; user?: any; student?: any; error?: string; message?: string }>;
+  deleteUser: (id: string) => Promise<{ success: boolean; error?: string }>;
   updateUser: (id: string, updates: Partial<User>) => Promise<{ success: boolean; error?: string }>;
   updateStudentProfile: (studentId: string, updates: {
     full_name?: string;
@@ -521,7 +524,6 @@ export interface AppContextType {
     fullName?: string;
     roomInfo?: string;
   }) => Promise<{ success: boolean; error?: string; message?: string }>;
-  deleteUser: (id: string) => Promise<{ success: boolean; error?: string }>;
   academicTerms: AcademicTerm[];
   bookingPackages: BookingPackage[];
   landlordDetails: LandlordDetails;

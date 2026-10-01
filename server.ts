@@ -833,6 +833,597 @@ Automated dispatch following database update.
     }
   });
 
+  // =========================================================================
+  // SECURE SERVER-SIDE ADMIN USER MANAGEMENT ENDPOINTS
+  // Uses SUPABASE_SERVICE_ROLE_KEY exclusively on the server
+  // =========================================================================
+
+  // 1. Check whether an email already exists (Admin, Student, or Available)
+  app.post("/api/admin/check-email", async (req, res) => {
+    try {
+      const { email } = req.body;
+      if (!email || typeof email !== "string" || !email.includes("@")) {
+        return res.status(400).json({ success: false, error: "A valid email address is required." });
+      }
+
+      const supabaseUrl = process.env.VITE_SUPABASE_URL;
+      const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SERVICE_ROLE_KEY;
+      if (!supabaseUrl || !serviceRoleKey) {
+        return res.status(500).json({ success: false, error: "Database configuration missing on server." });
+      }
+
+      const adminClient = createClient(supabaseUrl, serviceRoleKey, {
+        auth: { persistSession: false, autoRefreshToken: false }
+      });
+
+      const normEmail = email.trim().toLowerCase();
+
+      // Check bookings first (fast lookup for student)
+      const { data: bData } = await adminClient
+        .from("bookings")
+        .select("student_id, full_name, email, phone_number, nationality, gender")
+        .ilike("email", normEmail)
+        .limit(1);
+
+      if (bData && bData.length > 0 && bData[0].student_id) {
+        const { data: prof } = await adminClient
+          .from("profiles")
+          .select("*")
+          .eq("id", bData[0].student_id)
+          .single();
+
+        if (prof) {
+          if (prof.role === "staff" || prof.role === "proprietor") {
+            return res.json({
+              exists: true,
+              type: "admin",
+              role: prof.role,
+              user: { id: prof.id, email: normEmail, full_name: prof.full_name },
+              error: `Email is already registered as an Admin (${prof.role === 'proprietor' ? 'Proprietor' : 'Staff'}).`
+            });
+          }
+          return res.json({
+            exists: true,
+            type: "student",
+            role: "student",
+            student: {
+              id: prof.id,
+              email: normEmail,
+              full_name: prof.full_name || bData[0].full_name,
+              phone_number: prof.phone_number || bData[0].phone_number,
+              nationality: prof.nationality || bData[0].nationality,
+              gender: prof.gender || bData[0].gender
+            },
+            message: `This email already belongs to a registered student: ${prof.full_name || bData[0].full_name}.`
+          });
+        }
+      }
+
+      // Parallel check staff profiles
+      const { data: staffList } = await adminClient
+        .from("profiles")
+        .select("*")
+        .in("role", ["staff", "proprietor"]);
+
+      if (staffList && staffList.length > 0) {
+        const staffChecks = await Promise.all(staffList.map(async (sp) => {
+          try {
+            const authRes = await adminClient.auth.admin.getUserById(sp.id);
+            if (authRes.data?.user?.email?.toLowerCase() === normEmail) {
+              return sp;
+            }
+          } catch (_) {}
+          return null;
+        }));
+        const foundStaff = staffChecks.find(Boolean);
+        if (foundStaff) {
+          return res.json({
+            exists: true,
+            type: "admin",
+            role: foundStaff.role,
+            user: { id: foundStaff.id, email: normEmail, full_name: foundStaff.full_name },
+            error: `Email is already registered as an Admin (${foundStaff.role === 'proprietor' ? 'Proprietor' : 'Staff'}).`
+          });
+        }
+      }
+
+      // Parallel check student profiles
+      const { data: studentList } = await adminClient
+        .from("profiles")
+        .select("*")
+        .eq("role", "student");
+
+      if (studentList && studentList.length > 0) {
+        const studentChecks = await Promise.all(studentList.map(async (st) => {
+          try {
+            const authRes = await adminClient.auth.admin.getUserById(st.id);
+            if (authRes.data?.user?.email?.toLowerCase() === normEmail) {
+              return st;
+            }
+          } catch (_) {}
+          return null;
+        }));
+        const foundStudent = studentChecks.find(Boolean);
+        if (foundStudent) {
+          return res.json({
+            exists: true,
+            type: "student",
+            role: "student",
+            student: {
+              id: foundStudent.id,
+              email: normEmail,
+              full_name: foundStudent.full_name,
+              phone_number: foundStudent.phone_number,
+              nationality: foundStudent.nationality,
+              gender: foundStudent.gender
+            },
+            message: `This email already belongs to a registered student: ${foundStudent.full_name}.`
+          });
+        }
+      }
+
+      return res.json({ exists: false });
+    } catch (err: any) {
+      console.error("[Check Email API Error]", err);
+      return res.status(500).json({ success: false, error: err.message || "Error checking email existence." });
+    }
+  });
+
+  // 2. Create a new Admin/Staff account
+  app.post("/api/admin/create-admin", async (req, res) => {
+    try {
+      const { full_name, email, password, role, gender, allowed_sections } = req.body;
+
+      if (!full_name || !full_name.trim()) {
+        return res.status(400).json({ success: false, error: "Full name is required." });
+      }
+      if (!email || !email.trim() || !email.includes("@")) {
+        return res.status(400).json({ success: false, error: "A valid email address is required." });
+      }
+      if (!password || password.length < 8) {
+        return res.status(400).json({ success: false, error: "Password must be at least 8 characters long." });
+      }
+
+      const supabaseUrl = process.env.VITE_SUPABASE_URL;
+      const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SERVICE_ROLE_KEY;
+      if (!supabaseUrl || !serviceRoleKey) {
+        return res.status(500).json({ success: false, error: "Database configuration missing on server." });
+      }
+
+      const adminClient = createClient(supabaseUrl, serviceRoleKey, {
+        auth: { persistSession: false, autoRefreshToken: false }
+      });
+
+      const normEmail = email.trim().toLowerCase();
+      const normName = full_name.trim();
+      const targetRole = role === "proprietor" ? "proprietor" : "staff";
+      const targetGender = gender === "Female" ? "Female" : "Male";
+      const defaultSections = ['bookings', 'students', 'transactions', 'messages'];
+      const targetSections = targetRole === 'staff'
+        ? (Array.isArray(allowed_sections) && allowed_sections.length > 0 ? allowed_sections : defaultSections)
+        : null;
+
+      // Duplicate check in bookings/profiles
+      const { data: existingBookings } = await adminClient
+        .from("bookings")
+        .select("student_id, full_name, email, phone_number, nationality, gender")
+        .ilike("email", normEmail)
+        .limit(1);
+
+      if (existingBookings && existingBookings.length > 0 && existingBookings[0].student_id) {
+        const { data: prof } = await adminClient.from("profiles").select("*").eq("id", existingBookings[0].student_id).single();
+        if (prof?.role === "student") {
+          return res.status(400).json({
+            success: false,
+            isStudent: true,
+            student: {
+              id: prof.id,
+              email: normEmail,
+              full_name: prof.full_name || existingBookings[0].full_name,
+              phone_number: prof.phone_number || existingBookings[0].phone_number,
+              nationality: prof.nationality || existingBookings[0].nationality,
+              gender: prof.gender || existingBookings[0].gender
+            },
+            error: "Email already registered as Student. Please use the 'Convert to Limited Admin' option to promote this student."
+          });
+        }
+        if (prof?.role === "staff" || prof?.role === "proprietor") {
+          return res.status(400).json({
+            success: false,
+            error: `Email already registered as Admin (${prof.role}). Duplicate admin accounts cannot be created.`
+          });
+        }
+      }
+
+      // Check staff profiles by auth email
+      const { data: staffList } = await adminClient.from("profiles").select("*").in("role", ["staff", "proprietor"]);
+      if (staffList && staffList.length > 0) {
+        const staffChecks = await Promise.all(staffList.map(async (sp) => {
+          try {
+            const authRes = await adminClient.auth.admin.getUserById(sp.id);
+            if (authRes.data?.user?.email?.toLowerCase() === normEmail) {
+              return sp;
+            }
+          } catch (_) {}
+          return null;
+        }));
+        const foundStaff = staffChecks.find(Boolean);
+        if (foundStaff) {
+          return res.status(400).json({
+            success: false,
+            error: `Email already registered as Admin (${foundStaff.role === 'proprietor' ? 'Proprietor' : 'Staff'}). Duplicate admin accounts cannot be created.`
+          });
+        }
+      }
+
+      // Check student profiles by auth email
+      const { data: studentList } = await adminClient.from("profiles").select("*").eq("role", "student");
+      if (studentList && studentList.length > 0) {
+        const studentChecks = await Promise.all(studentList.map(async (st) => {
+          try {
+            const authRes = await adminClient.auth.admin.getUserById(st.id);
+            if (authRes.data?.user?.email?.toLowerCase() === normEmail) {
+              return st;
+            }
+          } catch (_) {}
+          return null;
+        }));
+        const foundStudent = studentChecks.find(Boolean);
+        if (foundStudent) {
+          return res.status(400).json({
+            success: false,
+            isStudent: true,
+            student: {
+              id: foundStudent.id,
+              email: normEmail,
+              full_name: foundStudent.full_name,
+              phone_number: foundStudent.phone_number,
+              nationality: foundStudent.nationality,
+              gender: foundStudent.gender
+            },
+            error: "Email already registered as Student. Please use the 'Convert to Limited Admin' option to promote this student."
+          });
+        }
+      }
+
+      // Create user via Supabase service role Admin API (auto-confirmed email)
+      const { data: authData, error: authError } = await adminClient.auth.admin.createUser({
+        email: normEmail,
+        password: password,
+        email_confirm: true,
+        user_metadata: {
+          full_name: normName,
+          role: targetRole,
+          gender: targetGender
+        }
+      });
+
+      if (authError) {
+        if (authError.message?.toLowerCase().includes("already registered") || authError.message?.toLowerCase().includes("already exists")) {
+          return res.status(400).json({
+            success: false,
+            error: "An account with this email address already exists in the system."
+          });
+        }
+        return res.status(500).json({ success: false, error: `Unable to create account: ${authError.message}` });
+      }
+
+      if (!authData?.user) {
+        return res.status(500).json({ success: false, error: "Unable to create account: No user record was returned by the auth service." });
+      }
+
+      const newUserId = authData.user.id;
+
+      // Upsert profile in public.profiles
+      const profilePayload: Record<string, any> = {
+        id: newUserId,
+        full_name: normName,
+        role: targetRole,
+        gender: targetGender,
+        updated_at: new Date().toISOString()
+      };
+      if (targetRole === 'staff') {
+        profilePayload.allowed_sections = targetSections;
+      }
+
+      const { error: profErr } = await adminClient.from("profiles").upsert(profilePayload);
+      if (profErr) {
+        // Rollback created auth user if profile fails
+        await adminClient.auth.admin.deleteUser(newUserId);
+        return res.status(500).json({ success: false, error: `Unable to save profile: ${profErr.message}` });
+      }
+
+      return res.json({
+        success: true,
+        user: {
+          id: newUserId,
+          email: normEmail,
+          full_name: normName,
+          role: targetRole,
+          gender: targetGender,
+          allowed_sections: targetSections || undefined
+        }
+      });
+    } catch (err: any) {
+      console.error("[Create Admin API Error]", err);
+      return res.status(500).json({ success: false, error: err.message || "An unexpected error occurred while creating admin account." });
+    }
+  });
+
+  // 3. Convert an existing Student account to Limited Admin (Staff)
+  app.post("/api/admin/convert-student-to-admin", async (req, res) => {
+    try {
+      const { student_id, allowed_sections } = req.body;
+      if (!student_id) {
+        return res.status(400).json({ success: false, error: "student_id is required." });
+      }
+
+      const supabaseUrl = process.env.VITE_SUPABASE_URL;
+      const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SERVICE_ROLE_KEY;
+      if (!supabaseUrl || !serviceRoleKey) {
+        return res.status(500).json({ success: false, error: "Database configuration missing on server." });
+      }
+
+      const adminClient = createClient(supabaseUrl, serviceRoleKey, {
+        auth: { persistSession: false, autoRefreshToken: false }
+      });
+
+      // 1. Fetch current profile
+      const { data: prof, error: pErr } = await adminClient
+        .from("profiles")
+        .select("*")
+        .eq("id", student_id)
+        .single();
+
+      if (pErr || !prof) {
+        return res.status(404).json({ success: false, error: "Student profile not found." });
+      }
+
+      if (prof.role !== "student") {
+        return res.status(400).json({
+          success: false,
+          error: `User is already an administrator (current role: ${prof.role}).`
+        });
+      }
+
+      const defaultSections = ['bookings', 'students', 'transactions', 'messages'];
+      const targetSections = Array.isArray(allowed_sections) && allowed_sections.length > 0
+        ? allowed_sections
+        : defaultSections;
+
+      // 2. Update public.profiles: change role to 'staff' and set allowed_sections
+      const { error: updErr } = await adminClient
+        .from("profiles")
+        .update({
+          role: "staff",
+          allowed_sections: targetSections,
+          updated_at: new Date().toISOString()
+        })
+        .eq("id", student_id);
+
+      if (updErr) {
+        return res.status(500).json({ success: false, error: `Unable to save profile: ${updErr.message}` });
+      }
+
+      // 3. Sync metadata in auth.users
+      try {
+        await adminClient.auth.admin.updateUserById(student_id, {
+          user_metadata: { role: "staff" }
+        });
+      } catch (metaErr: any) {
+        console.warn("[Convert Student] Auth user metadata notice:", metaErr.message);
+      }
+
+      // 4. Retrieve student email
+      let studentEmail = "";
+      try {
+        const authUser = await adminClient.auth.admin.getUserById(student_id);
+        studentEmail = authUser.data?.user?.email || "";
+      } catch (_) {}
+
+      if (!studentEmail) {
+        const { data: b } = await adminClient.from("bookings").select("email").eq("student_id", student_id).limit(1);
+        if (b && b[0]?.email) studentEmail = b[0].email;
+      }
+
+      return res.json({
+        success: true,
+        user: {
+          id: student_id,
+          email: studentEmail,
+          full_name: prof.full_name,
+          role: "staff",
+          gender: prof.gender,
+          allowed_sections: targetSections
+        }
+      });
+    } catch (err: any) {
+      console.error("[Convert Student to Admin Error]", err);
+      return res.status(500).json({ success: false, error: err.message || "An unexpected error occurred while converting student to admin." });
+    }
+  });
+
+  // 4. Update Admin permissions and profile
+  app.post("/api/admin/update-admin", async (req, res) => {
+    try {
+      const { id, full_name, role, gender, allowed_sections } = req.body;
+      if (!id) {
+        return res.status(400).json({ success: false, error: "Admin user ID is required." });
+      }
+
+      const supabaseUrl = process.env.VITE_SUPABASE_URL;
+      const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SERVICE_ROLE_KEY;
+      if (!supabaseUrl || !serviceRoleKey) {
+        return res.status(500).json({ success: false, error: "Database configuration missing on server." });
+      }
+
+      const adminClient = createClient(supabaseUrl, serviceRoleKey, {
+        auth: { persistSession: false, autoRefreshToken: false }
+      });
+
+      const { data: existing, error: fetchErr } = await adminClient
+        .from("profiles")
+        .select("*")
+        .eq("id", id)
+        .single();
+
+      if (fetchErr || !existing) {
+        return res.status(404).json({ success: false, error: "Admin user not found." });
+      }
+
+      const updates: Record<string, any> = {
+        updated_at: new Date().toISOString()
+      };
+      if (full_name !== undefined && full_name.trim()) updates.full_name = full_name.trim();
+      if (gender !== undefined) updates.gender = gender;
+      if (role !== undefined && ['staff', 'proprietor'].includes(role)) updates.role = role;
+      if (allowed_sections !== undefined) {
+        updates.allowed_sections = allowed_sections;
+      }
+
+      const { error: updErr } = await adminClient
+        .from("profiles")
+        .update(updates)
+        .eq("id", id);
+
+      if (updErr) {
+        return res.status(500).json({ success: false, error: `Unable to save profile: ${updErr.message}` });
+      }
+
+      // Sync metadata in auth.users
+      try {
+        const metaUpdates: Record<string, any> = {};
+        if (updates.full_name) metaUpdates.full_name = updates.full_name;
+        if (updates.role) metaUpdates.role = updates.role;
+        if (Object.keys(metaUpdates).length > 0) {
+          await adminClient.auth.admin.updateUserById(id, { user_metadata: metaUpdates });
+        }
+      } catch (_) {}
+
+      return res.json({
+        success: true,
+        user: {
+          id,
+          full_name: updates.full_name || existing.full_name,
+          role: updates.role || existing.role,
+          gender: updates.gender || existing.gender,
+          allowed_sections: updates.allowed_sections !== undefined ? updates.allowed_sections : existing.allowed_sections
+        }
+      });
+    } catch (err: any) {
+      console.error("[Update Admin API Error]", err);
+      return res.status(500).json({ success: false, error: err.message || "An unexpected error occurred while updating admin user." });
+    }
+  });
+
+  // 5. Delete an Admin account
+  app.post("/api/admin/delete-admin", async (req, res) => {
+    try {
+      const { id } = req.body;
+      if (!id) {
+        return res.status(400).json({ success: false, error: "Admin user ID is required." });
+      }
+
+      const supabaseUrl = process.env.VITE_SUPABASE_URL;
+      const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SERVICE_ROLE_KEY;
+      if (!supabaseUrl || !serviceRoleKey) {
+        return res.status(500).json({ success: false, error: "Database configuration missing on server." });
+      }
+
+      const adminClient = createClient(supabaseUrl, serviceRoleKey, {
+        auth: { persistSession: false, autoRefreshToken: false }
+      });
+
+      const { data: targetProfile, error: pFetchErr } = await adminClient
+        .from("profiles")
+        .select("role")
+        .eq("id", id)
+        .single();
+
+      if (pFetchErr || !targetProfile) {
+        return res.status(404).json({ success: false, error: "Admin user not found." });
+      }
+
+      if (targetProfile.role === "proprietor") {
+        return res.status(400).json({ success: false, error: "Cannot delete the system Proprietor account." });
+      }
+
+      // 1. Delete from public.profiles
+      const { error: pDelErr } = await adminClient
+        .from("profiles")
+        .delete()
+        .eq("id", id);
+
+      if (pDelErr) {
+        return res.status(500).json({ success: false, error: `Unable to delete account: ${pDelErr.message}` });
+      }
+
+      // 2. Delete from auth.users
+      try {
+        await adminClient.auth.admin.deleteUser(id);
+      } catch (authErr: any) {
+        console.warn("[Delete Admin] Notice on auth user deletion:", authErr.message);
+      }
+
+      return res.json({ success: true });
+    } catch (err: any) {
+      console.error("[Delete Admin API Error]", err);
+      return res.status(500).json({ success: false, error: err.message || "An unexpected error occurred while deleting admin account." });
+    }
+  });
+
+  // 6. List all Admin Users with verified emails from auth.users
+  app.get("/api/admin/users", async (req, res) => {
+    try {
+      const supabaseUrl = process.env.VITE_SUPABASE_URL;
+      const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SERVICE_ROLE_KEY;
+      if (!supabaseUrl || !serviceRoleKey) {
+        return res.status(500).json({ success: false, error: "Database configuration missing on server." });
+      }
+
+      const adminClient = createClient(supabaseUrl, serviceRoleKey, {
+        auth: { persistSession: false, autoRefreshToken: false }
+      });
+
+      const { data: staffProfiles, error: pErr } = await adminClient
+        .from("profiles")
+        .select("*")
+        .in("role", ["staff", "proprietor"])
+        .order("updated_at", { ascending: false });
+
+      if (pErr) {
+        return res.status(500).json({ success: false, error: pErr.message });
+      }
+
+      const users = await Promise.all((staffProfiles || []).map(async (p) => {
+        let email = "";
+        try {
+          const authRes = await adminClient.auth.admin.getUserById(p.id);
+          email = authRes.data?.user?.email || "";
+        } catch (_) {}
+
+        if (!email) {
+          const { data: b } = await adminClient.from("bookings").select("email").eq("student_id", p.id).limit(1);
+          if (b && b[0]?.email) email = b[0].email;
+        }
+
+        return {
+          id: p.id,
+          email,
+          full_name: p.full_name,
+          role: p.role,
+          gender: p.gender,
+          allowed_sections: p.allowed_sections
+        };
+      }));
+
+      return res.json({ success: true, users });
+    } catch (err: any) {
+      console.error("[Get Admin Users API Error]", err);
+      return res.status(500).json({ success: false, error: err.message });
+    }
+  });
+
   // Account Activation Link dispatch endpoint
   app.post("/api/auth/send-activation-email", async (req, res) => {
     const supabaseUrl = process.env.VITE_SUPABASE_URL || "https://lzibaammjwrmjqkqwdml.supabase.co";

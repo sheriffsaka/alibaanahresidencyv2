@@ -885,7 +885,22 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
           }));
         }
 
-        if (staffRes?.data) {
+        // Load admin users with real verified emails from server endpoint
+        let loadedFromApi = false;
+        try {
+          const adminUsersRes = await fetch('/api/admin/users');
+          if (adminUsersRes.ok) {
+            const adminJson = await adminUsersRes.json();
+            if (adminJson.success && Array.isArray(adminJson.users)) {
+              setUsers(adminJson.users);
+              loadedFromApi = true;
+            }
+          }
+        } catch (apiErr) {
+          console.warn("Notice loading admin users from API:", apiErr);
+        }
+
+        if (!loadedFromApi && staffRes?.data) {
           setUsers(staffRes.data.map((p: any) => ({
             id: p.id,
             email: p.email || '',
@@ -2903,137 +2918,146 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     }
   };
 
-  const addUser = async (userData: Partial<User> & { password?: string }) => {
+  // Check whether an email already exists (Admin, Student, or Available)
+  const checkAdminEmail = async (email: string) => {
     try {
-      if (!userData.email || !userData.password) {
-        throw new Error("Email and password are required for new users.");
-      }
+      const res = await fetch('/api/admin/check-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email })
+      });
+      const data = await res.json();
+      return data;
+    } catch (err: any) {
+      console.error("Error checking email existence:", err.message);
+      return { exists: false, error: err.message };
+    }
+  };
 
-      // 1. Create the user in Supabase Auth
-      const { data: authData, error: authError } = await supabase.auth.signUp({
-        email: userData.email,
-        password: userData.password,
-        options: {
-          data: {
-            full_name: userData.full_name,
-            gender: userData.gender,
-            role: userData.role // This will be handled by the trigger or updated below
-          }
-        }
+  // Convert an existing student account to Limited Admin (Staff)
+  const convertStudentToAdmin = async (studentId: string, allowedSections?: string[]) => {
+    try {
+      const res = await fetch('/api/admin/convert-student-to-admin', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          student_id: studentId,
+          allowed_sections: allowedSections
+        })
       });
 
-      if (authError) throw authError;
-      if (!authData.user) throw new Error("Failed to create auth user.");
-
-      // 2. Update the profile with the correct role (trigger defaults to student)
-      const profileUpdates: Record<string, any> = {
-        full_name: userData.full_name,
-        role: userData.role,
-        gender: userData.gender
-      };
-      if (userData.role === 'staff' && userData.allowed_sections) {
-        profileUpdates.allowed_sections = userData.allowed_sections;
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        throw new Error(data.error || 'Failed to convert student to admin.');
       }
 
-      let { data: profileData, error: profileError } = await supabase
-        .from('profiles')
-        .update(profileUpdates)
-        .eq('id', authData.user.id)
-        .select()
-        .single();
+      const updatedUser: User = data.user;
+      setUsers(prev => [...prev.filter(u => u.id !== updatedUser.id), updatedUser]);
+      // Remove from students list or update their role
+      setStudents(prev => prev.filter(s => s.id !== studentId));
 
-      if (profileError && profileError.message && profileError.message.includes('allowed_sections')) {
-        console.warn("Column allowed_sections not yet present in remote DB, saving without it:", profileError.message);
-        const { allowed_sections: _, ...fallbackUpdates } = profileUpdates;
-        const fallbackRes = await supabase
-          .from('profiles')
-          .update(fallbackUpdates)
-          .eq('id', authData.user.id)
-          .select()
-          .single();
-        profileData = fallbackRes.data;
-        profileError = fallbackRes.error;
-      }
-
-      if (profileError) {
-          // If update fails, maybe the profile wasn't created yet by the trigger
-          console.warn("Profile update notice:", profileError.message);
-      }
-
-      const newUser: User = {
-          id: authData.user.id,
-          email: userData.email,
-          full_name: userData.full_name || '',
-          role: userData.role || 'staff',
-          gender: userData.gender,
-          allowed_sections: userData.allowed_sections
-      };
-
-      setUsers(prev => [...prev, newUser]);
-      
-      // Note: In some Supabase configs, signUp might sign the admin out.
-      // We should warn the developer or handle the session appropriately.
-      alert("Admin user created successfully! They will receive a confirmation email if enabled.");
-      
-      return { success: true };
+      return { success: true, user: updatedUser };
     } catch (err: any) {
-      console.error("Error adding user:", err.message);
+      console.error("Error converting student to admin:", err.message);
       return { success: false, error: err.message };
     }
   };
 
+  // Secure Server-side Admin User Creation
+  const addUser = async (userData: Partial<User> & { password?: string }) => {
+    try {
+      if (!userData.email || !userData.email.trim()) {
+        throw new Error("Email address is required.");
+      }
+      if (!userData.password || userData.password.length < 8) {
+        throw new Error("Password is required and must be at least 8 characters.");
+      }
+      if (!userData.full_name || !userData.full_name.trim()) {
+        throw new Error("Full name is required.");
+      }
+
+      const res = await fetch('/api/admin/create-admin', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          full_name: userData.full_name,
+          email: userData.email,
+          password: userData.password,
+          role: userData.role || 'staff',
+          gender: userData.gender || 'Male',
+          allowed_sections: userData.allowed_sections
+        })
+      });
+
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        return {
+          success: false,
+          error: data.error || 'Unable to create admin account.',
+          isStudent: !!data.isStudent,
+          student: data.student
+        };
+      }
+
+      const newUser: User = data.user;
+      setUsers(prev => [...prev.filter(u => u.id !== newUser.id), newUser]);
+      return { success: true, user: newUser };
+    } catch (err: any) {
+      console.error("Error adding admin user:", err.message);
+      return { success: false, error: err.message || "Unable to create account." };
+    }
+  };
+
+  // Secure Server-side Admin User Update
   const updateUser = async (id: string, updates: Partial<User>) => {
     try {
-      const profileUpdates: Record<string, any> = {};
-      if (updates.full_name !== undefined) profileUpdates.full_name = updates.full_name;
-      if (updates.role !== undefined) profileUpdates.role = updates.role;
-      if (updates.gender !== undefined) profileUpdates.gender = updates.gender;
-      if (updates.phone_number !== undefined) profileUpdates.phone_number = updates.phone_number;
-      if (updates.passport_number !== undefined) profileUpdates.passport_number = updates.passport_number;
-      if (updates.nationality !== undefined) profileUpdates.nationality = updates.nationality;
-      if (updates.allowed_sections !== undefined) profileUpdates.allowed_sections = updates.allowed_sections;
+      const res = await fetch('/api/admin/update-admin', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id,
+          full_name: updates.full_name,
+          role: updates.role,
+          gender: updates.gender,
+          allowed_sections: updates.allowed_sections
+        })
+      });
 
-      let { error } = await supabase
-        .from('profiles')
-        .update(profileUpdates)
-        .eq('id', id);
-
-      if (error && error.message && error.message.includes('allowed_sections')) {
-        console.warn("Column allowed_sections not yet present in remote DB, saving without it:", error.message);
-        const { allowed_sections: _, ...fallbackUpdates } = profileUpdates;
-        const fallbackRes = await supabase
-          .from('profiles')
-          .update(fallbackUpdates)
-          .eq('id', id);
-        if (fallbackRes.error) throw fallbackRes.error;
-      } else if (error) {
-        throw error;
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        throw new Error(data.error || 'Unable to save profile updates.');
       }
 
-      setUsers(prev => prev.map(u => u.id === id ? { ...u, ...updates } : u));
+      setUsers(prev => prev.map(u => u.id === id ? { ...u, ...data.user } : u));
       if (user && user.id === id) {
-        setUser(prev => prev ? { ...prev, ...updates } : null);
+        setUser(prev => prev ? { ...prev, ...data.user } : null);
       }
-      return { success: true };
+      return { success: true, user: data.user };
     } catch (err: any) {
-      console.error("Error updating user profile:", err.message);
-      return { success: false, error: err.message };
+      console.error("Error updating admin user:", err.message);
+      return { success: false, error: err.message || "Unable to save profile." };
     }
   };
 
+  // Secure Server-side Admin User Deletion
   const deleteUser = async (id: string) => {
     try {
-      const { error } = await supabase
-        .from('profiles')
-        .delete()
-        .eq('id', id);
+      const res = await fetch('/api/admin/delete-admin', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id })
+      });
 
-      if (error) throw error;
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        throw new Error(data.error || 'Unable to delete account.');
+      }
+
       setUsers(prev => prev.filter(u => u.id !== id));
       return { success: true };
     } catch (err: any) {
-      console.error("Error deleting user:", err.message);
-      return { success: false, error: err.message };
+      console.error("Error deleting admin user:", err.message);
+      return { success: false, error: err.message || "Unable to delete account." };
     }
   };
 
@@ -4452,6 +4476,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     users,
     addUser,
     updateUser,
+    checkAdminEmail,
+    convertStudentToAdmin,
     updateStudentProfile,
     createStudentProfile,
     sendStudentActivationEmail,
