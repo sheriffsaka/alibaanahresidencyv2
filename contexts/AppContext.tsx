@@ -2926,10 +2926,14 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email })
       });
-      const data = await res.json();
-      return data;
+      const contentType = res.headers.get('content-type') || '';
+      if (!contentType.includes('application/json')) {
+        return { exists: false };
+      }
+      const data = await res.json().catch(() => ({ exists: false }));
+      return data || { exists: false };
     } catch (err: any) {
-      console.error("Error checking email existence:", err.message);
+      console.warn("Notice checking email existence:", err.message);
       return { exists: false, error: err.message };
     }
   };
@@ -2946,9 +2950,13 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         })
       });
 
-      const data = await res.json();
-      if (!res.ok || !data.success) {
-        throw new Error(data.error || 'Failed to convert student to admin.');
+      const contentType = res.headers.get('content-type') || '';
+      let data: any = null;
+      if (contentType.includes('application/json')) {
+        data = await res.json().catch(() => null);
+      }
+      if (!res.ok || !data?.success) {
+        throw new Error(data?.error || `Unable to convert student to admin (Status: ${res.status}).`);
       }
 
       const updatedUser: User = data.user;
@@ -2959,7 +2967,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       return { success: true, user: updatedUser };
     } catch (err: any) {
       console.error("Error converting student to admin:", err.message);
-      return { success: false, error: err.message };
+      return { success: false, error: err.message || "Failed to convert student." };
     }
   };
 
@@ -2989,13 +2997,18 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         })
       });
 
-      const data = await res.json();
-      if (!res.ok || !data.success) {
+      const contentType = res.headers.get('content-type') || '';
+      let data: any = null;
+      if (contentType.includes('application/json')) {
+        data = await res.json().catch(() => null);
+      }
+
+      if (!res.ok || !data?.success) {
         return {
           success: false,
-          error: data.error || 'Unable to create admin account.',
-          isStudent: !!data.isStudent,
-          student: data.student
+          error: data?.error || (res.status >= 500 ? 'Server timed out or encountered an error. Please try again.' : `Unable to create admin account (HTTP ${res.status}).`),
+          isStudent: !!data?.isStudent,
+          student: data?.student
         };
       }
 
@@ -3023,9 +3036,14 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         })
       });
 
-      const data = await res.json();
-      if (!res.ok || !data.success) {
-        throw new Error(data.error || 'Unable to save profile updates.');
+      const contentType = res.headers.get('content-type') || '';
+      let data: any = null;
+      if (contentType.includes('application/json')) {
+        data = await res.json().catch(() => null);
+      }
+
+      if (!res.ok || !data?.success) {
+        throw new Error(data?.error || `Unable to save profile updates (HTTP ${res.status}).`);
       }
 
       setUsers(prev => prev.map(u => u.id === id ? { ...u, ...data.user } : u));
@@ -3048,9 +3066,14 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         body: JSON.stringify({ id })
       });
 
-      const data = await res.json();
-      if (!res.ok || !data.success) {
-        throw new Error(data.error || 'Unable to delete account.');
+      const contentType = res.headers.get('content-type') || '';
+      let data: any = null;
+      if (contentType.includes('application/json')) {
+        data = await res.json().catch(() => null);
+      }
+
+      if (!res.ok || !data?.success) {
+        throw new Error(data?.error || `Unable to delete account (HTTP ${res.status}).`);
       }
 
       setUsers(prev => prev.filter(u => u.id !== id));

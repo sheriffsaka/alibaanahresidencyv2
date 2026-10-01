@@ -6,9 +6,15 @@ import { createClient } from "@supabase/supabase-js";
 
 async function startServer() {
   const app = express();
-  const PORT = 3000;
+  const PORT = Number(process.env.PORT) || 3000;
 
   app.use(express.json());
+  app.use((err: any, req: any, res: any, next: any) => {
+    if (err instanceof SyntaxError && 'body' in err) {
+      return res.status(400).json({ success: false, error: "Invalid JSON format in request body." });
+    }
+    next(err);
+  });
 
   // Health check
   app.get("/api/health", (req, res) => {
@@ -861,7 +867,7 @@ Automated dispatch following database update.
       // Check bookings first (fast lookup for student)
       const { data: bData } = await adminClient
         .from("bookings")
-        .select("student_id, full_name, email, phone_number, nationality, gender")
+        .select("student_id, full_name, email, phone_number, nationality")
         .ilike("email", normEmail)
         .limit(1);
 
@@ -892,7 +898,7 @@ Automated dispatch following database update.
               full_name: prof.full_name || bData[0].full_name,
               phone_number: prof.phone_number || bData[0].phone_number,
               nationality: prof.nationality || bData[0].nationality,
-              gender: prof.gender || bData[0].gender
+              gender: prof.gender || undefined
             },
             message: `This email already belongs to a registered student: ${prof.full_name || bData[0].full_name}.`
           });
@@ -906,59 +912,19 @@ Automated dispatch following database update.
         .in("role", ["staff", "proprietor"]);
 
       if (staffList && staffList.length > 0) {
-        const staffChecks = await Promise.all(staffList.map(async (sp) => {
+        for (const sp of staffList) {
           try {
             const authRes = await adminClient.auth.admin.getUserById(sp.id);
             if (authRes.data?.user?.email?.toLowerCase() === normEmail) {
-              return sp;
+              return res.json({
+                exists: true,
+                type: "admin",
+                role: sp.role,
+                user: { id: sp.id, email: normEmail, full_name: sp.full_name },
+                error: `Email is already registered as an Admin (${sp.role === 'proprietor' ? 'Proprietor' : 'Staff'}).`
+              });
             }
           } catch (_) {}
-          return null;
-        }));
-        const foundStaff = staffChecks.find(Boolean);
-        if (foundStaff) {
-          return res.json({
-            exists: true,
-            type: "admin",
-            role: foundStaff.role,
-            user: { id: foundStaff.id, email: normEmail, full_name: foundStaff.full_name },
-            error: `Email is already registered as an Admin (${foundStaff.role === 'proprietor' ? 'Proprietor' : 'Staff'}).`
-          });
-        }
-      }
-
-      // Parallel check student profiles
-      const { data: studentList } = await adminClient
-        .from("profiles")
-        .select("*")
-        .eq("role", "student");
-
-      if (studentList && studentList.length > 0) {
-        const studentChecks = await Promise.all(studentList.map(async (st) => {
-          try {
-            const authRes = await adminClient.auth.admin.getUserById(st.id);
-            if (authRes.data?.user?.email?.toLowerCase() === normEmail) {
-              return st;
-            }
-          } catch (_) {}
-          return null;
-        }));
-        const foundStudent = studentChecks.find(Boolean);
-        if (foundStudent) {
-          return res.json({
-            exists: true,
-            type: "student",
-            role: "student",
-            student: {
-              id: foundStudent.id,
-              email: normEmail,
-              full_name: foundStudent.full_name,
-              phone_number: foundStudent.phone_number,
-              nationality: foundStudent.nationality,
-              gender: foundStudent.gender
-            },
-            message: `This email already belongs to a registered student: ${foundStudent.full_name}.`
-          });
         }
       }
 
@@ -972,7 +938,7 @@ Automated dispatch following database update.
   // 2. Create a new Admin/Staff account
   app.post("/api/admin/create-admin", async (req, res) => {
     try {
-      const { full_name, email, password, role, gender, allowed_sections } = req.body;
+      const { full_name, email, password, role, gender, allowed_sections } = req.body || {};
 
       if (!full_name || !full_name.trim()) {
         return res.status(400).json({ success: false, error: "Full name is required." });
@@ -1003,10 +969,10 @@ Automated dispatch following database update.
         ? (Array.isArray(allowed_sections) && allowed_sections.length > 0 ? allowed_sections : defaultSections)
         : null;
 
-      // Duplicate check in bookings/profiles
+      // Fast check in bookings/profiles
       const { data: existingBookings } = await adminClient
         .from("bookings")
-        .select("student_id, full_name, email, phone_number, nationality, gender")
+        .select("student_id, full_name, email, phone_number, nationality")
         .ilike("email", normEmail)
         .limit(1);
 
@@ -1022,7 +988,7 @@ Automated dispatch following database update.
               full_name: prof.full_name || existingBookings[0].full_name,
               phone_number: prof.phone_number || existingBookings[0].phone_number,
               nationality: prof.nationality || existingBookings[0].nationality,
-              gender: prof.gender || existingBookings[0].gender
+              gender: prof.gender || undefined
             },
             error: "Email already registered as Student. Please use the 'Convert to Limited Admin' option to promote this student."
           });
@@ -1030,63 +996,28 @@ Automated dispatch following database update.
         if (prof?.role === "staff" || prof?.role === "proprietor") {
           return res.status(400).json({
             success: false,
-            error: `Email already registered as Admin (${prof.role}). Duplicate admin accounts cannot be created.`
+            error: `Email already registered as Admin (${prof.role === 'proprietor' ? 'Proprietor' : 'Staff'}). Duplicate admin accounts cannot be created.`
           });
         }
       }
 
-      // Check staff profiles by auth email
+      // Fast check existing staff profiles (usually 1-2 users)
       const { data: staffList } = await adminClient.from("profiles").select("*").in("role", ["staff", "proprietor"]);
       if (staffList && staffList.length > 0) {
-        const staffChecks = await Promise.all(staffList.map(async (sp) => {
+        for (const sp of staffList) {
           try {
             const authRes = await adminClient.auth.admin.getUserById(sp.id);
             if (authRes.data?.user?.email?.toLowerCase() === normEmail) {
-              return sp;
+              return res.status(400).json({
+                success: false,
+                error: `Email already registered as Admin (${sp.role === 'proprietor' ? 'Proprietor' : 'Staff'}). Duplicate admin accounts cannot be created.`
+              });
             }
           } catch (_) {}
-          return null;
-        }));
-        const foundStaff = staffChecks.find(Boolean);
-        if (foundStaff) {
-          return res.status(400).json({
-            success: false,
-            error: `Email already registered as Admin (${foundStaff.role === 'proprietor' ? 'Proprietor' : 'Staff'}). Duplicate admin accounts cannot be created.`
-          });
         }
       }
 
-      // Check student profiles by auth email
-      const { data: studentList } = await adminClient.from("profiles").select("*").eq("role", "student");
-      if (studentList && studentList.length > 0) {
-        const studentChecks = await Promise.all(studentList.map(async (st) => {
-          try {
-            const authRes = await adminClient.auth.admin.getUserById(st.id);
-            if (authRes.data?.user?.email?.toLowerCase() === normEmail) {
-              return st;
-            }
-          } catch (_) {}
-          return null;
-        }));
-        const foundStudent = studentChecks.find(Boolean);
-        if (foundStudent) {
-          return res.status(400).json({
-            success: false,
-            isStudent: true,
-            student: {
-              id: foundStudent.id,
-              email: normEmail,
-              full_name: foundStudent.full_name,
-              phone_number: foundStudent.phone_number,
-              nationality: foundStudent.nationality,
-              gender: foundStudent.gender
-            },
-            error: "Email already registered as Student. Please use the 'Convert to Limited Admin' option to promote this student."
-          });
-        }
-      }
-
-      // Create user via Supabase service role Admin API (auto-confirmed email)
+      // Create user via Supabase service role Admin API (instant native GoTrue uniqueness check)
       const { data: authData, error: authError } = await adminClient.auth.admin.createUser({
         email: normEmail,
         password: password,
@@ -1099,10 +1030,37 @@ Automated dispatch following database update.
       });
 
       if (authError) {
-        if (authError.message?.toLowerCase().includes("already registered") || authError.message?.toLowerCase().includes("already exists")) {
+        const errMsg = authError.message?.toLowerCase() || '';
+        const isEmailExists = errMsg.includes("already registered") || errMsg.includes("already exists") || (authError as any).code === 'email_exists';
+
+        if (isEmailExists) {
+          // If email exists in Auth, check if linked to student profile or booking
+          const { data: b } = await adminClient
+            .from("bookings")
+            .select("student_id, full_name, email, phone_number, nationality")
+            .ilike("email", normEmail)
+            .limit(1);
+
+          let studentProf: any = null;
+          if (b?.[0]?.student_id) {
+            const { data: p } = await adminClient.from("profiles").select("*").eq("id", b[0].student_id).single();
+            studentProf = p;
+          }
+
+          let studentDetails = {
+            id: studentProf?.id || b?.[0]?.student_id || undefined,
+            email: normEmail,
+            full_name: studentProf?.full_name || b?.[0]?.full_name || normName,
+            phone_number: studentProf?.phone_number || b?.[0]?.phone_number || undefined,
+            nationality: studentProf?.nationality || b?.[0]?.nationality || undefined,
+            gender: studentProf?.gender || undefined
+          };
+
           return res.status(400).json({
             success: false,
-            error: "An account with this email address already exists in the system."
+            isStudent: true,
+            student: studentDetails,
+            error: "Email already registered as Student. Please use the 'Convert to Limited Admin' option to promote this student."
           });
         }
         return res.status(500).json({ success: false, error: `Unable to create account: ${authError.message}` });
@@ -1781,6 +1739,11 @@ Automated dispatch following database update.
       console.error("[Check Availability API Exception]", err);
       return res.status(500).json({ success: false, error: err.message });
     }
+  });
+
+  // Unmatched API endpoint fallback - always return JSON, never HTML
+  app.use("/api", (req, res) => {
+    res.status(404).json({ success: false, error: `API endpoint ${req.method} ${req.originalUrl || req.url} not found.` });
   });
 
   // Vite middleware in development; Static serving in production

@@ -1084,8 +1084,6 @@ const AdminDashboardPage: React.FC = () => {
 
     if (result?.success) {
         setIsUserModalOpen(false);
-    } else if (!result?.isStudent) {
-        alert(`Failed to save user: ${result?.error || 'Unknown error'}`);
     }
     return result;
   };
