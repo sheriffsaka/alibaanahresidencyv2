@@ -845,7 +845,7 @@ Automated dispatch following database update.
   // =========================================================================
 
   // 1. Check whether an email already exists (Admin, Student, or Available)
-  app.post("/api/admin/check-email", async (req, res) => {
+  app.post(["/api/admin/check-email", "/api/admin/check-email/"], async (req, res) => {
     try {
       const { email } = req.body;
       if (!email || typeof email !== "string" || !email.includes("@")) {
@@ -864,7 +864,30 @@ Automated dispatch following database update.
 
       const normEmail = email.trim().toLowerCase();
 
-      // Check bookings first (fast lookup for student)
+      // 1. Check staff/proprietor profiles FIRST
+      const { data: staffList } = await adminClient
+        .from("profiles")
+        .select("*")
+        .in("role", ["staff", "proprietor"]);
+
+      if (staffList && staffList.length > 0) {
+        for (const sp of staffList) {
+          try {
+            const authRes = await adminClient.auth.admin.getUserById(sp.id);
+            if (authRes.data?.user?.email?.toLowerCase() === normEmail) {
+              return res.json({
+                exists: true,
+                type: "admin",
+                role: sp.role,
+                user: { id: sp.id, email: normEmail, full_name: sp.full_name },
+                error: `Email is already registered as an Admin (${sp.role === 'proprietor' ? 'Proprietor' : 'Staff'}). Duplicate admin accounts cannot be created.`
+              });
+            }
+          } catch (_) {}
+        }
+      }
+
+      // 2. Check bookings/students next
       const { data: bData } = await adminClient
         .from("bookings")
         .select("student_id, full_name, email, phone_number, nationality")
@@ -905,29 +928,6 @@ Automated dispatch following database update.
         }
       }
 
-      // Parallel check staff profiles
-      const { data: staffList } = await adminClient
-        .from("profiles")
-        .select("*")
-        .in("role", ["staff", "proprietor"]);
-
-      if (staffList && staffList.length > 0) {
-        for (const sp of staffList) {
-          try {
-            const authRes = await adminClient.auth.admin.getUserById(sp.id);
-            if (authRes.data?.user?.email?.toLowerCase() === normEmail) {
-              return res.json({
-                exists: true,
-                type: "admin",
-                role: sp.role,
-                user: { id: sp.id, email: normEmail, full_name: sp.full_name },
-                error: `Email is already registered as an Admin (${sp.role === 'proprietor' ? 'Proprietor' : 'Staff'}).`
-              });
-            }
-          } catch (_) {}
-        }
-      }
-
       return res.json({ exists: false });
     } catch (err: any) {
       console.error("[Check Email API Error]", err);
@@ -936,7 +936,7 @@ Automated dispatch following database update.
   });
 
   // 2. Create a new Admin/Staff account
-  app.post("/api/admin/create-admin", async (req, res) => {
+  app.post(["/api/admin/create-admin", "/api/admin/create-admin/"], async (req, res) => {
     try {
       const { full_name, email, password, role, gender, allowed_sections } = req.body || {};
 
@@ -969,7 +969,23 @@ Automated dispatch following database update.
         ? (Array.isArray(allowed_sections) && allowed_sections.length > 0 ? allowed_sections : defaultSections)
         : null;
 
-      // Fast check in bookings/profiles
+      // 1. Fast check existing staff/proprietor profiles (usually 1-2 users)
+      const { data: staffList } = await adminClient.from("profiles").select("*").in("role", ["staff", "proprietor"]);
+      if (staffList && staffList.length > 0) {
+        for (const sp of staffList) {
+          try {
+            const authRes = await adminClient.auth.admin.getUserById(sp.id);
+            if (authRes.data?.user?.email?.toLowerCase() === normEmail) {
+              return res.status(400).json({
+                success: false,
+                error: `Email already registered as Admin (${sp.role === 'proprietor' ? 'Proprietor' : 'Staff'}). Duplicate admin accounts cannot be created.`
+              });
+            }
+          } catch (_) {}
+        }
+      }
+
+      // 2. Check in bookings/profiles for students
       const { data: existingBookings } = await adminClient
         .from("bookings")
         .select("student_id, full_name, email, phone_number, nationality")
@@ -998,22 +1014,6 @@ Automated dispatch following database update.
             success: false,
             error: `Email already registered as Admin (${prof.role === 'proprietor' ? 'Proprietor' : 'Staff'}). Duplicate admin accounts cannot be created.`
           });
-        }
-      }
-
-      // Fast check existing staff profiles (usually 1-2 users)
-      const { data: staffList } = await adminClient.from("profiles").select("*").in("role", ["staff", "proprietor"]);
-      if (staffList && staffList.length > 0) {
-        for (const sp of staffList) {
-          try {
-            const authRes = await adminClient.auth.admin.getUserById(sp.id);
-            if (authRes.data?.user?.email?.toLowerCase() === normEmail) {
-              return res.status(400).json({
-                success: false,
-                error: `Email already registered as Admin (${sp.role === 'proprietor' ? 'Proprietor' : 'Staff'}). Duplicate admin accounts cannot be created.`
-              });
-            }
-          } catch (_) {}
         }
       }
 
@@ -1109,7 +1109,7 @@ Automated dispatch following database update.
   });
 
   // 3. Convert an existing Student account to Limited Admin (Staff)
-  app.post("/api/admin/convert-student-to-admin", async (req, res) => {
+  app.post(["/api/admin/convert-student-to-admin", "/api/admin/convert-student-to-admin/"], async (req, res) => {
     try {
       const { student_id, allowed_sections } = req.body;
       if (!student_id) {
@@ -1202,7 +1202,7 @@ Automated dispatch following database update.
   });
 
   // 4. Update Admin permissions and profile
-  app.post("/api/admin/update-admin", async (req, res) => {
+  app.post(["/api/admin/update-admin", "/api/admin/update-admin/"], async (req, res) => {
     try {
       const { id, full_name, role, gender, allowed_sections } = req.body;
       if (!id) {
@@ -1275,7 +1275,7 @@ Automated dispatch following database update.
   });
 
   // 5. Delete an Admin account
-  app.post("/api/admin/delete-admin", async (req, res) => {
+  app.post(["/api/admin/delete-admin", "/api/admin/delete-admin/"], async (req, res) => {
     try {
       const { id } = req.body;
       if (!id) {
@@ -1331,7 +1331,7 @@ Automated dispatch following database update.
   });
 
   // 6. List all Admin Users with verified emails from auth.users
-  app.get("/api/admin/users", async (req, res) => {
+  app.get(["/api/admin/users", "/api/admin/users/"], async (req, res) => {
     try {
       const supabaseUrl = process.env.VITE_SUPABASE_URL;
       const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SERVICE_ROLE_KEY;

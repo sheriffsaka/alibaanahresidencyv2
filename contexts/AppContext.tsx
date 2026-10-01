@@ -3004,9 +3004,19 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       }
 
       if (!res.ok || !data?.success) {
+        let errorMsg = data?.error;
+        if (!errorMsg) {
+          if (res.status === 404) {
+            errorMsg = "Unable to reach the admin creation service (HTTP 404). Please ensure the backend server is active and try again.";
+          } else if (res.status >= 500) {
+            errorMsg = "The server encountered an error while creating the admin account. Please try again.";
+          } else {
+            errorMsg = `Unable to create admin account (HTTP ${res.status}).`;
+          }
+        }
         return {
           success: false,
-          error: data?.error || (res.status >= 500 ? 'Server timed out or encountered an error. Please try again.' : `Unable to create admin account (HTTP ${res.status}).`),
+          error: errorMsg,
           isStudent: !!data?.isStudent,
           student: data?.student
         };

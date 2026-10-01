@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { User, UserRole } from '../types';
 import { IconClose } from './Icon';
 import { 
@@ -15,6 +15,7 @@ interface UserEditorModalProps {
 
 const UserEditorModal: React.FC<UserEditorModalProps> = ({ user, onClose, onSave }) => {
   const { checkAdminEmail, convertStudentToAdmin } = useApp();
+  const modalScrollRef = useRef<HTMLDivElement>(null);
 
   const [formData, setFormData] = useState<Partial<User> & { password?: string; allowed_sections?: string[] }>({
     full_name: '',
@@ -25,11 +26,13 @@ const UserEditorModal: React.FC<UserEditorModalProps> = ({ user, onClose, onSave
     allowed_sections: [...DEFAULT_STAFF_SECTIONS]
   });
 
-  const [checkingEmail, setCheckingEmail] = useState(false);
+  const [emailStatus, setEmailStatus] = useState<'idle' | 'checking' | 'available' | 'student' | 'admin'>('idle');
   const [emailError, setEmailError] = useState<string | null>(null);
   const [detectedStudent, setDetectedStudent] = useState<any | null>(null);
-  const [converting, setConverting] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+
   const [submitting, setSubmitting] = useState(false);
+  const [converting, setConverting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -43,6 +46,7 @@ const UserEditorModal: React.FC<UserEditorModalProps> = ({ user, onClose, onSave
           ? user.allowed_sections
           : [...DEFAULT_STAFF_SECTIONS]
       });
+      setEmailStatus('idle');
       setEmailError(null);
       setDetectedStudent(null);
       setSubmitError(null);
@@ -55,34 +59,57 @@ const UserEditorModal: React.FC<UserEditorModalProps> = ({ user, onClose, onSave
         gender: 'Male',
         allowed_sections: [...DEFAULT_STAFF_SECTIONS]
       });
+      setEmailStatus('idle');
       setEmailError(null);
       setDetectedStudent(null);
       setSubmitError(null);
     }
   }, [user]);
 
-  const handleEmailBlur = async () => {
-    if (user || !formData.email || !formData.email.trim() || !formData.email.includes('@')) {
+  // Check email validity and existence
+  const verifyEmail = async (emailToTest: string) => {
+    const trimmed = (emailToTest || '').trim();
+    if (user || !trimmed || !trimmed.includes('@') || !trimmed.includes('.')) {
+      setEmailStatus('idle');
+      setEmailError(null);
+      setDetectedStudent(null);
       return;
     }
-    setCheckingEmail(true);
+
+    setEmailStatus('checking');
     setEmailError(null);
     setDetectedStudent(null);
-    setSubmitError(null);
+
     try {
       if (checkAdminEmail) {
-        const res = await checkAdminEmail(formData.email.trim());
+        const res = await checkAdminEmail(trimmed);
         if (res.exists) {
           if (res.type === 'admin') {
+            setEmailStatus('admin');
             setEmailError(res.error || `Email is already registered as an Admin (${res.role}). Duplicate admin accounts cannot be created.`);
           } else if (res.type === 'student' && res.student) {
+            setEmailStatus('student');
             setDetectedStudent(res.student);
+          } else {
+            setEmailStatus('admin');
+            setEmailError('This email is already in use in the system.');
           }
+        } else {
+          setEmailStatus('available');
+          setEmailError(null);
+          setDetectedStudent(null);
         }
+      } else {
+        setEmailStatus('idle');
       }
     } catch (_) {
-    } finally {
-      setCheckingEmail(false);
+      setEmailStatus('idle');
+    }
+  };
+
+  const handleEmailBlur = () => {
+    if (formData.email) {
+      verifyEmail(formData.email);
     }
   };
 
@@ -99,10 +126,14 @@ const UserEditorModal: React.FC<UserEditorModalProps> = ({ user, onClose, onSave
       if (res && res.success) {
         onClose();
       } else {
-        setSubmitError(res?.error || 'Failed to convert student to admin.');
+        const errMessage = res?.error || 'Failed to convert student account to limited admin.';
+        setSubmitError(errMessage);
+        modalScrollRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
       }
     } catch (err: any) {
-      setSubmitError(err.message || 'An error occurred during conversion.');
+      const errMessage = err.message || 'An unexpected error occurred during student conversion.';
+      setSubmitError(errMessage);
+      modalScrollRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
     } finally {
       setConverting(false);
     }
@@ -113,11 +144,13 @@ const UserEditorModal: React.FC<UserEditorModalProps> = ({ user, onClose, onSave
     setSubmitError(null);
 
     if (emailError) {
+      modalScrollRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
       return;
     }
 
-    if (detectedStudent) {
-      setSubmitError("This email belongs to an existing student. Please click 'Promote & Convert to Limited Admin' below to grant admin access.");
+    if (detectedStudent && !user) {
+      setSubmitError("This email belongs to an existing student. Please click 'Promote & Convert to Limited Admin' below to safely grant admin access without losing booking records.");
+      modalScrollRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
       return;
     }
 
@@ -128,17 +161,22 @@ const UserEditorModal: React.FC<UserEditorModalProps> = ({ user, onClose, onSave
         id: user?.id,
         allowed_sections: formData.role === 'staff' ? (formData.allowed_sections || DEFAULT_STAFF_SECTIONS) : undefined
       };
+
       const res = await onSave(payload);
       if (res && !res.success) {
         if (res.isStudent && res.student) {
+          setEmailStatus('student');
           setDetectedStudent(res.student);
-          setSubmitError(res.error || "Email already registered as Student. Please use the 'Convert to Limited Admin' option.");
+          setSubmitError(res.error || "Email already registered as a student. Use the 'Convert to Limited Admin' option below to promote this user.");
         } else {
-          setSubmitError(res.error || "Failed to save user.");
+          setSubmitError(res.error || "Unable to save admin user. Please check server status and try again.");
         }
+        // Smoothly scroll to bring notice into view
+        modalScrollRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
       }
     } catch (err: any) {
-      setSubmitError(err.message || "An unexpected error occurred.");
+      setSubmitError(err.message || "An unexpected error occurred while communicating with the server.");
+      modalScrollRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
     } finally {
       setSubmitting(false);
     }
@@ -166,13 +204,20 @@ const UserEditorModal: React.FC<UserEditorModalProps> = ({ user, onClose, onSave
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
-      <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl w-full max-w-lg animate-scale-in max-h-[92vh] overflow-y-auto border border-gray-100 dark:border-gray-800">
-        <div className="p-6 border-b dark:border-gray-800 flex justify-between items-center sticky top-0 bg-white dark:bg-gray-900 z-10">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-fade-in">
+      <div 
+        ref={modalScrollRef}
+        className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl w-full max-w-lg animate-scale-in max-h-[92vh] overflow-y-auto border border-gray-200 dark:border-gray-800"
+      >
+        {/* Sticky Header */}
+        <div className="p-5 border-b dark:border-gray-800 flex justify-between items-center sticky top-0 bg-white/95 dark:bg-gray-900/95 backdrop-blur z-20">
           <div>
-            <h3 className="text-xl font-black text-gray-900 dark:text-white">
-              {user ? 'Edit Admin User' : 'Add New Admin User'}
-            </h3>
+            <div className="flex items-center gap-2">
+              <span className="text-xl">{user ? '👤' : '➕'}</span>
+              <h3 className="text-lg font-black text-gray-900 dark:text-white">
+                {user ? 'Edit Admin User' : 'Add New Admin User'}
+              </h3>
+            </div>
             <p className="text-xs text-gray-500 mt-0.5">
               {formData.role === 'proprietor' 
                 ? 'Full system access administrator' 
@@ -180,90 +225,124 @@ const UserEditorModal: React.FC<UserEditorModalProps> = ({ user, onClose, onSave
             </p>
           </div>
           <button 
+            type="button"
             onClick={onClose} 
             className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition-colors text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
+            title="Close dialog"
           >
-            <IconClose className="w-6 h-6" />
+            <IconClose className="w-5 h-5" />
           </button>
         </div>
         
-        <form onSubmit={handleSubmit} className="p-6 space-y-4">
-          {/* General Error Banner */}
+        <form onSubmit={handleSubmit} className="p-6 space-y-5">
+          {/* Top Prominent Notice / Error Banner */}
           {submitError && (
-            <div className="p-3.5 rounded-xl bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-800 text-xs text-red-700 dark:text-red-300 font-medium leading-relaxed">
-              <div className="flex items-center gap-1.5 font-bold mb-0.5">
+            <div className="p-4 rounded-xl bg-red-50 dark:bg-red-950/50 border-2 border-red-300 dark:border-red-800 text-xs text-red-800 dark:text-red-200 font-medium space-y-1 animate-fade-in shadow-sm">
+              <div className="flex items-center gap-2 font-black text-red-900 dark:text-red-100 text-sm">
                 <span>⚠️</span>
                 <span>Action Notice</span>
               </div>
-              <p>{submitError}</p>
+              <p className="leading-relaxed whitespace-pre-wrap">{submitError}</p>
             </div>
           )}
 
+          {/* Full Name */}
           <div>
-            <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Full Name</label>
+            <label className="block text-xs font-bold text-gray-600 dark:text-gray-400 uppercase tracking-wider mb-1.5">
+              Full Name <span className="text-red-500">*</span>
+            </label>
             <input
               type="text"
               required
               value={formData.full_name || ''}
-              onChange={(e) => setFormData({ ...formData, full_name: e.target.value })}
-              className="w-full p-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-brand-500 transition-all font-medium text-sm text-gray-900 dark:text-white"
-              placeholder="Enter full name"
+              onChange={(e) => {
+                setFormData({ ...formData, full_name: e.target.value });
+                if (submitError) setSubmitError(null);
+              }}
+              className="w-full p-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-brand-500 focus:bg-white dark:focus:bg-gray-800 transition-all font-medium text-sm text-gray-900 dark:text-white placeholder-gray-400"
+              placeholder="e.g. Abdullah Yusuf"
             />
           </div>
 
+          {/* Email Address with Live Availability Badges */}
           <div>
-            <div className="flex justify-between items-center mb-1">
-              <label className="block text-xs font-bold text-gray-500 uppercase">Email Address</label>
-              {checkingEmail && (
-                <span className="text-[10px] text-brand-600 dark:text-brand-400 font-medium animate-pulse">
+            <div className="flex justify-between items-center mb-1.5">
+              <label className="block text-xs font-bold text-gray-600 dark:text-gray-400 uppercase tracking-wider">
+                Email Address <span className="text-red-500">*</span>
+              </label>
+              {emailStatus === 'checking' && (
+                <span className="text-[11px] text-brand-600 dark:text-brand-400 font-semibold flex items-center gap-1 animate-pulse">
+                  <span className="w-2.5 h-2.5 border-2 border-brand-600 dark:border-brand-400 border-t-transparent rounded-full animate-spin inline-block" />
                   Checking availability...
                 </span>
               )}
+              {emailStatus === 'available' && !user && (
+                <span className="text-[11px] text-emerald-600 dark:text-emerald-400 font-bold flex items-center gap-1">
+                  <span>✓</span> Available for Admin
+                </span>
+              )}
             </div>
-            <input
-              type="email"
-              required
-              disabled={!!user}
-              value={formData.email || ''}
-              onChange={(e) => {
-                setFormData({ ...formData, email: e.target.value });
-                if (emailError) setEmailError(null);
-                if (detectedStudent) setDetectedStudent(null);
-                if (submitError) setSubmitError(null);
-              }}
-              onBlur={handleEmailBlur}
-              className={`w-full p-3 bg-gray-50 dark:bg-gray-800 border rounded-xl focus:ring-2 focus:ring-brand-500 transition-all font-medium text-sm text-gray-900 dark:text-white disabled:opacity-50 ${
-                emailError 
-                  ? 'border-red-400 dark:border-red-600 focus:ring-red-500' 
-                  : 'border-gray-200 dark:border-gray-700'
-              }`}
-              placeholder="admin@sharedhousing.ibaanah.com"
-            />
+            <div className="relative">
+              <input
+                type="email"
+                required
+                disabled={!!user}
+                value={formData.email || ''}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  setFormData({ ...formData, email: val });
+                  if (emailError) setEmailError(null);
+                  if (detectedStudent) setDetectedStudent(null);
+                  if (submitError) setSubmitError(null);
+                  setEmailStatus('idle');
+                }}
+                onBlur={handleEmailBlur}
+                className={`w-full p-3 bg-gray-50 dark:bg-gray-800 border rounded-xl focus:ring-2 transition-all font-medium text-sm text-gray-900 dark:text-white disabled:opacity-60 disabled:cursor-not-allowed ${
+                  emailError 
+                    ? 'border-red-400 dark:border-red-600 focus:ring-red-500 bg-red-50/30' 
+                    : emailStatus === 'available'
+                    ? 'border-emerald-400 dark:border-emerald-600 focus:ring-emerald-500'
+                    : detectedStudent
+                    ? 'border-amber-400 dark:border-amber-600 focus:ring-amber-500 bg-amber-50/20'
+                    : 'border-gray-200 dark:border-gray-700 focus:ring-brand-500'
+                }`}
+                placeholder="admin@sharedhousing.ibaanah.com"
+              />
+            </div>
+
+            {/* Email Inline Feedback Messages */}
             {emailError && (
-              <p className="mt-1 text-xs text-red-600 dark:text-red-400 font-medium">
-                {emailError}
+              <div className="mt-1.5 p-2 rounded-lg bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-800 text-xs text-red-600 dark:text-red-400 font-semibold flex items-center gap-1.5 animate-fade-in">
+                <span>⛔</span>
+                <span>{emailError}</span>
+              </div>
+            )}
+            {emailStatus === 'available' && !user && (
+              <p className="mt-1 text-[11px] text-emerald-600 dark:text-emerald-400 font-medium flex items-center gap-1">
+                <span>✓</span> This email is not registered and can be used for a new administrator account.
               </p>
             )}
           </div>
 
           {/* Existing Student Account Detected Banner & Explicit Convert Action */}
           {detectedStudent && !user && (
-            <div className="p-4 rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-700/60 space-y-3 animate-fade-in">
+            <div className="p-4 rounded-xl bg-amber-50 dark:bg-amber-950/50 border-2 border-amber-300 dark:border-amber-700 space-y-3 animate-fade-in shadow-sm">
               <div className="flex items-start gap-2.5">
-                <span className="text-xl">🎓</span>
+                <span className="text-2xl leading-none">🎓</span>
                 <div className="flex-1">
                   <h4 className="text-xs font-black uppercase tracking-wider text-amber-900 dark:text-amber-200">
                     Existing Student Account Detected
                   </h4>
-                  <p className="text-[11px] text-amber-800 dark:text-amber-300 mt-0.5 leading-snug">
-                    This email is already registered to a student. To prevent duplicate authentication accounts, convert this existing student to a Limited Admin. All existing bookings, transactions, and student records will be safely preserved.
+                  <p className="text-[11px] text-amber-800 dark:text-amber-300 mt-1 leading-snug">
+                    This email is already registered to a student. To prevent duplicate authentication accounts and preserve their room bookings and payment records, convert this student account to a Limited Admin.
                   </p>
                 </div>
               </div>
 
+              {/* Student Details Card */}
               <div className="bg-white dark:bg-gray-800/90 p-3 rounded-lg border border-amber-200 dark:border-amber-800/60 text-xs space-y-1.5">
                 <div className="flex justify-between items-center">
-                  <span className="text-gray-500 text-[11px]">Student Name:</span>
+                  <span className="text-gray-500 text-[11px]">Enrolled Student:</span>
                   <span className="font-bold text-gray-900 dark:text-white">{detectedStudent.full_name}</span>
                 </div>
                 <div className="flex justify-between items-center">
@@ -284,17 +363,21 @@ const UserEditorModal: React.FC<UserEditorModalProps> = ({ user, onClose, onSave
                 )}
               </div>
 
+              {/* Action: Promote & Convert Button */}
               <button
                 type="button"
                 disabled={converting}
                 onClick={handleConvertStudent}
-                className="w-full py-2.5 px-4 bg-amber-600 hover:bg-amber-500 disabled:opacity-60 text-white rounded-xl font-black text-xs uppercase tracking-wider shadow-md shadow-amber-600/20 active:scale-[0.98] transition-all flex items-center justify-center gap-2"
+                className="w-full py-3 px-4 bg-amber-600 hover:bg-amber-500 disabled:opacity-60 text-white rounded-xl font-black text-xs uppercase tracking-wider shadow-md shadow-amber-600/25 active:scale-[0.98] transition-all flex items-center justify-center gap-2"
               >
                 {converting ? (
-                  <span>Converting Student to Limited Admin...</span>
+                  <>
+                    <span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin inline-block" />
+                    <span>Promoting Student to Admin...</span>
+                  </>
                 ) : (
                   <>
-                    <span>Convert to Limited Admin (Promote)</span>
+                    <span>⚡ Convert to Limited Admin (Promote Student)</span>
                     <span>→</span>
                   </>
                 )}
@@ -302,24 +385,44 @@ const UserEditorModal: React.FC<UserEditorModalProps> = ({ user, onClose, onSave
             </div>
           )}
 
+          {/* Password (Only when adding a new user, and not converting student) */}
           {!user && !detectedStudent && (
             <div>
-              <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Password</label>
+              <div className="flex justify-between items-center mb-1.5">
+                <label className="block text-xs font-bold text-gray-600 dark:text-gray-400 uppercase tracking-wider">
+                  Password <span className="text-red-500">*</span>
+                </label>
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="text-[11px] text-brand-600 dark:text-brand-400 hover:underline font-semibold"
+                >
+                  {showPassword ? 'Hide password' : 'Show password'}
+                </button>
+              </div>
               <input
-                type="password"
+                type={showPassword ? 'text' : 'password'}
                 required
                 value={formData.password || ''}
-                onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                className="w-full p-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-brand-500 transition-all font-medium text-sm text-gray-900 dark:text-white"
-                placeholder="••••••••"
+                onChange={(e) => {
+                  setFormData({ ...formData, password: e.target.value });
+                  if (submitError) setSubmitError(null);
+                }}
+                className="w-full p-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-brand-500 transition-all font-medium text-sm text-gray-900 dark:text-white placeholder-gray-400"
+                placeholder="Enter secure password (min. 8 characters)"
                 minLength={8}
               />
-              <p className="mt-1 text-[10px] text-gray-500">Minimum 8 characters.</p>
+              <p className="mt-1 text-[11px] text-gray-500">
+                Minimum 8 characters. Used by the administrator to log into the management portal.
+              </p>
             </div>
           )}
 
+          {/* Admin Role Selector */}
           <div>
-            <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Admin Role</label>
+            <label className="block text-xs font-bold text-gray-600 dark:text-gray-400 uppercase tracking-wider mb-1.5">
+              Admin Role <span className="text-red-500">*</span>
+            </label>
             <select
               value={formData.role}
               onChange={(e) => {
@@ -331,90 +434,99 @@ const UserEditorModal: React.FC<UserEditorModalProps> = ({ user, onClose, onSave
                     ? (formData.allowed_sections && formData.allowed_sections.length > 0 ? formData.allowed_sections : [...DEFAULT_STAFF_SECTIONS])
                     : undefined
                 });
+                if (submitError) setSubmitError(null);
               }}
               className="w-full p-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-brand-500 transition-all font-bold text-sm text-gray-900 dark:text-white"
             >
-              <option value="staff">Staff (Limited Admin)</option>
-              <option value="proprietor">Proprietor (Main Admin - Full Access)</option>
+              <option value="staff">Staff (Limited Admin - Configurable Section Access)</option>
+              <option value="proprietor">Proprietor (Main Admin - Complete System Access)</option>
             </select>
-            <p className="mt-1 text-[10px] text-gray-500">
+            <p className="mt-1 text-[11px] text-gray-500 leading-snug">
               {formData.role === 'proprietor'
-                ? 'Proprietors retain unrestricted access to all operational, financial, and administration sections.'
-                : 'Staff role functions as Limited Admin with configurable section-level permissions.'}
+                ? 'Proprietors have full unrestricted control over all residency operations, financial records, and admin accounts.'
+                : 'Staff administrators are granted access only to the sections explicitly ticked below.'}
             </p>
           </div>
 
+          {/* Gender Scope */}
           <div>
-            <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Gender Scope</label>
+            <label className="block text-xs font-bold text-gray-600 dark:text-gray-400 uppercase tracking-wider mb-1.5">
+              Gender Scope <span className="text-red-500">*</span>
+            </label>
             <div className="grid grid-cols-2 gap-3">
               {['Male', 'Female'].map((g) => (
                 <button
                   key={g}
                   type="button"
-                  onClick={() => setFormData({ ...formData, gender: g as any })}
-                  className={`py-2.5 rounded-xl font-bold text-sm border-2 transition-all ${
+                  onClick={() => {
+                    setFormData({ ...formData, gender: g as any });
+                    if (submitError) setSubmitError(null);
+                  }}
+                  className={`py-2.5 rounded-xl font-bold text-sm border-2 transition-all flex items-center justify-center gap-2 ${
                     formData.gender === g
-                      ? 'border-brand-600 bg-brand-50 dark:bg-brand-900/30 text-brand-700 dark:text-brand-300'
-                      : 'border-transparent bg-gray-50 dark:bg-gray-800 text-gray-500'
+                      ? 'border-brand-600 bg-brand-50 dark:bg-brand-900/30 text-brand-700 dark:text-brand-300 shadow-sm'
+                      : 'border-transparent bg-gray-50 dark:bg-gray-800 text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-750'
                   }`}
                 >
-                  {g}
+                  <span>{g === 'Male' ? '👨' : '👩'}</span>
+                  <span>{g}</span>
                 </button>
               ))}
             </div>
+            <p className="mt-1 text-[11px] text-gray-500">
+              Determines residency building scope in the management dashboard.
+            </p>
           </div>
 
-          {/* Section Permissions Checklist for Staff (Limited Admin) */}
+          {/* Configurable Section Permissions for Staff (Limited Admin) */}
           {formData.role === 'staff' && (
-            <div className="pt-3 border-t dark:border-gray-800 space-y-3">
+            <div className="pt-2 border-t dark:border-gray-800 space-y-3">
               <div className="flex items-center justify-between">
                 <div>
-                  <label className="block text-xs font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
-                    Permitted Admin Sections
-                  </label>
+                  <h4 className="text-xs font-black uppercase tracking-wider text-gray-900 dark:text-white flex items-center gap-1.5">
+                    <span>🛡️</span>
+                    <span>Allowed Dashboard Sections</span>
+                  </h4>
                   <p className="text-[11px] text-gray-500">
-                    Select which sections this staff member is authorized to access
+                    Configure which features this staff member can access.
                   </p>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex gap-1.5">
                   <button
                     type="button"
                     onClick={handleSelectDefault}
-                    className="text-[10px] font-bold text-brand-600 hover:text-brand-700 underline"
-                    title="Reset to default: Bookings, Students, Transactions, Messages"
+                    className="text-[10px] font-bold px-2 py-1 bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-lg text-gray-700 dark:text-gray-300 transition-colors"
                   >
-                    Reset Default
+                    Reset Defaults
                   </button>
-                  <span className="text-gray-300 text-xs">|</span>
                   <button
                     type="button"
                     onClick={handleSelectAll}
-                    className="text-[10px] font-bold text-gray-600 hover:text-gray-800 dark:text-gray-400 hover:underline"
+                    className="text-[10px] font-bold px-2 py-1 bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-lg text-gray-700 dark:text-gray-300 transition-colors"
                   >
-                    Select All
+                    All
                   </button>
-                  <span className="text-gray-300 text-xs">|</span>
                   <button
                     type="button"
                     onClick={handleClearAll}
-                    className="text-[10px] font-bold text-red-500 hover:text-red-700 hover:underline"
+                    className="text-[10px] font-bold px-2 py-1 bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-lg text-gray-700 dark:text-gray-300 transition-colors"
                   >
                     Clear
                   </button>
                 </div>
               </div>
 
-              {/* Sections Checkbox List */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-60 overflow-y-auto p-2 rounded-xl bg-gray-50/70 dark:bg-gray-800/40 border border-gray-200 dark:border-gray-700 scrollbar-thin">
+              {/* Sections Grid */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
                 {CONFIGURABLE_STAFF_SECTIONS.map((sec) => {
                   const isChecked = (formData.allowed_sections || []).includes(sec.id);
                   const isDefaultCore = DEFAULT_STAFF_SECTIONS.includes(sec.id);
                   return (
                     <label
                       key={sec.id}
-                      className={`flex items-start gap-2.5 p-2 rounded-lg text-xs cursor-pointer transition-all border select-none ${
+                      className={`flex items-start gap-2.5 p-2.5 rounded-xl text-xs cursor-pointer transition-all border select-none ${
                         isChecked
-                          ? 'bg-brand-50 dark:bg-brand-950/40 border-brand-300 dark:border-brand-700/60 text-brand-900 dark:text-brand-200'
+                          ? 'bg-brand-50/70 dark:bg-brand-950/40 border-brand-300 dark:border-brand-700/60 text-brand-900 dark:text-brand-200 shadow-xs'
                           : 'bg-white dark:bg-gray-800/60 border-gray-200 dark:border-gray-700 hover:border-gray-300 text-gray-700 dark:text-gray-300'
                       }`}
                     >
@@ -452,14 +564,85 @@ const UserEditorModal: React.FC<UserEditorModalProps> = ({ user, onClose, onSave
             </div>
           )}
 
-          <div className="pt-4">
-            <button
-              type="submit"
-              disabled={submitting || converting || !!emailError}
-              className="w-full py-3.5 bg-brand-600 disabled:opacity-50 text-white rounded-xl font-black shadow-lg shadow-brand-500/20 hover:bg-brand-500 active:scale-[0.98] transition-all uppercase tracking-widest text-xs"
-            >
-              {submitting ? 'Saving...' : user ? 'Save Changes' : 'Create Admin User'}
-            </button>
+          {/* BOTTOM VISIBLE NOTICES & PROGRESS: Rendered right above the action button so the user sees everything immediately */}
+          <div className="space-y-3 pt-2">
+            {/* Bottom Error Box: High-visibility alert when save fails */}
+            {submitError && (
+              <div className="p-4 rounded-xl bg-red-50 dark:bg-red-950/60 border-2 border-red-300 dark:border-red-700 text-xs text-red-800 dark:text-red-200 font-medium space-y-1 animate-fade-in shadow-sm">
+                <div className="flex items-center gap-2 font-black text-red-900 dark:text-red-100 text-sm">
+                  <span>⚠️</span>
+                  <span>Unable to Save Administrator</span>
+                </div>
+                <p className="leading-relaxed whitespace-pre-wrap">{submitError}</p>
+              </div>
+            )}
+
+            {/* In-progress banner when creating or updating user */}
+            {submitting && (
+              <div className="p-3.5 rounded-xl bg-brand-50 dark:bg-brand-950/50 border-2 border-brand-300 dark:border-brand-700 text-xs text-brand-900 dark:text-brand-200 flex items-center gap-3 animate-pulse">
+                <div className="w-5 h-5 border-2 border-brand-600 dark:border-brand-400 border-t-transparent rounded-full animate-spin flex-shrink-0" />
+                <div>
+                  <p className="font-bold text-brand-900 dark:text-brand-100">
+                    {user ? "Saving Administrator Changes..." : "Creating Administrator Account & Credentials..."}
+                  </p>
+                  <p className="text-[11px] text-brand-700 dark:text-brand-300">
+                    Communicating with server to verify auth records and apply permission scopes.
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {/* In-progress banner when converting student */}
+            {converting && (
+              <div className="p-3.5 rounded-xl bg-amber-50 dark:bg-amber-950/50 border-2 border-amber-300 dark:border-amber-700 text-xs text-amber-900 dark:text-amber-200 flex items-center gap-3 animate-pulse">
+                <div className="w-5 h-5 border-2 border-amber-600 dark:border-amber-400 border-t-transparent rounded-full animate-spin flex-shrink-0" />
+                <div>
+                  <p className="font-bold text-amber-900 dark:text-amber-100">
+                    Promoting Student to Limited Admin...
+                  </p>
+                  <p className="text-[11px] text-amber-700 dark:text-amber-300">
+                    Preserving room bookings, payments, and student history while granting administrator access.
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {/* Existing Student reminder above the primary button */}
+            {detectedStudent && !user && !converting && (
+              <div className="p-3 rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-700 text-xs text-amber-800 dark:text-amber-200 flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2">
+                  <span>💡</span>
+                  <span className="font-medium">Student account found. Click button above to convert.</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleConvertStudent}
+                  className="px-3 py-1.5 bg-amber-600 hover:bg-amber-500 text-white font-bold rounded-lg text-xs transition-colors shrink-0"
+                >
+                  Convert Now
+                </button>
+              </div>
+            )}
+
+            {/* Main Submit Button */}
+            <div className="pt-2">
+              <button
+                type="submit"
+                disabled={submitting || converting || !!emailError}
+                className="w-full py-3.5 bg-brand-600 disabled:opacity-50 text-white rounded-xl font-black shadow-lg shadow-brand-500/25 hover:bg-brand-500 active:scale-[0.98] transition-all uppercase tracking-widest text-xs flex items-center justify-center gap-2"
+              >
+                {submitting ? (
+                  <>
+                    <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin inline-block" />
+                    <span>Saving Administrator...</span>
+                  </>
+                ) : user ? (
+                  <span>Save Changes</span>
+                ) : (
+                  <span>Create Admin User</span>
+                )}
+              </button>
+            </div>
           </div>
         </form>
       </div>

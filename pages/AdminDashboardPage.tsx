@@ -377,6 +377,14 @@ const AdminDashboardPage: React.FC = () => {
   };
   const [isActivityDrawerOpen, setIsActivityDrawerOpen] = useState(false);
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
+  const [adminToast, setAdminToast] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null);
+
+  useEffect(() => {
+    if (adminToast) {
+      const timer = setTimeout(() => setAdminToast(null), 6000);
+      return () => clearTimeout(timer);
+    }
+  }, [adminToast]);
   const [cmsSubTab, setCmsSubTab] = useState<'rooms' | 'branding' | 'media' | 'contracts' | 'faqs'>('rooms');
   const [togglingRoomId, setTogglingRoomId] = useState<number | null>(null);
 
@@ -1066,19 +1074,26 @@ const AdminDashboardPage: React.FC = () => {
 
   const handleSaveUser = async (userData: Partial<User> & { password?: string; allowed_sections?: string[] }) => {
     if (user?.role !== 'proprietor') {
-      alert("Unauthorized: Only proprietors can manage admin users and role permissions.");
-      return { success: false, error: "Unauthorized: Only proprietors can manage admin users." };
+      const err = "Unauthorized: Only proprietors can manage admin users and role permissions.";
+      setAdminToast({ message: err, type: 'error' });
+      return { success: false, error: err };
     }
     let result;
     if (userData.id) {
         result = await updateUser(userData.id, userData);
         if (result.success) {
             addActivity({ user_id: user!.id, type: 'system', description: `Updated admin user: ${userData.full_name}`, timestamp: new Date().toISOString() });
+            setAdminToast({ message: `Admin user "${userData.full_name}" updated successfully.`, type: 'success' });
+        } else {
+            setAdminToast({ message: result.error || "Failed to update admin user.", type: 'error' });
         }
     } else {
         result = await addUser(userData);
         if (result.success) {
             addActivity({ user_id: user!.id, type: 'system', description: `Created new admin user: ${userData.full_name}`, timestamp: new Date().toISOString() });
+            setAdminToast({ message: `New admin user "${userData.full_name}" created successfully.`, type: 'success' });
+        } else {
+            setAdminToast({ message: result.error || "Failed to create admin user.", type: 'error' });
         }
     }
 
@@ -1090,19 +1105,20 @@ const AdminDashboardPage: React.FC = () => {
 
   const handleDeleteUser = async (id: string) => {
     if (user?.role !== 'proprietor') {
-      alert("Unauthorized: Only proprietors can delete admin users.");
+      setAdminToast({ message: "Unauthorized: Only proprietors can delete admin users.", type: 'error' });
       return;
     }
     if (id === user?.id) {
-        alert("You cannot delete your own account.");
-        return;
+      setAdminToast({ message: "You cannot delete your own account.", type: 'error' });
+      return;
     }
     if (confirm('Are you sure you want to delete this admin user? This action cannot be undone.')) {
         const result = await deleteUser(id);
         if (result.success) {
             addActivity({ user_id: user!.id, type: 'system', description: `Deleted admin user ID: ${id}`, timestamp: new Date().toISOString() });
+            setAdminToast({ message: "Admin user deleted successfully.", type: 'success' });
         } else {
-            alert(`Failed to delete user: ${result.error}`);
+            setAdminToast({ message: `Failed to delete user: ${result.error}`, type: 'error' });
         }
     }
   };
@@ -3337,6 +3353,30 @@ const AdminDashboardPage: React.FC = () => {
 
       {isUserModalOpen && (
         <UserEditorModal user={selectedUserForEdit} onClose={() => setIsUserModalOpen(false)} onSave={handleSaveUser} />
+      )}
+
+      {/* Visual Toast Notification for Admin Actions */}
+      {adminToast && (
+        <div className="fixed bottom-6 right-6 z-50 animate-bounce-short">
+          <div className={`flex items-center gap-3 px-5 py-4 rounded-2xl shadow-2xl border text-sm font-bold backdrop-blur-md ${
+            adminToast.type === 'success'
+              ? 'bg-emerald-950/90 text-emerald-200 border-emerald-700/80 shadow-emerald-900/30'
+              : adminToast.type === 'error'
+              ? 'bg-red-950/90 text-red-200 border-red-700/80 shadow-red-900/30'
+              : 'bg-gray-900/90 text-white border-gray-700 shadow-black/40'
+          }`}>
+            <span className="text-xl">
+              {adminToast.type === 'success' ? '✅' : adminToast.type === 'error' ? '⚠️' : 'ℹ️'}
+            </span>
+            <span>{adminToast.message}</span>
+            <button
+              onClick={() => setAdminToast(null)}
+              className="ml-2 p-1 hover:bg-white/20 rounded-full transition-colors text-xs opacity-75 hover:opacity-100"
+            >
+              ✕
+            </button>
+          </div>
+        </div>
       )}
     </div>
   );
