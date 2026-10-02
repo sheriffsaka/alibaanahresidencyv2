@@ -2999,17 +2999,22 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
       const contentType = res.headers.get('content-type') || '';
       let data: any = null;
+      let rawText = '';
       if (contentType.includes('application/json')) {
         data = await res.json().catch(() => null);
+      } else {
+        rawText = await res.text().catch(() => '');
       }
 
       if (!res.ok || !data?.success) {
         let errorMsg = data?.error;
         if (!errorMsg) {
-          if (res.status === 404) {
+          if (rawText && rawText.length < 250 && !rawText.includes('<!DOCTYPE')) {
+            errorMsg = rawText;
+          } else if (res.status === 404) {
             errorMsg = "Unable to reach the admin creation service (HTTP 404). Please ensure the backend server is active and try again.";
           } else if (res.status >= 500) {
-            errorMsg = "The server encountered an error while creating the admin account. Please try again.";
+            errorMsg = "The server encountered an error while creating the admin account (HTTP 500). Please check Vercel Function logs and environment variables (SUPABASE_SERVICE_ROLE_KEY).";
           } else {
             errorMsg = `Unable to create admin account (HTTP ${res.status}).`;
           }

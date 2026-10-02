@@ -1,7 +1,6 @@
 import express from "express";
 import path from "path";
 import crypto from "crypto";
-import { createServer as createViteServer } from "vite";
 import { createClient } from "@supabase/supabase-js";
 
 export const app = express();
@@ -1765,6 +1764,7 @@ async function startStandaloneServer() {
 
   // Vite middleware in development; Static serving in production
   if (process.env.NODE_ENV !== "production") {
+    const { createServer: createViteServer } = await import("vite");
     const vite = await createViteServer({
       server: { middlewareMode: true },
       appType: "spa",
@@ -1783,8 +1783,15 @@ async function startStandaloneServer() {
   });
 }
 
-// Only start standalone HTTP server if not running in a serverless environment (e.g. Vercel)
-if (!process.env.VERCEL) {
+// Only start standalone HTTP server if not running in a serverless environment (e.g. Vercel / AWS Lambda)
+const isServerless = Boolean(
+  process.env.VERCEL ||
+  process.env.VERCEL_ENV ||
+  process.env.AWS_LAMBDA_FUNCTION_NAME ||
+  process.env.LAMBDA_TASK_ROOT
+);
+
+if (!isServerless) {
   startStandaloneServer();
 }
 
