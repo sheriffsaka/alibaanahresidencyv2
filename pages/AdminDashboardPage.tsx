@@ -1569,11 +1569,13 @@ const AdminDashboardPage: React.FC = () => {
           {activeSection === 'transactions' && (
             <div className="space-y-6">
               {/* Transactions Metrics Summary */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                <div className="bg-white dark:bg-gray-800 p-5 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm">
-                  <p className="text-xs font-bold text-gray-500 uppercase">Total Revenue Volume</p>
-                  <p className="text-2xl font-black text-gray-900 dark:text-white mt-1">${analytics.totalRevenue.toLocaleString()}</p>
-                </div>
+              <div className={`grid grid-cols-1 sm:grid-cols-2 ${user?.role === 'staff' ? 'lg:grid-cols-3' : 'lg:grid-cols-4'} gap-4`}>
+                {user?.role !== 'staff' && (
+                  <div className="bg-white dark:bg-gray-800 p-5 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm">
+                    <p className="text-xs font-bold text-gray-500 uppercase">Total Revenue Volume</p>
+                    <p className="text-2xl font-black text-gray-900 dark:text-white mt-1">${analytics.totalRevenue.toLocaleString()}</p>
+                  </div>
+                )}
                 <div className="bg-white dark:bg-gray-800 p-5 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm">
                   <p className="text-xs font-bold text-amber-600 uppercase">Pending Review</p>
                   <p className="text-2xl font-black text-amber-600 mt-1">{analytics.pendingVerifications.length}</p>
