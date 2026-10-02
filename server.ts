@@ -4,17 +4,31 @@ import crypto from "crypto";
 import { createServer as createViteServer } from "vite";
 import { createClient } from "@supabase/supabase-js";
 
-async function startServer() {
-  const app = express();
-  const PORT = Number(process.env.PORT) || 3000;
+export const app = express();
 
-  app.use(express.json());
-  app.use((err: any, req: any, res: any, next: any) => {
-    if (err instanceof SyntaxError && 'body' in err) {
-      return res.status(400).json({ success: false, error: "Invalid JSON format in request body." });
+app.use(express.json());
+app.use((err: any, req: any, res: any, next: any) => {
+  if (err instanceof SyntaxError && 'body' in err) {
+    return res.status(400).json({ success: false, error: "Invalid JSON format in request body." });
+  }
+  next(err);
+});
+
+// Normalize request URLs if deployed behind proxies or Vercel rewrites
+app.use((req: any, res: any, next: any) => {
+  if (!req.url.startsWith("/api") && req.url !== "/" && !req.url.startsWith("/assets")) {
+    if (
+      req.url.startsWith("/admin") ||
+      req.url.startsWith("/send-email") ||
+      req.url.startsWith("/health") ||
+      req.url.startsWith("/check-bed-availability") ||
+      req.url.startsWith("/notify-admin")
+    ) {
+      req.url = `/api${req.url}`;
     }
-    next(err);
-  });
+  }
+  next();
+});
 
   // Health check
   app.get("/api/health", (req, res) => {
@@ -1746,6 +1760,9 @@ Automated dispatch following database update.
     res.status(404).json({ success: false, error: `API endpoint ${req.method} ${req.originalUrl || req.url} not found.` });
   });
 
+async function startStandaloneServer() {
+  const PORT = Number(process.env.PORT) || 3000;
+
   // Vite middleware in development; Static serving in production
   if (process.env.NODE_ENV !== "production") {
     const vite = await createViteServer({
@@ -1766,4 +1783,9 @@ Automated dispatch following database update.
   });
 }
 
-startServer();
+// Only start standalone HTTP server if not running in a serverless environment (e.g. Vercel)
+if (!process.env.VERCEL) {
+  startStandaloneServer();
+}
+
+export default app;
