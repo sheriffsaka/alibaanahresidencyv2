@@ -1783,15 +1783,16 @@ async function startStandaloneServer() {
   });
 }
 
-// Only start standalone HTTP server if not running in a serverless environment (e.g. Vercel / AWS Lambda)
-const isServerless = Boolean(
-  process.env.VERCEL ||
-  process.env.VERCEL_ENV ||
-  process.env.AWS_LAMBDA_FUNCTION_NAME ||
-  process.env.LAMBDA_TASK_ROOT
+// Only start standalone HTTP server if running directly (e.g. tsx server.ts or node dist/server.cjs) and not in a serverless environment
+const isDirectRun = Boolean(
+  process.argv[1] && (
+    process.argv[1].endsWith("server.ts") ||
+    process.argv[1].endsWith("server.cjs") ||
+    process.argv[1].endsWith("server.js")
+  )
 );
 
-if (!isServerless) {
+if (isDirectRun && !process.env.VERCEL && !process.env.AWS_LAMBDA_FUNCTION_NAME && !process.env.LAMBDA_TASK_ROOT) {
   startStandaloneServer();
 }
 
